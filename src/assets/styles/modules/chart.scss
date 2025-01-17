@@ -1,0 +1,154 @@
+.chart {
+  font-size: $font_size-xsmall;
+  margin-bottom: 1em;
+
+  &__title {
+    margin: 0;
+    font-size: $font_size-small;
+    font-weight: 700;
+  }
+  svg {
+    .axis {
+      text {
+        font-size: $font_size-xsmall;
+        fill: $color_bg-dark;
+      }
+      path {
+        stroke: $color_bg-dark;
+      }
+    }
+    text.axis-label {
+      font-weight: 700;
+      fill: $color_bg-dark;
+    }
+    text.missing-data {
+      font-size: $font_size-small;
+      fill: $color_font-medium;
+      max-width: 50%;
+    }
+    text {
+      fill: $color_bg-dark;
+      font-family: $font_family-primary;
+    }
+    polyline {
+      stroke: $color_bg-dark;
+      stroke-width: 1px;
+      fill: none;
+    }
+  }
+
+  .legend {
+    background: $color_bg-light;
+    &.two-column {
+      display: flex;
+      ul {
+        width: 50%;
+        display: block;
+        li {
+          width: calc(100% - 1em);
+          margin-right: 1em;
+          margin: 0;
+        }
+      }
+    }
+    ul {
+      margin: 0;
+      display: flex;
+      flex-direction: row;
+      flex-wrap: wrap;
+      li {
+        display: flex;
+        $_size: $font_size-xsmall;
+        font-size: $_size;
+        margin-bottom: 0.3em;
+        &:not(:last-child) {
+          margin-right: 1.5em;
+        }
+
+        svg.color-patch {
+          top: $_size / 2;
+          display: block;
+          flex: 0 0 0.75rem;
+          height: $_size;
+          width: $_size;
+          margin-right: $_size / 2;
+        }
+      }
+    }
+  }
+  @media print {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    .legend {
+      ul { display: block; }
+      &.two-column {
+        display: block;
+        ul {
+          width: 100%;
+          display: block;
+          li {
+            width: 100%;
+            margin-right: 0em;
+            margin: 0;
+          }
+        }
+      }
+    }
+  }
+}
+
+.chart-wrapper {
+  flex: 1;
+  max-width: calc(50% - 3em);
+
+  &:first-child {
+    margin-right: 6em;
+  }
+
+  @media print {
+    display: flex;
+    flex-direction:column;
+    position: relative;
+    max-width: none;
+
+    &:first-child {
+      margin-right: 0em;
+    }
+  }
+
+  @include media(large) {
+    max-width: none;
+    &:first-child {
+      margin-right: 0em;
+      margin-bottom: 2em;
+    }
+  }
+  a {
+      color: $color_font-medium;
+      cursor: pointer;
+      text-decoration: underline;
+
+      @media print {
+        color: unset;
+      }
+    }
+}
+
+.caveat, .metadata {
+  color: $color_font-medium;
+  font-size: $font_size-xsmall;
+
+  @media print {
+    color: unset;
+  }
+}
+.metadata {
+  font-style: italic;
+  .source-timeframe {
+    display: flex;
+    & > *:not(:last-child) {
+      margin-right: 1em;
+    }
+  }
+}

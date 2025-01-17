@@ -1,0 +1,32 @@
+.tab {
+  display: none;
+
+  @media print {
+    break-before: page;
+    display: block;
+  }
+
+  &--active {
+    display: block;
+  }
+
+  &__row {
+    display: flex;
+    padding: 2em 8em;
+    @include media(large) {
+      display: block;
+      padding: 2em 12em;
+    }
+    @include media(medium-small) {
+      padding: 2em 0em;
+    }
+    @media print {
+      padding: 0;
+      position: relative;
+
+      &--break {
+        break-after: page;
+      }
+    }
+  }
+}

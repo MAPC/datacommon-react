@@ -1,0 +1,18 @@
+.calendar-viz__chart-wrapper > .vega-embed.has-actions {
+  padding-right: 0;
+}
+
+.calendar-viz__chart-wrapper > .vega-embed canvas {
+  height: 100%;
+  max-width: 400px;
+}
+
+.calendar-viz__chart-wrapper > .vega-embed summary {
+  bottom: 0;
+  top: unset;
+}
+
+.calendar-viz__chart-wrapper > .vega-embed {
+  height: 100%;
+  max-width: 400px;
+}

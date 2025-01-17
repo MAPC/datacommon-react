@@ -1,0 +1,16 @@
+.container {
+  @include media(medium) { width: 94%; }
+  @media print { width: 94%; }
+
+  margin: 0 auto;
+  max-width: calc(100% - 4em);
+  width: 1400px;
+
+  &.tight {
+    padding-left: 7.07rem;
+    padding-right: 7.07rem;
+
+    @include media(large) { padding: 0; }
+    @media print { padding: 0; }
+  }
+}
