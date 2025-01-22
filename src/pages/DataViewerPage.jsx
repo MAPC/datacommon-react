@@ -35,17 +35,20 @@ class DataViewerClass extends React.Component {
 
     this.props.fetchDatasets().then(() => {
       const dataset = this.props.datasets.filter((datasetObj) => +datasetObj.seq_id === +this.props.params.id)[0];
-      
+    
       if (!dataset) {
         this.setState({ loading: false, error: 'Dataset not found' });
         return;
       }
 
       const tableQuery = axios.get(`${queryBase}?token=${queryToken[dataset.db_name]}&query=SELECT * FROM ${dataset.schemaname}.${dataset.table_name} ${dataset.yearcolumn ? `ORDER BY ${dataset.yearcolumn} DESC` : ''} LIMIT 15000`);
+      // todo: fix this it will call : https://localhost:5173/ds?tables=b25119_mhi_tenure_acs_m
       const headerQuery = axios.get(`/${dataset.db_name}?tables=${dataset.table_name}`);
-
       if (dataset.schemaname === 'tabular') {
         if (dataset.yearcolumn) {
+            console.log("tabular")
+            console.log(`${queryBase}?query=select distinct(${dataset.yearcolumn}) from ${dataset.schemaname}.${dataset.table_name} LIMIT 50&token=${queryToken[dataset.db_name]}`)
+    
           const yearQuery = axios.get(`${queryBase}?query=select distinct(${dataset.yearcolumn}) from ${dataset.schemaname}.${dataset.table_name} LIMIT 50&token=${queryToken[dataset.db_name]}`);
           axios.all([yearQuery, tableQuery, headerQuery]).then((response) => {
             const yearResults = response[0];

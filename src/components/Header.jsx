@@ -38,8 +38,8 @@ const Header = () => {
             </li>
             <li>
               <a
-                className={handleActivePage(location.pathname, "/community")}
-                href="/community"
+                className={handleActivePage(location.pathname, "/communities")}
+                href="/communities"
               >
                 Community Profiles
               </a>

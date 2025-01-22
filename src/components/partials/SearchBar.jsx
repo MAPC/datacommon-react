@@ -1,55 +1,83 @@
-import React, {  useEffect } from 'react';
+import React, { useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { useDispatch, useSelector } from 'react-redux';
 import { setResults, setHovering, clearContext } from '../../reducers/searchSlice';
 import wordSearch from '../../utils/wordSearch';
 import capitalize from '../../utils/capitalize';
 
-const SearchBar = ({ contextKey, searchColumn, action, placeholder, className = '' }) => {
+const SearchBar = ({ 
+  contextKey, 
+  searchColumn, 
+  onSelect, 
+  placeholder, 
+  className = '' 
+}) => {
   const dispatch = useDispatch();
   const searchState = useSelector((state) => state.search[contextKey]);
-  const { searchable } = useSelector((state) => state.dataset);
   
-  const search = (query) => {
+  // Get searchable data based on context
+  const searchableData = useSelector((state) => 
+    contextKey === 'municipality' 
+      ? state.municipality.searchable 
+      : state.dataset.searchable
+  );
+  
+  // Handle search input changes
+  const handleSearch = (query) => {
     const results = query.length
-      ? wordSearch(searchable, query, searchColumn)
-      : searchable;
+      ? wordSearch(searchableData, query, searchColumn)
+      : [];
       
     dispatch(setResults({ contextKey, results, query }));
   };
 
-  const executeAction = (result) => {
-    if (action) {
-      action(result);
-    }
+  // Handle result selection
+  const handleResultSelect = (result) => {
+    onSelect(result);
     dispatch(clearContext({ contextKey }));
   };
 
-  const renderResults = () => {
-    if (!searchState.results.length || !searchState.query.length) return null;
+  // Handle result hover
+  const handleResultHover = (result) => {
+    dispatch(setHovering({ contextKey, value: result }));
+  };
+
+  // Render search results if available
+  const renderSearchResults = () => {
+    const { results, query } = searchState;
+    
+    if (!results.length || !query.length) {
+      return null;
+    }
 
     return (
       <ul className="styled lift">
-        {searchState.results.map((result) => (
-          <li
-            key={result[searchColumn] ? `${result.id}-${result[searchColumn]}` : result}
-            onClick={() => executeAction(result)}
-            onMouseEnter={() => dispatch(setHovering({ contextKey, value: result }))}
-            onMouseLeave={() => dispatch(setHovering({ contextKey, value: null }))}
-          >
-            <span className="a-tag">
-              {capitalize(result[searchColumn] || result)}
-            </span>
-          </li>
-        ))}
+        {results.map((result) => {
+          const displayValue = result[searchColumn] || result;
+          const key = result[searchColumn] 
+            ? `${result.id}-${result[searchColumn]}` 
+            : result;
+
+          return (
+            <li
+              key={key}
+              onClick={() => handleResultSelect(result)}
+              onMouseEnter={() => handleResultHover(result)}
+              onMouseLeave={() => handleResultHover(null)}
+            >
+              <span className="a-tag">
+                {capitalize(displayValue)}
+              </span>
+            </li>
+          );
+        })}
       </ul>
     );
   };
 
+  // Cleanup on unmount
   useEffect(() => {
-    return () => {
-      dispatch(clearContext({ contextKey }));
-    };
+    return () => dispatch(clearContext({ contextKey }));
   }, [dispatch, contextKey]);
 
   return (
@@ -57,9 +85,9 @@ const SearchBar = ({ contextKey, searchColumn, action, placeholder, className = 
       <input
         value={searchState.query || ''}
         placeholder={placeholder}
-        onChange={({ target }) => search(target.value)}
+        onChange={({ target }) => handleSearch(target.value)}
       />
-      {renderResults()}
+      {renderSearchResults()}
     </div>
   );
 };
@@ -67,7 +95,7 @@ const SearchBar = ({ contextKey, searchColumn, action, placeholder, className = 
 SearchBar.propTypes = {
   contextKey: PropTypes.string.isRequired,
   searchColumn: PropTypes.string,
-  action: PropTypes.func.isRequired,
+  onSelect: PropTypes.func.isRequired,
   placeholder: PropTypes.string.isRequired,
   className: PropTypes.string,
 };

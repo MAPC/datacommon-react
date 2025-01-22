@@ -64,7 +64,7 @@ const Home = () => {
             a paragraph to explain what is community profile
           </p>
           <CallToAction
-            link="/community"
+            link="/communities"
             text="View Community Profiles"
             extraClassNames="community-profiles__cta"
           />

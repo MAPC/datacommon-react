@@ -447,9 +447,14 @@ export default {
         if (taxData.length < 1) { return []; }
         const row = taxData[0];
         const directRev = ['res_taxes', 'os_taxes', 'comm_taxes', 'ind_taxes', 'p_prop_tax'];
-        const withImplied = Object.assign(row, {
+       /*  const withImplied = Object.assign(row, {
           other: row.tot_rev - directRev.reduce((sum, k) => sum + row[k], 0),
+        }); */
+        const withImplied = Object.assign({}, row, {
+          other: row.tot_rev - directRev.reduce((sum, k) => sum + (row[k] || 0), 0),
         });
+        console.log("row", row);
+        console.log("withImplied", withImplied);
         return Object.keys(chart.labels).map((key) => ({
           value: withImplied[key],
           label: chart.labels[key],
