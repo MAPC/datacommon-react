@@ -1,6 +1,6 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { useDispatch, useSelector } from "react-redux";
+import { useDispatch } from "react-redux";
 import Tab from "./Tab";
 import Dropdown from "./field/Dropdown";
 import MunicipalityPolygon from "./MunicipalityPolygon";
@@ -18,19 +18,19 @@ import LineChart from "../containers/visualizations/LineChart";
 const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
   const dispatch = useDispatch();
   const { muni, tab } = useParams();
-  console.log(muni, tab);
-  const chartStatus = useSelector((state) => state.chart.status);
+  const [activeTab, setActiveTab] = useState(tab || 'demographics');
 
   useEffect(() => {
-    if (charts[tab]) {
-      console.log("fetching chart data", charts[tab]);
-      Object.values(charts).forEach((tabCharts) =>
-        Object.values(tabCharts).forEach((chart) =>
-          dispatch(fetchChartData({ chartInfo: chart, municipality: muni }))
-        )
+    setActiveTab(tab);
+  }, [tab]);
+
+  useEffect(() => {
+    if (charts[activeTab]) {
+      Object.values(charts[activeTab]).forEach((chart) =>
+        dispatch(fetchChartData({ chartInfo: chart, municipality: muni }))
       );
     }
-  }, [dispatch, muni, tab]);
+  }, [activeTab, muni, dispatch]);
 
   return (
     <article className="component CommunityProfiles">
@@ -65,29 +65,39 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
       <div className="data">
         <div className="container tab-selection">
           <ul className="tabs">
-            {tabs.map((tab) => (
-              <li key={tab.value} className={tab.value == tab ? "active" : ""}>
-                <Link to={`/profile/${muniSlug}/${tab.value}`}>
-                  {tab.label}
+            {tabs.map((tabItem) => (
+              <li 
+                key={tabItem.value} 
+                className={tabItem.value === activeTab ? "active" : ""}
+              >
+                <Link 
+                  to={`/profile/${muniSlug}/${tabItem.value}`}
+                  onClick={() => setActiveTab(tabItem.value)}
+                >
+                  {tabItem.label}
                 </Link>
               </li>
             ))}
           </ul>
           <div className="dropdown-wrapper">
             <Dropdown
-              value={tab}
+              value={activeTab}
               options={tabs}
-              onChange={(e) =>
+              onChange={(e) => {
+                setActiveTab(e.target.value);
                 dispatch(
-                  fetchChartData({ chartInfo: charts[tab], municipality: muni })
-                )
-              }
+                  fetchChartData({ 
+                    chartInfo: charts[e.target.value], 
+                    municipality: muni 
+                  })
+                );
+              }}
             />
           </div>
         </div>
         <div className="box">
           <div className="container">
-            <Tab active={tab == "demographics"}>
+            <Tab active={activeTab === "demographics"}>
               <header className="print-header">
                 <h3>Demographics</h3>
               </header>
@@ -106,7 +116,7 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 </ChartDetails>
               </div>
             </Tab>
-            <Tab active={tab == "economy"}>
+            <Tab active={activeTab === "economy"}>
               <header className="print-header">
                 <h3>Economy</h3>
               </header>
@@ -125,7 +135,7 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 </ChartDetails>
               </div>
             </Tab>
-            <Tab active={tab == "education"}>
+            <Tab active={activeTab === "education"}>
               <header className="print-header">
                 <h3>Education</h3>
               </header>
@@ -147,7 +157,7 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 </ChartDetails>
               </div>
             </Tab>
-            <Tab active={tab == "governance"}>
+            <Tab active={activeTab === "governance"}>
               <header className="print-header">
                 <h3>Governance</h3>
               </header>
@@ -157,7 +167,7 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 </ChartDetails>
               </div>
             </Tab>
-            <Tab active={tab == "environment"}>
+            <Tab active={activeTab === "environment"}>
               <header className="print-header">
                 <h3>Environment</h3>
               </header>
@@ -176,9 +186,7 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 </ChartDetails>
               </div>
               <div className="tab__row">
-                <ChartDetails
-                  chart={charts.environment.energy_usage_electricity}
-                >
+                <ChartDetails chart={charts.environment.energy_usage_electricity}>
                   <StackedAreaChart
                     chart={charts.environment.energy_usage_electricity}
                     muni={muni}
@@ -186,7 +194,7 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 </ChartDetails>
               </div>
             </Tab>
-            <Tab active={tab == "housing"}>
+            <Tab active={activeTab === "housing"}>
               <header className="print-header">
                 <h3>Housing</h3>
               </header>
@@ -205,7 +213,7 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 </ChartDetails>
               </div>
             </Tab>
-            <Tab active={tab == "public-health"}>
+            <Tab active={activeTab === "public-health"}>
               <header className="print-header">
                 <h3>Public Health</h3>
               </header>
@@ -226,7 +234,7 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 </ChartDetails>
               </div>
             </Tab>
-            <Tab active={tab == "transportation"}>
+            <Tab active={activeTab === "transportation"}>
               <header className="print-header">
                 <h3>Transportation</h3>
               </header>

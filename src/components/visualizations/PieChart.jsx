@@ -65,7 +65,6 @@ class PieChart extends React.Component {
   }
 
   renderChart() {
-    console.log("PieChart props:", this.props);
     const keys = [...new Set(this.props.data.map((slice) => slice.label))];
     const keyValue = this.props.data.reduce(
       (map, d) => Object.assign(map, { [d.label]: d.value }),

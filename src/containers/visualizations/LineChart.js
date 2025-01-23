@@ -24,7 +24,6 @@ const mapStateToProps = (state, props) => {
 
     try {
       const transformedData = chart.transformer(muniTables, chart);
-      console.log('Transformed Data:', transformedData);
       
       return {
         ...props,

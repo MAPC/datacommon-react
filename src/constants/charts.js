@@ -453,8 +453,6 @@ export default {
         const withImplied = Object.assign({}, row, {
           other: row.tot_rev - directRev.reduce((sum, k) => sum + (row[k] || 0), 0),
         });
-        console.log("row", row);
-        console.log("withImplied", withImplied);
         return Object.keys(chart.labels).map((key) => ({
           value: withImplied[key],
           label: chart.labels[key],
