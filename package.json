@@ -18,7 +18,7 @@
     "@mapc/airtable-cms": "^1.5.2",
     "@reduxjs/toolkit": "^2.0.1",
     "axios": "^1.6.2",
-    "d3": "^5.14.2",
+    "d3": "^7.9.0",
     "esri-leaflet": "^3.0.14",
     "leaflet": "^1.9.4",
     "mapbox-gl": "^3.7.1",

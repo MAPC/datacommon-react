@@ -23,11 +23,27 @@ const defaultMargin = {
 class StackedAreaChart extends React.Component {
   constructor(props) {
     super(props);
+    this.chartRef = React.createRef();
+    this.legendRef = React.createRef();
 
     this.renderChart = this.renderChart.bind(this);
     this.renderBlankChart = this.renderBlankChart.bind(this);
     this.stack = d3.stack();
-    // Add tooltip div
+  }
+
+  componentDidMount() {
+    // Create chart with proper sizing
+    this.chart = d3
+      .select(this.chartRef.current)
+      .append("svg")
+      .attr("width", "100%")
+      .attr("height", "100%")
+      .attr("preserveAspectRatio", "xMinYMin meet")
+      .attr("viewBox", `0 0 ${this.props.width || container.width} ${
+        this.props.height || container.height
+      }`);
+
+    // Create tooltip
     this.tooltip = d3
       .select("body")
       .append("div")
@@ -38,20 +54,11 @@ class StackedAreaChart extends React.Component {
       .style("background", "white")
       .style("padding", "5px")
       .style("border", "1px solid #ccc")
-      .style("border-radius", "3px");
-  }
+      .style("border-radius", "3px")
+      .style("z-index", 1000);
 
-  componentDidMount() {
-    const { width, height } = container;
-
-    this.chart = d3
-      .select(this.svg)
-      .attr("preserveAspectRatio", "xMinYMin meet")
-      .attr("viewBox", `0 0 ${width} ${height}`)
-      .attr("width", width)
-      .attr("height", height);
-
-    this.legend = d3.select(this.legendContainer);
+    this.legend = d3.select(this.legendRef.current);
+    
     if (this.props.hasData) {
       this.renderChart();
     } else {
@@ -59,180 +66,165 @@ class StackedAreaChart extends React.Component {
     }
   }
 
-  componentDidUpdate() {
-    if (this.props.hasData) {
-      this.renderChart();
-    } else {
-      this.renderBlankChart();
+  componentDidUpdate(prevProps) {
+    if (this.props.hasData !== prevProps.hasData || 
+        JSON.stringify(prevProps.data) !== JSON.stringify(this.props.data)) {
+      if (this.props.hasData) {
+        this.renderChart();
+      } else {
+        this.renderBlankChart();
+      }
+    }
+  }
+
+  componentWillUnmount() {
+    if (this.tooltip) {
+      this.tooltip.remove();
+    }
+    if (this.chart) {
+      this.chart.remove();
     }
   }
 
   renderChart() {
     const bonusLeftMargin = maxToMargin(d3.max(this.props.data, (d) => d.y));
-    const margin = Object.assign({}, defaultMargin, {
+    const margin = {
+      ...defaultMargin,
       left: defaultMargin.left + bonusLeftMargin,
-    });
+    };
     const width = container.width - margin.left - margin.right;
     const height = container.height - margin.top - margin.bottom;
 
+    // Clear existing content
+    this.chart.selectAll("*").remove();
+
+    // Create chart group
+    const g = this.chart
+      .append("g")
+      .attr("transform", `translate(${margin.left},${margin.top})`);
+
+    // Process data
+    const keys = [...new Set(this.props.data.map((d) => d.z))].sort();
+
+    // Set up color scale to match original ordinal colors
+    this.color = d3
+      .scaleOrdinal()
+      .domain(keys)
+      .range(
+        this.props.colors ||
+        (keys.length > primaryColors.length ? extendedColors : primaryColors).slice(0, keys.length)
+      );
+
+    // Prepare data for stacking
+    let data = this.props.data.reduce((acc, row) => {
+      acc[row.x] = { ...(acc[row.x] || {}), ...{ [row.z]: row.y } };
+      return acc;
+    }, {});
+
+    data = Object.keys(data)
+      .sort()
+      .map((xVal) => ({ x: +xVal, ...data[xVal] }));
+
+    // Ensure stack order matches color order
+    this.stack
+      .keys(keys)
+      .order(d3.stackOrderNone)  // Maintain original order
+      .offset(d3.stackOffsetNone);  // No normalization
+
+    const stackedData = this.stack(data);
+
+    // Create scales
     const x = d3
       .scaleLinear()
       .domain(d3.extent(this.props.data, (d) => d.x))
       .range([0, width]);
-    const y = d3.scaleLinear().range([height, 0]);
 
+    const y = d3
+      .scaleLinear()
+      .domain([0, d3.max(stackedData, (layer) => d3.max(layer, (d) => d[1]))])
+      .range([height, 0]);
+
+    // Create area generator
     const area = d3
       .area()
       .x((d) => x(d.data.x))
       .y0((d) => y(d[0]))
       .y1((d) => y(d[1]));
 
-    const keys = [...new Set(this.props.data.map((d) => d.z))];
-
-    this.color = d3
-      .scaleOrdinal(
-        this.props.colors ||
-          (keys.length > primaryColors.length ? extendedColors : primaryColors)
-      )
-      .domain(Array.from(keys).reverse());
-    this.stack.keys(keys);
-
-    this.chart.selectAll("*").remove(); // Clear chart before drawing
-
-    this.gChart = this.chart.append("g");
-    this.gChart.attr("transform", `translate(${margin.left},${margin.top})`);
-
-    let data = this.props.data.reduce((acc, row) => {
-      acc[row.x] = { ...(acc[row.x] || {}), ...{ [row.z]: row.y } };
-      return acc;
-    }, {});
-    data = Object.keys(data)
-      .sort()
-      .map((xVal) => ({ x: xVal, ...data[xVal] }));
-
-    const stackedData = this.stack(data);
-    y.domain(
-      d3.extent(
-        stackedData.reduce(
-          (acc, section) =>
-            acc.concat(
-              section.reduce(
-                (secAcc, point) => secAcc.concat([point[0], point[1]]),
-                []
-              )
-            ),
-          []
-        )
-      )
-    );
-
-    const layer = this.gChart
-      .selectAll(".layer")
+    // Add areas
+    g.selectAll(".area")
       .data(stackedData)
-      .enter()
-      .append("g")
-      .attr("class", "layer");
-
-    layer
-      .append("path")
+      .join("path")
       .attr("class", "area")
-      .style("fill", (d) => this.color(d.key))
-      .attr("d", area);
-    layer
-      .on("mouseover", (hoveredData) => {
-        let x = d3.event.pageX;
-        let y = d3.event.pageY;
-        console.log(hoveredData[0].data[hoveredData.key])
-        let value = hoveredData[0].data[hoveredData.key].toFixed(3);
+      .attr("fill", (d) => this.color(d.key))
+      .attr("d", area)
+      .on("mouseover", (event, d) => {
         this.tooltip
-          .html(
-            `
-            <div>
-                ${hoveredData.key}: ${value}
-            </div>
-        `
-          )
           .style("opacity", 1)
-          .style("left", x + 10 + "px")
-          .style("top", y - 10 + "px");
+          .html(`${d.key}`)
+          .style("left", `${event.pageX + 10}px`)
+          .style("top", `${event.pageY - 10}px`);
+      })
+      .on("mousemove", (event) => {
+        this.tooltip
+          .style("left", `${event.pageX + 10}px`)
+          .style("top", `${event.pageY - 10}px`);
       })
       .on("mouseout", () => {
         this.tooltip.style("opacity", 0);
       });
+
+    // Add axes
     const xAxis = d3
       .axisBottom(x)
-      .ticks(this.props.xAxis.ticks)
-      .tickSize(0)
-      .tickPadding(10)
-      .tickFormat(this.props.xAxis.format);
+      .tickFormat(this.props.xAxis.format || d3.format("d"));
+
     const yAxis = d3
       .axisLeft(y)
-      .ticks(this.props.yAxis.ticks)
-      .tickSize(0)
-      .tickPadding(10)
-      .ticks(10)
       .tickFormat(this.props.yAxis.format);
 
-    this.gChart
-      .append("g")
+    g.append("g")
       .attr("class", "axis axis-x")
-      .attr("transform", `translate(0, ${height})`)
+      .attr("transform", `translate(0,${height})`)
       .call(xAxis);
 
-    this.gChart.append("g").attr("class", "axis axis-y").call(yAxis);
+    g.append("g")
+      .attr("class", "axis axis-y")
+      .call(yAxis);
 
+    // Add axis labels
     this.chart
       .append("text")
-      .attr("class", "axis-label")
-      .attr("x", height / -2 - margin.top)
-      .attr("y", 2)
+      .attr("class", "axis-label y-axis-label")
+      .attr("x", -height / 2 - margin.top)
+      .attr("y", margin.left / 3)
       .attr("transform", "rotate(-90)")
-      .attr("dy", "12")
-      .style("text-anchor", "middle")
+      .attr("text-anchor", "middle")
       .text(this.props.yAxis.label);
 
     this.chart
       .append("text")
-      .attr("class", "axis-label")
+      .attr("class", "axis-label x-axis-label")
       .attr("x", width / 2 + margin.left)
-      .attr("y", height + margin.top + margin.bottom - 22)
-      .attr("dy", "12")
-      .style("text-anchor", "middle")
+      .attr("y", height + margin.top + margin.bottom - 10)
+      .attr("text-anchor", "middle")
       .text(this.props.xAxis.label);
 
-    if (!this.props.data.length) {
-      const placeholder = this.gChart.append("g");
-      placeholder
-        .append("text")
-        .attr("class", "missing-data")
-        .attr("x", width / 2)
-        .attr("y", height / 2 - 12)
-        .attr("dy", "12")
-        .style("text-anchor", "middle")
-        .text("Oops! We can't find this data right now.");
-      placeholder
-        .append("text")
-        .attr("class", "missing-data")
-        .attr("x", width / 2)
-        .attr("y", height / 2 + 12)
-        .attr("dy", "12")
-        .style("text-anchor", "middle")
-        .text("Please try again later.");
-    }
-
+    // Update legend
     this.legend.selectAll("*").remove();
     drawLegend(this.legend, this.color, keys);
   }
 
   renderBlankChart() {
     const bonusLeftMargin = maxToMargin(d3.max(this.props.data, (d) => d.y));
-    const margin = Object.assign({}, defaultMargin, {
+    const margin = {
+      ...defaultMargin,
       left: defaultMargin.left + bonusLeftMargin,
-    });
+    };
     const width = container.width - margin.left - margin.right;
     const height = container.height - margin.top - margin.bottom;
 
-    this.chart.selectAll("*").remove(); // Clear chart before drawing lines
+    this.chart.selectAll("*").remove();
     this.chart
       .append("text")
       .attr("class", "missing-data")
@@ -247,9 +239,9 @@ class StackedAreaChart extends React.Component {
     return (
       <div className="component chart StackedAreaChart">
         <div className="svg-wrapper">
-          <svg ref={(el) => (this.svg = el)}></svg>
+          <div ref={this.chartRef} className="chart-container" />
         </div>
-        <div ref={(el) => (this.legendContainer = el)} className="legend"></div>
+        <div ref={this.legendRef} className="legend" />
       </div>
     );
   }
@@ -272,9 +264,15 @@ StackedAreaChart.propTypes = {
     format: PropTypes.func,
   }).isRequired,
   colors: PropTypes.arrayOf(PropTypes.string),
+  hasData: PropTypes.bool,
+  width: PropTypes.number,
+  height: PropTypes.number,
 };
 
 StackedAreaChart.defaultProps = {
+  hasData: true,
+  width: container.width,
+  height: container.height,
   xAxis: {
     format: (d) => d,
   },

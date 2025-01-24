@@ -1,7 +1,7 @@
 import React from 'react';
 
 function setActiveTab(isActive) {
-  console.log(isActive);
+  
   if (isActive) {
     return 'tab tab--active';
   }

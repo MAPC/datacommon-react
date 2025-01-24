@@ -24,8 +24,7 @@ class LineChart extends React.Component {
     super(props);
     this.renderChart = this.renderChart.bind(this);
     this.renderBlankChart = this.renderBlankChart.bind(this);
-    this.chartRef = React.createRef(); // Add ref for chart container
-
+    this.chartRef = React.createRef();
   }
 
   componentDidMount() {
@@ -50,6 +49,7 @@ class LineChart extends React.Component {
       .append("g")
       .attr("class", "legend")
       .attr("transform", `translate(${container.width - 100}, 20)`);
+
     // Create tooltip
     this.tooltip = d3
       .select(document.body)
@@ -62,6 +62,7 @@ class LineChart extends React.Component {
       .style("padding", "5px")
       .style("border", "1px solid #ccc")
       .style("z-index", 1000);
+
     // Render chart if we have data
     if (this.props.hasData) {
       this.renderChart();
@@ -93,10 +94,6 @@ class LineChart extends React.Component {
     }
   }
 
-  render() {
-    return <div ref={this.chartRef} className="chart-container" />;
-  }
-
   getBounds() {
     const bounds = this.props.data.reduce(
       (lBounds, line) =>
@@ -118,21 +115,13 @@ class LineChart extends React.Component {
     );
     return {
       xMin:
-        this.props.xAxis.min != null || this.props.xAxis.min != undefined
-          ? this.props.xAxis.min
-          : bounds.xMin,
+        this.props.xAxis.min != null ? this.props.xAxis.min : bounds.xMin,
       xMax:
-        this.props.xAxis.max != null || this.props.xAxis.max != undefined
-          ? this.props.xAxis.max
-          : bounds.xMax,
+        this.props.xAxis.max != null ? this.props.xAxis.max : bounds.xMax,
       yMin:
-        this.props.yAxis.min != null || this.props.yAxis.min != undefined
-          ? this.props.yAxis.min
-          : bounds.yMin,
+        this.props.yAxis.min != null ? this.props.yAxis.min : bounds.yMin,
       yMax:
-        this.props.yAxis.max != null || this.props.yAxis.max != undefined
-          ? this.props.yAxis.max
-          : bounds.yMax,
+        this.props.yAxis.max != null ? this.props.yAxis.max : bounds.yMax,
     };
   }
 
@@ -161,8 +150,8 @@ class LineChart extends React.Component {
       ...defaultMargin,
       left: defaultMargin.left + bonusLeftMargin,
     };
-    const width = container.height - margin.left - margin.right;
-    const height = container.width - margin.top - margin.bottom;
+    const width = container.width - margin.left - margin.right;
+    const height = container.height - margin.top - margin.bottom;
 
     const keys = this.props.data.map((d) => d.label);
     const colors = this.props.data.reduce(
@@ -171,7 +160,8 @@ class LineChart extends React.Component {
     );
 
     this.color = d3
-      .scaleOrdinal(
+      .scaleOrdinal()
+      .range(
         colors.length
           ? colors
           : keys.length > primaryColors.length
@@ -181,29 +171,29 @@ class LineChart extends React.Component {
       .domain(keys);
 
     const xScale = d3.scaleLinear().domain([xMin, xMax]).range([0, width]);
+    const yScale = d3.scaleLinear().domain([yMin, yMax]).range([height, 0]);
+
+    // Draw chart
+    this.chart.selectAll("*").remove(); // Clear chart before drawing lines
+
+    this.gChart = this.chart
+      .append("g")
+      .attr("transform", `translate(${margin.left},${margin.top})`);
+
+    // Add axes
     const xAxis = d3
       .axisBottom(xScale)
       .ticks(this.props.xAxis.ticks)
       .tickSize(0)
       .tickPadding(10)
       .tickFormat(this.props.xAxis.format);
-    const yScale = d3.scaleLinear().domain([yMin, yMax]).range([height, 0]);
+
     const yAxis = d3
       .axisLeft(yScale)
       .ticks(this.props.yAxis.ticks)
       .tickSize(0)
       .tickPadding(10)
       .tickFormat(this.props.yAxis.format);
-    const lineGenerator = d3
-      .line()
-      .x((d) => xScale(d[0]))
-      .y((d) => yScale(d[1]));
-
-    // Draw chart
-    this.chart.selectAll("*").remove(); // Clear chart before drawing lines
-
-    this.gChart = this.chart.append("g");
-    this.gChart.attr("transform", `translate(${margin.left},${margin.top})`);
 
     this.gChart
       .append("g")
@@ -212,7 +202,14 @@ class LineChart extends React.Component {
       .call(xAxis);
 
     this.gChart.append("g").attr("class", "axis axis-y").call(yAxis);
-    
+
+    // Create line generator
+    const lineGenerator = d3
+      .line()
+      .x((d) => xScale(d[0]))
+      .y((d) => yScale(d[1]));
+
+    // Draw lines and points
     this.props.data.forEach((line, i) => {
       this.gChart
         .append("path")
@@ -226,40 +223,33 @@ class LineChart extends React.Component {
       this.gChart
         .selectAll(`.dots-for-line-${i}`)
         .data(line.values)
-        .enter()
-        .append("circle")
+        .join("circle")
         .attr("class", `dot dots-for-line-${i}`)
         .attr("cx", (d) => xScale(d[0]))
         .attr("cy", (d) => yScale(d[1]))
         .attr("fill", this.color(line.label))
-        .attr("r", 4);
+        .attr("r", 4)
+        .on("mouseover", (event, d) => {
+          const [year, value] = d;
+          
+          this.tooltip
+            .html(
+              `
+              <div>
+                ${year}: ${value}
+              </div>
+              `
+            )
+            .style("opacity", 1)
+            .style("left", `${event.pageX + 10}px`)
+            .style("top", `${event.pageY - 10}px`);
+        })
+        .on("mouseout", () => {
+          this.tooltip.style("opacity", 0);
+        });
     });
-    const tooltip = this.tooltip;
-    this.gChart.selectAll(".dot")
-      .on("mouseover", (d) => {
-        let [year, value] = d;
-        let x = d3.event.pageX;
-        let y = d3.event.pageY;
 
-        /* d3.select(d3.event.target)
-          .attr("r", 6); */
-
-          tooltip
-          .html(
-            `
-            <div>
-              ${year}: ${value}
-            </div>
-            `
-          )
-          .style("opacity", 1)
-          .style("left", x  + "px")
-          .style("top", y + "px");
-      })
-      .on("mouseout", () => {
-        this.tooltip.style("opacity", 0);
-      });
-
+    // Add axis labels
     this.chart
       .append("text")
       .attr("class", "axis-label")
@@ -279,6 +269,7 @@ class LineChart extends React.Component {
       .style("text-anchor", "middle")
       .text(this.props.xAxis.label);
 
+    // Update legend
     this.legend.selectAll("*").remove();
     drawLegend(this.legend, this.color, keys);
   }
@@ -306,10 +297,10 @@ class LineChart extends React.Component {
       ...defaultMargin,
       left: defaultMargin.left + bonusLeftMargin,
     };
-    const width = container.height - margin.left - margin.right;
-    const height = container.width - margin.top - margin.bottom;
+    const width = container.width - margin.left - margin.right;
+    const height = container.height - margin.top - margin.bottom;
 
-    this.chart.selectAll("*").remove(); // Clear chart before drawing lines
+    this.chart.selectAll("*").remove();
     this.chart
       .append("text")
       .attr("class", "missing-data")
@@ -319,6 +310,10 @@ class LineChart extends React.Component {
       .style("text-anchor", "middle")
       .text("Oops! We can't find this data right now.");
   }
+
+  render() {
+    return <div ref={this.chartRef} className="chart-container" />;
+  }
 }
 
 LineChart.propTypes = {
@@ -326,20 +321,26 @@ LineChart.propTypes = {
     label: PropTypes.string.isRequired,
     min: PropTypes.number,
     max: PropTypes.number,
+    ticks: PropTypes.number,
+    format: PropTypes.func,
   }).isRequired,
   yAxis: PropTypes.shape({
     label: PropTypes.string.isRequired,
     min: PropTypes.number,
     max: PropTypes.number,
+    ticks: PropTypes.number,
+    format: PropTypes.func,
   }).isRequired,
   data: PropTypes.arrayOf(
     PropTypes.shape({
       label: PropTypes.string.isRequired,
       color: PropTypes.string,
-      values: PropTypes.array.isRequired,
+      values: PropTypes.arrayOf(PropTypes.arrayOf(PropTypes.number)).isRequired,
     })
   ).isRequired,
   hasData: PropTypes.bool.isRequired,
+  width: PropTypes.number,
+  height: PropTypes.number,
 };
 
 export default LineChart;

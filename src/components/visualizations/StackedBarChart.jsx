@@ -112,7 +112,7 @@ const StackedBarChart = (props) => {
     const width = container.width - margin.left - margin.right;
     const height = container.height - margin.top - margin.bottom;
 
-    // Prepare data and adjust scales
+    // Process data
     const keys = sortKeys(props.data);
     const colors = props.data.reduce(
       (obj, d) => (d.color ? Object.assign(obj, { [d.z]: d.color }) : obj),
@@ -120,7 +120,8 @@ const StackedBarChart = (props) => {
     );
 
     colorRef.current = d3
-      .scaleOrdinal(
+      .scaleOrdinal()
+      .range(
         Object.keys(colors).length
           ? keys.map((key) => colors[key])
           : keys.length > primaryColors.length
@@ -131,199 +132,143 @@ const StackedBarChart = (props) => {
 
     stack.keys(keys);
 
-    const data = props.data.reduce((acc, row) => {
-      acc[row.x] = { ...(acc[row.x] || {}), ...{ [row.z]: row.y } };
+    // Group data by x value
+    const groupedData = props.data.reduce((acc, row) => {
+      if (!acc[row.x]) {
+        acc[row.x] = {};
+      }
+      acc[row.x][row.z] = row.y;
       return acc;
     }, {});
-    const groups = Object.keys(data).sort();
 
-    const stackedData = stack(
-      groups.map((yVal) => ({ y: yVal, ...data[yVal] }))
-    );
+    // Convert to array format needed for d3
+    const data = Object.entries(groupedData).map(([x, values]) => ({
+      x,
+      ...values,
+    }));
 
-    // Setup scales and axes
-    const valScale = d3
-      .scaleLinear()
-      .range(props.horizontal ? [0, width] : [height, 0])
-      .domain(
-        d3.extent(
-          stackedData.reduce((a, b) => a.concat(b.map((t) => t[1])), [0]),
-          (d) => d
-        )
-      );
+    // Create scales
+    const xScale = props.horizontal
+      ? d3
+          .scaleLinear()
+          .domain([0, d3.max(stack(data).flat(1), d => d[1])])
+          .range([0, width])
+      : d3
+          .scaleBand()
+          .domain(data.map(d => d.x))
+          .range([0, width])
+          .padding(data.length === 1 ? 0.4 : 0.1); // Adjust padding based on number of bars
 
-    const catScale = d3
-      .scaleBand()
-      .domain(groups)
-      .range(props.horizontal ? [0, height] : [0, width])
-      .paddingInner(0.2);
+    const yScale = props.horizontal
+      ? d3
+          .scaleBand()
+          .domain(data.map(d => d.x))
+          .range([0, height])
+          .padding(data.length === 1 ? 0.4 : 0.1)
+      : d3
+          .scaleLinear()
+          .domain([0, d3.max(stack(data).flat(1), d => d[1])])
+          .range([height, 0]);
 
-    const valAxis = (
-      props.horizontal ? d3.axisBottom(valScale) : d3.axisLeft(valScale)
-    )
-      .ticks(10)
-      .tickSize(0)
-      .tickPadding(10)
-      .tickFormat(props.yAxis.format);
-
-    const catAxis = (
-      props.horizontal ? d3.axisLeft(catScale) : d3.axisBottom(catScale)
-    )
-      .tickSize(0)
-      .tickPadding(10)
-      .ticks(10)
-      .tickFormat(props.xAxis.format);
-
-    const [xAxis, yAxis] = props.horizontal
-      ? [valAxis, catAxis]
-      : [catAxis, valAxis];
-
-    // Clear previous content
+    // Clear existing content
     chart.selectAll('*').remove();
-    
-    // Remove ALL existing axis labels from the SVG
-    d3.select(chartRef.current).selectAll('.axis-label').remove();
+    svgRef.current.selectAll('.axis-label').remove();
 
-    // Position chart
-    chart.attr('transform', `translate(${margin.left},${margin.top})`);
-
-    // Draw bars
-    const layer = chart
-      .selectAll('.layer')
-      .data(stackedData)
-      .enter()
+    // Create chart group
+    const g = chart
       .append('g')
+      .attr('transform', `translate(${margin.left},${margin.top})`);
+
+    // Add bars
+    const layers = g
+      .selectAll('g.layer')
+      .data(stack(data))
+      .join('g')
       .attr('class', 'layer')
-      .attr('fill', (d) => colorRef.current(d.key));
+      .attr('fill', d => colorRef.current(d.key));
 
-    // For charts with less than 3 bars, limit the width
-    const [catMin, catMax] = catScale.range();
-    const columnWidth =
-      catScale.domain().length < 3
-        ? (catMax - catMin) / 3 + catMin
-        : catScale.bandwidth();
-    const realignment =
-      catScale.domain().length < 3
-        ? (catScale.bandwidth() - (catMax - catMin) / 3) / 2
-        : 0;
-
-    const replaceNaN = (x) => (String(x) === 'NaN' ? null : x);
-
-    layer
+    layers
       .selectAll('rect')
-      .data((d) =>
-        d.map((item) => ({
-          ...item,
-          series: d.key,
-        }))
-      )
-      .enter()
-      .append('rect')
-      .attr(props.horizontal ? 'y' : 'x', (d) =>
-        replaceNaN(catScale(d.data.y) + realignment)
-      )
-      .attr(props.horizontal ? 'x' : 'y', (d) =>
-        replaceNaN(props.horizontal ? valScale(d[0]) : valScale(d[1]))
-      )
-      .attr(props.horizontal ? 'width' : 'height', (d) =>
-        replaceNaN(
-          props.horizontal
-            ? valScale(d[1]) - valScale(d[0])
-            : valScale(d[0]) - valScale(d[1])
-        )
-      )
-      .attr(props.horizontal ? 'height' : 'width', columnWidth)
-      .on('mouseover', (d) => {
-        const series = d.series;
-        const value = parseFloat(d.data[series]) < 1
-          ? d.data[series].toFixed(3)
-          : d.data[series];
-        
+      .data((d) => d.map((item) => ({...item, series: d.key})))
+      .join('rect')
+      .attr('x', (d) => props.horizontal ? 0 : xScale(d.data.x))
+      .attr('y', (d) => props.horizontal 
+        ? yScale(d.data.x) 
+        : (isNaN(yScale(d[1])) ? yScale(0) : yScale(d[1])))
+      .attr('height', (d) => props.horizontal
+        ? yScale.bandwidth()
+        : (isNaN(yScale(d[0]) - yScale(d[1])) 
+          ? 0 
+          : Math.max(0, yScale(d[0]) - yScale(d[1]))))
+      .attr('width', (d) => props.horizontal
+        ? (isNaN(xScale(d[1]) - xScale(d[0])) 
+          ? 0 
+          : xScale(d[1]) - xScale(d[0]))
+        : xScale.bandwidth())
+      .on('mouseover', (event, d) => {
+        const value = d.data[d.series];
         tooltip
-          .html(`
-            <div>
-                ${series}: ${value}
-            </div>
-          `)
           .style('opacity', 1)
-          .style('left', d3.event.pageX + 10 + 'px')
-          .style('top', d3.event.pageY - 10 + 'px');
+          .html(`${d.series}: ${typeof value === 'number' && value < 1 ? (value * 100).toFixed(1) + '%' : value}`)
+          .style('left', `${event.pageX + 10}px`)
+          .style('top', `${event.pageY - 10}px`);
       })
-      .on('mousemove', () => {
+      .on('mousemove', (event) => {
         tooltip
-          .style('left', d3.event.pageX + 10 + 'px')
-          .style('top', d3.event.pageY - 10 + 'px');
+          .style('left', `${event.pageX + 10}px`)
+          .style('top', `${event.pageY - 10}px`);
       })
       .on('mouseout', () => {
         tooltip.style('opacity', 0);
       });
 
-    // Add axes with labels
-    const xAxisG = chart
+    // Create axes
+    const xAxis = props.horizontal
+      ? d3.axisBottom(xScale).tickFormat(props.xAxis.format || (d => d < 1 ? d3.format('.0%')(d) : d))
+      : d3.axisBottom(xScale).tickFormat(props.xAxis.format);
+
+    const yAxis = props.horizontal
+      ? d3.axisLeft(yScale)
+      : d3.axisLeft(yScale).tickFormat(props.yAxis.format || (d => d < 1 ? d3.format('.0%')(d) : d));
+
+    // Add axes
+    const xAxisG = g
       .append('g')
       .attr('class', 'axis axis-x')
-      .attr('transform', `translate(0, ${height})`)
+      .attr('transform', `translate(0,${height})`)
       .call(xAxis);
 
-    if (props.horizontal || groups.length > 4) {
+    if (props.horizontal || data.length > 4) {
       xAxisG
         .selectAll('text')
-        .attr('transform', `translate(7, 0) rotate(45)`)
+        .attr('transform', 'translate(7, 0) rotate(45)')
         .style('text-anchor', 'start');
     }
 
-    const yAxisG = chart
-      .append('g')
+    g.append('g')
       .attr('class', 'axis axis-y')
       .call(yAxis);
 
-    if (
-      props.wrapLeftLabel &&
-      props.horizontal &&
-      clippedMaxLeftLabel == LEFT_LABEL_MAX
-    ) {
-      yAxisG.selectAll('text').each(function(x) {
-        const text = d3.select(this);
-        const rows = splitPhrase(text.text(), LEFT_LABEL_MAX);
-        text.text(null);
-        rows.forEach((row, i) => {
-          const tspan = text.append('tspan');
-          tspan
-            .text(row)
-            .attr('x', -10)
-            .attr('y', (i - rows.length / 2) * 15)
-            .attr('dy', '1em');
-        });
-      });
-    }
-
-    // Add ONLY ONE axis label for each axis
+    // Add axis labels with adjusted positioning
     const svg = d3.select(chartRef.current).select('svg');
     
-    // Y-axis label
     svg.append('text')
       .attr('class', 'axis-label y-axis-label')
-      .attr('x', height / -2)
-      .attr('y', margin.left / 3 -15)
+      .attr('x', -height / 2)
+      .attr('y', margin.left / 3 -20)
       .attr('transform', 'rotate(-90)')
       .attr('dy', '1em')
       .attr('font-size', '12px')
       .style('text-anchor', 'middle')
-      .text(
-        props.horizontal ? props.xAxis.label : props.yAxis.label
-      );
+      .text(props.horizontal ? props.xAxis.label : props.yAxis.label);
 
-    // X-axis label
     svg.append('text')
       .attr('class', 'axis-label x-axis-label')
-      .attr('x', container.width / 2)
-      .attr('y', container.height - margin.bottom / 2)
-      .attr('dy', '1em')
+      .attr('x', width / 2 + margin.left)
+      .attr('y', height + margin.top + 45)
       .attr('font-size', '12px')
       .style('text-anchor', 'middle')
-      .text(
-        props.horizontal ? props.yAxis.label : props.xAxis.label
-      );
+      .text(props.horizontal ? props.yAxis.label : props.xAxis.label);
 
     // Add legend
     const legend = d3.select(legendContainerRef.current);
@@ -389,6 +334,8 @@ StackedBarChart.propTypes = {
   horizontal: PropTypes.bool,
   hasData: PropTypes.bool,
   wrapLeftLabel: PropTypes.bool,
+  width: PropTypes.number,
+  height: PropTypes.number,
 };
 
 export default StackedBarChart;

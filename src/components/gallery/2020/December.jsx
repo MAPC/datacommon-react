@@ -3,7 +3,7 @@ import * as d3 from 'd3';
 import mapboxgl from 'mapbox-gl';
 import { VegaLite } from 'react-vega';
 import chartData from '../../../assets/data/december2020-chart.json';
-
+import december2020csv from '../../../assets/data/december2020.csv?url';
 const colorPalette = ['#F3F3F3', '#B1C6D8', '#50789D', '#2e4b66', '#c1b9bb'];
 const colorPolygon = (value) => {
   if (value >= 200) {
@@ -68,7 +68,7 @@ const December = () => {
   const [spec, setSpec] = useState();
   // Get map data
   useEffect(() => {
-    d3.csv('/assets/december2020.csv').then((response) => {
+    d3.csv(december2020csv).then((response) => {
       setMapData(response);
     });
   }, []);

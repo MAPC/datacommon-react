@@ -23,16 +23,30 @@ const defaultMargin = {
 class PieChart extends React.Component {
   constructor(props) {
     super(props);
+    this.chartRef = React.createRef();
+    this.legendRef = React.createRef();
 
     this.renderChart = this.renderChart.bind(this);
     this.renderBlankChart = this.renderBlankChart.bind(this);
 
     this.pie = d3
       .pie()
-      .sort((a, b) => a.value > b.value)
+      .sort((a, b) => d3.ascending(a.value, b.value))
       .value((d) => d.value);
-    // Add tooltip div
+  }
 
+  componentDidMount() {
+    const { width, height } = container;
+
+    // Create chart
+    this.chart = d3
+      .select(this.chartRef.current)
+      .attr("preserveAspectRatio", "xMinYMin meet")
+      .attr("viewBox", `0 0 ${width} ${height}`)
+      .attr("width", width)
+      .attr("height", height);
+
+    // Create tooltip
     this.tooltip = d3
       .select("body")
       .append("div")
@@ -43,25 +57,26 @@ class PieChart extends React.Component {
       .style("background", "white")
       .style("padding", "5px")
       .style("border", "1px solid #ccc")
-      .style("border-radius", "3px");
-  }
+      .style("border-radius", "3px")
+      .style("z-index", 1000);
 
-  componentDidMount() {
-    const { width, height } = container;
-
-    this.chart = d3
-      .select(this.svg)
-      .attr("preserveAspectRatio", "xMinYMin meet")
-      .attr("viewBox", `0 0 ${width} ${height}`)
-      .attr("width", width)
-      .attr("height", height);
-
-    this.legend = d3.select(this.legendContainer);
+    this.legend = d3.select(this.legendRef.current);
     this.renderChart();
   }
 
-  componentDidUpdate() {
-    this.renderChart();
+  componentDidUpdate(prevProps) {
+    if (JSON.stringify(prevProps.data) !== JSON.stringify(this.props.data)) {
+      this.renderChart();
+    }
+  }
+
+  componentWillUnmount() {
+    if (this.tooltip) {
+      this.tooltip.remove();
+    }
+    if (this.chart) {
+      this.chart.selectAll("*").remove();
+    }
   }
 
   renderChart() {
@@ -85,70 +100,76 @@ class PieChart extends React.Component {
     };
     const width = container.width - margin.left - margin.right;
     const height = container.height - margin.top - margin.bottom;
+    
     this.chart.attr("viewBox", `0 0 ${container.width} ${height}`);
 
     const radius = Math.min(height, width) / 1.5;
 
-    const innerArc = d3
+    const arc = d3
       .arc()
       .outerRadius(radius * 0.9)
       .innerRadius(0);
 
     this.color = d3
-      .scaleOrdinal(
+      .scaleOrdinal()
+      .domain(keys)
+      .range(
         this.props.colors ||
-          (keys.length > primaryColors.length ? extendedColors : primaryColors)
-      )
-      .domain(keys);
-    this.chart.selectAll("*").remove(); // Clear chart before drawing
+        (keys.length > primaryColors.length ? extendedColors : primaryColors)
+      );
 
-    this.gChart = this.chart.append("g");
-    this.gChart.attr(
-      "transform",
-      `translate(${width / 2 + margin.left},${height / 2})`
-    );
+    this.chart.selectAll("*").remove();
+
+    const gChart = this.chart
+      .append("g")
+      .attr("transform", `translate(${width / 2 + margin.left},${height / 2})`);
+
     const pieData = this.pie(this.props.data.sort((a, b) => a.value - b.value));
 
-    // Pie chart
-    const arc = this.gChart
+    // Create pie slices
+    const arcs = gChart
       .selectAll(".arc")
       .data(pieData)
-      .enter()
-      .append("g")
+      .join("g")
       .attr("class", "arc");
 
-    arc
+    // Add paths
+    arcs
       .append("path")
-      .attr("d", innerArc)
+      .attr("d", arc)
       .attr("fill", (d) => this.color(d.data.label))
       .attr("stroke", "white")
       .attr("stroke-width", "1")
-      .on("mouseover", (d) => {
-        let x = d3.event.pageX;
-        let y = d3.event.pageY;
+      .on("mouseover", (event, d) => {
         this.tooltip
           .html(
             `
             <div>
-                ${d.data.label}: ${d.data.value}
+              ${d.data.label}: ${d.data.value}
             </div>
-        `
+            `
           )
           .style("opacity", 1)
-          .style("left", x + 10 + "px")
-          .style("top", y - 10 + "px");
+          .style("left", `${event.pageX + 10}px`)
+          .style("top", `${event.pageY - 10}px`);
+      })
+      .on("mousemove", (event) => {
+        this.tooltip
+          .style("left", `${event.pageX + 10}px`)
+          .style("top", `${event.pageY - 10}px`);
       })
       .on("mouseout", () => {
         this.tooltip.style("opacity", 0);
       });
 
+    // Update legend
     this.legend.selectAll("*").remove();
     drawLegend(this.legend, this.color, keys, formatter);
   }
 
   renderBlankChart() {
     const bonusSideMargin = maxTextToMargin(
-      keys.reduce((acc, k) => Math.max(acc, k.length), 0),
+      this.props.data.reduce((acc, d) => Math.max(acc, d.label.length), 0),
       12
     );
     const margin = {
@@ -158,7 +179,8 @@ class PieChart extends React.Component {
     };
     const width = container.width - margin.left - margin.right;
     const height = container.height - margin.top - margin.bottom;
-    this.chart.selectAll("*").remove(); // Clear chart before drawing lines
+
+    this.chart.selectAll("*").remove();
     this.chart
       .append("text")
       .attr("class", "missing-data")
@@ -173,8 +195,8 @@ class PieChart extends React.Component {
     return (
       <div className="component chart PieChart">
         <div className="svg-wrapper">
-          <svg ref={(el) => (this.svg = el)} />
-          <div ref={(el) => (this.legendContainer = el)} className="legend" />
+          <svg ref={this.chartRef} />
+          <div ref={this.legendRef} className="legend" />
         </div>
       </div>
     );

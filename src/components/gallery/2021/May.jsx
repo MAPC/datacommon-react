@@ -36,108 +36,109 @@ const tooltipHtml = (municipality) => `
         ]).toFixed(2)}</li>
       </ul>`;
 
-const tooltipLeft = (event, tooltip) => {
-  if (event.pageX > window.innerWidth / 2) {
-    return `${event.pageX - tooltip.offsetWidth + 20}px`;
-  }
-  return `${event.pageX + 10}px`;
-};
-
-const tooltipTop = (event, tooltip) =>
-  `${event.pageY - tooltip.offsetHeight - 10}px`;
-
 const May = () => {
   const [data, setData] = useState();
+
   useEffect(() => {
     d3.csv(csv)
       .then((response) => {
-        console.log(response);
         setData(response);
       })
       .catch((error) => {
         console.error("Error loading the CSV file:", error);
       });
   }, []);
-  if (data) {
-    const height = 700;
-    const width = getComputedStyle(
-      document.querySelector(".calendar-viz")
-    ).width.slice(0, -2);
-    const svg = d3
-      .select(".calendar-viz__chart")
-      .attr("width", width - margin.right)
-      .attr("height", height + margin.top + margin.bottom)
-      .attr("class", "calendar-viz__svg")
-      .append("g")
-      .attr("transform", `translate(${margin.left},${margin.top})`);
 
-    const tooltip = d3
-      .select("body")
-      .append("div")
-      .attr("class", "tooltip")
-      .style("display", "none");
+  useEffect(() => {
+    if (data) {
+      const height = 700;
+      const width = getComputedStyle(
+        document.querySelector(".calendar-viz")
+      ).width.slice(0, -2);
 
-    const x = d3.scaleLinear().domain([0, 1.2]).range([0, width]);
-    svg
-      .append("g")
-      .attr("transform", `translate(0,${height})`)
-      .call(d3.axisBottom(x));
+      // Clear any existing SVG
+      d3.select(".calendar-viz__chart").selectAll("*").remove();
 
-    const y = d3.scaleLinear().domain([0, 160000000]).range([height, 0]);
-    svg.append("g").call(d3.axisLeft(y));
+      const svg = d3
+        .select(".calendar-viz__chart")
+        .attr("width", width - margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+        .attr("class", "calendar-viz__svg")
+        .append("g")
+        .attr("transform", `translate(${margin.left},${margin.top})`);
 
-    const z = d3.scaleLinear().domain([75, 190000]).range([2, 50]);
+      const tooltip = d3
+        .select("body")
+        .append("div")
+        .attr("class", "tooltip")
+        .style("display", "none");
 
-    svg
-      .append("g")
-      .selectAll("dot")
-      .data(data)
-      .enter()
-      .append("circle")
-      .attr("cx", (d) => x(d["Weighted Score"]))
-      .attr("cy", (d) => y(d["Estimated Aid"]))
-      .attr("r", (d) => z(d.Population))
-      .style("fill", (d) => bubbleColors[d.entitlement])
-      .style("opacity", ".7")
-      .attr("stroke", "black")
-      .on("mousemove", (d) => {
-        tooltip
-          .transition()
-          .duration(50)
-          .style("opacity", 0.9)
-          .style("display", "inline");
-        tooltip
-          .html(tooltipHtml(d))
-          .style(
-            "left",
-            tooltipLeft(d3.event, document.getElementsByClassName("tooltip")[0])
-          )
-          .style(
-            "top",
-            tooltipTop(d3.event, document.getElementsByClassName("tooltip")[0])
-          );
-      })
-      .on("mouseleave", () => {
-        tooltip.transition().duration(200).style("opacity", 0);
-      });
+      const x = d3.scaleLinear().domain([0, 1.2]).range([0, width]);
+      svg
+        .append("g")
+        .attr("transform", `translate(0,${height})`)
+        .call(d3.axisBottom(x));
 
-    svg
-      .append("text")
-      .attr("transform", `translate(${width / 2}, ${height + margin.top + 30})`)
-      .style("text-anchor", "middle")
-      .style("font-family", "Montserrat, sans-serif")
-      .text("COVID Recovery Need Score");
+      const y = d3.scaleLinear().domain([0, 160000000]).range([height, 0]);
+      svg.append("g").call(d3.axisLeft(y));
 
-    svg
-      .append("text")
-      .attr("transform", "rotate(-90)")
-      .attr("y", 0 - margin.left)
-      .attr("x", 0 - height / 2)
-      .attr("dy", "1em")
-      .style("text-anchor", "middle")
-      .style("font-family", "Montserrat, sans-serif")
-      .text("Allocated Aid (US Dollars)");
-  }
+      const z = d3.scaleLinear().domain([75, 190000]).range([2, 50]);
+
+      svg
+        .append("g")
+        .selectAll("dot")
+        .data(data)
+        .join("circle")
+        .attr("cx", (d) => x(d["Weighted Score"]))
+        .attr("cy", (d) => y(d["Estimated Aid"]))
+        .attr("r", (d) => z(d.Population))
+        .style("fill", (d) => bubbleColors[d.entitlement])
+        .style("opacity", ".7")
+        .attr("stroke", "black")
+        .on("mouseover", (event, d) => {
+          const tooltipElement = document.getElementsByClassName("tooltip")[0];
+          tooltip
+            .transition()
+            .duration(50)
+            .style("opacity", 0.9)
+            .style("display", "inline");
+          tooltip
+            .html(tooltipHtml(d))
+            .style("left", () => {
+              if (event.pageX > window.innerWidth / 2) {
+                return `${event.pageX - tooltipElement.offsetWidth + 20}px`;
+              }
+              return `${event.pageX + 10}px`;
+            })
+            .style("top", `${event.pageY - tooltipElement.offsetHeight - 10}px`);
+        })
+        .on("mouseleave", () => {
+          tooltip.transition().duration(200).style("opacity", 0);
+        });
+
+      svg
+        .append("text")
+        .attr("transform", `translate(${width / 2}, ${height + margin.top + 30})`)
+        .style("text-anchor", "middle")
+        .style("font-family", "Montserrat, sans-serif")
+        .text("COVID Recovery Need Score");
+
+      svg
+        .append("text")
+        .attr("transform", "rotate(-90)")
+        .attr("y", 0 - margin.left)
+        .attr("x", 0 - height / 2)
+        .attr("dy", "1em")
+        .style("text-anchor", "middle")
+        .style("font-family", "Montserrat, sans-serif")
+        .text("Allocated Aid (US Dollars)");
+
+      // Cleanup function
+      return () => {
+        tooltip.remove();
+      };
+    }
+  }, [data]);
 
   return (
     <>
