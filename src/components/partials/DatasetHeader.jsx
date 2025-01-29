@@ -2,15 +2,25 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import PropTypes from 'prop-types';
 import ReactGA from 'react-ga';
+import axios from 'axios';
 
-function downloadMetadata(
+/**
+ * Downloads metadata in CSV format
+ * @param {Event} e - The event object
+ * @param {string} database - The database name
+ * @param {Object} metadata - The metadata object
+ * @param {string} title - The title of the dataset
+ * @param {string} table - The table name
+ * @param {string} description - The description of the dataset
+ */
+const downloadMetadata = (
   e,
   database,
   metadata,
   title,
   table = '',
   description = ''
-) {
+)  => {
   e.preventDefault();
   const documentHeader = ['name', 'alias', 'details'];
   let rows;
@@ -59,22 +69,96 @@ function downloadMetadata(
   link.click();
 }
 
-function downloadCsv(
-  schema,
-  table,
-  database,
-  selectedYears = [],
-  queryYearColumn = ''
-) {
-  const yearString = selectedYears.join();
-  if (table === 'zoning_atlas') {
-    return 'https://mapc365.sharepoint.com/:x:/s/DataServicesSP/Efonrnmw_kdMhmG3Dw2BkTcBIpe2sC_2ADWTWfUjOs4JhQ?e=K65BCE';
+
+/**
+ * Downloads table data in CSV based on provided parameters
+ * @param {string} schema - The database schema name
+ * @param {string} table - The table name to query
+ * @param {string} database - The database name
+ * @param {Array<string|number>} selectedYears - Array of selected years to filter data
+ * @param {string} queryYearColumn - The column name containing year data
+ * @returns {Promise<void>} - Returns nothing, triggers file download
+ */
+const downloadTableData = async (schema, table, database, selectedYears, queryYearColumn) => {
+  try {
+    // Handle zoning atlas special case
+    if (table === "zoning_atlas") {
+      window.open("https://mapc365.sharepoint.com/:x:/s/DataServicesSP/Efonrnmw_kdMhmG3Dw2BkTcBIpe2sC_2ADWTWfUjOs4JhQ?e=K65BCE", "_blank");
+      return;
+    }
+
+    // Build query and fetch data based on whether years are selected
+    let response;
+    if (selectedYears.length > 0 && queryYearColumn !== '') {
+      const yearString = selectedYears.map(year => `'${year}'`).join(',');
+      response = await axios.get(`/api/?token=testToken&query=SELECT * FROM ${database}.${schema}.${table} WHERE ${queryYearColumn} IN (${yearString}) ORDER BY ${queryYearColumn}`);
+      
+      if (response.data) {
+        const csvContent = generateCsvContent(response.data);
+        const yearStringFileName = yearString.split(',')
+          .map(year => year.replace(/'/g, '').trim())
+          .join('_');
+        downloadFile(csvContent, `${table}-${yearStringFileName}.csv`);
+      }
+    // If no years selected, use the base URL
+    } else {
+      response = await axios.get(`/api/?token=testToken&query=SELECT * FROM ${database}.${schema}.${table}`);
+      if (response.data) {
+        const csvContent = generateCsvContent(response.data);
+        downloadFile(csvContent, `${table}.csv`);
+      }
+    }
+
+    if (!response.data) {
+      throw new Error('No data received from API');
+    }
+
+  } catch (error) {
+    console.error('Error downloading CSV:', error);
+    alert('Failed to download CSV. Please try again.');
   }
-  if (selectedYears.length > 0 && queryYearColumn !== '') {
-    return `/csv?table=${schema}.${table}&database=${database}&years=${yearString}&year_col=${queryYearColumn}`;
-  }
-  return `/csv?table=${schema}.${table}&database=${database}`;
-}
+};
+
+/**
+ * Generates CSV content from an array of rows
+ * @param {Array<Object>} rows - Array of objects representing rows of data
+ * @returns {string} - CSV content as a string
+ */
+const generateCsvContent = (rows) => {
+  if (!rows || rows.length === 0) return '';
+  
+  // Get headers from first row
+  const headers = Object.keys(rows[0]);
+  
+  // Create CSV rows
+  const csvRows = [
+    headers.join(','), // Header row
+    ...rows.map(row => headers.map(header => row[header]).join(','))
+  ];
+
+  return csvRows.join('\n');
+};
+
+/**
+ * Downloads a file with the given content and filename
+ * @param {string} content - The content to be downloaded
+ * @param {string} filename - The name of the file to be downloaded
+ */
+const downloadFile = (content, filename) => {
+  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+};
+
+
+
 
 function downloadShp(database, schema, table) {
   if (table === 'zoning_atlas') {
@@ -83,7 +167,7 @@ function downloadShp(database, schema, table) {
   return `/shapefile?table=${database}.${schema}.${table}&database=${database}`;
 }
 
-function setDownloadLinks(
+const setDownloadButton = (
   metadata,
   schema,
   table,
@@ -92,36 +176,30 @@ function setDownloadLinks(
   selectedYears,
   queryYearColumn,
   database
-) {
+) => {
   if (database === 'towndata' || database === 'gisdata') {
     return (
       <div className="details-content-column download-links">
         Download:
-        <div className="download-buttons gradient-4">
-          <a
-            className="button lift"
+        <div className="download-buttons">
+          <div
+            className="button metadata-button"
             onClick={(e) =>
               downloadMetadata(e, database, metadata, title, table, description)
             }
           >
-            metadata
-          </a>
-          <a
-            className="button lift"
+            .metadata
+          </div>
+          <div
+            className="button csv-button"
             onClick={() =>
-              ReactGA.event({
-                category: 'Datasets',
-                action: 'Download CSV',
-                label: table,
-              })
+              downloadTableData(schema, table, database, selectedYears, queryYearColumn)
             }
-            href={downloadCsv(schema, table, database)}
-            download={table}
           >
             .csv
-          </a>
-          <a
-            className="button lift"
+          </div>
+          <div
+            className="button shp-button"
             onClick={() =>
               ReactGA.event({
                 category: 'Datasets',
@@ -129,51 +207,36 @@ function setDownloadLinks(
                 label: table,
               })
             }
-            href={downloadShp(database, schema, table)}
-            download={table}
           >
             .shp
-          </a>
+          </div>
         </div>
       </div>
     );
   }
   return (
     <div className="details-content-column download-links">
-      Download:
-      <div className="download-buttons gradient-4">
-        <a
-          className="button lift"
+      <div className="download-buttons">
+        <div
+          className="button metadata-button"
           onClick={(e) => downloadMetadata(e, database, metadata, title)}
         >
-          metadata
-        </a>
-        <a
-          className="button lift"
+          .metadata
+        </div>
+        <div
+          className="button csv-button"
           onClick={() =>
-            ReactGA.event({
-              category: 'Datasets',
-              action: 'Download CSV',
-              label: table,
-            })
+            downloadcsv(schema, table, database, selectedYears, queryYearColumn)
           }
-          href={downloadCsv(
-            schema,
-            table,
-            database,
-            selectedYears,
-            queryYearColumn
-          )}
-          download={table}
         >
           .csv
-        </a>
+        </div>
       </div>
     </div>
   );
-}
+} 
 
-function setSelectYears(availableYears, updateSelectedYears, selectedYears) {
+const setSelectYears = (availableYears, updateSelectedYears, selectedYears) => {
   if (availableYears.length > 0) {
     return (
       <div className="year-filter">
@@ -195,7 +258,7 @@ function setSelectYears(availableYears, updateSelectedYears, selectedYears) {
   return null;
 }
 
-function setUniverse(universe) {
+const setUniverse = (universe) => {
   if (universe) {
     return (
       <li>
@@ -221,6 +284,7 @@ function DatasetHeader({
   queryYearColumn,
   selectedYears,
 }) {
+
   return (
     <div className="page-header">
       <div className="container back-link">
@@ -249,7 +313,7 @@ function DatasetHeader({
             </ul>
             {setSelectYears(availableYears, updateSelectedYears, selectedYears)}
           </div>
-          {setDownloadLinks(
+          {setDownloadButton(
             metadata,
             schema,
             table,

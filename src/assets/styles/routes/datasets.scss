@@ -110,37 +110,43 @@
     }
   }
 
-  .download-links {
-    right: 0;
+  .download-buttons {
+    display: flex;
+    gap: 8px;
+    align-items: center;
 
-    font-size: $font_size-xsmall;
+    .button {
+      padding: 4px 12px;
+      border-radius: 5px;
+      cursor: pointer;
+      color:#fff;
+      
+      font-weight: 500;
+      transition: opacity .12s;
+      text-transform: lowercase;
 
-    .download-buttons {
-      display: inline-block;
+      &:hover {
+        transition: color .12s;
+      }
 
-      margin: auto;
-      margin-left: 5px;
-      vertical-align: text-bottom;
-
-      a {
-        margin: auto 3px;
-
+      &.metadata-button,
+      &.csv-button,
+      &.shp-button {
+        background: linear-gradient(90deg, #64c08d, #5aba8c);
         font-size: $font_size-xsmall;
       }
 
-      $spreadLevels: 2 3 4;
-
-      @each $spread in $spreadLevels {
-        &.gradient-#{$spread} a {
-          @for $i from 1 through $spread {
-            &:nth-of-type(#{$i}) { @include partialGradient($i, $spread); }
-          }
-        }
-      }
+    
     }
   }
 
-
+  .details-content-column.download-links {
+    display: flex;
+    gap: 8px;
+    font-size: 14px;
+    justify-content: end;
+    align-items: flex-start;
+  }
 
   .table-wrapper { @extend ._partial-bg; }
 

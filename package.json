@@ -20,6 +20,8 @@
     "axios": "^1.6.2",
     "d3": "^7.9.0",
     "esri-leaflet": "^3.0.14",
+    "event": "^1.0.0",
+    "events": "^3.3.0",
     "leaflet": "^1.9.4",
     "mapbox-gl": "^3.7.1",
     "prop-types": "^15.8.1",
@@ -35,7 +37,8 @@
     "react-spinners": "^0.13.8",
     "react-vega": "^7.6.0",
     "vega": "^5.25.0",
-    "vega-lite": "^5.16.3"
+    "vega-lite": "^5.16.3",
+    "xml2js": "^0.6.2"
   },
   "devDependencies": {
     "@eslint/js": "^8.56.0",

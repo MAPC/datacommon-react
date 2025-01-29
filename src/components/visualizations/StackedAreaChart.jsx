@@ -114,7 +114,6 @@ class StackedAreaChart extends React.Component {
         this.props.colors ||
         (keys.length > primaryColors.length ? extendedColors : primaryColors).slice(0, keys.length)
       );
-
     // Prepare data for stacking
     let data = this.props.data.reduce((acc, row) => {
       acc[row.x] = { ...(acc[row.x] || {}), ...{ [row.z]: row.y } };
@@ -151,7 +150,7 @@ class StackedAreaChart extends React.Component {
       .y0((d) => y(d[0]))
       .y1((d) => y(d[1]));
 
-    // Add areas
+    // Add areas with updated tooltip
     g.selectAll(".area")
       .data(stackedData)
       .join("path")
@@ -159,11 +158,33 @@ class StackedAreaChart extends React.Component {
       .attr("fill", (d) => this.color(d.key))
       .attr("d", area)
       .on("mouseover", (event, d) => {
-        this.tooltip
-          .style("opacity", 1)
-          .html(`${d.key}`)
-          .style("left", `${event.pageX + 10}px`)
-          .style("top", `${event.pageY - 10}px`);
+        const mouseX = x.invert(d3.pointer(event)[0]);
+        const bisect = d3.bisector(d => d.data.x).left;
+        const index = bisect(d, mouseX);
+        const dataPoint = d[index];
+        
+        if (dataPoint) {
+          // Format value based on the magnitude
+          let value = dataPoint[1] - dataPoint[0];
+          let formattedValue;
+          
+          if (value >= 100) {
+            formattedValue = d3.format(",.0f")(value); // No decimals for large numbers
+          } else {
+            formattedValue = d3.format(",.1f")(value); // 1 decimal for smaller numbers
+          }
+
+          this.tooltip
+            .style("opacity", 1)
+            .html(`
+              <div style="padding: 4px;">
+                <div>${d.key}</div>
+                <div>${formattedValue}</div>
+              </div>
+            `)
+            .style("left", `${event.pageX + 10}px`)
+            .style("top", `${event.pageY - 10}px`);
+        }
       })
       .on("mousemove", (event) => {
         this.tooltip

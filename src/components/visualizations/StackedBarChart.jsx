@@ -153,22 +153,24 @@ const StackedBarChart = (props) => {
           .scaleLinear()
           .domain([0, d3.max(stack(data).flat(1), d => d[1])])
           .range([0, width])
+          .nice()
       : d3
           .scaleBand()
           .domain(data.map(d => d.x))
           .range([0, width])
-          .padding(data.length === 1 ? 0.4 : 0.1); // Adjust padding based on number of bars
+          .padding(0.5);
 
     const yScale = props.horizontal
       ? d3
           .scaleBand()
           .domain(data.map(d => d.x))
           .range([0, height])
-          .padding(data.length === 1 ? 0.4 : 0.1)
+          .padding(0.5)
       : d3
           .scaleLinear()
           .domain([0, d3.max(stack(data).flat(1), d => d[1])])
-          .range([height, 0]);
+          .range([height, 0])
+          .nice();
 
     // Clear existing content
     chart.selectAll('*').remove();
@@ -191,7 +193,12 @@ const StackedBarChart = (props) => {
       .selectAll('rect')
       .data((d) => d.map((item) => ({...item, series: d.key})))
       .join('rect')
-      .attr('x', (d) => props.horizontal ? 0 : xScale(d.data.x))
+      .attr('x', (d) => {
+        if (props.horizontal) {
+          return xScale(d[0]);
+        }
+        return xScale(d.data.x);
+      })
       .attr('y', (d) => props.horizontal 
         ? yScale(d.data.x) 
         : (isNaN(yScale(d[1])) ? yScale(0) : yScale(d[1])))
@@ -200,11 +207,12 @@ const StackedBarChart = (props) => {
         : (isNaN(yScale(d[0]) - yScale(d[1])) 
           ? 0 
           : Math.max(0, yScale(d[0]) - yScale(d[1]))))
-      .attr('width', (d) => props.horizontal
-        ? (isNaN(xScale(d[1]) - xScale(d[0])) 
-          ? 0 
-          : xScale(d[1]) - xScale(d[0]))
-        : xScale.bandwidth())
+      .attr('width', (d) => {
+        if (props.horizontal) {
+          return Math.max(0, xScale(d[1]) - xScale(d[0]));
+        }
+        return xScale.bandwidth();
+      })
       .on('mouseover', (event, d) => {
         const value = d.data[d.series];
         tooltip
