@@ -30,7 +30,7 @@ const ChartDetails = ({ chart, children }) => (
         <div className="link">
           <span>Link to: </span>
           {Object.keys(chart.datasetLinks).map((label) => (
-            <a key={label} href={`${locations.HOST}/browser/datasets/${chart.datasetLinks[label]}`}>{label}</a>
+            <a key={label} href={`${window.location.origin}/browser/datasets/${chart.datasetLinks[label]}`}>{label}</a>
           ))}
         </div>
       ) : null}
