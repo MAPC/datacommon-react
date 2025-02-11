@@ -102,13 +102,13 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 <h3>Demographics</h3>
               </header>
               <div className="tab__row">
-                <ChartDetails chart={charts.demographics.race_ethnicity}>
+                <ChartDetails chart={charts.demographics.race_ethnicity} muni={muni}>
                   <StackedBarChart
                     chart={charts.demographics.race_ethnicity}
                     muni={muni}
                   />
                 </ChartDetails>
-                <ChartDetails chart={charts.demographics.pop_by_age}>
+                <ChartDetails chart={charts.demographics.pop_by_age} muni={muni}>
                   <StackedBarChart
                     chart={charts.demographics.pop_by_age}
                     muni={muni}
@@ -121,13 +121,13 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 <h3>Economy</h3>
               </header>
               <div className="tab__row">
-                <ChartDetails chart={charts.economy.resident_employment}>
+                <ChartDetails chart={charts.economy.resident_employment} muni={muni}>
                   <StackedBarChart
                     chart={charts.economy.resident_employment}
                     muni={muni}
                   />
                 </ChartDetails>
-                <ChartDetails chart={charts.economy.emp_by_sector}>
+                <ChartDetails chart={charts.economy.emp_by_sector} muni={muni}>
                   <StackedAreaChart
                     chart={charts.economy.emp_by_sector}
                     muni={muni}
@@ -140,14 +140,14 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 <h3>Education</h3>
               </header>
               <div className="tab__row">
-                <ChartDetails chart={charts.education.school_enrollment}>
+                <ChartDetails chart={charts.education.school_enrollment} muni={muni}>
                   <StackedBarChart
                     chart={charts.education.school_enrollment}
                     muni={muni}
                     horizontal
                   />
                 </ChartDetails>
-                <ChartDetails chart={charts.education.edu_attainment_by_race}>
+                <ChartDetails chart={charts.education.edu_attainment_by_race} muni={muni}>
                   <StackedBarChart
                     chart={charts.education.edu_attainment_by_race}
                     muni={muni}
@@ -162,7 +162,7 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 <h3>Governance</h3>
               </header>
               <div className="tab__row">
-                <ChartDetails chart={charts.governance.tax_levy}>
+                <ChartDetails chart={charts.governance.tax_levy} muni={muni}>
                   <PieChart chart={charts.governance.tax_levy} muni={muni} />
                 </ChartDetails>
               </div>
@@ -172,13 +172,13 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 <h3>Environment</h3>
               </header>
               <div className="tab__row tab__row--break">
-                <ChartDetails chart={charts.environment.water_usage_per_cap}>
+                <ChartDetails chart={charts.environment.water_usage_per_cap} muni={muni}>
                   <LineChart
                     chart={charts.environment.water_usage_per_cap}
                     muni={muni}
                   />
                 </ChartDetails>
-                <ChartDetails chart={charts.environment.energy_usage_gas}>
+                <ChartDetails chart={charts.environment.energy_usage_gas} muni={muni}>
                   <StackedAreaChart
                     chart={charts.environment.energy_usage_gas}
                     muni={muni}
@@ -186,7 +186,7 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 </ChartDetails>
               </div>
               <div className="tab__row">
-                <ChartDetails chart={charts.environment.energy_usage_electricity}>
+                <ChartDetails chart={charts.environment.energy_usage_electricity} muni={muni}>
                   <StackedAreaChart
                     chart={charts.environment.energy_usage_electricity}
                     muni={muni}
@@ -199,13 +199,13 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 <h3>Housing</h3>
               </header>
               <div className="tab__row">
-                <ChartDetails chart={charts.housing.cost_burden}>
+                <ChartDetails chart={charts.housing.cost_burden} muni={muni}>
                   <StackedBarChart
                     chart={charts.housing.cost_burden}
                     muni={muni}
                   />
                 </ChartDetails>
-                <ChartDetails chart={charts.housing.units_permitted}>
+                <ChartDetails chart={charts.housing.units_permitted} muni={muni}>
                   <StackedBarChart
                     chart={charts.housing.units_permitted}
                     muni={muni}
@@ -220,13 +220,14 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
               <div className="tab__row">
                 <ChartDetails
                   chart={charts["public-health"].premature_mortality_rate}
+                  muni={muni}
                 >
                   <StackedBarChart
                     chart={charts["public-health"].premature_mortality_rate}
                     muni={muni}
                   />
                 </ChartDetails>
-                <ChartDetails chart={charts["public-health"].hospitalizations}>
+                <ChartDetails chart={charts["public-health"].hospitalizations} muni={muni}>
                   <StackedBarChart
                     chart={charts["public-health"].hospitalizations}
                     muni={muni}
@@ -239,13 +240,13 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 <h3>Transportation</h3>
               </header>
               <div className="tab__row">
-                <ChartDetails chart={charts.transportation.daily_vmt}>
+                <ChartDetails chart={charts.transportation.daily_vmt} muni={muni}>
                   <StackedAreaChart
                     chart={charts.transportation.daily_vmt}
                     muni={muni}
                   />
                 </ChartDetails>
-                <ChartDetails chart={charts.transportation.commute_to_work}>
+                <ChartDetails chart={charts.transportation.commute_to_work} muni={muni}>
                   <PieChart
                     chart={charts.transportation.commute_to_work}
                     muni={muni}

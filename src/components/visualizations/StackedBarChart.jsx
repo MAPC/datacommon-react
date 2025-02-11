@@ -244,7 +244,7 @@ const StackedBarChart = (props) => {
       .append('g')
       .attr('class', 'axis axis-x')
       .attr('transform', `translate(0,${height})`)
-      .call(xAxis);
+      .call(xAxis.tickSize(0));
 
     if (props.horizontal || data.length > 4) {
       xAxisG
@@ -255,7 +255,7 @@ const StackedBarChart = (props) => {
 
     const yAxisG = g.append('g')
       .attr('class', 'axis axis-y')
-      .call(yAxis);
+      .call(yAxis.tickSize(0));
       if (props.wrapLeftLabel
         && props.horizontal
         && clippedMaxLeftLabel == LEFT_LABEL_MAX) {

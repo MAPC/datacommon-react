@@ -27,6 +27,7 @@ class DataViewerClass extends React.Component {
   }
 
   componentDidMount() {
+    // to do change queryBase for new backeden api
     const queryBase = "https://prql.mapc.org/";
     const queryToken = {
       ds: "96608389a2545f7adac815ea258ad27e",
@@ -39,7 +40,6 @@ class DataViewerClass extends React.Component {
         (datasetObj) => +datasetObj.seq_id === +this.props.params.id
       )[0];
       let headerQuery;
-      console.log(dataset);
       if (!dataset) {
         this.setState({ loading: false, error: "Dataset not found" });
         return;
@@ -74,22 +74,13 @@ class DataViewerClass extends React.Component {
 
       if (dataset.schemaname === "tabular") {
         if (dataset.yearcolumn) {
-          console.log("tabular");
-          console.log(
-            `${queryBase}?query=select distinct(${dataset.yearcolumn}) from ${
-              dataset.schemaname
-            }.${dataset.table_name} LIMIT 50&token=${
-              queryToken[dataset.db_name]
-            }`
-          );
-
           const yearQuery = axios.get(
             `${queryBase}?query=select distinct(${dataset.yearcolumn}) from ${
               dataset.schemaname
             }.${dataset.table_name} LIMIT 50&token=${
               queryToken[dataset.db_name]
             }`
-          );
+          );                                                                                                                                                                                                                    
           axios
             .all([yearQuery, tableQuery, headerQuery])
             .then((response) => {
