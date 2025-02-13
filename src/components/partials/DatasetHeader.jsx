@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import PropTypes from 'prop-types';
 import ReactGA from 'react-ga';
 import axios from 'axios';
-import { fetchDownloadShapefile } from '../../api/shapefile';
 
 /**
  * Downloads metadata in CSV format
@@ -162,7 +161,6 @@ function downloadShp(database, schqema, table) {
    if (table === 'zoning_atlas') {
       return 'https://mapc365.sharepoint.com/:f:/s/DataServicesSP/ErKkXSLH_iBOlDhJrTXldrYBIIZ4ZXe4Bkw7OyVapVpX3Q?e=iRkWVB';
    }
-   fetchDownloadShapefile(database, schema, table);
     //return `/shapefile?table=${database}.${schema}.${table}&database=${database}`;
 }
 
