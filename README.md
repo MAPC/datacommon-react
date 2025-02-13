@@ -1,6 +1,8 @@
 # DataCommon Frontend
 
-A rewrite of DataCommon which is a MAPC data portal, the previous repo is [here](https://github.com/MAPC/datacommon) using Vite + React. This project provides an interactive interface for exploring and visualizing municipal data across Massachusetts.
+A front-end rewrite of DataCommon using Vite + React, the previous repo is [here](https://github.com/MAPC/datacommon). This project provides an interactive interface for exploring and visualizing municipal data across Massachusetts.
+
+## 
 
 ## Overview
 
@@ -28,6 +30,7 @@ This project is a modernized version of DataCommon that focuses on improved perf
 
 - Node.js (v16 or higher)
 - yarn
+- A running back-end instance of [DataCommon Backend](https://github.com/MAPC/prql-js)
 
 ### Installation
 
