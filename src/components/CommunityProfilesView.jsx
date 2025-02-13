@@ -14,6 +14,7 @@ import StackedAreaChart from "../containers/visualizations/StackedAreaChart";
 import ChartDetails from "./visualizations/ChartDetails";
 import PieChart from "../containers/visualizations/PieChart";
 import LineChart from "../containers/visualizations/LineChart";
+import DownloadAllChartsButton from './field/DownloadAllChartsButton';
 
 const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
   const dispatch = useDispatch();
@@ -29,7 +30,7 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
       Object.values(charts[activeTab]).forEach((chart) =>
         dispatch(fetchChartData({ chartInfo: chart, municipality: muni }))
       );
-    }
+    } 
   }, [activeTab, muni, dispatch]);
 
   return (
@@ -51,13 +52,16 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 {descriptions[muniSlug.toLowerCase()] ||
                   "No description available."}
               </p>
-              <button
-                onClick={() => window.print()}
-                type="button"
-                className="print-button"
-              >
-                Print charts
-              </button>
+              <div className="button-group">
+                <button
+                  onClick={() => window.print()}
+                  type="button"
+                  className="print-button"
+                >
+                  Print charts
+                </button>
+                <DownloadAllChartsButton muni={muni} />
+              </div>
             </div>
           </section>
         </div>
