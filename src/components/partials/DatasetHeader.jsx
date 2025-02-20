@@ -266,7 +266,6 @@ const setDownloadButton = (
           <div
             className="button shp-button"
             onClick={() => {
-<<<<<<< HEAD
                 ReactGA.event({
                   category: 'Datasets',
                   action: 'Download SHP',
@@ -275,15 +274,6 @@ const setDownloadButton = (
                 downloadShapefile(database, schema, table);
               }
             }
-=======
-              downloadShp(database, schema, table);
-              ReactGA.event({
-                category: 'Datasets',
-                action: 'Download SHP',
-                label: table,
-              });
-            }}
->>>>>>> main
           >
             .shp
           </div>
