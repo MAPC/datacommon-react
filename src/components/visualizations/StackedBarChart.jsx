@@ -244,7 +244,7 @@ const StackedBarChart = (props) => {
       .append('g')
       .attr('class', 'axis axis-x')
       .attr('transform', `translate(0,${height})`)
-      .call(xAxis);
+      .call(xAxis.tickSize(0));
 
     if (props.horizontal || data.length > 4) {
       xAxisG
@@ -253,17 +253,32 @@ const StackedBarChart = (props) => {
         .style('text-anchor', 'start');
     }
 
-    g.append('g')
+    const yAxisG = g.append('g')
       .attr('class', 'axis axis-y')
-      .call(yAxis);
+      .call(yAxis.tickSize(0));
+      if (props.wrapLeftLabel
+        && props.horizontal
+        && clippedMaxLeftLabel == LEFT_LABEL_MAX) {
+          
+      yAxisG.selectAll("text")
+        .each(function (x) {
+          const text = d3.select(this);
+          const rows = splitPhrase(text.text(), LEFT_LABEL_MAX);
+          text.text(null);
+          rows.forEach((row, i) => {
+            const tspan = text.append('tspan');
+            tspan.text(row).attr("x", -10).attr("y", (i - (rows.length / 2)) * 15).attr("dy", "1em");
+          });
+        });
+    }
 
     // Add axis labels with adjusted positioning
     const svg = d3.select(chartRef.current).select('svg');
     
     svg.append('text')
       .attr('class', 'axis-label y-axis-label')
-      .attr('x', -height / 2)
-      .attr('y', margin.left / 3 -20)
+      .attr('x', height / -2)
+      .attr('y', 0)
       .attr('transform', 'rotate(-90)')
       .attr('dy', '1em')
       .attr('font-size', '12px')

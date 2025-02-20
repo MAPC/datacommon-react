@@ -156,15 +156,12 @@ const downloadFile = (content, filename) => {
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 };
-
-
-
-
-function downloadShp(database, schema, table) {
-  if (table === 'zoning_atlas') {
-    return 'https://mapc365.sharepoint.com/:f:/s/DataServicesSP/ErKkXSLH_iBOlDhJrTXldrYBIIZ4ZXe4Bkw7OyVapVpX3Q?e=iRkWVB';
-  }
-  return `/shapefile?table=${database}.${schema}.${table}&database=${database}`;
+// FIXME: we need to fix this to a new endpoint to download the shapefile
+function downloadShp(database, schqema, table) {
+   if (table === 'zoning_atlas') {
+      return 'https://mapc365.sharepoint.com/:f:/s/DataServicesSP/ErKkXSLH_iBOlDhJrTXldrYBIIZ4ZXe4Bkw7OyVapVpX3Q?e=iRkWVB';
+   }
+    //return `/shapefile?table=${database}.${schema}.${table}&database=${database}`;
 }
 
 const setDownloadButton = (
@@ -200,13 +197,14 @@ const setDownloadButton = (
           </div>
           <div
             className="button shp-button"
-            onClick={() =>
+            onClick={() => {
+              downloadShp(database, schema, table);
               ReactGA.event({
                 category: 'Datasets',
                 action: 'Download SHP',
                 label: table,
-              })
-            }
+              });
+            }}
           >
             .shp
           </div>
@@ -226,7 +224,7 @@ const setDownloadButton = (
         <div
           className="button csv-button"
           onClick={() =>
-            downloadcsv(schema, table, database, selectedYears, queryYearColumn)
+            downloadTableData(schema, table, database, selectedYears, queryYearColumn)
           }
         >
           .csv
