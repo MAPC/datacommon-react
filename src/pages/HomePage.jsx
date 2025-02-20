@@ -28,7 +28,7 @@ const Home = () => {
           <SearchBar
             contextKey="dataset"
             searchColumn="title"
-            action={(selected) => toDataset(selected)}
+            onSelect={(selected) => toDataset(selected)}
             placeholder={`Search ${datasets?.length || 0} datasets ...`}
           />
         </div>

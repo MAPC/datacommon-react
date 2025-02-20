@@ -11,7 +11,7 @@ function setTableHeaders(columnKeys) {
 }
 
 function DatasetTable({
-  columnKeys, currentPage, metadata, queryYearColumn, rows, selectedYears, updatePage,
+  columnKeys=[], currentPage=1, metadata=[], queryYearColumn="", rows=[], selectedYears=[], updatePage,
 }) {
   const renderedHeaders = setTableHeaders(columnKeys);
   let allRows;
@@ -104,15 +104,6 @@ DatasetTable.propTypes = {
   rows: PropTypes.arrayOf(PropTypes.object),
   selectedYears: PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.string, PropTypes.number])),
   updatePage: PropTypes.func.isRequired,
-};
-
-DatasetTable.defaultProps = {
-  columnKeys: [],
-  currentPage: 1,
-  metadata: [],
-  queryYearColumn: '',
-  rows: [],
-  selectedYears: [],
 };
 
 export default DatasetTable;

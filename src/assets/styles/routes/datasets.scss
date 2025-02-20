@@ -97,7 +97,7 @@
     display: flex;
 
     & > .details-content-column {
-      flex: 1 0 75%;
+      flex: 1 0 66%;
 
       &:last-of-type {
         flex: 1 0 23%;
@@ -131,6 +131,8 @@
 
       &.metadata-button,
       &.csv-button,
+      &.json-button,
+      &.geojson-button,
       &.shp-button {
         background: linear-gradient(90deg, #64c08d, #5aba8c);
         font-size: $font_size-xsmall;

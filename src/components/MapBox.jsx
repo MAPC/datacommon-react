@@ -79,6 +79,29 @@ class MapBox extends React.Component {
         "fill-opacity": 0,
       },
     });
+
+    const popup = new mapboxgl.Popup({
+			closeButton: false,
+			closeOnClick: false
+		});
+
+		this.map.on('mousemove', 'hover-fill', (e) => {
+			// Change the cursor style as a UI indicator.
+			this.map.getCanvas().style.cursor = 'pointer';
+
+			// Single out the first found feature.
+			var feature = e.features[0];
+
+			// Display a popup with the name of the municipality
+			popup.setLngLat(e.lngLat)
+				.setText(feature.properties.town.toLowerCase().replace(/\b\w/g, s => s.toUpperCase()))
+				.addTo(this.map);
+		});
+
+		this.map.on('mouseleave', 'hover-fill', () => {
+			this.map.getCanvas().style.cursor = '';
+			popup.remove();
+		});
   }
 
   initializeMAPCRegions() {

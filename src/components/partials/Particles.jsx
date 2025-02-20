@@ -84,16 +84,18 @@ class Particles extends React.Component {
     const { width, height, dotArray } = this.state;
     const contxt = this.canvas.getContext('2d');
     requestAnimationFrame(this.interval);
-    contxt.clearRect(0, 0, width, height);
-    dotArray.forEach((dot) => {
-      this.moveDot(dot);
-      contxt.fillStyle = dot.color;
-      contxt.beginPath();
-      contxt.arc(dot.x, dot.y, dot.rad, 0, 2 * Math.PI, false);
-      contxt.fill();
-    });
-    this.drawNearestNeighborLines();
-    this.drawTriangle();
+    if(window.performance.now().toFixed() % 3 == 0) {
+      contxt.clearRect(0, 0, width, height);
+      dotArray.forEach((dot) => {
+        this.moveDot(dot);
+        contxt.fillStyle = dot.color;
+        contxt.beginPath();
+        contxt.arc(dot.x, dot.y, dot.rad, 0, 2 * Math.PI, false);
+        contxt.fill();
+      });
+      this.drawNearestNeighborLines();
+      this.drawTriangle();
+    }
   }
 
   moveDot(dot) {
