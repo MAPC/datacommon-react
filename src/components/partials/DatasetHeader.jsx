@@ -1,7 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import PropTypes from 'prop-types';
-import ReactGA from 'react-ga';
 import axios from 'axios';
 
 /**
@@ -185,12 +184,7 @@ function downloadShapefile(database, schema, table) {
 }
 
 function downloadGeoJSON(database, schema, table) {
-  let url;
-  if (table === 'zoning_atlas') {
-    url = 'https://mapc365.sharepoint.com/:f:/s/DataServicesSP/ErKkXSLH_iBOlDhJrTXldrYBIIZ4ZXe4Bkw7OyVapVpX3Q?e=iRkWVB';
-  } else {
-    url = `/api/geojson?table=${database}.${schema}.${table}&database=${database}`;
-  }
+  const url = `/api/geojson?table=${database}.${schema}.${table}&database=${database}`;
   const link = document.createElement('a');
 
   link.href = url;
@@ -201,27 +195,23 @@ function downloadGeoJSON(database, schema, table) {
 
 function downloadJSON(database, schema, table, selectedYears, queryYearColumn) {
   let url;
-  if (table === 'zoning_atlas') {
-    url = 'https://mapc365.sharepoint.com/:f:/s/DataServicesSP/ErKkXSLH_iBOlDhJrTXldrYBIIZ4ZXe4Bkw7OyVapVpX3Q?e=iRkWVB';
+  let token;
+  switch (database) {
+    case "gisdata":
+      token = "gisToken";
+      break;
+    case "towndata":
+      token = "townToken";
+      break;
+    default:
+      token = "testToken";
+  }
+  if (selectedYears.length > 0 && queryYearColumn !== '') {
+    const yearString = selectedYears.map(year => `'${year}'`).join(',');
+    url = `/api/?token=${token}&query=SELECT * FROM ${database}.${schema}.${table} WHERE ${queryYearColumn} IN (${yearString}) ORDER BY ${queryYearColumn}`;
   } else {
-    let token;
-    switch (database) {
-      case "gisdata":
-        token = "gisToken";
-        break;
-      case "towndata":
-        token = "townToken";
-        break;
-      default:
-        token = "testToken";
-    }
-    if (selectedYears.length > 0 && queryYearColumn !== '') {
-      const yearString = selectedYears.map(year => `'${year}'`).join(',');
-      url = `/api/?token=${token}&query=SELECT * FROM ${database}.${schema}.${table} WHERE ${queryYearColumn} IN (${yearString}) ORDER BY ${queryYearColumn}`;
-    } else {
-      // If no years selected, use the base URL
-      url = `/api/?token=${token}&query=SELECT * FROM ${database}.${schema}.${table}`;
-    }
+    // If no years selected, use the base URL
+    url = `/api/?token=${token}&query=SELECT * FROM ${database}.${schema}.${table}`;
   }
   const link = document.createElement('a');
 
@@ -266,33 +256,21 @@ const setDownloadButton = (
           <div
             className="button shp-button"
             onClick={() => {
-                ReactGA.event({
-                  category: 'Datasets',
-                  action: 'Download SHP',
-                  label: table,
-                });
-                downloadShapefile(database, schema, table);
-              }
-            }
+              downloadShapefile(database, schema, table);
+            }}
           >
             .shp
           </div>
-      {table !== "zoning_atlas" &&
-          <div
-            className="button geojson-button"
-            onClick={() => {
-                ReactGA.event({
-                  category: 'Datasets',
-                  action: 'Download GeoJSON',
-                  label: table,
-                });
+          {table !== "zoning_atlas" &&
+            <div
+              className="button geojson-button"
+              onClick={() => {
                 downloadGeoJSON(database, schema, table);
-              }
-            }
-          >
-            .geojson
-          </div>
-      }
+              }}
+            >
+              .geojson
+            </div>
+          }
         </div>
       </div>
     );
@@ -315,20 +293,16 @@ const setDownloadButton = (
         >
           .csv
         </div>
-        <div
-          className="button json-button"
-          onClick={() => {
-              ReactGA.event({
-                category: 'Datasets',
-                action: 'Download JSON',
-                label: table,
-              });
+        {table !== "zoning_atlas" &&
+          <div
+            className="button json-button"
+            onClick={() => {
               downloadJSON(database, schema, table, selectedYears, queryYearColumn);
-            }
-          }
-        >
-          .json
-        </div>
+            }}
+          >
+            .json
+          </div>
+        }
       </div>
     </div>
   );
@@ -369,20 +343,19 @@ const setUniverse = (universe) => {
 }
 
 function DatasetHeader({
-  title,
-  table,
-  source,
-  universe,
-  description,
-  availableYears,
-  metadata,
-  schema,
-  database,
+  title="",
+  table="",
+  source="",
+  universe="",
+  description="",
+  availableYears=[],
+  metadata=[],
+  schema="",
+  database="ds",
   updateSelectedYears,
-  queryYearColumn,
-  selectedYears,
+  queryYearColumn="",
+  selectedYears=[],
 }) {
-
   return (
     <div className="page-header">
       <div className="container back-link">
@@ -447,20 +420,6 @@ DatasetHeader.propTypes = {
   title: PropTypes.string,
   updateSelectedYears: PropTypes.func.isRequired,
   universe: PropTypes.string,
-};
-
-DatasetHeader.defaultProps = {
-  availableYears: [],
-  database: 'ds',
-  description: '',
-  metadata: [],
-  queryYearColumn: '',
-  schema: '',
-  selectedYears: [],
-  source: '',
-  table: '',
-  title: '',
-  universe: '',
 };
 
 export default DatasetHeader;
