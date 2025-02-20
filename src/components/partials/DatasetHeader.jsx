@@ -87,11 +87,23 @@ const downloadTableData = async (schema, table, database, selectedYears, queryYe
       return;
     }
 
+    let token;
+    switch (database) {
+      case "gisdata":
+        token = "gisToken";
+        break;
+      case "towndata":
+        token = "townToken";
+        break;
+      default:
+        token = "testToken";
+    }
+
     // Build query and fetch data based on whether years are selected
     let response;
     if (selectedYears.length > 0 && queryYearColumn !== '') {
       const yearString = selectedYears.map(year => `'${year}'`).join(',');
-      response = await axios.get(`/api/?token=testToken&query=SELECT * FROM ${database}.${schema}.${table} WHERE ${queryYearColumn} IN (${yearString}) ORDER BY ${queryYearColumn}`);
+      response = await axios.get(`/api/?token=${token}&query=SELECT * FROM ${database}.${schema}.${table} WHERE ${queryYearColumn} IN (${yearString}) ORDER BY ${queryYearColumn}`);
       
       if (response.data) {
         const csvContent = generateCsvContent(response.data);
@@ -102,7 +114,7 @@ const downloadTableData = async (schema, table, database, selectedYears, queryYe
       }
     // If no years selected, use the base URL
     } else {
-      response = await axios.get(`/api/?token=testToken&query=SELECT * FROM ${database}.${schema}.${table}`);
+      response = await axios.get(`/api/?token=${token}&query=SELECT * FROM ${database}.${schema}.${table}`);
       if (response.data) {
         const csvContent = generateCsvContent(response.data);
         downloadFile(csvContent, `${table}.csv`);
@@ -157,14 +169,69 @@ const downloadFile = (content, filename) => {
   URL.revokeObjectURL(url);
 };
 
-
-
-
-function downloadShp(database, schema, table) {
+function downloadShapefile(database, schema, table) {
+  let url;
   if (table === 'zoning_atlas') {
-    return 'https://mapc365.sharepoint.com/:f:/s/DataServicesSP/ErKkXSLH_iBOlDhJrTXldrYBIIZ4ZXe4Bkw7OyVapVpX3Q?e=iRkWVB';
+    url = 'https://mapc365.sharepoint.com/:f:/s/DataServicesSP/ErKkXSLH_iBOlDhJrTXldrYBIIZ4ZXe4Bkw7OyVapVpX3Q?e=iRkWVB';
+  } else {
+    url = `/api/shapefile?table=${database}.${schema}.${table}&database=${database}`;
   }
-  return `/shapefile?table=${database}.${schema}.${table}&database=${database}`;
+  const link = document.createElement('a');
+
+  link.href = url;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+function downloadGeoJSON(database, schema, table) {
+  let url;
+  if (table === 'zoning_atlas') {
+    url = 'https://mapc365.sharepoint.com/:f:/s/DataServicesSP/ErKkXSLH_iBOlDhJrTXldrYBIIZ4ZXe4Bkw7OyVapVpX3Q?e=iRkWVB';
+  } else {
+    url = `/api/geojson?table=${database}.${schema}.${table}&database=${database}`;
+  }
+  const link = document.createElement('a');
+
+  link.href = url;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+function downloadJSON(database, schema, table, selectedYears, queryYearColumn) {
+  let url;
+  if (table === 'zoning_atlas') {
+    url = 'https://mapc365.sharepoint.com/:f:/s/DataServicesSP/ErKkXSLH_iBOlDhJrTXldrYBIIZ4ZXe4Bkw7OyVapVpX3Q?e=iRkWVB';
+  } else {
+    let token;
+    switch (database) {
+      case "gisdata":
+        token = "gisToken";
+        break;
+      case "towndata":
+        token = "townToken";
+        break;
+      default:
+        token = "testToken";
+    }
+    if (selectedYears.length > 0 && queryYearColumn !== '') {
+      const yearString = selectedYears.map(year => `'${year}'`).join(',');
+      url = `/api/?token=${token}&query=SELECT * FROM ${database}.${schema}.${table} WHERE ${queryYearColumn} IN (${yearString}) ORDER BY ${queryYearColumn}`;
+    } else {
+      // If no years selected, use the base URL
+      url = `/api/?token=${token}&query=SELECT * FROM ${database}.${schema}.${table}`;
+    }
+  }
+  const link = document.createElement('a');
+
+  link.href = url;
+  link.download = `export-${database}.${schema}.${table}.json`;
+  // link.target = "_blank";
+  // link.rel = "noopener noreferrer";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
 
 const setDownloadButton = (
@@ -200,22 +267,41 @@ const setDownloadButton = (
           </div>
           <div
             className="button shp-button"
-            onClick={() =>
-              ReactGA.event({
-                category: 'Datasets',
-                action: 'Download SHP',
-                label: table,
-              })
+            onClick={() => {
+                ReactGA.event({
+                  category: 'Datasets',
+                  action: 'Download SHP',
+                  label: table,
+                });
+                downloadShapefile(database, schema, table);
+              }
             }
           >
             .shp
           </div>
+      {table !== "zoning_atlas" &&
+          <div
+            className="button geojson-button"
+            onClick={() => {
+                ReactGA.event({
+                  category: 'Datasets',
+                  action: 'Download GeoJSON',
+                  label: table,
+                });
+                downloadGeoJSON(database, schema, table);
+              }
+            }
+          >
+            .geojson
+          </div>
+      }
         </div>
       </div>
     );
   }
   return (
     <div className="details-content-column download-links">
+      Download:
       <div className="download-buttons">
         <div
           className="button metadata-button"
@@ -226,10 +312,24 @@ const setDownloadButton = (
         <div
           className="button csv-button"
           onClick={() =>
-            downloadcsv(schema, table, database, selectedYears, queryYearColumn)
+            downloadTableData(schema, table, database, selectedYears, queryYearColumn)
           }
         >
           .csv
+        </div>
+        <div
+          className="button json-button"
+          onClick={() => {
+              ReactGA.event({
+                category: 'Datasets',
+                action: 'Download GeoJSON',
+                label: table,
+              });
+              downloadJSON(database, schema, table, selectedYears, queryYearColumn);
+            }
+          }
+        >
+          .json
         </div>
       </div>
     </div>
