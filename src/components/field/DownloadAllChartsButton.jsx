@@ -51,10 +51,9 @@ const LoadingText = styled.span`
 `;
 
 const makeSelectAllChartsData = (allTables, muni) => {
-   return createSelector(
+  return createSelector(
     [
       (state) => {
-       
         return state.chart.cache;
       },
     ],
@@ -73,25 +72,24 @@ const makeSelectAllChartsData = (allTables, muni) => {
 
 // Get all table names from charts
 const allTables = (() => {
-    const tables = new Set();
-    Object.values(charts).forEach((category) => {
-      Object.values(category).forEach((chartInfo) => {
-        Object.keys(chartInfo.tables).forEach((table) => {
-          tables.add(table);
-        });
+  const tables = new Set();
+  Object.values(charts).forEach((category) => {
+    Object.values(category).forEach((chartInfo) => {
+      Object.keys(chartInfo.tables).forEach((table) => {
+        tables.add(table);
       });
     });
-    return Array.from(tables);
-  })();
-
+  });
+  return Array.from(tables);
+})();
 
 export default function DownloadAllChartsButton({ muni }) {
   const dispatch = useDispatch();
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState("");
-  const selectAllChartsData = makeSelectAllChartsData(allTables, muni); 
+  const selectAllChartsData = makeSelectAllChartsData(allTables, muni);
   const allData = useSelector(selectAllChartsData);
-  
+
   const fetchMissingData = async () => {
     const fetchPromises = [];
     let totalToFetch = 0;
@@ -103,7 +101,7 @@ export default function DownloadAllChartsButton({ muni }) {
           (tableName) => !allData[tableName] || allData[tableName].length === 0
         );
 
-        if (needsFetch) {   
+        if (needsFetch) {
           totalToFetch++;
           fetchPromises.push(
             dispatch(
@@ -128,27 +126,25 @@ export default function DownloadAllChartsButton({ muni }) {
   const downloadAllData = async () => {
     try {
       setIsLoading(true);
-   
 
-        await fetchMissingData();
-        
-        // give buffer time for Redux state to settle
-        setTimeout(() => {
-          setLoadingStatus("Preparing Excel file...");
-         
-          const state = store.getState();
-          const excelData = {};
-        
-          Object.values(charts).forEach((category) => {
-            Object.values(category).forEach((chartInfo) => {
-              Object.keys(chartInfo.tables).forEach((tableName) => {
-                excelData[tableName] = state.chart.cache[tableName]?.[muni] || [];
-              });
+      await fetchMissingData();
+
+      // give buffer time for Redux state to settle
+      setTimeout(() => {
+        setLoadingStatus("Preparing Excel file...");
+
+        const state = store.getState();
+        const excelData = {};
+
+        Object.values(charts).forEach((category) => {
+          Object.values(category).forEach((chartInfo) => {
+            Object.keys(chartInfo.tables).forEach((tableName) => {
+              excelData[tableName] = state.chart.cache[tableName]?.[muni] || [];
             });
           });
-          generateExcel(excelData);
-        }, 500);
-    
+        });
+        generateExcel(excelData);
+      }, 500);
     } catch (error) {
       console.error("Error downloading data:", error);
     } finally {
@@ -170,13 +166,13 @@ export default function DownloadAllChartsButton({ muni }) {
         });
       });
     });
-    
+
     Object.entries(data).forEach(([tableName, tableData]) => {
       if (tableData && tableData.length > 0) {
-        
         const ws = XLSX.utils.json_to_sheet(tableData);
         // Excel has 31 char limit
-        let sheetName = tableMapping[tableName]?.slice(0, 31) || tableName.slice(0, 31); 
+        let sheetName =
+          tableMapping[tableName]?.slice(0, 31) || tableName.slice(0, 31);
         XLSX.utils.book_append_sheet(wb, ws, sheetName);
       }
     });

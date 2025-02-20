@@ -156,7 +156,7 @@ const downloadFile = (content, filename) => {
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 };
-
+// TODO: change this to use the new API
 function downloadShp(database, schqema, table) {
    if (table === 'zoning_atlas') {
       return 'https://mapc365.sharepoint.com/:f:/s/DataServicesSP/ErKkXSLH_iBOlDhJrTXldrYBIIZ4ZXe4Bkw7OyVapVpX3Q?e=iRkWVB';
