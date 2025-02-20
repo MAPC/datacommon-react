@@ -1,8 +1,54 @@
-# React + Vite
+# DataCommon Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A front-end rewrite of DataCommon using Vite + React, the previous repo is [here](https://github.com/MAPC/datacommon). This project provides an interactive interface for exploring and visualizing municipal data across Massachusetts.
 
-Currently, two official plugins are available:
+## 
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Overview
+
+This project is a modernized version of DataCommon that focuses on improved performance, better developer experience, and modern web technologies. It works in conjunction with the [DataCommon Backend](https://github.com/MAPC/prql-js) which uses JavaScript for data querying.
+
+## Tech Stack
+
+- **Frontend Framework**: React 18
+- **Build Tool**: Vite
+- **State Management**: Redux Toolkit
+- **Styling**: Styled Components
+- **Charts**: d3
+
+## Key Features
+
+- 📊 Interactive data visualization with customizable charts
+- 📱 Responsive design for all device sizes
+- 📥 Data export functionality to Excel, CSV
+- 🗺️ Municipal data exploration
+- 📈 Multiple chart types support
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js (v16 or higher)
+- yarn
+- A running back-end instance of [DataCommon Backend](https://github.com/MAPC/prql-js)
+
+### Installation
+
+## Quick Start
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/your-username/datacommon-react.git
+   cd datacommon-react
+   ```
+
+2. **Install dependencies**
+   ```bash
+   yarn
+   ```
+3. **Start development server**
+   ```bash
+   yarn dev
+   ```
+   The application will be available at `http://localhost:5173`
+

@@ -126,25 +126,21 @@ export default function DownloadAllChartsButton({ muni }) {
   const downloadAllData = async () => {
     try {
       setIsLoading(true);
-
       await fetchMissingData();
-
-      // give buffer time for Redux state to settle
-      setTimeout(() => {
-        setLoadingStatus("Preparing Excel file...");
-
-        const state = store.getState();
-        const excelData = {};
-
-        Object.values(charts).forEach((category) => {
-          Object.values(category).forEach((chartInfo) => {
-            Object.keys(chartInfo.tables).forEach((tableName) => {
-              excelData[tableName] = state.chart.cache[tableName]?.[muni] || [];
-            });
+      
+      setLoadingStatus("Preparing Excel file...");
+      const state = store.getState();
+      const excelData = {};
+    
+      Object.values(charts).forEach((category) => {
+        Object.values(category).forEach((chartInfo) => {
+          Object.keys(chartInfo.tables).forEach((tableName) => {
+            excelData[tableName] = state.chart.cache[tableName]?.[muni] || [];
           });
         });
-        generateExcel(excelData);
-      }, 500);
+      });
+      generateExcel(excelData);
+
     } catch (error) {
       console.error("Error downloading data:", error);
     } finally {

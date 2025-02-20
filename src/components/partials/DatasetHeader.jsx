@@ -156,7 +156,8 @@ const downloadFile = (content, filename) => {
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 };
-// TODO: change this to use the new API
+
+// FIXME: we need to fix this to a new endpoint to download the shapefile
 function downloadShp(database, schqema, table) {
    if (table === 'zoning_atlas') {
       return 'https://mapc365.sharepoint.com/:f:/s/DataServicesSP/ErKkXSLH_iBOlDhJrTXldrYBIIZ4ZXe4Bkw7OyVapVpX3Q?e=iRkWVB';
@@ -197,14 +198,14 @@ const setDownloadButton = (
           </div>
           <div
             className="button shp-button"
-            onClick={() =>
-             downloadShp(database, schema, table)
-             /*  ReactGA.event({
+            onClick={() => {
+              downloadShp(database, schema, table);
+              ReactGA.event({
                 category: 'Datasets',
                 action: 'Download SHP',
                 label: table,
-              }) */
-            }
+              });
+            }}
           >
             .shp
           </div>
