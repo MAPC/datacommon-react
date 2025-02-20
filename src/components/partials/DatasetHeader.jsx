@@ -156,6 +156,7 @@ const downloadFile = (content, filename) => {
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 };
+
 // FIXME: we need to fix this to a new endpoint to download the shapefile
 function downloadShp(database, schqema, table) {
    if (table === 'zoning_atlas') {
