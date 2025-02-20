@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import * as d3 from 'd3';
 
@@ -36,6 +36,27 @@ const StackedBarChart = (props) => {
   const tooltipRef = useRef(null);
   const stackRef = useRef(d3.stack());
   const colorRef = useRef(null);
+  const [xAxisLabel, setXAxisLabel] = useState(
+    typeof props.xAxis.label === 'string' ? props.xAxis.label : ''
+  );
+
+  useEffect(() => {
+    const loadXAxisLabel = async () => {
+      if (typeof props.xAxis.label === 'function') {
+        try {
+          const label = await props.xAxis.label();
+          setXAxisLabel(label);
+        } catch (error) {
+          console.error('Error loading xAxis label:', error);
+          setXAxisLabel('');
+        }
+      } else {
+        setXAxisLabel(props.xAxis.label || '');
+      }
+    };
+
+    loadXAxisLabel();
+  }, [props.xAxis.label]);
 
   useEffect(() => {
     // Create tooltip
@@ -151,14 +172,13 @@ const StackedBarChart = (props) => {
     const xScale = props.horizontal
       ? d3
           .scaleLinear()
-          .domain([0, d3.max(stack(data).flat(1), d => d[1])])
+          .domain([0, d3.max([1, d3.max(stack(data).flat(1), d => d[1])])])
           .range([0, width])
-          .nice()
       : d3
           .scaleBand()
           .domain(data.map(d => d.x))
           .range([0, width])
-          .padding(0.5);
+          .paddingInner(0.2);
 
     const yScale = props.horizontal
       ? d3
@@ -168,9 +188,20 @@ const StackedBarChart = (props) => {
           .padding(0.5)
       : d3
           .scaleLinear()
-          .domain([0, d3.max(stack(data).flat(1), d => d[1])])
-          .range([height, 0])
-          .nice();
+          .domain([0, d3.max([1, d3.max(stack(data).flat(1), d => d[1])])])
+          .range([height, 0]);
+
+    // Calculate optimal bar width and alignment
+    const [rangeMin, rangeMax] = [0, width];
+    const columnWidth = data.length < 3 
+      ? ((rangeMax - rangeMin) / 3) 
+      : (props.horizontal ? xScale(1) : xScale.bandwidth());
+    
+    const realignment = data.length < 3
+      ? (props.horizontal 
+          ? 0 
+          : (xScale.bandwidth() - ((rangeMax - rangeMin) / 3)) / 2)
+      : 0;
 
     // Clear existing content
     chart.selectAll('*').remove();
@@ -191,29 +222,30 @@ const StackedBarChart = (props) => {
 
     layers
       .selectAll('rect')
-      .data((d) => d.map((item) => ({...item, series: d.key})))
+      .data(d => d.map(item => ({...item, series: d.key})))
       .join('rect')
-      .attr('x', (d) => {
+      .attr('x', d => {
         if (props.horizontal) {
           return xScale(d[0]);
         }
-        return xScale(d.data.x);
+        return xScale(d.data.x) + realignment;
       })
-      .attr('y', (d) => props.horizontal 
+      .attr('y', d => props.horizontal 
         ? yScale(d.data.x) 
         : (isNaN(yScale(d[1])) ? yScale(0) : yScale(d[1])))
-      .attr('height', (d) => props.horizontal
+      .attr('height', d => props.horizontal
         ? yScale.bandwidth()
         : (isNaN(yScale(d[0]) - yScale(d[1])) 
           ? 0 
           : Math.max(0, yScale(d[0]) - yScale(d[1]))))
-      .attr('width', (d) => {
+      .attr('width', d => {
         if (props.horizontal) {
           return Math.max(0, xScale(d[1]) - xScale(d[0]));
         }
-        return xScale.bandwidth();
+        return columnWidth;
       })
       .on('mouseover', (event, d) => {
+        console.log(d);
         const value = d.data[d.series];
         tooltip
           .style('opacity', 1)
@@ -230,7 +262,7 @@ const StackedBarChart = (props) => {
         tooltip.style('opacity', 0);
       });
 
-    // Create axes
+    // Add axes with proper formatting
     const xAxis = props.horizontal
       ? d3.axisBottom(xScale).tickFormat(props.xAxis.format || (d => d < 1 ? d3.format('.0%')(d) : d))
       : d3.axisBottom(xScale).tickFormat(props.xAxis.format);
@@ -246,6 +278,7 @@ const StackedBarChart = (props) => {
       .attr('transform', `translate(0,${height})`)
       .call(xAxis.tickSize(0));
 
+    // Apply text rotation based on data characteristics
     if (props.horizontal || data.length > 4) {
       xAxisG
         .selectAll('text')
@@ -283,7 +316,7 @@ const StackedBarChart = (props) => {
       .attr('dy', '1em')
       .attr('font-size', '12px')
       .style('text-anchor', 'middle')
-      .text(props.horizontal ? props.xAxis.label : props.yAxis.label);
+      .text(props.horizontal ? xAxisLabel : props.yAxis.label);
 
     svg.append('text')
       .attr('class', 'axis-label x-axis-label')
@@ -291,7 +324,7 @@ const StackedBarChart = (props) => {
       .attr('y', height + margin.top + 45)
       .attr('font-size', '12px')
       .style('text-anchor', 'middle')
-      .text(props.horizontal ? props.yAxis.label : props.xAxis.label);
+      .text(props.horizontal ? props.yAxis.label : xAxisLabel);
 
     // Add legend
     const legend = d3.select(legendContainerRef.current);
@@ -338,7 +371,10 @@ const StackedBarChart = (props) => {
 
 StackedBarChart.propTypes = {
   xAxis: PropTypes.shape({
-    label: PropTypes.string.isRequired,
+    label: PropTypes.oneOfType([
+      PropTypes.string,
+      PropTypes.func
+    ]).isRequired,
     format: PropTypes.func,
   }).isRequired,
   yAxis: PropTypes.shape({
