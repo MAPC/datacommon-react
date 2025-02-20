@@ -227,8 +227,6 @@ function downloadJSON(database, schema, table, selectedYears, queryYearColumn) {
 
   link.href = url;
   link.download = `export-${database}.${schema}.${table}.json`;
-  // link.target = "_blank";
-  // link.rel = "noopener noreferrer";
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -268,6 +266,7 @@ const setDownloadButton = (
           <div
             className="button shp-button"
             onClick={() => {
+<<<<<<< HEAD
                 ReactGA.event({
                   category: 'Datasets',
                   action: 'Download SHP',
@@ -276,6 +275,15 @@ const setDownloadButton = (
                 downloadShapefile(database, schema, table);
               }
             }
+=======
+              downloadShp(database, schema, table);
+              ReactGA.event({
+                category: 'Datasets',
+                action: 'Download SHP',
+                label: table,
+              });
+            }}
+>>>>>>> main
           >
             .shp
           </div>
@@ -322,7 +330,7 @@ const setDownloadButton = (
           onClick={() => {
               ReactGA.event({
                 category: 'Datasets',
-                action: 'Download GeoJSON',
+                action: 'Download JSON',
                 label: table,
               });
               downloadJSON(database, schema, table, selectedYears, queryYearColumn);

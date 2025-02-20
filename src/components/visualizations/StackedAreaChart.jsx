@@ -198,7 +198,9 @@ class StackedAreaChart extends React.Component {
     // Add axes
     const xAxis = d3
       .axisBottom(x)
-      .tickFormat(this.props.xAxis.format || d3.format("d"));
+      .ticks(this.props.xAxis.ticks)
+      .tickPadding(10)
+      .tickFormat(this.props.xAxis.format);
 
     const yAxis = d3
       .axisLeft(y)
@@ -207,11 +209,11 @@ class StackedAreaChart extends React.Component {
     g.append("g")
       .attr("class", "axis axis-x")
       .attr("transform", `translate(0,${height})`)
-      .call(xAxis);
+      .call(xAxis.tickSize(0));
 
     g.append("g")
       .attr("class", "axis axis-y")
-      .call(yAxis);
+      .call(yAxis.tickSize(0));
 
     // Add axis labels
     this.chart

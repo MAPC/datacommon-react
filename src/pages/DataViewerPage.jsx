@@ -27,6 +27,7 @@ class DataViewerClass extends React.Component {
   }
 
   componentDidMount() {
+    // to do change queryBase for new backeden api
     const queryBase = "https://prql.mapc.org/";
     const queryToken = {
       ds: "96608389a2545f7adac815ea258ad27e",
@@ -79,7 +80,7 @@ class DataViewerClass extends React.Component {
             }.${dataset.table_name} LIMIT 50&token=${
               queryToken[dataset.db_name]
             }`
-          );
+          );                                                                                                                                                                                                                    
           axios
             .all([yearQuery, tableQuery, headerQuery])
             .then((response) => {
