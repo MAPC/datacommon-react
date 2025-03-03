@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "staging": "yarn build && rsync -r dist/* datacommon-react@prep.mapc.org:/var/www/datacommon-react",
     "lint": "eslint .",
     "preview": "vite preview"
   },
