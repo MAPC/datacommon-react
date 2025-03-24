@@ -180,7 +180,6 @@ const CopyButton = styled.button`
   border-radius: 5px;
   color: #FFFFFF;
   cursor: pointer;
-  font-family: "skolar-sans-latin", Helvetica, sans-serif;
   font-weight: 400;
   font-size: 12px;
   padding: 8px 12px;
