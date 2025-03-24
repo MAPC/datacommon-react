@@ -49,6 +49,7 @@ export default function DownloadChartButton({ chart, muni }) {
       // Convert data to CSV
       const headers = Object.keys(data[0]);
       const csv = [
+        ['Municipality:', muni].join(','),
         headers.join(','),
         ...data.map(row => 
           headers.map(header => {
