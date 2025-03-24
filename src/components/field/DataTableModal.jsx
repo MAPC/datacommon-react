@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import styled, { keyframes } from 'styled-components';
 
@@ -72,7 +72,7 @@ const CloseButton = styled.button`
   background: none;
   border: none;
   font-size: 1.5rem;
-  padding: 0;
+  padding-bottom: 0.33em;
   cursor: pointer;
   color: #666;
   width: 32px;
@@ -213,6 +213,39 @@ const ButtonGroup = styled.div`
 const DataTableModal = ({ show, handleClose, data, title, muni }) => {
   const [copyStatus, setCopyStatus] = useState('Copy to Clipboard');
 
+  useEffect(() => {
+    const handleEscapeKey = (event) => {
+      if (event.key === 'Escape') {
+        handleClose();
+      }
+    };
+
+    if (show) {
+      document.addEventListener('keydown', handleEscapeKey);
+      // Prevent body scrolling when modal is open
+      document.body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscapeKey);
+      // Restore body scrolling when modal is closed
+      document.body.style.overflow = 'unset';
+    };
+  }, [show, handleClose]);
+
+  const handleModalWheel = (e) => {
+    const modalBody = e.currentTarget;
+    const { scrollTop, scrollHeight, clientHeight } = modalBody;
+    
+    // Check if we're at the top or bottom of scrolling
+    if (
+      (scrollTop === 0 && e.deltaY < 0) || // At top and scrolling up
+      (scrollTop + clientHeight === scrollHeight && e.deltaY > 0) // At bottom and scrolling down
+    ) {
+      e.preventDefault();
+    }
+  };
+
   if (!show || !data || data.length === 0) return null;
 
   const headers = Object.keys(data[0]);
@@ -309,7 +342,7 @@ const DataTableModal = ({ show, handleClose, data, title, muni }) => {
             ×
           </CloseButton>
         </ModalHeader>
-        <ModalBody>
+        <ModalBody onWheel={handleModalWheel}>
           <TableWrapper>
             <Table>
               <thead>
