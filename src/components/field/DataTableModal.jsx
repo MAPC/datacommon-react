@@ -288,6 +288,7 @@ const DataTableModal = ({ show, handleClose, data, title, muni }) => {
   const handleDownload = () => {
     try {
       const csvContent = [
+        `Municipality: ${muni}`,
         headers.join(','),
         ...data.map(row => 
           headers.map(header => {

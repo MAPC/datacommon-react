@@ -165,7 +165,13 @@ export default function DownloadAllChartsButton({ muni }) {
 
     Object.entries(data).forEach(([tableName, tableData]) => {
       if (tableData && tableData.length > 0) {
-        const ws = XLSX.utils.json_to_sheet(tableData);
+        // Create worksheet with municipality header
+        const muniHeader = [['Municipality:', muni], []];
+        const ws = XLSX.utils.aoa_to_sheet(muniHeader);
+        
+        // Add the data starting at row 2
+        XLSX.utils.sheet_add_json(ws, tableData, { origin: 'A2', skipHeader: false });
+        
         // Excel has 31 char limit
         let sheetName =
           tableMapping[tableName]?.slice(0, 31) || tableName.slice(0, 31);
