@@ -13,6 +13,7 @@ const StyledButton = styled.button`
   font-family: "skolar-sans-latin", Helvetica, sans-serif;
   font-weight: 400;
   font-size: 12px;
+  padding: 8px 12px;
 
   &:hover {
     background: #5DB37A;

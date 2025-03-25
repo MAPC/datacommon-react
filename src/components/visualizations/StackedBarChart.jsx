@@ -245,7 +245,6 @@ const StackedBarChart = (props) => {
         return columnWidth;
       })
       .on('mouseover', (event, d) => {
-        console.log(d);
         const value = d.data[d.series];
         tooltip
           .style('opacity', 1)

@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import DownloadChartButton from '../field/DownloadChartButton';
 import styled from 'styled-components';
+import { useSelector } from 'react-redux';
+import { createSelector } from '@reduxjs/toolkit';
+import DownloadChartButton from '../field/DownloadChartButton';
 
 const ChartHeader = styled.div`
   display: flex;
@@ -14,8 +16,46 @@ const ChartTitle = styled.h3`
   margin: 0;
 `;
 
-const ChartDetails = ({ chart, children, muni }) => {
+const ButtonGroup = styled.div`
+  display: flex;
+  gap: 8px;
+`;
+
+const ViewButton = styled.button`
+  background: #6FC68E;
+  border: none;
+  border-radius: 5px;
+  color: #FFFFFF;
+  cursor: pointer;
+  font-family: "skolar-sans-latin", Helvetica, sans-serif;
+  font-weight: 400;
+  font-size: 12px;
+  padding: 8px 12px;
+
+  &:hover {
+     background: #5DB37A;
+  }
+`;
+
+const makeSelectChartData = (tables, muni) => createSelector(
+  [(state) => state.chart.cache],
+  (cache) => tables.reduce((acc, table) => ({
+    ...acc,
+    [table]: cache[table]?.[muni] || []
+  }), {})
+);
+
+const ChartDetails = ({ chart, children, muni, onViewData }) => {
   const [timeframe, setTimeframe] = useState(typeof chart.timeframe === 'string' ? chart.timeframe : 'Unknown');
+
+  const selectChartData = React.useMemo(
+    () => makeSelectChartData(Object.keys(chart.tables), muni),
+    [chart.tables, muni]
+  );
+  
+  const chartData = useSelector(selectChartData);
+  const tableName = Object.keys(chartData)[0];
+  const data = chartData[tableName];
 
   useEffect(() => {
     if (typeof chart.timeframe === 'function') {
@@ -23,13 +63,25 @@ const ChartDetails = ({ chart, children, muni }) => {
     }
   }, [chart.timeframe]);
 
+  const handleViewData = () => {
+    onViewData(data, chart.title);
+  };
+
   return (
     <div className="chart-wrapper">
       <ChartHeader>
         <ChartTitle className="chart__title">
           {chart.title || 'Chart Title'}
         </ChartTitle>
-        <DownloadChartButton chart={chart} muni={muni} />
+        <ButtonGroup>
+          <ViewButton
+            onClick={handleViewData}
+            title="View chart data in table format"
+          >
+            View Data
+          </ViewButton>
+          <DownloadChartButton chart={chart} muni={muni} />
+        </ButtonGroup>
       </ChartHeader>
       {children}
       {chart.caveat ? (
@@ -69,11 +121,15 @@ ChartDetails.propTypes = {
   chart: PropTypes.shape({
     title: PropTypes.string,
     source: PropTypes.string,
-    timeframe: PropTypes.string,
+    timeframe: PropTypes.oneOfType([
+      PropTypes.string,
+      PropTypes.func
+    ]),
     datasetLinks: PropTypes.object,
     tables: PropTypes.object.isRequired,
   }).isRequired,
   muni: PropTypes.string.isRequired,
+  onViewData: PropTypes.func.isRequired,
 };
 
 export default ChartDetails;
