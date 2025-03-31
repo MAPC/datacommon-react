@@ -3,6 +3,7 @@ import datasetReducer from './reducers/datasetSlice';
 import searchReducer from './reducers/searchSlice';
 import municipalityReducer from './reducers/municipalitySlice';
 import chartReducer from './reducers/chartSlice';
+import subregionReducer from './reducers/subregionSlice';
 
 export const store = configureStore({
   reducer: {
@@ -10,6 +11,7 @@ export const store = configureStore({
     search: searchReducer,
     municipality: municipalityReducer,
     chart: chartReducer,
+    subregion: subregionReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
