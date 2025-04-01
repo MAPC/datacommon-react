@@ -111,14 +111,14 @@ const SubregionProfilesView = () => {
       }));
     });
   }, [activeTab, municipalities, subregionId, dispatch]);
-
-  const handleShowModal = (data, title) => {
+ 
+  const handleShowModal = (data, title) =>{
     setModalConfig({
       show: true,
-      data: selectSubregionChartData(data,subregionId, title), //to do fix what is data
+      data: data,
       title: `${title} (Aggregated)`
     });
-  };
+  }
 
   const handleCloseModal = () => {
     setModalConfig({
@@ -134,7 +134,7 @@ const SubregionProfilesView = () => {
 
   const renderCharts = () => {
     if (!charts[activeTab]) return null;
-
+    
     return Object.entries(charts[activeTab]).map(([key, chart]) => {
       let ChartComponent;
       switch (chart.type) {
@@ -160,6 +160,7 @@ const SubregionProfilesView = () => {
           chart={chart}
           muni={subregionId}
           onViewData={handleShowModal}
+          isSubregion={true}
         >
           <ChartComponent
             chart={chart}

@@ -107,13 +107,6 @@ export const fetchMissingMunicipalityData = createAsyncThunk(
   }
 );
 
-export const updateSubregionChart = createAsyncThunk(
-  "subregion/updateChart",
-  async ({ tableName, subregionId, data }) => {
-    return { tableName, subregionId, data };
-  }
-);
-
 const subregionSlice = createSlice({
   name: "subregion",
   initialState: {
@@ -125,14 +118,16 @@ const subregionSlice = createSlice({
   },
   reducers: {
     updateSubregionChart: (state, action) => {
-      const { tableName, subregionName, data } = action.payload;
-      if (!tableName || !subregionName || !data) {
+      console.log("update reducer call= ", action.payload);
+      const { tableName, subregionId, data } = action.payload;
+      if (!tableName || !subregionId || !data) {
         return;
       }
       if (!state.cache[tableName]) {
         state.cache[tableName] = {};
       }
-      state.cache[tableName][subregionName] = data;
+      console.log("updateSubregionChart= ", tableName, subregionId, data);
+      state.cache[tableName][subregionId] = data;
     },
   },
   extraReducers: (builder) => {
@@ -188,5 +183,5 @@ export const selectSubregionChartData = (state, tableName,  subregionId, chartIn
   // Only aggregate if we have data for all municipalities
   return hasAllData ? aggregateChartData(chartData, municipalities) : [];
 };
-
+export const { updateSubregionChart } = subregionSlice.actions;
 export default subregionSlice.reducer; 

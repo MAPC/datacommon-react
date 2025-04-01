@@ -82,6 +82,7 @@ const ChartDetails = ({ chart, children, muni, onViewData, isSubregion }) => {
       // Use the cached aggregated data from subregion state
       onViewData(subregionCache, chart.title);
     } else {
+      console.log("data= ", data);
       onViewData(data, chart.title);
     }
   };

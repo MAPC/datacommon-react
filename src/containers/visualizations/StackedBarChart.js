@@ -1,6 +1,6 @@
 import { connect } from 'react-redux';
 import StackedBarChart from '../../components/visualizations/StackedBarChart';
-import { selectSubregionChartData } from '../../reducers/subregionSlice';
+import { selectSubregionChartData, updateSubregionChart } from '../../reducers/subregionSlice';
 import { createSelector } from '@reduxjs/toolkit';
 
 // Import SUBREGIONS constant
@@ -51,10 +51,23 @@ const selectChartData = createSelector(
       
       if (!subregionId) return { data: [], hasData: false };
 
+      // Check if data is already cached
+      const isDataCached = state.subregion.cache[tables[0]]?.[subregionId];
+      if (isDataCached) {
+        const transformedData = chart.transformer(
+          { [tables[0]]: isDataCached },
+          chart
+        );
+        return {
+          data: transformedData,
+          hasData: valuesHaveData(transformedData)
+        };
+      }
+
       const subregionData = tables.map(table => 
         selectSubregionChartData(state, table, subregionId, chart)
       );
-      console.log("subregionData", subregionData);
+
       // Check if we have any data
       if (subregionData.some(data => data && data.length > 0)) {
         const transformedData = chart.transformer(
@@ -64,7 +77,13 @@ const selectChartData = createSelector(
         
         return {
           data: transformedData,
-          hasData: valuesHaveData(transformedData)
+          hasData: valuesHaveData(transformedData),
+          // Only pass cacheData if it's not already cached
+          cacheData: {
+            tableName: tables[0],
+            subregionId,
+            data: subregionData[0]
+          }
         };
       }
     } else {
@@ -93,11 +112,21 @@ const mapStateToProps = (state, props) => {
     ...props,
     xAxis,
     yAxis,
-    ...chartData // spread data and hasData
+    ...chartData
   };
 };
 
-const mapDispatchToProps = (dispatch, props) => ({});
+const mapDispatchToProps = (dispatch) => ({
+  cacheSubregionData: (cacheData) => {
+    if (cacheData?.tableName && cacheData?.subregionId && cacheData?.data) {
+      dispatch(updateSubregionChart({
+        tableName: cacheData.tableName,
+        subregionId: cacheData.subregionId,
+        data: cacheData.data
+      }));
+    }
+  }
+});
 
 export default connect(mapStateToProps, mapDispatchToProps)(StackedBarChart);
 export { valuesHaveData };
