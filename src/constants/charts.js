@@ -124,6 +124,26 @@ export default {
           []
         );
       },
+      subregionDataQuery: (subregionId) => {
+        const queryString = `
+                select 
+              acs_year,
+              nhwhi,
+              nhaa,
+              nhna,
+              nhas,
+              nhpi,
+              nhoth,
+              nhmlt,
+              lat 
+            from 
+            tabular.b03002_race_ethnicity_acs_m 
+            where muni_id = '${subregionId}'
+            AND acs_year = ( SELECT MAX(acs_year) 
+                            FROM tabular.b03002_race_ethnicity_acs_m)
+        `;
+      return queryString;
+      },
     },
     pop_by_age: {
       type: "stacked-bar",
@@ -189,6 +209,32 @@ export default {
           z: chart.labels[k],
         }));
       },
+      subregionDataQuery: (subregionId) => {
+        const queryString = `SELECT 
+              years,
+              totpop,
+              	pop_u18,
+               pop18_24,
+               pop25_34,
+               pop35_39,
+               pop40_44,
+               pop45_49,
+               pop50_54,
+               pop55_59,
+               pop60_61,
+               pop62_64,
+               pop65_66,
+               pop67_69,
+               pop70_74,
+               pop75_79,
+               pop80_84,
+                 pop85o
+          FROM tabular.census2010_p12_pop_by_age_m 
+          WHERE muni_id = '${subregionId}'
+		        and years = (SELECT MAX(years) from tabular.census2010_p12_pop_by_age_m)
+        `;
+        return queryString;
+      },
     },
   },
   economy: {
@@ -246,6 +292,30 @@ export default {
             ),
           []
         );
+      },
+      subregionDataQuery: (subregionId) => {
+        const queryString = `
+          SELECT 
+            acs_year, 
+            SUM(emp) AS emp,
+            SUM(unemp) AS unemp
+        FROM tabular.b23025_employment_acs_m 
+        WHERE muni_id  = '${subregionId}'
+        AND acs_year IN (
+            SELECT DISTINCT acs_year 
+            FROM tabular.b23025_employment_acs_m
+            WHERE muni_id IN (
+                SELECT muni_id 
+                FROM tabular._datakeys_muni_all 
+                WHERE subrg_id = ${subregionId}
+            )
+            ORDER BY acs_year DESC
+            LIMIT 2
+        )
+        GROUP BY acs_year
+        ORDER BY acs_year DESC;
+        `;
+        return queryString;
       },
     },
     emp_by_sector: {
@@ -332,6 +402,20 @@ export default {
           );
         }, []);
         return data;
+      },
+      subregionDataQuery: (subregionId) => {
+       const queryString = `
+          SELECT 
+            cal_year, 
+            naicstitle, 
+            naicscode, 
+            avgemp
+          FROM tabular.econ_es202_naics_2d_m 
+          WHERE muni_id = '${subregionId}'
+          AND naicstitle IS NOT NULL
+          ORDER BY cal_year, naicstitle;
+       `;
+       return queryString;
       },
     },
   },
@@ -433,6 +517,11 @@ export default {
           []
         );
         return data;
+      },
+      subregionDataQuery: (subregionId) => {
+        const queryString = `
+        `;
+        return queryString;
       },
     },
     edu_attainment_by_race: {
@@ -552,6 +641,58 @@ export default {
           []
         );
       },
+      subregionDataQuery: (subregionId) => {
+        const queryString = `
+              SELECT 
+          acs_year,
+          nhwlh,
+          nhwhs,
+          nhwsc,
+          nhwbd,
+          aalh,
+          aahs,
+          aasc,
+          aabd,
+          nalh,
+          nahs,
+          nasc,
+          nabd,
+          aslh,
+          ashs,
+          assc,
+          asbd,
+          pilh,
+          pihs,
+          pisc,
+          pibd,
+          othlh,
+          othhs,
+          othsc,
+          othbd,
+          mltlh,
+          mlths,
+          mltsc,
+          mltbd,
+          latlh,
+          laths,
+          latsc,
+          latbd
+        FROM tabular.c15002_educational_attainment_by_race_acs_m
+        WHERE muni_id = '${subregionId}'
+        AND acs_year IN (
+            SELECT DISTINCT acs_year 
+            FROM tabular.c15002_educational_attainment_by_race_acs_m
+            WHERE muni_id IN (
+                SELECT muni_id 
+                FROM tabular._datakeys_muni_all 
+                WHERE subrg_id = ${subregionId}
+            )
+            ORDER BY acs_year DESC
+        )
+        ORDER BY acs_year asc
+        `;
+        return queryString;
+      },
     },
   },
   governance: {
@@ -617,6 +758,30 @@ export default {
           label: chart.labels[key],
         }));
       },
+      subregionDataQuery: (subregionId) => {
+        const queryString = `
+            SELECT 
+              fy,
+              res_taxes,
+              os_taxes,
+              comm_taxes,
+              ind_taxes,
+              p_prop_tax,
+               tot_rev
+          FROM tabular.econ_municipal_taxes_revenue_m
+          WHERE muni_id  = '${subregionId}'
+          AND fy = (
+              SELECT MAX(fy) 
+              FROM tabular.econ_municipal_taxes_revenue_m
+              WHERE muni_id IN (
+                  SELECT muni_id 
+                  FROM tabular._datakeys_muni_all 
+                  WHERE subrg_id = ${subregionId}
+              )
+          )
+        `;
+        return queryString;
+      },
     },
   },
   environment: {
@@ -677,6 +842,10 @@ export default {
           },
         ];
       },
+      subregionDataQuery: (subregionId) => {
+        const queryString = ``;
+        return queryString;
+      },
     },
     energy_usage_gas: {
       type: "stacked-area",
@@ -731,8 +900,16 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
             ]),
           []
         );
+        console.log("energy_usage_gas", data);
         return data;
       },
+      subregionDataQuery: (subregionId) => {
+        const queryString1 = `
+        `;
+        const queryString2 = `
+        `;
+        return [queryString1, queryString2];
+      }
     },
     energy_usage_electricity: {
       type: "stacked-area",
@@ -788,6 +965,13 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
               : acc,
           []
         );
+      },
+      subregionDataQuery: (subregionId) => {
+        const queryString1 = `
+        `;
+        const queryString2 = `
+        `;
+        return [queryString1, queryString2];
       },
     },
   },
@@ -876,6 +1060,29 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
           },
         ];
       },
+      subregionDataQuery: (subregionId) => {
+        const queryString = `
+             SELECT 
+            acs_year,
+             occv2,
+             cb,
+             o_notcb,
+             r_notcb,
+             ocb3050,
+             rcb3050,
+             cb_3050,
+             o_cb50,
+             r_cb50,
+            cb_50
+        FROM tabular.b25091_b25070_costburden_acs_m
+        WHERE muni_id = '${subregionId}'
+        AND acs_year = (
+            SELECT MAX(acs_year) 
+            FROM tabular.b25091_b25070_costburden_acs_m
+        )
+        `;
+        return queryString;
+      },
     },
     units_permitted: {
       type: "stacked-area",
@@ -949,6 +1156,10 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
             ]),
           []
         );
+      },
+      subregionDataQuery: (subregionId) => {
+        const queryString = ``;
+        return queryString;
       },
     },
   },
@@ -1046,6 +1257,11 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
             ]),
           []
         );
+      },
+      subregionDataQuery: (subregionId) => {
+        const queryString = `
+        `;
+        return queryString;
       },
     },
     hospitalizations: {
@@ -1150,6 +1366,11 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         );
         return [];
       },
+      subregionDataQuery: (subregionId) => {
+        const queryString = `
+        `;
+        return queryString;
+      },
     },
   },
   transportation: {
@@ -1207,6 +1428,10 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
           []
         );
       },
+      subregionDataQuery: (subregionId) => {
+        const queryString = ``;
+        return queryString;
+      },
     },
     commute_to_work: {
       type: "pie",
@@ -1258,6 +1483,27 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
           value: row[key],
           label: chart.labels[key],
         }));
+      },
+      subregionDataQuery: (subregionId) => {
+        const queryString = `
+             SELECT 
+            acs_year,
+            ctvsngl,
+            carpool,
+            pub,
+             taxi,
+            mcycle,
+             bicycle,
+             walk,
+             other
+        FROM tabular.b08301_means_transportation_to_work_by_residence_acs_m
+        WHERE muni_id = '${subregionId}' 
+		    AND acs_year = (
+            SELECT MAX(acs_year) 
+            FROM tabular.b08301_means_transportation_to_work_by_residence_acs_m
+        )
+        `;
+        return queryString;
       },
     },
   },

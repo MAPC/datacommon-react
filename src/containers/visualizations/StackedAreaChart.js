@@ -18,26 +18,71 @@ function valuesHaveData(transformedData) {
 }
 
 const mapStateToProps = (state, props) => {
-  const { muni, chart } = props;
+  const { muni, chart, isSubregion } = props;
   const tables = Object.keys(chart.tables);
-  if (tables.every((table) => state.chart.cache[table] && state.chart.cache[table][muni])) {
-    const muniTables = tables.reduce((acc, table) => Object.assign(acc, { [table]: state.chart.cache[table][muni] }), {});
-    return {
-      ...props,
-      xAxis: chart.xAxis,
-      yAxis: chart.yAxis,
-      data: chart.transformer(muniTables, chart),
-      hasData: valuesHaveData(chart.transformer(muniTables, chart)),
-    };
+
+  // Handle subregion data
+  if (isSubregion) {
+    if (tables.every((table) => state.subregion.cache[table] && state.subregion.cache[table][muni])) {
+      const subregionTables = tables.reduce((acc, table) => ({
+        ...acc,
+        [table]: state.subregion.cache[table][muni]
+      }), {});
+
+      try {
+        const transformedData = chart.transformer(subregionTables, chart);
+        console.log(transformedData);
+        return {
+          ...props,
+          xAxis: chart.xAxis,
+          yAxis: chart.yAxis,
+          data: transformedData,
+          hasData: valuesHaveData(transformedData),
+        };
+      } catch (error) {
+        console.error('Error transforming subregion data:', error);
+        return {
+          ...props,
+          xAxis: { label: '' },
+          yAxis: { label: '' },
+          data: [],
+          hasData: false,
+        };
+      }
+    }
   }
+  // Handle regular municipality data
+  else if (tables.every((table) => state.chart.cache[table] && state.chart.cache[table][muni])) {
+    const muniTables = tables.reduce((acc, table) => ({
+      ...acc,
+      [table]: state.chart.cache[table][muni]
+    }), {});
+
+    try {
+      const transformedData = chart.transformer(muniTables, chart);
+      return {
+        ...props,
+        xAxis: chart.xAxis,
+        yAxis: chart.yAxis,
+        data: transformedData,
+        hasData: valuesHaveData(transformedData),
+      };
+    } catch (error) {
+      console.error('Error transforming data:', error);
+      return {
+        ...props,
+        xAxis: { label: '' },
+        yAxis: { label: '' },
+        data: [],
+        hasData: false,
+      };
+    }
+  }
+
   return {
     ...props,
-    xAxis: {
-      label: '',
-    },
-    yAxis: {
-      label: '',
-    },
+    xAxis: { label: '' },
+    yAxis: { label: '' },
     data: [],
     hasData: false,
   };

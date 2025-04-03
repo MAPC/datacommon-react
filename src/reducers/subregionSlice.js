@@ -1,43 +1,92 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import locations from "../constants/locations";
-import { fetchChartData } from "./chartSlice";
 
-// Helper function to aggregate chart data for a subregion
-const aggregateChartData = (chartData, municipalities) => {
-  if (!chartData || !municipalities || municipalities.length === 0) return [];
+//fetch subregion chart data
+export const fetchSubregionChartData = createAsyncThunk(
+  "subregion/fetchChartData",
+  async ({ subregionId, chartInfo }, { dispatch, getState }) => {
+    const { subregion } = getState();
+    const tableNames = Object.keys(chartInfo.tables);
 
-  const aggregatedByYear = {};
-
-  municipalities.forEach(muni => {
-    const muniData = chartData[muni.muni_name.toLowerCase().replace(/\s+/g, '-')] || [];
-    
-    muniData.forEach(row => {
-      const yearColumn = Object.keys(row).find(k => 
-        k.toLowerCase() === 'fy' || k.toLowerCase().includes('year')
+    const dispatchUpdate = (data, tableName) => {
+      dispatch(
+        updateSubregionChart({
+          table: tableName,
+          muni: subregionId,
+          data,
+        })
       );
-      
-      if (!yearColumn) return;
-      
-      const yearValue = row[yearColumn];
-      
-      if (!aggregatedByYear[yearValue]) {
-        aggregatedByYear[yearValue] = {
-          [yearColumn]: yearValue
-        };
-      }
-      
-      Object.entries(row).forEach(([key, value]) => {
-        if (key !== yearColumn && typeof value === 'number') {
-          aggregatedByYear[yearValue][key] = (aggregatedByYear[yearValue][key] || 0) + value;
-        } else if (key !== yearColumn && !aggregatedByYear[yearValue][key]) {
-          aggregatedByYear[yearValue][key] = value;
-        }
-      });
-    });
-  });
+    };
 
-  return Object.values(aggregatedByYear);
-};
+    // Get all queries first
+    const queries = chartInfo.subregionDataQuery(subregionId);
+
+    // Handle multiple tables - match each table with its corresponding query
+    if (tableNames.length > 1) {
+      // Make sure we have the same number of queries as tables
+      if (queries.length !== tableNames.length) {
+        console.error("Mismatch between number of tables and queries");
+        return;
+      }
+
+      // Process each table with its corresponding query
+      for (let i = 0; i < tableNames.length; i++) {
+        const tableName = tableNames[i];
+        const query = queries[i];
+        let { years } = chartInfo.tables[tableName];
+
+        if (subregion.cache[tableName]?.[subregionId]) {
+          continue;
+        }
+
+        if (typeof years === "function") {
+          try {
+            const yearsResult = await years();
+            years = yearsResult;
+          } catch (error) {
+            console.error("Error executing years function:", error);
+            continue;
+          }
+        }
+
+        try {
+          const api = `${locations.BROWSER_API}?token=${locations.DS_TOKEN}&query=${query}`;
+          const response = await fetch(api);
+          const payload = (await response.json()) || {};
+          dispatchUpdate(payload.rows, tableName);
+        } catch (error) {
+          console.error(`Error fetching data for table ${tableName}:`, error);
+        }
+      }
+      return;
+    }
+
+    // Handle single table
+    const tableName = tableNames[0];
+    let { years } = chartInfo.tables[tableName];
+
+    if (typeof years === "function") {
+      try {
+        const yearsResult = await years();
+        years = yearsResult;
+      } catch (error) {
+        console.error("Error executing years function:", error);
+        return;
+      }
+    }
+
+    try {
+      // For single table, use the first (and should be only) query
+      const query = Array.isArray(queries) ? queries[0] : queries;
+      const api = `${locations.BROWSER_API}?token=${locations.DS_TOKEN}&query=${query}`;
+      const response = await fetch(api);
+      const payload = (await response.json()) || {};
+      dispatchUpdate(payload.rows, tableName);
+    } catch (error) {
+      console.error(`Error fetching data for table ${tableName}:`, error);
+    }
+  }
+);
 
 export const fetchSubregionData = createAsyncThunk(
   "subregion/fetchData",
@@ -53,57 +102,34 @@ export const fetchSubregionData = createAsyncThunk(
       WHERE subrg_id IS NOT NULL
       ORDER BY subrg_id, muni_name
     `;
-    
+
     const response = await fetch(`${api}${encodeURIComponent(query)}`);
     const payload = await response.json();
-    
+
     // Transform the data into the desired structure
     const subregionMap = {};
-    
-    payload.rows?.forEach(row => {
+
+    payload.rows?.forEach((row) => {
       const { muni_id, muni_name, subrg_id } = row;
-      
+
       if (!subregionMap[subrg_id]) {
         subregionMap[subrg_id] = {
           municipalities: [],
-          totalMunis: 0
+          totalMunis: 0,
         };
       }
-      
+
       // Add municipality data
       subregionMap[subrg_id].municipalities.push({
         muni_name,
-        muni_id
+        muni_id,
       });
 
-      subregionMap[subrg_id].totalMunis = subregionMap[subrg_id].municipalities.length;
+      subregionMap[subrg_id].totalMunis =
+        subregionMap[subrg_id].municipalities.length;
     });
-    
-    return subregionMap;
-  }
-);
 
-// New thunk to fetch missing municipality data
-export const fetchMissingMunicipalityData = createAsyncThunk(
-  "subregion/fetchMissingData",
-  async ({ chartInfo, municipalities }, { dispatch, getState }) => {
-    const state = getState();
-    const tableName = Object.keys(chartInfo.tables)[0];
-    
-    // Check each municipality and fetch if data is missing
-    for (const muni of municipalities) {
-      const muniSlug = muni.muni_name.toLowerCase().replace(/\s+/g, '-');
-      const existingData = state.chart.cache[tableName]?.[muniSlug];
-      
-      if (!existingData || existingData.length === 0) {
-        await dispatch(fetchChartData({ 
-          chartInfo, 
-          municipality: muniSlug 
-        }));
-      }
-    }
-    
-    return true;
+    return subregionMap;
   }
 );
 
@@ -113,20 +139,20 @@ const subregionSlice = createSlice({
     data: {},
     loading: false,
     error: null,
-    cache: {},
-    dataFetchStatus: {}, // Track fetch status for each subregion-table combination
+    cache: {}
   },
   reducers: {
     updateSubregionChart: (state, action) => {
-      console.log("update reducer call= ", action.payload);
-      const { tableName, subregionId, data } = action.payload;
+      const { table: tableName, muni: subregionId, data } = action.payload; // Fix destructuring
+
       if (!tableName || !subregionId || !data) {
         return;
       }
+
       if (!state.cache[tableName]) {
         state.cache[tableName] = {};
       }
-      console.log("updateSubregionChart= ", tableName, subregionId, data);
+
       state.cache[tableName][subregionId] = data;
     },
   },
@@ -143,45 +169,11 @@ const subregionSlice = createSlice({
       .addCase(fetchSubregionData.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message;
-      })
-      .addCase(fetchMissingMunicipalityData.fulfilled, (state, action) => {
-        // Mark this subregion-table combination as fetched
-        const { subregionId, tableName } = action.meta.arg;
-        if (!state.dataFetchStatus[subregionId]) {
-          state.dataFetchStatus[subregionId] = {};
-        }
-        state.dataFetchStatus[subregionId][tableName] = true;
       });
   },
 });
 
-// Selectors
 export const selectSubregionData = (state) => state.subregion.data;
 export const selectSubregionLoading = (state) => state.subregion.loading;
-export const selectSubregionError = (state) => state.subregion.error;
-export const selectMunicipalitiesBySubregion = (state, subregionId) => 
-  state.subregion.data[subregionId]?.municipalities || [];
-
-// Enhanced selector for chart data that handles aggregation
-export const selectSubregionChartData = (state, tableName,  subregionId, chartInfo) => {
-  const municipalities = selectMunicipalitiesBySubregion(state, subregionId);
-  const chartData = {};
-  let hasAllData = true;
-  
-  // First check if we have data for all municipalities
-  municipalities.forEach(muni => {
-    const muniSlug = muni.muni_name.toLowerCase().replace(/\s+/g, '-');
-    const muniData = state.chart.cache[tableName]?.[muniSlug];
-    
-    if (!muniData || muniData.length === 0) {
-      hasAllData = false;
-    } else {
-      chartData[muniSlug] = muniData;
-    }
-  });
-  
-  // Only aggregate if we have data for all municipalities
-  return hasAllData ? aggregateChartData(chartData, municipalities) : [];
-};
 export const { updateSubregionChart } = subregionSlice.actions;
-export default subregionSlice.reducer; 
+export default subregionSlice.reducer;

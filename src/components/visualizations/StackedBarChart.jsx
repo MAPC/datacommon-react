@@ -39,7 +39,6 @@ const StackedBarChart = (props) => {
   const [xAxisLabel, setXAxisLabel] = useState(
     typeof props.xAxis.label === 'string' ? props.xAxis.label : ''
   );
-  const hasCached = useRef(false);
 
   useEffect(() => {
     const loadXAxisLabel = async () => {
@@ -93,13 +92,6 @@ const StackedBarChart = (props) => {
       if (svgRef.current) svgRef.current.remove();
     };
   }, []);
-
-  useEffect(() => {
-    if (props.cacheData && !hasCached.current) {
-      props.cacheSubregionData(props.cacheData);
-      hasCached.current = true;
-    }
-  }, [props.cacheData, props.cacheSubregionData]);
 
   const renderChart = () => {
     const chart = chartGroupRef.current;
@@ -402,8 +394,7 @@ StackedBarChart.propTypes = {
   wrapLeftLabel: PropTypes.bool,
   width: PropTypes.number,
   height: PropTypes.number,
-  cacheData: PropTypes.object,
-  cacheSubregionData: PropTypes.func
+  isSubregion: PropTypes.bool,
 };
 
 export default StackedBarChart;

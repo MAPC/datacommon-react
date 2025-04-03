@@ -12,11 +12,40 @@ function valuesHaveData(transformedData) {
 }
 
 const mapStateToProps = (state, props) => {
-  const { muni, chart } = props;
+  const { muni, chart, isSubregion } = props;
   const tables = Object.keys(chart.tables);
   
-  if (tables.every((table) => state.chart.cache[table] && state.chart.cache[table][muni])) {
-    // Create a new object for muniTables with spread operator
+  // Handle subregion data
+  if (isSubregion) {
+    if (tables.every((table) => state.subregion.cache[table] && state.subregion.cache[table][muni])) {
+      const subregionTables = tables.reduce((acc, table) => ({
+        ...acc,
+        [table]: state.subregion.cache[table][muni]
+      }), {});
+
+      try {
+        const transformedData = chart.transformer(subregionTables, chart);
+        return {
+          ...props,
+          xAxis: chart.xAxis,
+          yAxis: chart.yAxis,
+          data: transformedData,
+          hasData: valuesHaveData(transformedData),
+        };
+      } catch (error) {
+        console.error('Error transforming subregion data:', error);
+        return {
+          ...props,
+          xAxis: { label: '' },
+          yAxis: { label: '' },
+          data: [],
+          hasData: false,
+        };
+      }
+    }
+  }
+  // Handle regular municipality data
+  else if (tables.every((table) => state.chart.cache[table] && state.chart.cache[table][muni])) {
     const muniTables = tables.reduce((acc, table) => ({
       ...acc,
       [table]: state.chart.cache[table][muni]
@@ -24,7 +53,6 @@ const mapStateToProps = (state, props) => {
 
     try {
       const transformedData = chart.transformer(muniTables, chart);
-      
       return {
         ...props,
         xAxis: chart.xAxis,

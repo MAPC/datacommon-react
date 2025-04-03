@@ -50,6 +50,10 @@ const SubregionProfileRoute = ({ tabOptions }) => {
     return <Navigate to={`/profile/subregion/${subregionId}/${tabOptions[0]}`} />;
   }
   
+  if (!subregionId || !VALID_SUBREGIONS.includes(subregionId)) {
+    return <div>Subregion not found</div>;
+  }
+  
   return <SubregionProfilesPage />;
 };
 
