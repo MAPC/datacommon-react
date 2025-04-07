@@ -142,7 +142,27 @@ export default {
             AND acs_year = ( SELECT MAX(acs_year) 
                             FROM tabular.b03002_race_ethnicity_acs_m)
         `;
-      return queryString;
+        return queryString;
+      },
+      rparegionDataQuery: (rpaId) => {
+        const queryString = `
+                select 
+              acs_year,
+              nhwhi,
+              nhaa,
+              nhna,
+              nhas,
+              nhpi,
+              nhoth,
+              nhmlt,
+              lat 
+            from 
+            tabular.b03002_race_ethnicity_acs_m 
+            where muni_id = '${rpaId}'
+            AND acs_year = ( SELECT MAX(acs_year) 
+                            FROM tabular.b03002_race_ethnicity_acs_m)
+        `;
+        return queryString;
       },
     },
     pop_by_age: {
@@ -210,28 +230,58 @@ export default {
         }));
       },
       subregionDataQuery: (subregionId) => {
-        const queryString = `SELECT 
-              years,
-              totpop,
-              	pop_u18,
-               pop18_24,
-               pop25_34,
-               pop35_39,
-               pop40_44,
-               pop45_49,
-               pop50_54,
-               pop55_59,
-               pop60_61,
-               pop62_64,
-               pop65_66,
-               pop67_69,
-               pop70_74,
-               pop75_79,
-               pop80_84,
-                 pop85o
-          FROM tabular.census2010_p12_pop_by_age_m 
-          WHERE muni_id = '${subregionId}'
-		        and years = (SELECT MAX(years) from tabular.census2010_p12_pop_by_age_m)
+        const queryString = `
+          SELECT
+            years,
+            totpop,
+            pop_u18,
+            pop18_24,
+            pop25_34,
+            pop35_39,
+            pop40_44,
+            pop45_49,
+            pop50_54,
+            pop55_59,
+            pop60_61,
+            pop62_64,
+            pop65_66,
+            pop67_69,
+            pop70_74,
+            pop75_79,
+            pop80_84,
+            pop85o
+          FROM
+            tabular.census2010_p12_pop_by_age_m
+          WHERE
+            muni_id = '${subregionId}'
+        `;
+        return queryString;
+      },
+      rparegionDataQuery: (rpaId) => {
+        const queryString = `
+          SELECT
+            years,
+            totpop,
+            pop_u18,
+            pop18_24,
+            pop25_34,
+            pop35_39,
+            pop40_44,
+            pop45_49,
+            pop50_54,
+            pop55_59,
+            pop60_61,
+            pop62_64,
+            pop65_66,
+            pop67_69,
+            pop70_74,
+            pop75_79,
+            pop80_84,
+            pop85o
+          FROM
+            tabular.census2010_p12_pop_by_age_m
+          WHERE
+            muni_id = '${rpaId}'
         `;
         return queryString;
       },
@@ -417,6 +467,20 @@ export default {
        `;
        return queryString;
       },
+      rparegionDataQuery: (rpaId) => {
+       const queryString = `
+          SELECT 
+            cal_year, 
+            naicstitle, 
+            naicscode, 
+            avgemp
+          FROM tabular.econ_es202_naics_2d_m 
+          WHERE muni_id = '${rpaId}'
+          AND naicstitle IS NOT NULL
+          ORDER BY cal_year, naicstitle;
+       `;
+       return queryString;
+      },
     },
   },
   education: {
@@ -519,6 +583,11 @@ export default {
         return data;
       },
       subregionDataQuery: (subregionId) => {
+        const queryString = `
+        `;
+        return queryString;
+      },
+      rparegionDataQuery: (rpaId) => {
         const queryString = `
         `;
         return queryString;
@@ -643,53 +712,43 @@ export default {
       },
       subregionDataQuery: (subregionId) => {
         const queryString = `
-              SELECT 
-          acs_year,
-          nhwlh,
-          nhwhs,
-          nhwsc,
-          nhwbd,
-          aalh,
-          aahs,
-          aasc,
-          aabd,
-          nalh,
-          nahs,
-          nasc,
-          nabd,
-          aslh,
-          ashs,
-          assc,
-          asbd,
-          pilh,
-          pihs,
-          pisc,
-          pibd,
-          othlh,
-          othhs,
-          othsc,
-          othbd,
-          mltlh,
-          mlths,
-          mltsc,
-          mltbd,
-          latlh,
-          laths,
-          latsc,
-          latbd
-        FROM tabular.c15002_educational_attainment_by_race_acs_m
-        WHERE muni_id = '${subregionId}'
-        AND acs_year IN (
-            SELECT DISTINCT acs_year 
+          SELECT 
+            acs_year,
+            nhwlh, nhwhs, nhwsc, nhwbd,
+            aalh, aahs, aasc, aabd,
+            nalh, nahs, nasc, nabd,
+            aslh, ashs, assc, asbd,
+            pilh, pihs, pisc, pibd,
+            othlh, othhs, othsc, othbd,
+            mltlh, mlths, mltsc, mltbd,
+            latlh, laths, latsc, latbd
+          FROM tabular.c15002_educational_attainment_by_race_acs_m
+          WHERE muni_id = '${subregionId}'
+          AND acs_year = (
+            SELECT MAX(acs_year)
             FROM tabular.c15002_educational_attainment_by_race_acs_m
-            WHERE muni_id IN (
-                SELECT muni_id 
-                FROM tabular._datakeys_muni_all 
-                WHERE subrg_id = ${subregionId}
-            )
-            ORDER BY acs_year DESC
-        )
-        ORDER BY acs_year asc
+          )
+        `;
+        return queryString;
+      },
+      rparegionDataQuery: (rpaId) => {
+        const queryString = `
+          SELECT 
+            acs_year,
+            nhwlh, nhwhs, nhwsc, nhwbd,
+            aalh, aahs, aasc, aabd,
+            nalh, nahs, nasc, nabd,
+            aslh, ashs, assc, asbd,
+            pilh, pihs, pisc, pibd,
+            othlh, othhs, othsc, othbd,
+            mltlh, mlths, mltsc, mltbd,
+            latlh, laths, latsc, latbd
+          FROM tabular.c15002_educational_attainment_by_race_acs_m
+          WHERE muni_id = '${rpaId}'
+          AND acs_year = (
+            SELECT MAX(acs_year)
+            FROM tabular.c15002_educational_attainment_by_race_acs_m
+          )
         `;
         return queryString;
       },
@@ -909,7 +968,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         const queryString2 = `
         `;
         return [queryString1, queryString2];
-      }
+      },
     },
     energy_usage_electricity: {
       type: "stacked-area",

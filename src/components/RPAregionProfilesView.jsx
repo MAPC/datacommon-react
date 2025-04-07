@@ -6,7 +6,7 @@ import Tab from "./Tab";
 import Dropdown from "./field/Dropdown";
 import tabs from "../constants/tabs";
 import charts from "../constants/charts";
-import { fetchSubregionChartData, fetchSubregionData, selectSubregionData } from "../reducers/subregionSlice";
+import { selectRPAregionData,fetchRPAregionChartData } from "../reducers/rparegionSlice";
 import StackedBarChart from "../containers/visualizations/StackedBarChart";
 import StackedAreaChart from "../containers/visualizations/StackedAreaChart";
 import ChartDetails from "./visualizations/ChartDetails";
@@ -103,17 +103,6 @@ const StyledLink = styled(Link)`
   }
 `;
 
-const SUBREGIONS = {
-  355: 'Inner Core Committee [ICC]',
-  356: 'Minuteman Advisory Group on Interlocal Coordination [MAGIC]',
-  357: 'MetroWest Regional Collaborative [MWRC]',
-  358: 'North Shore Task Force [NSTF]',
-  359: 'North Suburban Planning Council [NSPC]',
-  360: 'South Shore Coalition [SSC]',
-  361: 'South West Advisory Planning Committee [SWAP]',
-  362: 'Three Rivers Interlocal Council [TRIC]'
-};
-
 const chunkArray = (array, size) => {
   const chunked = [];
   for (let i = 0; i < array.length; i += size) {
@@ -122,9 +111,9 @@ const chunkArray = (array, size) => {
   return chunked;
 };
 
-const SubregionProfilesView = () => {
+const RPAregionProfilesView = () => {
   const dispatch = useDispatch();
-  const { subregionId, tab } = useParams();
+  const { rpaId, tab } = useParams();
   const [activeTab, setActiveTab] = useState(tab || 'demographics');
   const [modalConfig, setModalConfig] = useState({
     show: false,
@@ -132,21 +121,20 @@ const SubregionProfilesView = () => {
     title: ''
   });
 
-  const subregionData = useSelector(selectSubregionData);
-  const municipalities = subregionData[subregionId]?.municipalities || [];
+  const rparegionData = useSelector(selectRPAregionData);
+  const municipalities = rparegionData[rpaId]?.municipalities || [];
+  const rpa_name = rparegionData[rpaId]?.rpa_name || '';
 
-  useEffect(() => {
-    setActiveTab(tab);
-  }, [tab]);
+
 
   // Effect for fetching chart data
   useEffect(() => {
     if (charts[activeTab]) {
       Object.values(charts[activeTab]).forEach((chart) =>
-        dispatch(fetchSubregionChartData({ subregionId: subregionId, chartInfo: chart }))
+        dispatch(fetchRPAregionChartData({ rpa_id: rpaId, chartInfo: chart }))
       );
     } 
-  }, [activeTab, subregionId, dispatch]);
+  }, [activeTab, rpaId, dispatch]);
 
   const handleShowModal = (data, title) => {
     setModalConfig({
@@ -172,12 +160,12 @@ const SubregionProfilesView = () => {
         </div>
         <div className="container">
           <header>
-            <h2>{SUBREGIONS[subregionId]}</h2>
+            <h2>{rpa_name}</h2>
           </header>
           <section className="about">
             <div className="description-wrapper">
               <p className="description">
-                This subregion contains {municipalities.length} municipalities. The charts below show aggregated data for all municipalities in this subregion.
+                This RPA region contains {municipalities.length} municipalities. The charts below show aggregated data for all municipalities in this region.
               </p>
               <MunicipalitiesList>
                 {chunkArray(municipalities, 10).map((row, rowIndex) => (
@@ -204,7 +192,7 @@ const SubregionProfilesView = () => {
                 >
                   Print charts
                 </button>
-                <DownloadAllChartsButton muni={subregionId} datatype={'subregion'} />
+                <DownloadAllChartsButton muni={rpaId} datatype={'rpa'} />
               </div>
             </div>
           </section>
@@ -220,7 +208,7 @@ const SubregionProfilesView = () => {
                 className={tabItem.value === activeTab ? "active" : ""}
               >
                 <Link 
-                  to={`/profile/subregion/${subregionId}/${tabItem.value}`}
+                  to={`/profile/rparegion/${rpaId}/${tabItem.value}`}
                   onClick={() => setActiveTab(tabItem.value)}
                 >
                   {tabItem.label}
@@ -246,26 +234,26 @@ const SubregionProfilesView = () => {
               <div className="tab__row">
                 <ChartDetails 
                   chart={charts.demographics.race_ethnicity} 
-                  muni={subregionId}
+                  muni={rpaId}
                   onViewData={handleShowModal}
-                  isSubregion={true}
+                  isRPAregion={true}
                 >
                   <StackedBarChart
                     chart={charts.demographics.race_ethnicity}
-                    muni={subregionId}
-                    isSubregion={true}
+                    muni={rpaId}
+                    isRPAregion={true}
                   />
                 </ChartDetails>
                 <ChartDetails 
                   chart={charts.demographics.pop_by_age} 
-                  muni={subregionId}
+                  muni={rpaId}
                   onViewData={handleShowModal}
-                  isSubregion={true}
+                  isRPAregion={true}
                 >
                   <StackedBarChart
                     chart={charts.demographics.pop_by_age}
-                    muni={subregionId}
-                    isSubregion={true}
+                    muni={rpaId}
+                    isRPAregion={true}
                   />
                 </ChartDetails>
               </div>
@@ -278,26 +266,26 @@ const SubregionProfilesView = () => {
               <div className="tab__row">
                 <ChartDetails 
                   chart={charts.economy.resident_employment} 
-                  muni={subregionId}
+                  muni={rpaId}
                   onViewData={handleShowModal}
-                  isSubregion={true}
+                  isRPAregion={true}
                 >
                   <StackedBarChart
                     chart={charts.economy.resident_employment}
-                    muni={subregionId}
-                    isSubregion={true}
+                    muni={rpaId}
+                    isRPAregion={true}
                   />
                 </ChartDetails>
                 <ChartDetails 
                   chart={charts.economy.emp_by_sector} 
-                  muni={subregionId}
+                  muni={rpaId}
                   onViewData={handleShowModal}
-                  isSubregion={true}
+                  isRPAregion={true}
                 >
                   <StackedAreaChart
                     chart={charts.economy.emp_by_sector}
-                    muni={subregionId}
-                    isSubregion={true}
+                    muni={rpaId}
+                    isRPAregion={true}
                   />
                 </ChartDetails>
               </div>
@@ -310,29 +298,29 @@ const SubregionProfilesView = () => {
               <div className="tab__row">
                 <ChartDetails 
                   chart={charts.education.school_enrollment} 
-                  muni={subregionId}
+                  muni={rpaId}
                   onViewData={handleShowModal}
-                  isSubregion={true}
+                  isRPAregion={true}
                 >
                   <StackedBarChart
                     chart={charts.education.school_enrollment}
-                    muni={subregionId}
+                    muni={rpaId}
                     horizontal={true}
-                    isSubregion={true}
+                    isRPAregion={true}
                   />
                 </ChartDetails>
                 <ChartDetails 
                   chart={charts.education.edu_attainment_by_race} 
-                  muni={subregionId}
+                  muni={rpaId}
                   onViewData={handleShowModal}
-                  isSubregion={true}
+                  isRPAregion={true}
                 >
                   <StackedBarChart
                     chart={charts.education.edu_attainment_by_race}
-                    muni={subregionId}
+                    muni={rpaId}
                     horizontal={true}
                     wrapLeftLabel={true}
-                    isSubregion={true}
+                    isRPAregion={true}
                   />
                 </ChartDetails>
               </div>
@@ -345,14 +333,14 @@ const SubregionProfilesView = () => {
               <div className="tab__row">
                 <ChartDetails 
                   chart={charts.governance.tax_levy} 
-                  muni={subregionId}
+                  muni={rpaId}
                   onViewData={handleShowModal}
-                  isSubregion={true}
+                  isRPAregion={true}
                 >
                   <PieChart 
                     chart={charts.governance.tax_levy} 
-                    muni={subregionId}
-                    isSubregion={true}
+                    muni={rpaId}
+                    isRPAregion={true}
                   />
                 </ChartDetails>
               </div>
@@ -365,40 +353,40 @@ const SubregionProfilesView = () => {
               <div className="tab__row tab__row--break">
                 <ChartDetails 
                   chart={charts.environment.water_usage_per_cap} 
-                  muni={subregionId}
+                  muni={rpaId}
                   onViewData={handleShowModal}
-                  isSubregion={true}
+                  isRPAregion={true}
                 >
                   <LineChart
                     chart={charts.environment.water_usage_per_cap}
-                    muni={subregionId}
-                    isSubregion={true}
+                    muni={rpaId}
+                    isRPAregion={true}
                   />
                 </ChartDetails>
                 <ChartDetails 
                   chart={charts.environment.energy_usage_gas} 
-                  muni={subregionId}
+                  muni={rpaId}
                   onViewData={handleShowModal}
-                  isSubregion={true}
+                  isRPAregion={true}
                 >
                   <StackedAreaChart
                     chart={charts.environment.energy_usage_gas}
-                    muni={subregionId}
-                    isSubregion={true}
+                    muni={rpaId}
+                    isRPAregion={true}
                   />
                 </ChartDetails>
               </div>
               <div className="tab__row">
                 <ChartDetails 
                   chart={charts.environment.energy_usage_electricity} 
-                  muni={subregionId}
+                  muni={rpaId}
                   onViewData={handleShowModal}
-                  isSubregion={true}
+                  isRPAregion={true}
                 >
                   <StackedAreaChart
                     chart={charts.environment.energy_usage_electricity}
-                    muni={subregionId}
-                    isSubregion={true}
+                    muni={rpaId}
+                    isRPAregion={true}
                   />
                 </ChartDetails>
               </div>
@@ -411,26 +399,26 @@ const SubregionProfilesView = () => {
               <div className="tab__row">
                 <ChartDetails 
                   chart={charts.housing.cost_burden} 
-                  muni={subregionId}
+                  muni={rpaId}
                   onViewData={handleShowModal}
-                  isSubregion={true}
+                  isRPAregion={true}
                 >
                   <StackedBarChart
                     chart={charts.housing.cost_burden}
-                    muni={subregionId}
-                    isSubregion={true}
+                    muni={rpaId}
+                    isRPAregion={true}
                   />
                 </ChartDetails>
                 <ChartDetails 
                   chart={charts.housing.units_permitted} 
-                  muni={subregionId}
+                  muni={rpaId}
                   onViewData={handleShowModal}
-                  isSubregion={true}
+                  isRPAregion={true}
                 >
                   <StackedBarChart
                     chart={charts.housing.units_permitted}
-                    muni={subregionId}
-                    isSubregion={true}
+                    muni={rpaId}
+                    isRPAregion={true}
                   />
                 </ChartDetails>
               </div>
@@ -443,26 +431,26 @@ const SubregionProfilesView = () => {
               <div className="tab__row">
                 <ChartDetails 
                   chart={charts["public-health"].premature_mortality_rate} 
-                  muni={subregionId}
+                  muni={rpaId}
                   onViewData={handleShowModal}
-                  isSubregion={true}
+                  isRPAregion={true}
                 >
                   <StackedBarChart
                     chart={charts["public-health"].premature_mortality_rate}
-                    muni={subregionId}
-                    isSubregion={true}
+                    muni={rpaId}
+                    isRPAregion={true}
                   />
                 </ChartDetails>
                 <ChartDetails 
                   chart={charts["public-health"].hospitalizations} 
-                  muni={subregionId}
+                  muni={rpaId}
                   onViewData={handleShowModal}
-                  isSubregion={true}
+                  isRPAregion={true}
                 >
                   <StackedBarChart
                     chart={charts["public-health"].hospitalizations}
-                    muni={subregionId}
-                    isSubregion={true}
+                    muni={rpaId}
+                    isRPAregion={true}
                   />
                 </ChartDetails>
               </div>
@@ -475,26 +463,26 @@ const SubregionProfilesView = () => {
               <div className="tab__row">
                 <ChartDetails 
                   chart={charts.transportation.daily_vmt} 
-                  muni={subregionId}
+                  muni={rpaId}
                   onViewData={handleShowModal}
-                  isSubregion={true}
+                  isRPAregion={true}
                 >
                   <StackedAreaChart
                     chart={charts.transportation.daily_vmt}
-                    muni={subregionId}
-                    isSubregion={true}
+                    muni={rpaId}
+                    isRPAregion={true}
                   />
                 </ChartDetails>
                 <ChartDetails 
                   chart={charts.transportation.commute_to_work} 
-                  muni={subregionId}
+                  muni={rpaId}
                   onViewData={handleShowModal}
-                  isSubregion={true}
+                  isRPAregion={true}
                 >
                   <PieChart
                     chart={charts.transportation.commute_to_work}
-                    muni={subregionId}
-                    isSubregion={true}
+                    muni={rpaId}
+                    isRPAregion={true}
                   />
                 </ChartDetails>
               </div>
@@ -508,11 +496,11 @@ const SubregionProfilesView = () => {
         handleClose={handleCloseModal}
         data={modalConfig.data}
         title={modalConfig.title}
-        muni={subregionId}
-        isSubregion={true}
+        muni={rpaId}
+        isRPAregion={true}
       />
     </article>
   );
 };
 
-export default React.memo(SubregionProfilesView); 
+export default React.memo(RPAregionProfilesView); 

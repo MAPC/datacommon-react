@@ -38,7 +38,7 @@ const makeSelectChartData = (tables, muni) => createSelector(
   }), {})
 );
 
-export default function DownloadChartButton({ chart, muni, isSubregion }) {
+export default function DownloadChartButton({ chart, muni, isSubregion, isRPAregion }) {
   const selectChartData = React.useMemo(
     () => makeSelectChartData(Object.keys(chart.tables), muni),
     [chart.tables, muni]
@@ -58,13 +58,30 @@ export default function DownloadChartButton({ chart, muni, isSubregion }) {
     }
   );
 
+  const selectRPAregionCache = createSelector(
+    [(state) => state.rparegion.cache],
+    (cache) => {
+      if (isRPAregion) {
+        const tableName = Object.keys(chart.tables)[0];
+        return cache[tableName]?.[muni] || [];
+      }
+      return [];
+    }
+  );
+
   const subregionCache = useSelector(selectSubregionCache);
-  
+  const rpaCache = useSelector(selectRPAregionCache);
   const downloadCsv = () => {
     try {
       const tableName = Object.keys(chartData)[0];
-      const data = isSubregion ? subregionCache : chartData[tableName];
-      
+      let data;
+      if (isRPAregion) {
+        data = rpaCache;
+      } else {
+        data = isSubregion ? subregionCache : chartData[tableName];
+      }
+
+    
       if (!data || data.length === 0) {
         console.error('No data available for the selected municipality.');
         return;
@@ -72,7 +89,14 @@ export default function DownloadChartButton({ chart, muni, isSubregion }) {
     
       // Convert data to CSV
       const headers = Object.keys(data[0]);
-      const firstRow = isSubregion ? ['Subregion:', SUBREGIONS[muni] ] :  ['Municipality:', muni].join(',');
+      let firstRow;
+      if (isSubregion) {
+        firstRow = ['Subregion:', SUBREGIONS[muni]];
+      } else if (isRPAregion) {
+        firstRow = ['RPAregion:', "MAPC"];
+      } else {
+        firstRow = ['Municipality:', muni];
+      }
       const csv = [
         firstRow,
         headers.join(','),

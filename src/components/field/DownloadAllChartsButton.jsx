@@ -6,6 +6,8 @@ import * as XLSX from "xlsx";
 import charts from "../../constants/charts";
 import PropTypes from "prop-types";
 import { fetchChartData } from "../../reducers/chartSlice";
+import { fetchSubregionChartData } from "../../reducers/subregionSlice";
+import { fetchRPAregionChartData } from "../../reducers/rparegionSlice";
 import { store } from "../../store";
 
 const spin = keyframes`
@@ -50,20 +52,25 @@ const LoadingText = styled.span`
   font-size: 14px;
 `;
 
-const makeSelectAllChartsData = (allTables, muni) => {
+const makeSelectAllChartsData = (allTables, muni, datatype) => {
   return createSelector(
-    [
-      (state) => {
-        return state.chart.cache;
-      },
-    ],
+    [(state) => {
+      switch (datatype) {
+        case 'subregion':
+          return state.subregion.cache;
+        case 'rpa':
+          return state.rparegion.cache;
+        default:
+          return state.chart.cache;
+      }
+    }],
     (cache) => {
       const result = allTables.reduce(
         (acc, table) => ({
           ...acc,
           [table]: cache[table]?.[muni] || [],
         }),
-        {} // initial value as an empty object
+        {}
       );
       return result;
     }
@@ -83,11 +90,11 @@ const allTables = (() => {
   return Array.from(tables);
 })();
 
-export default function DownloadAllChartsButton({ muni }) {
+export default function DownloadAllChartsButton({ muni, datatype }) {
   const dispatch = useDispatch();
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState("");
-  const selectAllChartsData = makeSelectAllChartsData(allTables, muni);
+  const selectAllChartsData = makeSelectAllChartsData(allTables, muni, datatype);
   const allData = useSelector(selectAllChartsData);
 
   const fetchMissingData = async () => {
@@ -103,10 +110,26 @@ export default function DownloadAllChartsButton({ muni }) {
 
         if (needsFetch) {
           totalToFetch++;
+          let fetchPromise;
+          switch (datatype) {
+            case 'subregion':
+              fetchPromise = dispatch(
+                fetchSubregionChartData({ subregionId: muni, chartInfo })
+              );
+              break;
+            case 'rpa':
+              fetchPromise = dispatch(
+                fetchRPAregionChartData({ rpa_id: muni, chartInfo })
+              );
+              break;
+            default:
+              fetchPromise = dispatch(
+                fetchChartData({ chartInfo, municipality: muni })
+              );
+          }
+
           fetchPromises.push(
-            dispatch(
-              fetchChartData({ chartInfo: chartInfo, municipality: muni })
-            ).then(() => {
+            fetchPromise.then(() => {
               fetched++;
               setLoadingStatus(`Fetching data (${fetched}/${totalToFetch})`);
             })
@@ -135,7 +158,18 @@ export default function DownloadAllChartsButton({ muni }) {
       Object.values(charts).forEach((category) => {
         Object.values(category).forEach((chartInfo) => {
           Object.keys(chartInfo.tables).forEach((tableName) => {
-            excelData[tableName] = state.chart.cache[tableName]?.[muni] || [];
+            let data;
+            switch (datatype) {
+              case 'subregion':
+                data = state.subregion.cache[tableName]?.[muni] || [];
+                break;
+              case 'rpa':
+                data = state.rparegion.cache[tableName]?.[muni] || [];
+                break;
+              default:
+                data = state.chart.cache[tableName]?.[muni] || [];
+            }
+            excelData[tableName] = data;
           });
         });
       });
@@ -165,9 +199,14 @@ export default function DownloadAllChartsButton({ muni }) {
 
     Object.entries(data).forEach(([tableName, tableData]) => {
       if (tableData && tableData.length > 0) {
-        // Create worksheet with municipality header
-        const muniHeader = [['Municipality:', muni], []];
-        const ws = XLSX.utils.aoa_to_sheet(muniHeader);
+        // Create worksheet with header based on data type
+        const header = [
+          [datatype === 'subregion' ? 'Subregion:' : 
+           datatype === 'rpa' ? 'RPA Region:' : 
+           'Municipality:', muni],
+          []
+        ];
+        const ws = XLSX.utils.aoa_to_sheet(header);
         
         // Add the data starting at row 2
         XLSX.utils.sheet_add_json(ws, tableData, { origin: 'A2', skipHeader: false });
@@ -180,13 +219,14 @@ export default function DownloadAllChartsButton({ muni }) {
     });
 
     setLoadingStatus("Downloading...");
-    XLSX.writeFile(wb, `${muni}_all_charts_data.xlsx`);
+    const filename = `${muni}_${datatype}_charts_data.xlsx`;
+    XLSX.writeFile(wb, filename);
   };
 
   return (
     <StyledButton
       onClick={downloadAllData}
-      title="Download all charts data"
+      title={`Download all ${datatype} charts data`}
       disabled={isLoading}
     >
       {isLoading && <Spinner />}
@@ -199,4 +239,5 @@ export default function DownloadAllChartsButton({ muni }) {
 
 DownloadAllChartsButton.propTypes = {
   muni: PropTypes.string.isRequired,
+  datatype: PropTypes.oneOf(['municipality', 'subregion', 'rpa']).isRequired,
 };

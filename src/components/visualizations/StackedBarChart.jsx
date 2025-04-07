@@ -395,6 +395,7 @@ StackedBarChart.propTypes = {
   width: PropTypes.number,
   height: PropTypes.number,
   isSubregion: PropTypes.bool,
+  isRPAregion: PropTypes.bool,
 };
 
 export default StackedBarChart;

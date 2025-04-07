@@ -1,10 +1,11 @@
 import { connect } from 'react-redux';
 import PieChart from '../../components/visualizations/PieChart';
 
+
 function valuesHaveData(transformedData) {
   const checkData = transformedData.reduce((acc, row) => {
     let datumHasValue = false;
-    if (row.value !== null && row.value !== 0) {
+    if (row.y !== null && row.y !== 0) {
       datumHasValue = true;
     }
     acc.push(datumHasValue);
@@ -18,11 +19,38 @@ function valuesHaveData(transformedData) {
 }
 
 const mapStateToProps = (state, props) => {
-  const { muni, chart, isSubregion } = props;
+  const { muni, chart, isSubregion, isRPAregion } = props;
   const tables = Object.keys(chart.tables);
   
+  // Handle RPA region data
+  if (isRPAregion) {
+    if (tables.every((table) => state.rparegion.cache[table] && state.rparegion.cache[table][muni])) {
+      const rparegionTables = tables.reduce((acc, table) => ({
+        ...acc,
+        [table]: state.rparegion.cache[table][muni]
+      }), {});
+
+      try {
+        const transformedData = chart.transformer(rparegionTables, chart);
+        return {
+          ...props,
+          xAxis: chart.xAxis,
+          data: transformedData,
+          hasData: valuesHaveData(transformedData),
+        };
+      } catch (error) {
+        console.error('Error transforming RPA region data:', error);
+        return {
+          ...props,
+          xAxis: { format: (d) => d },
+          data: [],
+          hasData: false,
+        };
+      }
+    }
+  }
   // Handle subregion data
-  if (isSubregion) {
+  else if (isSubregion) {
     if (tables.every((table) => state.subregion.cache[table] && state.subregion.cache[table][muni])) {
       const subregionTables = tables.reduce((acc, table) => ({
         ...acc,

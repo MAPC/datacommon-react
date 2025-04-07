@@ -13,6 +13,7 @@ import store from "./store";
 import "../src/assets/styles/app.scss";
 import CommunityProfilesPage from "./pages/CommunityProfilesPage";
 import SubregionProfilesPage from "./pages/SubregionProfilesPage";
+import RPAregionProfilesPage from "./pages/RPAregionProfilesPage";
 import tabs from "./constants/tabs";
 import municipalities from "./assets/data/ma-munis.json";
 
@@ -22,7 +23,7 @@ const muniOptions = municipalities.features.map(
 );
 
 const tabOptions = tabs.map(tab => tab.value);
-
+// todo: get this from the api ? 
 const VALID_SUBREGIONS = ['355', '356', '357', '358', '359', '360', '361', '362'];
 
 const ProfileRoute = ({ muniOptions, tabOptions }) => {
@@ -56,6 +57,21 @@ const SubregionProfileRoute = ({ tabOptions }) => {
   
   return <SubregionProfilesPage />;
 };
+
+const RPAProfileRoute = ({ tabOptions }) => {
+  const { rpaId, tab } = useParams();
+  
+  if (!tab || !tabOptions.includes(tab)) {
+    return <Navigate to={`/profile/rpa/${rpaId}/${tabOptions[0]}`} />;
+  }
+  
+  if(!rpaId) {
+    return <div>RPA not found</div>;
+  }
+
+  return <RPAregionProfilesPage />;
+};
+
 
 const router = createBrowserRouter([
   {
@@ -98,6 +114,10 @@ const router = createBrowserRouter([
       {
         path: "/profile/subregion/:subregionId/:tab?",
         element: <SubregionProfileRoute tabOptions={tabOptions} />
+      },
+      {
+        path: "/profile/rpa/:rpaId/:tab?",
+        element: <RPAProfileRoute tabOptions={tabOptions} />
       },
       {
         path:"gallery",

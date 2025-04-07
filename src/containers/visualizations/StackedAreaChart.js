@@ -17,12 +17,40 @@ function valuesHaveData(transformedData) {
   return false;
 }
 
-const mapStateToProps = (state, props) => {
-  const { muni, chart, isSubregion } = props;
-  const tables = Object.keys(chart.tables);
 
+const mapStateToProps = (state, props) => {
+  const { muni, chart, isSubregion, isRPAregion } = props;
+  const tables = Object.keys(chart.tables);
+  
+  // Handle RPA region data
+  if (isRPAregion) {
+    if (tables.every((table) => state.rparegion.cache[table] && state.rparegion.cache[table][muni])) {
+      const rparegionTables = tables.reduce((acc, table) => ({
+        ...acc,
+        [table]: state.rparegion.cache[table][muni]
+      }), {});
+
+      try {
+        const transformedData = chart.transformer(rparegionTables, chart);
+        return {
+          ...props,
+          xAxis: chart.xAxis,
+          data: transformedData,
+          hasData: valuesHaveData(transformedData),
+        };
+      } catch (error) {
+        console.error('Error transforming RPA region data:', error);
+        return {
+          ...props,
+          xAxis: { format: (d) => d },
+          data: [],
+          hasData: false,
+        };
+      }
+    }
+  }
   // Handle subregion data
-  if (isSubregion) {
+  else if (isSubregion) {
     if (tables.every((table) => state.subregion.cache[table] && state.subregion.cache[table][muni])) {
       const subregionTables = tables.reduce((acc, table) => ({
         ...acc,
@@ -31,11 +59,9 @@ const mapStateToProps = (state, props) => {
 
       try {
         const transformedData = chart.transformer(subregionTables, chart);
-        console.log(transformedData);
         return {
           ...props,
           xAxis: chart.xAxis,
-          yAxis: chart.yAxis,
           data: transformedData,
           hasData: valuesHaveData(transformedData),
         };
@@ -43,8 +69,7 @@ const mapStateToProps = (state, props) => {
         console.error('Error transforming subregion data:', error);
         return {
           ...props,
-          xAxis: { label: '' },
-          yAxis: { label: '' },
+          xAxis: { format: (d) => d },
           data: [],
           hasData: false,
         };
@@ -63,7 +88,6 @@ const mapStateToProps = (state, props) => {
       return {
         ...props,
         xAxis: chart.xAxis,
-        yAxis: chart.yAxis,
         data: transformedData,
         hasData: valuesHaveData(transformedData),
       };
@@ -71,8 +95,7 @@ const mapStateToProps = (state, props) => {
       console.error('Error transforming data:', error);
       return {
         ...props,
-        xAxis: { label: '' },
-        yAxis: { label: '' },
+        xAxis: { format: (d) => d },
         data: [],
         hasData: false,
       };
@@ -81,8 +104,7 @@ const mapStateToProps = (state, props) => {
 
   return {
     ...props,
-    xAxis: { label: '' },
-    yAxis: { label: '' },
+    xAxis: { format: (d) => d },
     data: [],
     hasData: false,
   };
@@ -91,4 +113,3 @@ const mapStateToProps = (state, props) => {
 const mapDispatchToProps = (dispatch, props) => ({});
 
 export default connect(mapStateToProps, mapDispatchToProps)(StackedAreaChart);
-export { valuesHaveData };

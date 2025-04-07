@@ -45,7 +45,7 @@ const makeSelectChartData = (tables, muni) => createSelector(
   }), {})
 );
 
-const ChartDetails = ({ chart, children, muni, onViewData, isSubregion }) => {
+const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAregion }) => {
   const [timeframe, setTimeframe] = useState(typeof chart.timeframe === 'string' ? chart.timeframe : 'Unknown');
 
   const selectChartData = React.useMemo(
@@ -69,7 +69,19 @@ const ChartDetails = ({ chart, children, muni, onViewData, isSubregion }) => {
     }
   );
 
+  const selectRPAregionCache = createSelector(
+    [(state) => state.rparegion.cache],
+    (cache) => {
+      if (isRPAregion) {
+        const tableName = Object.keys(chart.tables)[0];
+        return cache[tableName]?.[muni] || [];
+      }
+      return [];
+    }
+  );
+
   const subregionCache = useSelector(selectSubregionCache);
+  const rpaCache = useSelector(selectRPAregionCache);
 
   useEffect(() => {
     if (typeof chart.timeframe === 'function') {
@@ -81,8 +93,9 @@ const ChartDetails = ({ chart, children, muni, onViewData, isSubregion }) => {
     if (isSubregion) {
       // Use the cached aggregated data from subregion state
       onViewData(subregionCache, chart.title);
+    } else if (isRPAregion) {
+      onViewData(rpaCache, chart.title);
     } else {
-      console.log("data= ", data);
       onViewData(data, chart.title);
     }
   };
@@ -105,6 +118,7 @@ const ChartDetails = ({ chart, children, muni, onViewData, isSubregion }) => {
             chart={chart} 
             muni={muni} 
             isSubregion={isSubregion} 
+            isRPAregion={isRPAregion}
           />
         </ButtonGroup>
       </ChartHeader>
@@ -159,7 +173,8 @@ ChartDetails.propTypes = {
 };
 
 ChartDetails.defaultProps = {
-  isSubregion: false
+  isSubregion: false,
+  isRPAregion: false
 };
 
 export default ChartDetails;

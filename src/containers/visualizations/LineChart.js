@@ -1,6 +1,7 @@
 import { connect } from 'react-redux';
 import LineChart from '../../components/visualizations/LineChart';
 
+
 function valuesHaveData(transformedData) {
   if (!Array.isArray(transformedData) || transformedData.length === 0) return false;
   
@@ -11,12 +12,42 @@ function valuesHaveData(transformedData) {
   );
 }
 
+
 const mapStateToProps = (state, props) => {
-  const { muni, chart, isSubregion } = props;
+  const { muni, chart, isSubregion, isRPAregion } = props;
   const tables = Object.keys(chart.tables);
   
+  // Handle RPA region data
+  if (isRPAregion) {
+    if (tables.every((table) => state.rparegion.cache[table] && state.rparegion.cache[table][muni])) {
+      const rparegionTables = tables.reduce((acc, table) => ({
+        ...acc,
+        [table]: state.rparegion.cache[table][muni]
+      }), {});
+
+      try {
+        const transformedData = chart.transformer(rparegionTables, chart);
+        return {
+          ...props,
+          xAxis: chart.xAxis,
+          yAxis: chart.yAxis,
+          data: transformedData,
+          hasData: valuesHaveData(transformedData),
+        };
+      } catch (error) {
+        console.error('Error transforming RPA region data:', error);
+        return {
+          ...props,
+          xAxis: { label: '' },
+          yAxis: { label: '' },
+          data: [],
+          hasData: false,
+        };
+      }
+    }
+  }
   // Handle subregion data
-  if (isSubregion) {
+  else if (isSubregion) {
     if (tables.every((table) => state.subregion.cache[table] && state.subregion.cache[table][muni])) {
       const subregionTables = tables.reduce((acc, table) => ({
         ...acc,
@@ -64,10 +95,10 @@ const mapStateToProps = (state, props) => {
       console.error('Error transforming data:', error);
       return {
         ...props,
-        xAxis: { label: '' },
-        yAxis: { label: '' },
-        data: [],
-        hasData: false,
+          xAxis: { label: '' },
+          yAxis: { label: '' },
+          data: [],
+          hasData: false,
       };
     }
   }
@@ -84,4 +115,4 @@ const mapStateToProps = (state, props) => {
 const mapDispatchToProps = (dispatch, props) => ({});
 
 export default connect(mapStateToProps, mapDispatchToProps)(LineChart);
-export { valuesHaveData };
+export {valuesHaveData};
