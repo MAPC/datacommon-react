@@ -176,7 +176,16 @@ const StackedBarChart = (props) => {
           .range([0, width])
       : d3
           .scaleBand()
-          .domain(data.map(d => d.x))
+          .domain(data.map(d => d.x).sort((a, b) => {
+            // If both values can be parsed as numbers (e.g. years), sort numerically
+            const numA = parseInt(a);
+            const numB = parseInt(b);
+            if (!isNaN(numA) && !isNaN(numB)) {
+              return numA - numB;
+            }
+            // Otherwise use the provided sort function or default string comparison
+            return props.xAxis.sort ? props.xAxis.sort(a, b) : (a > b ? 1 : -1);
+          }))
           .range([0, width])
           .paddingInner(0.2);
 
@@ -263,12 +272,12 @@ const StackedBarChart = (props) => {
 
     // Add axes with proper formatting
     const xAxis = props.horizontal
-      ? d3.axisBottom(xScale).tickFormat(props.xAxis.format || (d => d < 1 ? d3.format('.0%')(d) : d))
+      ? d3.axisBottom(xScale).tickFormat(props.xAxis.format || (d => d <= 1 ? d3.format('.0%')(d) : d))
       : d3.axisBottom(xScale).tickFormat(props.xAxis.format);
 
     const yAxis = props.horizontal
       ? d3.axisLeft(yScale)
-      : d3.axisLeft(yScale).tickFormat(props.yAxis.format || (d => d < 1 ? d3.format('.0%')(d) : d));
+      : d3.axisLeft(yScale).tickFormat(props.yAxis.format || (d => d <= 1 ? d3.format('.0%')(d) : d));
 
     // Add axes
     const xAxisG = g

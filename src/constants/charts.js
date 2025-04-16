@@ -1146,7 +1146,11 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
     units_permitted: {
       type: "stacked-area",
       title: "Housing Units Permitted",
-      xAxis: { label: "Year" },
+      xAxis: { 
+        label: "Year",
+        format: format.string.default,
+        sort: (a, b) => parseInt(a) - parseInt(b)
+      },
       yAxis: { label: "Units Permitted" },
       tables: {
         "tabular.hous_building_permits_m": {
