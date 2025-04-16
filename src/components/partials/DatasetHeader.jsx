@@ -384,16 +384,29 @@ function DatasetHeader({
             </ul>
             {setSelectYears(availableYears, updateSelectedYears, selectedYears)}
           </div>
-          {setDownloadButton(
-            metadata,
-            schema,
-            table,
-            title,
-            description,
-            selectedYears,
-            queryYearColumn,
-            database
-          )}
+          <div className="details-content-column download-section">
+            {setDownloadButton(
+              metadata,
+              schema,
+              table,
+              title,
+              description,
+              selectedYears,
+              queryYearColumn,
+              database
+            )}
+            <div style={{ marginTop: '10px', textAlign: 'right' }}>
+              <a 
+                href="https://airtable.com/appqSr3MqAkN1GCfb/pagdcSeY2bc4rblam/form"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="button feedback-button"
+                style={{ fontSize: '12px' }}
+              >
+                Submit Data Feedback
+              </a>
+            </div>
+          </div>
         </div>
       </div>
     </div>
