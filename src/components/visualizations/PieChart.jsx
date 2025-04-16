@@ -204,13 +204,17 @@ class PieChart extends React.Component {
 }
 
 PieChart.propTypes = {
-  colors: PropTypes.arrayOf(PropTypes.string),
   data: PropTypes.arrayOf(
     PropTypes.shape({
-      value: PropTypes.number.isRequired,
       label: PropTypes.string.isRequired,
+      value: PropTypes.number.isRequired,
     })
   ).isRequired,
+  colors: PropTypes.arrayOf(PropTypes.string),
+  hasData: PropTypes.bool,
+  width: PropTypes.number,
+  height: PropTypes.number,
+  isSubregion: PropTypes.bool,
 };
 
 export default PieChart;

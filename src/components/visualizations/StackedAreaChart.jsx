@@ -271,6 +271,15 @@ class StackedAreaChart extends React.Component {
 }
 
 StackedAreaChart.propTypes = {
+  xAxis: PropTypes.shape({
+    label: PropTypes.string.isRequired,
+    format: PropTypes.func,
+    ticks: PropTypes.number,
+  }).isRequired,
+  yAxis: PropTypes.shape({
+    label: PropTypes.string.isRequired,
+    format: PropTypes.func,
+  }).isRequired,
   data: PropTypes.arrayOf(
     PropTypes.shape({
       x: PropTypes.number.isRequired,
@@ -278,18 +287,11 @@ StackedAreaChart.propTypes = {
       z: PropTypes.string.isRequired,
     })
   ).isRequired,
-  xAxis: PropTypes.shape({
-    label: PropTypes.string.isRequired,
-    format: PropTypes.func,
-  }).isRequired,
-  yAxis: PropTypes.shape({
-    label: PropTypes.string.isRequired,
-    format: PropTypes.func,
-  }).isRequired,
   colors: PropTypes.arrayOf(PropTypes.string),
   hasData: PropTypes.bool,
   width: PropTypes.number,
   height: PropTypes.number,
+  isSubregion: PropTypes.bool,
 };
 
 StackedAreaChart.defaultProps = {

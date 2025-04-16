@@ -18,9 +18,33 @@ function valuesHaveData(transformedData) {
 }
 
 const mapStateToProps = (state, props) => {
-  const { muni, chart } = props;
+  const { muni, chart, isSubregion, isRPAregion } = props;
   const tables = Object.keys(chart.tables);
-  if (tables.every((table) => state.chart.cache[table] && state.chart.cache[table][muni])) {
+
+  // Handle subregion data
+  if (isSubregion) {
+    if (tables.every((table) => state.subregion.cache[table] && state.subregion.cache[table][muni])) {
+      const subregionTables = tables.reduce((acc, table) => Object.assign(acc, { [table]: state.subregion.cache[table][muni] }), {});
+      return {
+        ...props,
+        xAxis: chart.xAxis,
+        yAxis: chart.yAxis,
+        data: chart.transformer(subregionTables, chart),
+        hasData: valuesHaveData(chart.transformer(subregionTables, chart)),
+      };
+    }
+  } else if (isRPAregion) {
+    if (tables.every((table) => state.rparegion.cache[table] && state.rparegion.cache[table][muni])) {
+      const rpaTables = tables.reduce((acc, table) => Object.assign(acc, { [table]: state.rparegion.cache[table][muni] }), {});
+      return {
+        ...props,
+        xAxis: chart.xAxis,
+        yAxis: chart.yAxis,
+        data: chart.transformer(rpaTables, chart),
+        hasData: valuesHaveData(chart.transformer(rpaTables, chart)),
+      };
+    }
+  } else if (tables.every((table) => state.chart.cache[table] && state.chart.cache[table][muni])) {
     const muniTables = tables.reduce((acc, table) => Object.assign(acc, { [table]: state.chart.cache[table][muni] }), {});
     return {
       ...props,
@@ -30,6 +54,7 @@ const mapStateToProps = (state, props) => {
       hasData: valuesHaveData(chart.transformer(muniTables, chart)),
     };
   }
+
   return {
     ...props,
     xAxis: {
