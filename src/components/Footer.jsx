@@ -31,6 +31,16 @@ function Footer() {
               datacommon @mapc.org
             </a>
           </li>
+          <li>
+            <a href="https://airtable.com/appqSr3MqAkN1GCfb/pagdcSeY2bc4rblam/form" target="_blank" rel="noopener noreferrer">
+              Data Feedback
+            </a>
+          </li>
+          <li>
+            <a href="https://airtable.com/appvsTkjC3FUe4yZ1/pagrTq8UqNU1zcrCL/form" target="_blank" rel="noopener noreferrer">
+              Website Feedback
+            </a>
+          </li>
         </ul>
 
         <div className="blank-grid-cell" />
