@@ -82,7 +82,7 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 >
                   Print charts
                 </button>
-                <DownloadAllChartsButton muni={muni} />
+                <DownloadAllChartsButton muni={muni} datatype={'municipality'} />
               </div>
             </div>
           </section>

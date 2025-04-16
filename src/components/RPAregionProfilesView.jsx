@@ -208,7 +208,7 @@ const RPAregionProfilesView = () => {
                 className={tabItem.value === activeTab ? "active" : ""}
               >
                 <Link 
-                  to={`/profile/rparegion/${rpaId}/${tabItem.value}`}
+                  to={`/profile/rpa/${rpaId}/${tabItem.value}`}
                   onClick={() => setActiveTab(tabItem.value)}
                 >
                   {tabItem.label}
