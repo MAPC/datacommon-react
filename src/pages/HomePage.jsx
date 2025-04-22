@@ -61,7 +61,7 @@ const Home = () => {
         <div className="page-section page-section__map">
           <h2>Community Profiles</h2>
           <p className="gallery-spotlight__info">
-            a paragraph to explain what is community profile
+            MAPC’s Community Profiles provide a comprehensive overview of each of the 351 cities and towns in Massachusetts. Each profile lets you explore data describing the population, housing characteristics, economy, transportation patterns, and other factors about a municipality. By aggregating data from state and federal agencies as well as data from our own planning and research work the profiles provide a single location where you can access and download information about any municipality. 
           </p>
           <CallToAction
             link="/communities"
