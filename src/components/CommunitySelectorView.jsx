@@ -1,22 +1,25 @@
-import React from 'react';
-import PropTypes from 'prop-types';
-import MapBox from './MapBox';
-import SearchBar from './partials/SearchBar';
+import React from "react";
+import PropTypes from "prop-types";
+import MapBox from "./MapBox";
+import SearchBar from "./partials/SearchBar";
 
-
-const CommunitySelectorView = ({ muniLines, muniFill, municipalityPoly, toProfile }) => {
+const CommunitySelectorView = ({
+  muniLines,
+  muniFill,
+  municipalityPoly,
+  toProfile,
+}) => {
   return (
     <section className="component CommunitySelector">
       <div className="search-box">
-        <h2>Community Profiles</h2>
         <p>Search any community in Massachusetts to view their profile:</p>
 
         <SearchBar
-          contextKey={'municipality'}
-          onSelect={muni => {
-            toProfile(muni.toLowerCase().replace(/\s+/g, '-'));
+          contextKey={"municipality"}
+          onSelect={(muni) => {
+            toProfile(muni.toLowerCase().replace(/\s+/g, "-"));
           }}
-          placeholder={'Search for a community ...'}
+          placeholder={"Search for a community ..."}
           className={"small"}
         />
       </div>
