@@ -156,7 +156,7 @@ class MapBox extends React.Component {
               />
               <span className="slider"></span>
             </label>
-            <div className="slider-text">Show MAPC regions</div>
+            <div className="slider-text">Show MAPC region</div>
           </div>
         </div>
         <div 

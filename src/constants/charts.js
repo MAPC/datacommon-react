@@ -889,8 +889,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
       tables: {
         "tabular.hous_building_permits_m": {
           yearCol: "cal_year",
-          where:
-            "months_rep = 12 AND cal_year >= 2001 AND cal_year <= 2023 order by cal_year",
+          where: "cal_year >= 2001 AND cal_year <= 2023 order by cal_year",
           columns: ["cal_year", "months_rep", "sf_units", "mf_units"],
         },
       },
@@ -915,7 +914,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
       datasetLinks: { "Building Permits by Type and Year (Municipal)": 384 },
       transformer: (tables, chart) => {
         const [offset, numYears] = [2001, 23];
-        const permitData = tables["tabular.hous_building_permits_m"];
+        const permitData = tables["tabular.hous_building_permits_m"].filter(row => row.months_rep === 12);
         const tableDef = chart.tables["tabular.hous_building_permits_m"];
         if (permitData.length < 1) {
           return [];
@@ -1002,12 +1001,12 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         lat_art: "H & L",
       },
       labels: {
-        whi_art: "White",
-        aa_art: "Black and African American",
-        api_art: "Asian and Pacific Islander",
-        na_art: "Native American",
-        oth_art: "Other",
-        lat_art: "Hispanic and Latino",
+        whi_art: "White (W)",
+        aa_art: "Black and African American (B & AA)",
+        api_art: "Asian and Pacific Islander (A & PA)",
+        na_art: "Native American (NA)",
+        oth_art: "Other (Other)",
+        lat_art: "Hispanic and Latino (H & L)",
       },
       colors: {
         whi_art: colors.CHART.EXTENDED.get("YELLOW"),
@@ -1101,12 +1100,12 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         lat_arte: "H & L",
       },
       labels: {
-        whi_arte: "White",
-        aa_arte: "Black and African American",
-        api_arte: "Asian and Pacific Islander",
-        na_arte: "Native American",
-        oth_arte: "Other",
-        lat_arte: "Hispanic and Latino",
+        whi_arte: "White (W)",
+        aa_arte: "Black and African American (B & AA)",
+        api_arte: "Asian and Pacific Islander (A & PA)",
+        na_arte: "Native American (NA)",
+        oth_arte: "Other (Other)",
+        lat_arte: "Hispanic and Latino (H & L)",
       },
       colors: {
         whi_arte: colors.CHART.EXTENDED.get("YELLOW"),
