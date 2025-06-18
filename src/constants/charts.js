@@ -443,6 +443,7 @@ export default {
                           y: district[key],
                           z: chart.labels[key].label,
                           order: chart.labels[key].order,
+                          
                         },
                       ]),
                 []
