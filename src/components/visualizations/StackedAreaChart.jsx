@@ -247,8 +247,8 @@ class StackedAreaChart extends React.Component {
         formattedValue = d3.format(",.1f")(value); // 1 decimal for smaller numbers
       }
 
-      // Format the year value
-      const year = dataPoint.data.x;
+      // Format the year value and ensure it's an integer
+      const year = Math.round(dataPoint.data.x);
       const formattedYear = this.props.xAxis.format ? 
         this.props.xAxis.format(year) : 
         year;
