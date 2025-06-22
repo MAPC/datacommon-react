@@ -55,7 +55,8 @@ const DownloadChartImageButton = ({ chartRef, chartTitle }) => {
       // Get computed styles for the SVG
       const computedStyle = window.getComputedStyle(svg);
       const svgWidth = parseInt(computedStyle.width) || 500;
-      const svgHeight = parseInt(computedStyle.height) - 130;
+      // use a fixed height for consistent spacing across different screen sizes
+      const svgHeight =  600; 
       
       // Set explicit dimensions on the cloned SVG
       clonedSvg.setAttribute('width', svgWidth);
@@ -194,7 +195,7 @@ const DownloadChartImageButton = ({ chartRef, chartTitle }) => {
               textElement.setAttribute('x', x + 20);
               textElement.setAttribute('y', y + 12 + (lineIndex * 14));
               textElement.setAttribute('font-family', 'Arial, sans-serif');
-              textElement.setAttribute('font-size', '12px');
+              textElement.setAttribute('font-size', '0.75rem');
               textElement.setAttribute('fill', 'black');
               textElement.textContent = line;
               legendGroup.appendChild(textElement);
