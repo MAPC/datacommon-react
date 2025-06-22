@@ -4,6 +4,7 @@ import styled from 'styled-components';
 import { useSelector } from 'react-redux';
 import { createSelector } from '@reduxjs/toolkit';
 import DownloadChartButton from '../field/DownloadChartButton';
+import DownloadChartImageButton from '../field/DownloadChartImageButton';
 
 const ChartHeader = styled.div`
   display: flex;
@@ -47,6 +48,7 @@ const makeSelectChartData = (tables, muni) => createSelector(
 
 const ChartDetails = ({ chart, children, muni, onViewData }) => {
   const [timeframe, setTimeframe] = useState(typeof chart.timeframe === 'string' ? chart.timeframe : 'Unknown');
+  const chartRef = React.useRef(null);
 
   const selectChartData = React.useMemo(
     () => makeSelectChartData(Object.keys(chart.tables), muni),
@@ -68,7 +70,7 @@ const ChartDetails = ({ chart, children, muni, onViewData }) => {
   };
 
   return (
-    <div className="chart-wrapper">
+    <div className="chart-wrapper" ref={chartRef}>
       <ChartHeader>
         <ChartTitle className="chart__title">
           {chart.title || 'Chart Title'}
@@ -81,6 +83,10 @@ const ChartDetails = ({ chart, children, muni, onViewData }) => {
             View Data
           </ViewButton>
           <DownloadChartButton chart={chart} muni={muni} />
+          <DownloadChartImageButton 
+            chartRef={chartRef} 
+            chartTitle={chart.title} 
+          />
         </ButtonGroup>
       </ChartHeader>
       {children}
