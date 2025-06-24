@@ -165,8 +165,6 @@ export default {
             "pop75_79",
             "pop80_84",
             "pop85o",
-            "toppop",
-
           ],
         },
       },
