@@ -12,7 +12,7 @@ mapboxgl.accessToken = MAP_CONFIG.accessToken;
 class MapBox extends React.Component {
   state = {
     finishedLoading: false,
-    showMapcRegions: false,
+    showMAPCRegions: true,
   };
 
   componentDidMount() {
@@ -114,7 +114,7 @@ class MapBox extends React.Component {
       id: "mapc-region-line",
       type: "fill",
       source: "mapc-region",
-      layout: { visibility: "none" },
+      layout: { visibility: "visible" },
       paint: {
         "fill-color": "#006400",
         "fill-opacity": 0.7,
