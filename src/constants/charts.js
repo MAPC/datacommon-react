@@ -907,6 +907,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
       tables: {
         "tabular.hous_building_permits_m": {
           yearCol: "cal_year",
+          where: "cal_year >= 2001 AND cal_year <= 2023 order by cal_year",
           columns: ["cal_year", "months_rep", "sf_units", "mf_units"],
         },
       },
