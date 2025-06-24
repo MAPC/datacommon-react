@@ -2,6 +2,8 @@ import React from 'react';
 import hexToRgb from '../../utils/hexToRgb';
 import colors from '../../constants/colors';
 
+const fpsInterval = 1000 / 60; // milliseconds / frames
+
 class Particles extends React.Component {
   constructor(props) {
     super(props);
@@ -77,15 +79,20 @@ class Particles extends React.Component {
       }
       return { dotArray: prevState.dotArray };
     });
-    this.interval();
+    requestAnimationFrame(this.interval);
   }
 
-  interval() {
-    const { width, height, dotArray } = this.state;
-    const contxt = this.canvas.getContext('2d');
-    requestAnimationFrame(this.interval);
-    if(window.performance.now().toFixed() % 3 == 0) {
+  interval(timestamp) {
+    if (this.start === undefined) {
+      this.start = timestamp;
+    }
+    const elapsed = timestamp - this.start;
+    if (elapsed > fpsInterval) {
+      this.start = timestamp;
+      const { width, height, dotArray } = this.state;
+      const contxt = this.canvas.getContext('2d');
       contxt.clearRect(0, 0, width, height);
+      requestAnimationFrame(this.interval);
       dotArray.forEach((dot) => {
         this.moveDot(dot);
         contxt.fillStyle = dot.color;
@@ -95,6 +102,8 @@ class Particles extends React.Component {
       });
       this.drawNearestNeighborLines();
       this.drawTriangle();
+    } else {
+      requestAnimationFrame(this.interval);
     }
   }
 
