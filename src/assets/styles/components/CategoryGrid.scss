@@ -292,3 +292,19 @@
   }
 
 }
+
+.community-profiles-image {
+  display: block;
+  margin: 2rem auto;         
+  border-radius: 8px;
+  height: 450px;
+  max-width: 100%;
+  /* ensures the image covers the area without distortion */
+  object-fit: cover;         
+}
+
+@media (max-width: 600px) {
+  .community-profiles-image {
+    max-height: 250px;
+  }
+}

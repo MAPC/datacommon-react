@@ -156,9 +156,16 @@ const StackedBarChart = (props) => {
     // Group data by x value
     const groupedData = props.data.reduce((acc, row) => {
       if (!acc[row.x]) {
-        acc[row.x] = {};
+        acc[row.x] = {
+          totpop: row.totpop,
+          totpop_me: row.totpop_me
+        };
       }
       acc[row.x][row.z] = row.y;
+      // Store margin of error if it exists
+      if (row.me !== undefined) {
+        acc[row.x][`${row.z}_me`] = row.me;
+      }
       return acc;
     }, {});
 
@@ -255,9 +262,32 @@ const StackedBarChart = (props) => {
       })
       .on('mouseover', (event, d) => {
         const value = d.data[d.series];
+        const me = d.data[`${d.series}_me`];
+        const totpop = d.data.totpop;
+        const totpop_me = d.data.totpop_me;
+        
+        const formattedValue = typeof value === 'number' && value < 1 
+          ? (value * 100).toFixed(1) + '%' 
+          : d3.format(',')(value);
+        const formattedME = typeof me === 'number' ? d3.format(',')(me) : null;
+        const formattedTotpop = typeof totpop === 'number' ? d3.format(',')(totpop) : null;
+        const formattedTotpopME = typeof totpop_me === 'number' ? d3.format(',')(totpop_me) : null;
+        
         tooltip
           .style('opacity', 1)
-          .html(`${d.series}: ${typeof value === 'number' && value < 1 ? (value * 100).toFixed(1) + '%' : value}`)
+          .html(`
+            <div style="padding: 4px;">
+              <div style="font-weight: bold;">${d.series}</div>
+              <div>Value: ${formattedValue}</div>
+              <div>Margin of Error: ${formattedME === null ? "Not Available" : "±" + formattedME}</div>
+              ${formattedTotpop ? `
+                <div style="margin-top: 8px; border-top: 1px solid #ccc; padding-top: 8px;">
+                  <div>Total Population: ${formattedTotpop}</div>
+                  <div>Total Margin of Error: ${formattedTotpopME === null ? "Not Available" : "±" + formattedTotpopME}</div>
+                </div>
+              ` : ''}
+            </div>
+          `)
           .style('left', `${event.pageX + 10}px`)
           .style('top', `${event.pageY - 10}px`);
       })

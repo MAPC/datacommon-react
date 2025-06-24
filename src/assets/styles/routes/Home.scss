@@ -98,15 +98,8 @@
 
   &__cta {
     @include media('medium-small') {
-      display: none;
-    }
-
-    &--mobile {
-      @include media('medium-small') {
-        display: block;
-        margin: 1.5rem auto 0 auto;
-      }
-      display: none;
+      display: block;
+      margin: 1.5rem auto 0 auto;
     }
   }
 }

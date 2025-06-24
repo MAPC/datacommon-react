@@ -47,7 +47,7 @@ const Spinner = styled.div`
 `;
 
 const LoadingText = styled.span`
-  font-size: 14px;
+  font-size: inherit;
 `;
 
 const makeSelectAllChartsData = (allTables, muni) => {

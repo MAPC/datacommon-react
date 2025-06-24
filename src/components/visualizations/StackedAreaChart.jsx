@@ -131,7 +131,7 @@ class StackedAreaChart extends React.Component {
       .offset(d3.stackOffsetNone);  // No normalization
 
     const stackedData = this.stack(data);
-
+    console.log(stackedData);
     // Create scales
     const x = d3
       .scaleLinear()
@@ -158,38 +158,10 @@ class StackedAreaChart extends React.Component {
       .attr("fill", (d) => this.color(d.key))
       .attr("d", area)
       .on("mouseover", (event, d) => {
-        const mouseX = x.invert(d3.pointer(event)[0]);
-        const bisect = d3.bisector(d => d.data.x).left;
-        const index = bisect(d, mouseX);
-        const dataPoint = d[index];
-        
-        if (dataPoint) {
-          // Format value based on the magnitude
-          let value = dataPoint[1] - dataPoint[0];
-          let formattedValue;
-          
-          if (value >= 100) {
-            formattedValue = d3.format(",.0f")(value); // No decimals for large numbers
-          } else {
-            formattedValue = d3.format(",.1f")(value); // 1 decimal for smaller numbers
-          }
-
-          this.tooltip
-            .style("opacity", 1)
-            .html(`
-              <div style="padding: 4px;">
-                <div>${d.key}</div>
-                <div>${formattedValue}</div>
-              </div>
-            `)
-            .style("left", `${event.pageX + 10}px`)
-            .style("top", `${event.pageY - 10}px`);
-        }
+        this.updateTooltip(event, d, x);
       })
-      .on("mousemove", (event) => {
-        this.tooltip
-          .style("left", `${event.pageX + 10}px`)
-          .style("top", `${event.pageY - 10}px`);
+      .on("mousemove", (event, d) => {
+        this.updateTooltip(event, d, x);
       })
       .on("mouseout", () => {
         this.tooltip.style("opacity", 0);
@@ -256,6 +228,43 @@ class StackedAreaChart extends React.Component {
       .attr("dy", "12")
       .style("text-anchor", "middle")
       .text("Oops! We can't find this data right now.");
+  }
+
+  updateTooltip(event, d, x) {
+    const mouseX = x.invert(d3.pointer(event)[0]);
+    const bisect = d3.bisector(d => d.data.x).left;
+    const index = bisect(d, mouseX);
+    const dataPoint = d[index];
+    
+    if (dataPoint) {
+      // Format value based on the magnitude
+      let value = dataPoint[1] - dataPoint[0];
+      let formattedValue;
+      
+      if (value >= 100) {
+        formattedValue = d3.format(",.0f")(value); // No decimals for large numbers
+      } else {
+        formattedValue = d3.format(",.1f")(value); // 1 decimal for smaller numbers
+      }
+
+      // Format the year value and ensure it's an integer
+      const year = Math.round(dataPoint.data.x);
+      const formattedYear = this.props.xAxis.format ? 
+        this.props.xAxis.format(year) : 
+        year;
+
+      this.tooltip
+        .style("opacity", 1)
+        .html(`
+          <div style="padding: 4px;">
+            <div>${d.key}</div>
+            <div>Year: ${formattedYear}</div>
+            <div>Value: ${formattedValue}</div>
+          </div>
+        `)
+        .style("left", `${event.pageX + 10}px`)
+        .style("top", `${event.pageY - 10}px`);
+    }
   }
 
   render() {

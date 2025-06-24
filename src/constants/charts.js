@@ -65,13 +65,22 @@ export default {
           columns: [
             "acs_year",
             "nhwhi",
+            "nhwhi_me",
             "nhaa",
+            "nhaa_me",
             "nhna",
+            "nhna_me",
             "nhas",
+            "nhas_me",
             "nhpi",
+            "nhpi_me",
             "nhoth",
+            "nhoth_me",
             "nhmlt",
             "lat",
+            "lat_me",
+            "totpop",
+            "totpop_me",
           ],
         },
       },
@@ -103,11 +112,11 @@ export default {
         }
         const row = raceEthnicityData[0];
         const groupings = {
-          nhwhi: row.nhwhi,
-          nhaa: row.nhaa,
-          nhapi: row.nhas + row.nhpi,
-          nhother: row.nhoth + row.nhmlt + row.nhna,
-          lat: row.lat,
+          nhwhi: { value: row.nhwhi, me: row.nhwhi_me },
+          nhaa: { value: row.nhaa, me: row.nhaa_me },
+          nhapi: { value: row.nhas + row.nhpi, me: null },
+          nhother: { value: row.nhoth + row.nhmlt + row.nhna, me: null },
+          lat: { value: row.lat, me: row.lat_me }
         };
         return Object.keys(groupings).reduce(
           (set, key) =>
@@ -116,9 +125,12 @@ export default {
               : set.concat([
                   {
                     x: row[tableDef.yearCol],
-                    y: groupings[key],
+                    y: groupings[key].value,
                     z: chart.labels[key],
                     color: chart.colors[key],
+                    me: groupings[key].me,
+                    totpop: row.totpop,
+                    totpop_me: row.totpop_me
                   },
                 ]),
           []
@@ -187,6 +199,7 @@ export default {
           x: row[chart.tables["tabular.census2010_p12_pop_by_age_m"].yearCol],
           y: data[k],
           z: chart.labels[k],
+          totpop: row.totpop,
         }));
       },
     },
@@ -205,7 +218,7 @@ export default {
             const years = await fetchLatestYear(queryString);
             return years;
           },
-          columns: ["acs_year", "emp", "unemp"],
+          columns: ["acs_year", "emp", "unemp", "clf","clf_me","emp_me","unemp_me"],
         },
       },
       labels: {
@@ -242,6 +255,9 @@ export default {
                 x: row[chart.tables["tabular.b23025_employment_acs_m"].yearCol],
                 y: row[key],
                 z: chart.labels[key],
+                me: row[`${key}_me`],
+                totpop: row.clf,
+                totpop_me: row.clf_me
               }))
             ),
           []
@@ -425,6 +441,7 @@ export default {
                           y: district[key],
                           z: chart.labels[key].label,
                           order: chart.labels[key].order,
+                          
                         },
                       ]),
                 []
@@ -544,6 +561,7 @@ export default {
                       x: chart.labels[edu],
                       y: consolidatedRow[`${race}${edu}`],
                       z: chart.labels[race],
+                      totpop: totals[edu],
                     },
                   ]),
                 []
@@ -889,8 +907,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
       tables: {
         "tabular.hous_building_permits_m": {
           yearCol: "cal_year",
-          where:
-            "months_rep = 12 AND cal_year >= 2001 AND cal_year <= 2023 order by cal_year",
+          where: "cal_year >= 2001 AND cal_year <= 2023 order by cal_year",
           columns: ["cal_year", "months_rep", "sf_units", "mf_units"],
         },
       },
@@ -905,7 +922,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         let queryString = `WITH years AS (
             SELECT DISTINCT cal_year 
             FROM tabular.hous_building_permits_m 
-            WHERE months_rep = 12 AND cal_year >= 2001
+            WHERE cal_year >= 2001
         )
         SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year
         FROM years;`
@@ -915,7 +932,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
       datasetLinks: { "Building Permits by Type and Year (Municipal)": 384 },
       transformer: (tables, chart) => {
         const [offset, numYears] = [2001, 23];
-        const permitData = tables["tabular.hous_building_permits_m"];
+        const permitData = tables["tabular.hous_building_permits_m"].filter(row => row.months_rep === 12);
         const tableDef = chart.tables["tabular.hous_building_permits_m"];
         if (permitData.length < 1) {
           return [];
@@ -1002,12 +1019,12 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         lat_art: "H & L",
       },
       labels: {
-        whi_art: "White",
-        aa_art: "Black and African American",
-        api_art: "Asian and Pacific Islander",
-        na_art: "Native American",
-        oth_art: "Other",
-        lat_art: "Hispanic and Latino",
+        whi_art: "White (W)",
+        aa_art: "Black and African American (B & AA)",
+        api_art: "Asian and Pacific Islander (A & PA)",
+        na_art: "Native American (NA)",
+        oth_art: "Other (Other)",
+        lat_art: "Hispanic and Latino (H & L)",
       },
       colors: {
         whi_art: colors.CHART.EXTENDED.get("YELLOW"),
@@ -1101,12 +1118,12 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         lat_arte: "H & L",
       },
       labels: {
-        whi_arte: "White",
-        aa_arte: "Black and African American",
-        api_arte: "Asian and Pacific Islander",
-        na_arte: "Native American",
-        oth_arte: "Other",
-        lat_arte: "Hispanic and Latino",
+        whi_arte: "White (W)",
+        aa_arte: "Black and African American (B & AA)",
+        api_arte: "Asian and Pacific Islander (A & PA)",
+        na_arte: "Native American (NA)",
+        oth_arte: "Other (Other)",
+        lat_arte: "Hispanic and Latino (H & L)",
       },
       colors: {
         whi_arte: colors.CHART.EXTENDED.get("YELLOW"),

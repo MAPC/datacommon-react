@@ -141,11 +141,12 @@ class PieChart extends React.Component {
       .attr("stroke", "white")
       .attr("stroke-width", "1")
       .on("mouseover", (event, d) => {
+        const percentage = ((d.data.value * 100) / sum).toFixed(1);
         this.tooltip
           .html(
             `
             <div>
-              ${d.data.label}: ${d.data.value}
+              ${d.data.label}: ${percentage}%
             </div>
             `
           )
