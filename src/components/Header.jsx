@@ -26,16 +26,7 @@ const Header = () => {
               DataCommon
             </a>
           </div>
-
           <ul>
-            <li>
-              <a
-                className={handleActivePage(location.pathname, "/browser")}
-                href="/browser"
-              >
-                Datasets
-              </a>
-            </li>
             <li>
               <a
                 className={handleActivePage(location.pathname, "/communities")}
@@ -44,6 +35,15 @@ const Header = () => {
                 Community Profiles
               </a>
             </li>
+            <li>
+              <a
+                className={handleActivePage(location.pathname, "/browser")}
+                href="/browser"
+              >
+                Datasets
+              </a>
+            </li>
+
             <li>
               <a
                 className={handleActivePage(location.pathname, "/gallery")}
