@@ -5,7 +5,7 @@ import Particles from "../components/partials/Particles";
 import { fetchDatasets } from "../reducers/datasetSlice";
 import SearchBar from "../components/partials/SearchBar";
 import CategoryGrid from "../components/CategoryGrid";
-import CommunityProfiles from "../assets/images/homepage/community-profiles.png";
+import CommunityProfiles from "../assets/images/homepage/community-profiles.jpeg";
 import Image from "react-bootstrap/Image";
 const Home = () => {
   const dispatch = useDispatch();
