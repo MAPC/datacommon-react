@@ -14,24 +14,24 @@ import StackedAreaChart from "../containers/visualizations/StackedAreaChart";
 import ChartDetails from "./visualizations/ChartDetails";
 import PieChart from "../containers/visualizations/PieChart";
 import LineChart from "../containers/visualizations/LineChart";
-import DownloadAllChartsButton from './field/DownloadAllChartsButton';
-import DataTableModal from './field/DataTableModal';
+import DownloadAllChartsButton from "./field/DownloadAllChartsButton";
+import DataTableModal from "./field/DataTableModal";
 
 const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
   const dispatch = useDispatch();
   const { muni, tab } = useParams();
-  const [activeTab, setActiveTab] = useState(tab || 'demographics');
+  const [activeTab, setActiveTab] = useState(tab || "demographics");
   const [modalConfig, setModalConfig] = useState({
     show: false,
     data: null,
-    title: ''
+    title: "",
   });
 
   const handleShowModal = (data, title) => {
     setModalConfig({
       show: true,
       data,
-      title
+      title,
     });
   };
 
@@ -39,7 +39,7 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
     setModalConfig({
       show: false,
       data: null,
-      title: ''
+      title: "",
     });
   };
 
@@ -49,10 +49,8 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
 
   useEffect(() => {
     if (charts[activeTab]) {
-      Object.values(charts[activeTab]).forEach((chart) =>
-        dispatch(fetchChartData({ chartInfo: chart, municipality: muni }))
-      );
-    } 
+      Object.values(charts[activeTab]).forEach((chart) => dispatch(fetchChartData({ chartInfo: chart, municipality: muni })));
+    }
   }, [activeTab, muni, dispatch]);
 
   return (
@@ -70,16 +68,9 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
               <MunicipalityPolygon feature={municipalFeature} />
             </div>
             <div className="description-wrapper">
-              <p className="description">
-                {descriptions[muniSlug.toLowerCase()] ||
-                  "No description available."}
-              </p>
+              <p className="description">{descriptions[muniSlug.toLowerCase()] || "No description available."}</p>
               <div className="button-group">
-                <button
-                  onClick={() => window.print()}
-                  type="button"
-                  className="print-button"
-                >
+                <button onClick={() => window.print()} type="button" className="print-button">
                   Print charts
                 </button>
                 <DownloadAllChartsButton muni={muni} />
@@ -92,14 +83,8 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
         <div className="container tab-selection">
           <ul className="tabs">
             {tabs.map((tabItem) => (
-              <li 
-                key={tabItem.value} 
-                className={tabItem.value === activeTab ? "active" : ""}
-              >
-                <Link 
-                  to={`/profile/${muniSlug}/${tabItem.value}`}
-                  onClick={() => setActiveTab(tabItem.value)}
-                >
+              <li key={tabItem.value} className={tabItem.value === activeTab ? "active" : ""}>
+                <Link to={`/profile/${muniSlug}/${tabItem.value}`} onClick={() => setActiveTab(tabItem.value)}>
                   {tabItem.label}
                 </Link>
               </li>
@@ -112,10 +97,10 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
               onChange={(e) => {
                 setActiveTab(e.target.value);
                 dispatch(
-                  fetchChartData({ 
-                    chartInfo: charts[e.target.value], 
-                    municipality: muni 
-                  })
+                  fetchChartData({
+                    chartInfo: charts[e.target.value],
+                    municipality: muni,
+                  }),
                 );
               }}
             />
@@ -128,25 +113,11 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 <h3>Demographics</h3>
               </header>
               <div className="tab__row">
-                <ChartDetails 
-                  chart={charts.demographics.race_ethnicity} 
-                  muni={muni}
-                  onViewData={handleShowModal}
-                >
-                  <StackedBarChart
-                    chart={charts.demographics.race_ethnicity}
-                    muni={muni}
-                  />
+                <ChartDetails chart={charts.demographics.race_ethnicity} muni={muni} onViewData={handleShowModal}>
+                  <StackedBarChart chart={charts.demographics.race_ethnicity} muni={muni} />
                 </ChartDetails>
-                <ChartDetails 
-                  chart={charts.demographics.pop_by_age} 
-                  muni={muni}
-                  onViewData={handleShowModal}
-                >
-                  <StackedBarChart
-                    chart={charts.demographics.pop_by_age}
-                    muni={muni}
-                  />
+                <ChartDetails chart={charts.demographics.pop_by_age} muni={muni} onViewData={handleShowModal}>
+                  <StackedBarChart chart={charts.demographics.pop_by_age} muni={muni} />
                 </ChartDetails>
               </div>
             </Tab>
@@ -155,17 +126,11 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 <h3>Economy</h3>
               </header>
               <div className="tab__row">
-                <ChartDetails chart={charts.economy.resident_employment} muni={muni}  onViewData={handleShowModal}>
-                  <StackedBarChart
-                    chart={charts.economy.resident_employment}
-                    muni={muni}
-                  />
+                <ChartDetails chart={charts.economy.resident_employment} muni={muni} onViewData={handleShowModal}>
+                  <StackedBarChart chart={charts.economy.resident_employment} muni={muni} />
                 </ChartDetails>
                 <ChartDetails chart={charts.economy.emp_by_sector} muni={muni} onViewData={handleShowModal}>
-                  <StackedAreaChart
-                    chart={charts.economy.emp_by_sector}
-                    muni={muni}
-                  />
+                  <StackedAreaChart chart={charts.economy.emp_by_sector} muni={muni} />
                 </ChartDetails>
               </div>
             </Tab>
@@ -174,20 +139,11 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 <h3>Education</h3>
               </header>
               <div className="tab__row">
-                <ChartDetails chart={charts.education.school_enrollment} muni={muni}  onViewData={handleShowModal}>
-                  <StackedBarChart
-                    chart={charts.education.school_enrollment}
-                    muni={muni}
-                    horizontal
-                  />
+                <ChartDetails chart={charts.education.school_enrollment} muni={muni} onViewData={handleShowModal}>
+                  <StackedBarChart chart={charts.education.school_enrollment} muni={muni} horizontal />
                 </ChartDetails>
-                <ChartDetails chart={charts.education.edu_attainment_by_race} muni={muni}  onViewData={handleShowModal}>
-                  <StackedBarChart
-                    chart={charts.education.edu_attainment_by_race}
-                    muni={muni}
-                    horizontal
-                    wrapLeftLabel
-                  />
+                <ChartDetails chart={charts.education.edu_attainment_by_race} muni={muni} onViewData={handleShowModal}>
+                  <StackedBarChart chart={charts.education.edu_attainment_by_race} muni={muni} horizontal wrapLeftLabel />
                 </ChartDetails>
               </div>
             </Tab>
@@ -196,7 +152,7 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 <h3>Governance</h3>
               </header>
               <div className="tab__row">
-                <ChartDetails chart={charts.governance.tax_levy} muni={muni}  onViewData={handleShowModal}>
+                <ChartDetails chart={charts.governance.tax_levy} muni={muni} onViewData={handleShowModal}>
                   <PieChart chart={charts.governance.tax_levy} muni={muni} />
                 </ChartDetails>
               </div>
@@ -206,25 +162,16 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 <h3>Environment</h3>
               </header>
               <div className="tab__row tab__row--break">
-                <ChartDetails chart={charts.environment.water_usage_per_cap} muni={muni}  onViewData={handleShowModal}>
-                  <LineChart
-                    chart={charts.environment.water_usage_per_cap}
-                    muni={muni}
-                  />
+                <ChartDetails chart={charts.environment.water_usage_per_cap} muni={muni} onViewData={handleShowModal}>
+                  <LineChart chart={charts.environment.water_usage_per_cap} muni={muni} />
                 </ChartDetails>
-                <ChartDetails chart={charts.environment.energy_usage_gas} muni={muni}  onViewData={handleShowModal}>
-                  <StackedAreaChart
-                    chart={charts.environment.energy_usage_gas}
-                    muni={muni}
-                  />
+                <ChartDetails chart={charts.environment.energy_usage_gas} muni={muni} onViewData={handleShowModal}>
+                  <StackedAreaChart chart={charts.environment.energy_usage_gas} muni={muni} />
                 </ChartDetails>
               </div>
               <div className="tab__row">
-                <ChartDetails chart={charts.environment.energy_usage_electricity} muni={muni}  onViewData={handleShowModal}>
-                  <StackedAreaChart
-                    chart={charts.environment.energy_usage_electricity}
-                    muni={muni}
-                  />
+                <ChartDetails chart={charts.environment.energy_usage_electricity} muni={muni} onViewData={handleShowModal}>
+                  <StackedAreaChart chart={charts.environment.energy_usage_electricity} muni={muni} />
                 </ChartDetails>
               </div>
             </Tab>
@@ -233,17 +180,11 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 <h3>Housing</h3>
               </header>
               <div className="tab__row">
-                <ChartDetails chart={charts.housing.cost_burden} muni={muni}  onViewData={handleShowModal}>
-                  <StackedBarChart
-                    chart={charts.housing.cost_burden}
-                    muni={muni}
-                  />
+                <ChartDetails chart={charts.housing.cost_burden} muni={muni} onViewData={handleShowModal}>
+                  <StackedBarChart chart={charts.housing.cost_burden} muni={muni} />
                 </ChartDetails>
-                <ChartDetails chart={charts.housing.units_permitted} muni={muni}  onViewData={handleShowModal}  >
-                  <StackedBarChart
-                    chart={charts.housing.units_permitted}
-                    muni={muni}
-                  />
+                <ChartDetails chart={charts.housing.units_permitted} muni={muni} onViewData={handleShowModal}>
+                  <StackedBarChart chart={charts.housing.units_permitted} muni={muni} />
                 </ChartDetails>
               </div>
             </Tab>
@@ -252,21 +193,11 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 <h3>Public Health</h3>
               </header>
               <div className="tab__row">
-                <ChartDetails
-                  chart={charts["public-health"].premature_mortality_rate}
-                  muni={muni}
-                  onViewData={handleShowModal}
-                >
-                  <StackedBarChart
-                    chart={charts["public-health"].premature_mortality_rate}
-                    muni={muni}
-                  />
+                <ChartDetails chart={charts["public-health"].premature_mortality_rate} muni={muni} onViewData={handleShowModal}>
+                  <StackedBarChart chart={charts["public-health"].premature_mortality_rate} muni={muni} />
                 </ChartDetails>
-                <ChartDetails chart={charts["public-health"].hospitalizations} muni={muni}  onViewData={handleShowModal}>
-                  <StackedBarChart
-                    chart={charts["public-health"].hospitalizations}
-                    muni={muni}
-                  />
+                <ChartDetails chart={charts["public-health"].hospitalizations} muni={muni} onViewData={handleShowModal}>
+                  <StackedBarChart chart={charts["public-health"].hospitalizations} muni={muni} />
                 </ChartDetails>
               </div>
             </Tab>
@@ -276,16 +207,10 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
               </header>
               <div className="tab__row">
                 <ChartDetails chart={charts.transportation.daily_vmt} muni={muni} onViewData={handleShowModal}>
-                  <StackedAreaChart
-                    chart={charts.transportation.daily_vmt}
-                    muni={muni}
-                  />
+                  <StackedAreaChart chart={charts.transportation.daily_vmt} muni={muni} />
                 </ChartDetails>
                 <ChartDetails chart={charts.transportation.commute_to_work} muni={muni} onViewData={handleShowModal}>
-                  <PieChart
-                    chart={charts.transportation.commute_to_work}
-                    muni={muni}
-                  />
+                  <PieChart chart={charts.transportation.commute_to_work} muni={muni} />
                 </ChartDetails>
               </div>
             </Tab>
@@ -293,13 +218,7 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
         </div>
       </div>
 
-      <DataTableModal
-        show={modalConfig.show}
-        handleClose={handleCloseModal}
-        data={modalConfig.data}
-        title={modalConfig.title}
-        muni={muni}
-      />
+      <DataTableModal show={modalConfig.show} handleClose={handleCloseModal} data={modalConfig.data} title={modalConfig.title} muni={muni} />
     </article>
   );
 };

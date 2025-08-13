@@ -20,8 +20,7 @@ const format = {
 };
 
 const fetchLatestYear = async (queryString) => {
-  // TODO: Add a new location for the new API
-  const tabular_api = `${locations.BROWSER_API}?token=${locations.DS_TOKEN}&query=`;
+  const tabular_api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
   const query = `${tabular_api}${queryString}`;
   try {
     const response = await fetch(query);
@@ -116,7 +115,7 @@ export default {
           nhaa: { value: row.nhaa, me: row.nhaa_me },
           nhapi: { value: row.nhas + row.nhpi, me: null },
           nhother: { value: row.nhoth + row.nhmlt + row.nhna, me: null },
-          lat: { value: row.lat, me: row.lat_me }
+          lat: { value: row.lat, me: row.lat_me },
         };
         return Object.keys(groupings).reduce(
           (set, key) =>
@@ -130,10 +129,10 @@ export default {
                     color: chart.colors[key],
                     me: groupings[key].me,
                     totpop: row.totpop,
-                    totpop_me: row.totpop_me
+                    totpop_me: row.totpop_me,
                   },
                 ]),
-          []
+          [],
         );
       },
     },
@@ -213,12 +212,12 @@ export default {
       tables: {
         "tabular.b23025_employment_acs_m": {
           yearCol: "acs_year",
-          years: async () => {  
+          years: async () => {
             let queryString = `SELECT distinct(acs_year) as latest_year FROM tabular.b23025_employment_acs_m GROUP BY acs_year ORDER BY acs_year DESC LIMIT 2`;
             const years = await fetchLatestYear(queryString);
             return years;
           },
-          columns: ["acs_year", "emp", "unemp", "clf","clf_me","emp_me","unemp_me"],
+          columns: ["acs_year", "emp", "unemp", "clf", "clf_me", "emp_me", "unemp_me"],
         },
       },
       labels: {
@@ -238,9 +237,7 @@ export default {
           return `${start}-20${end}`;
         };
 
-        return `${formatYearRange(previous)} and ${formatYearRange(
-          latest
-        )} 5-Year Estimates`;
+        return `${formatYearRange(previous)} and ${formatYearRange(latest)} 5-Year Estimates`;
       },
       datasetLinks: { "Labor Force (Municipal)": 129 },
       transformer: (tables, chart) => {
@@ -257,10 +254,10 @@ export default {
                 z: chart.labels[key],
                 me: row[`${key}_me`],
                 totpop: row.clf,
-                totpop_me: row.clf_me
-              }))
+                totpop_me: row.clf_me,
+              })),
             ),
-          []
+          [],
         );
       },
     },
@@ -286,11 +283,9 @@ export default {
         "22+48-49": "Transportation, warehousing, and utilities",
         51: "Information",
         "52+53": "Finance, Insurance, Real Estate, and Rental and Leasing",
-        "54+55+56":
-          "Professional, technical, management, administrative, and waste management services",
+        "54+55+56": "Professional, technical, management, administrative, and waste management services",
         "61+62": "Education, health, and social services",
-        "71+72":
-          "Arts, entertainment, recreation, accommodation, and food services",
+        "71+72": "Arts, entertainment, recreation, accommodation, and food services",
         81: "Other services (other than public administration)",
         92: "Public administration",
       },
@@ -327,10 +322,7 @@ export default {
             "22+48-49": getOrZero(year, "22") + getOrZero(year, "48-49"),
             51: getOrZero(year, "51"),
             "52+53": getOrZero(year, "52") + getOrZero(year, "53"),
-            "54+55+56":
-              getOrZero(year, "54") +
-              getOrZero(year, "55") +
-              getOrZero(year, "56"),
+            "54+55+56": getOrZero(year, "54") + getOrZero(year, "55") + getOrZero(year, "56"),
             "61+62": getOrZero(year, "61") + getOrZero(year, "62"),
             "71+72": getOrZero(year, "71") + getOrZero(year, "72"),
             81: getOrZero(year, "81"),
@@ -344,7 +336,7 @@ export default {
               x: parseInt(year),
               y: yearData[key],
               z: chart.labels[key],
-            }))
+            })),
           );
         }, []);
         return data;
@@ -360,8 +352,8 @@ export default {
       tables: {
         "tabular.educ_enrollment_by_year_districts": {
           specialFetch: async (municipality, dispatchUpdate) => {
-            const spatial_api = `${locations.BROWSER_API}?token=${locations.GISDATA_TOKEN}&query=`;
-            const tabular_api = `${locations.BROWSER_API}?token=${locations.DS_TOKEN}&query=`;
+            const spatial_api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=gisdata&query=`;
+            const tabular_api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
             const gis_query =
               `${spatial_api}` +
               "SELECT districtid, district, madisttype, town_reg, municipal " +
@@ -377,9 +369,7 @@ export default {
             if (!gis_payload.rows || gis_payload.rows.length < 1) {
               return dispatchUpdate([]);
             }
-            const districtIds = gis_payload.rows.map(
-              (district) => `'${district.districtid}'`
-            );
+            const districtIds = gis_payload.rows.map((district) => `'${district.districtid}'`);
             const query =
               `${tabular_api}` +
               "SELECT district, districtid, schoolyear, grade_k, grade_1," +
@@ -431,9 +421,7 @@ export default {
             acc.concat(
               Object.keys(district).reduce(
                 (group, key) =>
-                  key == "district" ||
-                  key == "districtid" ||
-                  key == "schoolyear"
+                  key == "district" || key == "districtid" || key == "schoolyear"
                     ? group
                     : group.concat([
                         {
@@ -441,13 +429,12 @@ export default {
                           y: district[key],
                           z: chart.labels[key].label,
                           order: chart.labels[key].order,
-                          
                         },
                       ]),
-                []
-              )
+                [],
+              ),
             ),
-          []
+          [],
         );
         return data;
       },
@@ -522,8 +509,7 @@ export default {
       },
       datasetLinks: { "Educational Attainment by Race (Municipal)": 202 },
       transformer: (tables, chart) => {
-        const eduData =
-          tables["tabular.c15002_educational_attainment_by_race_acs_m"];
+        const eduData = tables["tabular.c15002_educational_attainment_by_race_acs_m"];
         if (eduData.length < 1) {
           return [];
         }
@@ -536,7 +522,7 @@ export default {
             Object.assign(obj, {
               [edu]: raceKeys.reduce((sum, k) => sum + row[`${k}${edu}`], 0),
             }),
-          {}
+          {},
         );
         const consolidatedRow = eduKeys.reduce(
           (obj, edu) =>
@@ -545,11 +531,9 @@ export default {
               [`aa${edu}`]: row[`aa${edu}`] / totals[edu],
               [`lat${edu}`]: row[`lat${edu}`] / totals[edu],
               [`api${edu}`]: (row[`as${edu}`] + row[`pi${edu}`]) / totals[edu],
-              [`oth${edu}`]:
-                (row[`oth${edu}`] + row[`mlt${edu}`] + row[`na${edu}`]) /
-                totals[edu],
+              [`oth${edu}`]: (row[`oth${edu}`] + row[`mlt${edu}`] + row[`na${edu}`]) / totals[edu],
             }),
-          {}
+          {},
         );
         return combinedRaceKeys.reduce(
           (raceAcc, race) =>
@@ -564,10 +548,10 @@ export default {
                       totpop: totals[edu],
                     },
                   ]),
-                []
-              )
+                [],
+              ),
             ),
-          []
+          [],
         );
       },
     },
@@ -582,15 +566,7 @@ export default {
         "tabular.econ_municipal_taxes_revenue_m": {
           yearCol: "fy",
           latestYearOnly: true,
-          columns: [
-            "fy",
-            "res_taxes",
-            "os_taxes",
-            "comm_taxes",
-            "ind_taxes",
-            "p_prop_tax",
-            "tot_rev",
-          ],
+          columns: ["fy", "res_taxes", "os_taxes", "comm_taxes", "ind_taxes", "p_prop_tax", "tot_rev"],
         },
       },
       labels: {
@@ -616,19 +592,12 @@ export default {
           return [];
         }
         const row = taxData[0];
-        const directRev = [
-          "res_taxes",
-          "os_taxes",
-          "comm_taxes",
-          "ind_taxes",
-          "p_prop_tax",
-        ];
+        const directRev = ["res_taxes", "os_taxes", "comm_taxes", "ind_taxes", "p_prop_tax"];
         /*  const withImplied = Object.assign(row, {
           other: row.tot_rev - directRev.reduce((sum, k) => sum + row[k], 0),
         }); */
         const withImplied = Object.assign({}, row, {
-          other:
-            row.tot_rev - directRev.reduce((sum, k) => sum + (row[k] || 0), 0),
+          other: row.tot_rev - directRev.reduce((sum, k) => sum + (row[k] || 0), 0),
         });
         return Object.keys(chart.labels).map((key) => ({
           value: withImplied[key],
@@ -649,15 +618,7 @@ export default {
       },
       tables: {
         "tabular.env_dep_reviewed_water_demand_m": {
-          columns: [
-            "rgpcd2009",
-            "rgpcd2010",
-            "rgpcd2011",
-            "rgpcd2012",
-            "rgpcd2013",
-            "rgpcd2014",
-            "rgpcd2015",
-          ],
+          columns: ["rgpcd2009", "rgpcd2010", "rgpcd2011", "rgpcd2012", "rgpcd2013", "rgpcd2014", "rgpcd2015"],
         },
       },
       labels: {},
@@ -687,11 +648,7 @@ export default {
         return [
           {
             label: "Water Usage per Capita",
-            values: pairs.reduce(
-              (acc, [year, key]) =>
-                row[key] ? acc.concat([[year, row[key]]]) : acc,
-              []
-            ),
+            values: pairs.reduce((acc, [year, key]) => (row[key] ? acc.concat([[year, row[key]]]) : acc), []),
           },
         ];
       },
@@ -722,7 +679,7 @@ export default {
 )
 SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         const years = await fetchLatestYear(queryString);
-        
+
         return years[0];
       },
       datasetLinks: {
@@ -730,10 +687,8 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         "MassSave Res & Low Income Incentives and Savings (Municipal)": 252,
       },
       transformer: (tables, chart) => {
-        const commData =
-          tables["tabular.energy_masssave_elec_gas_ci_consumption_m"];
-        const resData =
-          tables["tabular.energy_masssave_elec_gas_res_li_consumption_m"];
+        const commData = tables["tabular.energy_masssave_elec_gas_ci_consumption_m"];
+        const resData = tables["tabular.energy_masssave_elec_gas_res_li_consumption_m"];
         const rows = commData.concat(resData);
         if (rows.length < 1) {
           return [];
@@ -747,7 +702,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
                 z: `${row.sector} ${chart.labels.therm_use}`,
               },
             ]),
-          []
+          [],
         );
         return data;
       },
@@ -785,10 +740,8 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         "MassSave Res & Low Income Incentives and Savings (Municipal)": 252,
       },
       transformer: (tables, chart) => {
-        const commData =
-          tables["tabular.energy_masssave_elec_gas_ci_consumption_m"];
-        const resData =
-          tables["tabular.energy_masssave_elec_gas_res_li_consumption_m"];
+        const commData = tables["tabular.energy_masssave_elec_gas_ci_consumption_m"];
+        const resData = tables["tabular.energy_masssave_elec_gas_res_li_consumption_m"];
         const rows = commData.concat(resData);
         if (rows.length < 1) {
           return [];
@@ -804,7 +757,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
                   },
                 ])
               : acc,
-          []
+          [],
         );
       },
     },
@@ -826,19 +779,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
             const years = await fetchLatestYear(queryString);
             return years;
           },
-          columns: [
-            "acs_year",
-            "occv2",
-            "cb",
-            "o_notcb",
-            "r_notcb",
-            "ocb3050",
-            "rcb3050",
-            "cb_3050",
-            "o_cb50",
-            "r_cb50",
-            "cb_50",
-          ],
+          columns: ["acs_year", "occv2", "cb", "o_notcb", "r_notcb", "ocb3050", "rcb3050", "cb_3050", "o_cb50", "r_cb50", "cb_50"],
         },
       },
       labels: {
@@ -898,10 +839,10 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
     units_permitted: {
       type: "stacked-area",
       title: "Housing Units Permitted",
-      xAxis: { 
+      xAxis: {
         label: "Year",
         format: format.string.default,
-        sort: (a, b) => parseInt(a) - parseInt(b)
+        sort: (a, b) => parseInt(a) - parseInt(b),
       },
       yAxis: { label: "Units Permitted" },
       tables: {
@@ -916,8 +857,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         mf_units: "Multi Family Units",
       },
       source: "Census Building Permit Survey",
-      caveat:
-        "*Ignoring years for which the municipality did not report all 12 months.",
+      caveat: "*Ignoring years for which the municipality did not report all 12 months.",
       timeframe: async () => {
         let queryString = `WITH years AS (
             SELECT DISTINCT cal_year 
@@ -925,14 +865,14 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
             WHERE cal_year >= 2001
         )
         SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year
-        FROM years;`
+        FROM years;`;
         const years = await fetchLatestYear(queryString);
-        return years[0]
+        return years[0];
       },
       datasetLinks: { "Building Permits by Type and Year (Municipal)": 384 },
       transformer: (tables, chart) => {
         const [offset, numYears] = [2001, 23];
-        const permitData = tables["tabular.hous_building_permits_m"].filter(row => row.months_rep === 12);
+        const permitData = tables["tabular.hous_building_permits_m"].filter((row) => row.months_rep === 12);
         const tableDef = chart.tables["tabular.hous_building_permits_m"];
         if (permitData.length < 1) {
           return [];
@@ -940,10 +880,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         let rowIndex = 0;
         const allData = new Array(numYears);
         for (let yearIndex = 0; yearIndex < numYears; yearIndex += 1) {
-          if (
-            permitData[rowIndex] &&
-            permitData[rowIndex][tableDef.yearCol] == offset + yearIndex
-          ) {
+          if (permitData[rowIndex] && permitData[rowIndex][tableDef.yearCol] == offset + yearIndex) {
             allData[yearIndex] = permitData[rowIndex];
             rowIndex += 1;
           } else {
@@ -968,7 +905,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
                 z: chart.labels.sf_units,
               },
             ]),
-          []
+          [],
         );
       },
     },
@@ -1047,14 +984,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
           return [];
         }
         const row = premoData[0];
-        const raceKeys = [
-          "whi_art",
-          "aa_art",
-          "api_art",
-          "na_art",
-          "oth_art",
-          "lat_art",
-        ];
+        const raceKeys = ["whi_art", "aa_art", "api_art", "na_art", "oth_art", "lat_art"];
         return raceKeys.reduce(
           (acc, key) =>
             acc.concat([
@@ -1065,7 +995,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
                 color: chart.colors[key],
               },
             ]),
-          []
+          [],
         );
       },
     },
@@ -1098,15 +1028,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
             const years = await fetchLatestYear(queryString);
             return years;
           },
-          columns: [
-            "cal_years",
-            "whi_arte",
-            "aa_arte",
-            "api_arte",
-            "na_arte",
-            "oth_arte",
-            "lat_arte",
-          ],
+          columns: ["cal_years", "whi_arte", "aa_arte", "api_arte", "na_arte", "oth_arte", "lat_arte"],
         },
       },
       abbreviations: {
@@ -1143,20 +1065,12 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         "Hypertension Related Hospitalizations (Municipal)": 385,
       },
       transformer: (tables, chart) => {
-        const hyperData =
-          tables["tabular.health_hospitalizations_hypertension_m"];
+        const hyperData = tables["tabular.health_hospitalizations_hypertension_m"];
         if (hyperData.length < 1) {
           return [];
         }
         const row = hyperData[0];
-        const raceKeys = [
-          "whi_arte",
-          "aa_arte",
-          "api_arte",
-          "na_arte",
-          "oth_arte",
-          "lat_arte",
-        ];
+        const raceKeys = ["whi_arte", "aa_arte", "api_arte", "na_arte", "oth_arte", "lat_arte"];
         return raceKeys.reduce(
           (acc, key) =>
             acc.concat([
@@ -1167,7 +1081,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
                 color: chart.colors[key],
               },
             ]),
-          []
+          [],
         );
         return [];
       },
@@ -1225,7 +1139,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
                 z: chart.labels.comm_vmt_hh,
               },
             ]),
-          []
+          [],
         );
       },
     },
@@ -1236,17 +1150,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         "tabular.b08301_means_transportation_to_work_by_residence_acs_m": {
           yearCol: "acs_year",
           latestYearOnly: true,
-          columns: [
-            "acs_year",
-            "ctvsngl",
-            "carpool",
-            "pub",
-            "taxi",
-            "mcycle",
-            "bicycle",
-            "walk",
-            "other",
-          ],
+          columns: ["acs_year", "ctvsngl", "carpool", "pub", "taxi", "mcycle", "bicycle", "walk", "other"],
         },
       },
       labels: {
@@ -1267,10 +1171,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
       },
       datasetLinks: { "Transportation to Work from Residence (Municpal)": 38 },
       transformer: (tables, chart) => {
-        const commData =
-          tables[
-            "tabular.b08301_means_transportation_to_work_by_residence_acs_m"
-          ];
+        const commData = tables["tabular.b08301_means_transportation_to_work_by_residence_acs_m"];
         if (commData.length < 1) {
           return [];
         }

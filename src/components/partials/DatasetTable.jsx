@@ -1,6 +1,6 @@
-import React from 'react';
-import PropTypes from 'prop-types';
-import DataRow from './DataRow';
+import React from "react";
+import PropTypes from "prop-types";
+import DataRow from "./DataRow";
 
 function setTableHeaders(columnKeys) {
   return columnKeys.map((header) => (
@@ -10,13 +10,13 @@ function setTableHeaders(columnKeys) {
   ));
 }
 
-function DatasetTable({
-  columnKeys=[], currentPage=1, metadata=[], queryYearColumn="", rows=[], selectedYears=[], updatePage,
-}) {
+function DatasetTable({ columnKeys = [], currentPage = 1, metadata = [], queryYearColumn = "", rows = [], selectedYears = [], updatePage }) {
   const renderedHeaders = setTableHeaders(columnKeys);
   let allRows;
+  const selectedYearsSet = new Set(selectedYears);
   if (queryYearColumn) {
-    allRows = rows.filter((row) => selectedYears.includes(row[queryYearColumn]))
+    allRows = rows
+      .filter((row) => selectedYearsSet.has(row[queryYearColumn]))
       .map((row, i) => <DataRow key={i} rowData={row} headers={columnKeys.map((key) => key.name)} />);
   } else {
     allRows = rows.map((row, i) => <DataRow key={i} rowData={row} headers={columnKeys.map((key) => key.name)} />);
@@ -24,8 +24,8 @@ function DatasetTable({
 
   const renderedRows = allRows.slice((currentPage - 1) * 50, currentPage * 50);
   const numOfPages = Math.ceil(allRows.length / 50);
-  const backButtonClasses = currentPage === 1 ? 'button-wrapper lift disabled' : 'button-wrapper lift';
-  const forwardButtonClasses = currentPage === numOfPages ? 'button-wrapper list disabled' : 'button-wrapper lift';
+  const backButtonClasses = currentPage === 1 ? "button-wrapper lift disabled" : "button-wrapper lift";
+  const forwardButtonClasses = currentPage === numOfPages ? "button-wrapper list disabled" : "button-wrapper lift";
   return (
     <div className="table-wrapper">
       <div className="container tight">
@@ -35,9 +35,7 @@ function DatasetTable({
               <thead>
                 <tr>{renderedHeaders}</tr>
               </thead>
-              <tbody>
-                {renderedRows}
-              </tbody>
+              <tbody>{renderedRows}</tbody>
             </table>
           </div>
         </div>
@@ -45,7 +43,7 @@ function DatasetTable({
           <div className={backButtonClasses}>
             <button
               onClick={(e) => {
-                currentPage !== 1 ? updatePage(e, 'Beginning') : null;
+                currentPage !== 1 ? updatePage(e, "Beginning") : null;
               }}
               className="datatable__button"
             >
@@ -54,11 +52,11 @@ function DatasetTable({
             <span className="separator" />
             <button
               onClick={(e) => {
-                currentPage !== 1 ? updatePage(e, 'Backward') : null;
+                currentPage !== 1 ? updatePage(e, "Backward") : null;
               }}
               className="datatable__button"
             >
-               &lt;
+              &lt;
             </button>
           </div>
 
@@ -71,7 +69,7 @@ function DatasetTable({
           <div className={forwardButtonClasses}>
             <button
               onClick={(e) => {
-                currentPage !== numOfPages ? updatePage(e, 'Forward') : null;
+                currentPage !== numOfPages ? updatePage(e, "Forward") : null;
               }}
               className="datatable__button"
             >
@@ -80,7 +78,7 @@ function DatasetTable({
             <span className="separator" />
             <button
               onClick={(e) => {
-                currentPage !== numOfPages ? updatePage(e, 'End', numOfPages) : null;
+                currentPage !== numOfPages ? updatePage(e, "End", numOfPages) : null;
               }}
               className="datatable__button"
             >
@@ -96,10 +94,7 @@ function DatasetTable({
 DatasetTable.propTypes = {
   columnKeys: PropTypes.arrayOf(PropTypes.object),
   currentPage: PropTypes.number,
-  metadata: PropTypes.oneOfType([
-    PropTypes.arrayOf(PropTypes.object),
-    PropTypes.objectOf(PropTypes.object),
-  ]),
+  metadata: PropTypes.oneOfType([PropTypes.arrayOf(PropTypes.object), PropTypes.objectOf(PropTypes.object)]),
   queryYearColumn: PropTypes.string,
   rows: PropTypes.arrayOf(PropTypes.object),
   selectedYears: PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.string, PropTypes.number])),
