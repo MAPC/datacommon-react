@@ -34,12 +34,7 @@ class LineChart extends React.Component {
       .append("svg")
       .attr("width", "100%")
       .attr("height", "100%")
-      .attr(
-        "viewBox",
-        `0 0 ${this.props.width || container.width} ${
-          this.props.height || container.height
-        }`
-      );
+      .attr("viewBox", `0 0 ${this.props.width || container.width} ${this.props.height || container.height}`);
 
     // Create the chart group
     this.chart = this.svg.append("g");
@@ -63,6 +58,7 @@ class LineChart extends React.Component {
       .style("border", "1px solid #ccc")
       .style("z-index", 1000);
 
+    console.log("LineChart props", this.props);
     // Render chart if we have data
     if (this.props.hasData) {
       this.renderChart();
@@ -72,10 +68,7 @@ class LineChart extends React.Component {
   }
 
   componentDidUpdate(prevProps) {
-    if (
-      this.props.hasData !== prevProps.hasData ||
-      this.props.data !== prevProps.data
-    ) {
+    if (this.props.hasData !== prevProps.hasData || this.props.data !== prevProps.data) {
       if (this.props.hasData) {
         this.renderChart();
       } else {
@@ -104,24 +97,20 @@ class LineChart extends React.Component {
             yMin: pBounds.yMin ? Math.min(pBounds.yMin, point[1]) : point[1],
             yMax: pBounds.yMax ? Math.max(pBounds.yMax, point[1]) : point[1],
           }),
-          lBounds
+          lBounds,
         ),
       {
         xMin: null,
         xMax: null,
         yMin: null,
         yMax: null,
-      }
+      },
     );
     return {
-      xMin:
-        this.props.xAxis.min != null ? this.props.xAxis.min : bounds.xMin,
-      xMax:
-        this.props.xAxis.max != null ? this.props.xAxis.max : bounds.xMax,
-      yMin:
-        this.props.yAxis.min != null ? this.props.yAxis.min : bounds.yMin,
-      yMax:
-        this.props.yAxis.max != null ? this.props.yAxis.max : bounds.yMax,
+      xMin: this.props.xAxis.min != null ? this.props.xAxis.min : bounds.xMin,
+      xMax: this.props.xAxis.max != null ? this.props.xAxis.max : bounds.xMax,
+      yMin: this.props.yAxis.min != null ? this.props.yAxis.min : bounds.yMin,
+      yMax: this.props.yAxis.max != null ? this.props.yAxis.max : bounds.yMax,
     };
   }
 
@@ -133,17 +122,11 @@ class LineChart extends React.Component {
         Math.max(
           max,
           line.values.reduce(
-            (lineMax, point) =>
-              Math.max(
-                lineMax,
-                this.props.yAxis.format
-                  ? this.props.yAxis.format(point[1]).length
-                  : String(point[1]).length
-              ),
-            0
-          )
+            (lineMax, point) => Math.max(lineMax, this.props.yAxis.format ? this.props.yAxis.format(point[1]).length : String(point[1]).length),
+            0,
+          ),
         ),
-      0
+      0,
     );
     const bonusLeftMargin = maxTextToMargin(yFormattedMax, 12);
     const margin = {
@@ -154,20 +137,11 @@ class LineChart extends React.Component {
     const height = container.height - margin.top - margin.bottom;
 
     const keys = this.props.data.map((d) => d.label);
-    const colors = this.props.data.reduce(
-      (acc, d) => (d.color ? acc.concat([d.color]) : acc),
-      []
-    );
+    const colors = this.props.data.reduce((acc, d) => (d.color ? acc.concat([d.color]) : acc), []);
 
     this.color = d3
       .scaleOrdinal()
-      .range(
-        colors.length
-          ? colors
-          : keys.length > primaryColors.length
-          ? extendedColors
-          : primaryColors
-      )
+      .range(colors.length ? colors : keys.length > primaryColors.length ? extendedColors : primaryColors)
       .domain(keys);
 
     const xScale = d3.scaleLinear().domain([xMin, xMax]).range([0, width]);
@@ -176,30 +150,14 @@ class LineChart extends React.Component {
     // Draw chart
     this.chart.selectAll("*").remove(); // Clear chart before drawing lines
 
-    this.gChart = this.chart
-      .append("g")
-      .attr("transform", `translate(${margin.left},${margin.top})`);
+    this.gChart = this.chart.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
 
     // Add axes
-    const xAxis = d3
-      .axisBottom(xScale)
-      .ticks(this.props.xAxis.ticks)
-      .tickSize(0)
-      .tickPadding(10)
-      .tickFormat(this.props.xAxis.format);
+    const xAxis = d3.axisBottom(xScale).ticks(this.props.xAxis.ticks).tickSize(0).tickPadding(10).tickFormat(this.props.xAxis.format);
 
-    const yAxis = d3
-      .axisLeft(yScale)
-      .ticks(this.props.yAxis.ticks)
-      .tickSize(0)
-      .tickPadding(10)
-      .tickFormat(this.props.yAxis.format);
+    const yAxis = d3.axisLeft(yScale).ticks(this.props.yAxis.ticks).tickSize(0).tickPadding(10).tickFormat(this.props.yAxis.format);
 
-    this.gChart
-      .append("g")
-      .attr("class", "axis axis-x")
-      .attr("transform", `translate(0, ${height})`)
-      .call(xAxis);
+    this.gChart.append("g").attr("class", "axis axis-x").attr("transform", `translate(0, ${height})`).call(xAxis);
 
     this.gChart.append("g").attr("class", "axis axis-y").call(yAxis);
 
@@ -231,14 +189,14 @@ class LineChart extends React.Component {
         .attr("r", 4)
         .on("mouseover", (event, d) => {
           const [year, value] = d;
-          
+
           this.tooltip
             .html(
               `
               <div>
                 ${year}: ${value}
               </div>
-              `
+              `,
             )
             .style("opacity", 1)
             .style("left", `${event.pageX + 10}px`)
@@ -280,17 +238,11 @@ class LineChart extends React.Component {
         Math.max(
           max,
           line.values.reduce(
-            (lineMax, point) =>
-              Math.max(
-                lineMax,
-                this.props.yAxis.format
-                  ? this.props.yAxis.format(point[1]).length
-                  : String(point[1]).length
-              ),
-            0
-          )
+            (lineMax, point) => Math.max(lineMax, this.props.yAxis.format ? this.props.yAxis.format(point[1]).length : String(point[1]).length),
+            0,
+          ),
         ),
-      0
+      0,
     );
     const bonusLeftMargin = maxTextToMargin(yFormattedMax, 12);
     const margin = {
@@ -308,7 +260,7 @@ class LineChart extends React.Component {
       .attr("y", height / 2 - 12)
       .attr("dy", "12")
       .style("text-anchor", "middle")
-      .text("Oops! We can't find this data right now.");
+      .text("Data not available.");
   }
 
   render() {
@@ -336,7 +288,7 @@ LineChart.propTypes = {
       label: PropTypes.string.isRequired,
       color: PropTypes.string,
       values: PropTypes.arrayOf(PropTypes.arrayOf(PropTypes.number)).isRequired,
-    })
+    }),
   ).isRequired,
   hasData: PropTypes.bool.isRequired,
   width: PropTypes.number,

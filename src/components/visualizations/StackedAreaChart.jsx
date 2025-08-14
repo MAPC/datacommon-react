@@ -39,9 +39,7 @@ class StackedAreaChart extends React.Component {
       .attr("width", "100%")
       .attr("height", "100%")
       .attr("preserveAspectRatio", "xMinYMin meet")
-      .attr("viewBox", `0 0 ${this.props.width || container.width} ${
-        this.props.height || container.height
-      }`);
+      .attr("viewBox", `0 0 ${this.props.width || container.width} ${this.props.height || container.height}`);
 
     // Create tooltip
     this.tooltip = d3
@@ -58,7 +56,7 @@ class StackedAreaChart extends React.Component {
       .style("z-index", 1000);
 
     this.legend = d3.select(this.legendRef.current);
-    
+
     if (this.props.hasData) {
       this.renderChart();
     } else {
@@ -67,8 +65,7 @@ class StackedAreaChart extends React.Component {
   }
 
   componentDidUpdate(prevProps) {
-    if (this.props.hasData !== prevProps.hasData || 
-        JSON.stringify(prevProps.data) !== JSON.stringify(this.props.data)) {
+    if (this.props.hasData !== prevProps.hasData || JSON.stringify(prevProps.data) !== JSON.stringify(this.props.data)) {
       if (this.props.hasData) {
         this.renderChart();
       } else {
@@ -99,9 +96,7 @@ class StackedAreaChart extends React.Component {
     this.chart.selectAll("*").remove();
 
     // Create chart group
-    const g = this.chart
-      .append("g")
-      .attr("transform", `translate(${margin.left},${margin.top})`);
+    const g = this.chart.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
 
     // Process data
     const keys = [...new Set(this.props.data.map((d) => d.z))].sort();
@@ -110,10 +105,7 @@ class StackedAreaChart extends React.Component {
     this.color = d3
       .scaleOrdinal()
       .domain(keys)
-      .range(
-        this.props.colors ||
-        (keys.length > primaryColors.length ? extendedColors : primaryColors).slice(0, keys.length)
-      );
+      .range(this.props.colors || (keys.length > primaryColors.length ? extendedColors : primaryColors).slice(0, keys.length));
     // Prepare data for stacking
     let data = this.props.data.reduce((acc, row) => {
       acc[row.x] = { ...(acc[row.x] || {}), ...{ [row.z]: row.y } };
@@ -127,11 +119,10 @@ class StackedAreaChart extends React.Component {
     // Ensure stack order matches color order
     this.stack
       .keys(keys)
-      .order(d3.stackOrderNone)  // Maintain original order
-      .offset(d3.stackOffsetNone);  // No normalization
+      .order(d3.stackOrderNone) // Maintain original order
+      .offset(d3.stackOffsetNone); // No normalization
 
     const stackedData = this.stack(data);
-    console.log(stackedData);
     // Create scales
     const x = d3
       .scaleLinear()
@@ -168,24 +159,13 @@ class StackedAreaChart extends React.Component {
       });
 
     // Add axes
-    const xAxis = d3
-      .axisBottom(x)
-      .ticks(this.props.xAxis.ticks)
-      .tickPadding(10)
-      .tickFormat(this.props.xAxis.format);
+    const xAxis = d3.axisBottom(x).ticks(this.props.xAxis.ticks).tickPadding(10).tickFormat(this.props.xAxis.format);
 
-    const yAxis = d3
-      .axisLeft(y)
-      .tickFormat(this.props.yAxis.format);
+    const yAxis = d3.axisLeft(y).tickFormat(this.props.yAxis.format);
 
-    g.append("g")
-      .attr("class", "axis axis-x")
-      .attr("transform", `translate(0,${height})`)
-      .call(xAxis.tickSize(0));
+    g.append("g").attr("class", "axis axis-x").attr("transform", `translate(0,${height})`).call(xAxis.tickSize(0));
 
-    g.append("g")
-      .attr("class", "axis axis-y")
-      .call(yAxis.tickSize(0));
+    g.append("g").attr("class", "axis axis-y").call(yAxis.tickSize(0));
 
     // Add axis labels
     this.chart
@@ -227,20 +207,20 @@ class StackedAreaChart extends React.Component {
       .attr("y", height / 2 - 12)
       .attr("dy", "12")
       .style("text-anchor", "middle")
-      .text("Oops! We can't find this data right now.");
+      .text("Data not available.");
   }
 
   updateTooltip(event, d, x) {
     const mouseX = x.invert(d3.pointer(event)[0]);
-    const bisect = d3.bisector(d => d.data.x).left;
+    const bisect = d3.bisector((d) => d.data.x).left;
     const index = bisect(d, mouseX);
     const dataPoint = d[index];
-    
+
     if (dataPoint) {
       // Format value based on the magnitude
       let value = dataPoint[1] - dataPoint[0];
       let formattedValue;
-      
+
       if (value >= 100) {
         formattedValue = d3.format(",.0f")(value); // No decimals for large numbers
       } else {
@@ -249,19 +229,19 @@ class StackedAreaChart extends React.Component {
 
       // Format the year value and ensure it's an integer
       const year = Math.round(dataPoint.data.x);
-      const formattedYear = this.props.xAxis.format ? 
-        this.props.xAxis.format(year) : 
-        year;
+      const formattedYear = this.props.xAxis.format ? this.props.xAxis.format(year) : year;
 
       this.tooltip
         .style("opacity", 1)
-        .html(`
+        .html(
+          `
           <div style="padding: 4px;">
             <div>${d.key}</div>
             <div>Year: ${formattedYear}</div>
             <div>Value: ${formattedValue}</div>
           </div>
-        `)
+        `,
+        )
         .style("left", `${event.pageX + 10}px`)
         .style("top", `${event.pageY - 10}px`);
     }
@@ -285,7 +265,7 @@ StackedAreaChart.propTypes = {
       x: PropTypes.number.isRequired,
       y: PropTypes.number.isRequired,
       z: PropTypes.string.isRequired,
-    })
+    }),
   ).isRequired,
   xAxis: PropTypes.shape({
     label: PropTypes.string.isRequired,

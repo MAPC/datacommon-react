@@ -1,5 +1,5 @@
-import { connect } from 'react-redux';
-import StackedAreaChart from '../../components/visualizations/StackedAreaChart';
+import { connect } from "react-redux";
+import StackedAreaChart from "../../components/visualizations/StackedAreaChart";
 
 function valuesHaveData(transformedData) {
   const checkData = transformedData.reduce((acc, row) => {
@@ -20,6 +20,7 @@ function valuesHaveData(transformedData) {
 const mapStateToProps = (state, props) => {
   const { muni, chart } = props;
   const tables = Object.keys(chart.tables);
+
   if (tables.every((table) => state.chart.cache[table] && state.chart.cache[table][muni])) {
     const muniTables = tables.reduce((acc, table) => Object.assign(acc, { [table]: state.chart.cache[table][muni] }), {});
     return {
@@ -33,10 +34,10 @@ const mapStateToProps = (state, props) => {
   return {
     ...props,
     xAxis: {
-      label: '',
+      label: "",
     },
     yAxis: {
-      label: '',
+      label: "",
     },
     data: [],
     hasData: false,
