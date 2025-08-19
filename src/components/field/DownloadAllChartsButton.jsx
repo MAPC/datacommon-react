@@ -163,6 +163,8 @@ export default function DownloadAllChartsButton({ muni }) {
       });
     });
 
+    const usedSheetNames = new Set();
+    
     Object.entries(data).forEach(([tableName, tableData]) => {
       if (tableData && tableData.length > 0) {
         // Create worksheet with municipality header
@@ -175,6 +177,18 @@ export default function DownloadAllChartsButton({ muni }) {
         // Excel has 31 char limit
         let sheetName =
           tableMapping[tableName]?.slice(0, 31) || tableName.slice(0, 31);
+        
+        // Ensure unique sheet names
+        let counter = 1;
+        let originalSheetName = sheetName;
+        while (usedSheetNames.has(sheetName)) {
+          const suffix = `_${counter}`;
+          const maxLength = 31 - suffix.length;
+          sheetName = originalSheetName.slice(0, maxLength) + suffix;
+          counter++;
+        }
+        usedSheetNames.add(sheetName);
+        
         XLSX.utils.book_append_sheet(wb, ws, sheetName);
       }
     });
