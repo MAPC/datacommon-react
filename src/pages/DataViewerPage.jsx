@@ -35,7 +35,7 @@ class DataViewerClass extends React.Component {
       }
 
       const tableQuery = axios.get(
-        `/api?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=${dataset.db_name}&schema=${dataset.schemaname}&table=${dataset.table_name}${dataset.yearcolumn ? `&orderByColumn=${dataset.yearcolumn}&orderByDirection=DESC` : ""}&limit=15000`,
+        `/api?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=${dataset.db_name}&schema=${dataset.schemaname}&table=${dataset.table_name}${dataset.yearcolumn ? `&orderByColumn=${dataset.yearcolumn}&orderByDirection=DESC` : ""}&limit=500000`,
       );
 
       if (dataset.db_name === "gisdata" || dataset.db_name === "towndata") {
@@ -232,6 +232,7 @@ class DataViewerClass extends React.Component {
             title={this.state.title}
             updateSelectedYears={this.updateSelectedYears}
             universe={this.state.universe}
+
           />
           <DatasetTable
             currentPage={this.state.currentPage}
