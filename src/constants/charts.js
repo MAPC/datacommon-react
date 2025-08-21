@@ -180,7 +180,7 @@ export default {
         let queryString = `SELECT years as latest_year FROM tabular.demo_race_by_age_gender_m ORDER BY years DESC LIMIT 1`;
         return await getFormattedYearRange(queryString);
       },
-      datasetLinks: { "Population by Age (Municipal)": 315 },
+      datasetLinks: { "Race and Ethnicity by Gender and Age Groups (Municipal)": 315 },
       transformer: (tables, chart) => {
         const popData = tables["tabular.demo_race_by_age_gender_m"];
         if (popData.length < 1) {
