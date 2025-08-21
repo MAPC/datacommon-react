@@ -142,12 +142,12 @@ export default {
       xAxis: { label: "Year" },
       yAxis: { label: "Population", format: format.number.localeString },
       tables: {
-        "tabular.census2010_p12_pop_by_age_m": {
+        "tabular.demo_race_by_age_gender_m": {
           yearCol: "years",
           latestYearOnly: true,
           columns: [
             "years",
-            "totpop",
+            "pop",
             "pop_u18",
             "pop18_24",
             "pop25_34",
@@ -156,14 +156,13 @@ export default {
             "pop45_49",
             "pop50_54",
             "pop55_59",
-            "pop60_61",
-            "pop62_64",
-            "pop65_66",
-            "pop67_69",
+            "pop60_64",
+            "pop65_69",
             "pop70_74",
             "pop75_79",
             "pop80_84",
             "pop85o",
+            "race_eth"
           ],
         },
       },
@@ -176,29 +175,33 @@ export default {
         pop65_74: "65-74",
         pop75o: "75 and over",
       },
-      source: "2010 Census",
-      timeframe: "2010",
-      datasetLinks: { "Population by Age (Municipal)": 220 },
+      source: "2020 Census",
+      timeframe: async () => {
+        let queryString = `SELECT years as latest_year FROM tabular.demo_race_by_age_gender_m ORDER BY years DESC LIMIT 1`;
+        return await getFormattedYearRange(queryString);
+      },
+      datasetLinks: { "Population by Age (Municipal)": 315 },
       transformer: (tables, chart) => {
-        const popData = tables["tabular.census2010_p12_pop_by_age_m"];
+        const popData = tables["tabular.demo_race_by_age_gender_m"];
         if (popData.length < 1) {
           return [];
         }
-        const row = popData[0];
+        const row = popData.filter((r) => r.race_eth === "All Race/Ethnicity")[0]
+       
         const data = {
           pop_u18: row.pop_u18,
           pop18_24: row.pop18_24,
           pop25_34: row.pop25_34,
           pop35_49: row.pop35_39 + row.pop40_44 + row.pop45_49,
-          pop50_64: row.pop50_54 + row.pop55_59 + row.pop60_61 + row.pop62_64,
-          pop65_74: row.pop65_66 + row.pop67_69 + row.pop70_74,
+          pop50_64: row.pop50_54 + row.pop55_59 + row.pop60_64,
+          pop65_74: row.pop65_69 + row.pop70_74,
           pop75o: row.pop75_79 + row.pop80_84 + row.pop85o,
         };
         return Object.keys(data).map((k) => ({
-          x: row[chart.tables["tabular.census2010_p12_pop_by_age_m"].yearCol],
+          x: row[chart.tables["tabular.demo_race_by_age_gender_m"].yearCol],
           y: data[k],
           z: chart.labels[k],
-          totpop: row.totpop,
+          totpop: row.pop,
         }));
       },
     },
