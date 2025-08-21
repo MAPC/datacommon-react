@@ -86,16 +86,23 @@ export default {
       labels: {
         nhwhi: "Non-hispanic White",
         nhaa: "Non-hispanic Black or African American",
-        nhapi: "Non-hispanic Asian and Pacific Islander",
-        nhother: "Non-hispanic Other",
+        nhas: "Non-Hispanic Asian",
+        nhpi: "Non-Hispanic Native Hawaiian and Other Pacific Islander",
+        nhoth:"Non-Hispanic Some Other Race alone",
+        nhmlt:"Non-Hispanic Two or More Races",
+        nhna:"Non-Hispanic American Indian and Alaska Native",
         lat: "Hispanic or Latino",
       },
       colors: {
         nhwhi: colors.CHART.EXTENDED.get("YELLOW"),
         nhaa: colors.CHART.EXTENDED.get("DARK_RED"),
-        nhapi: colors.CHART.EXTENDED.get("TEAL_GREEN"),
-        nhother: colors.CHART.EXTENDED.get("BLUE"),
+        nhas: colors.CHART.EXTENDED.get("TEAL_GREEN"),
+        nhpi: colors.CHART.EXTENDED.get("LIGHT_GREEN"),
+        nhoth: colors.CHART.EXTENDED.get("DARK_RED"),
+        nhmlt: colors.CHART.EXTENDED.get("LIGHT_GREEN"),
+        nhna: colors.CHART.EXTENDED.get("BLUE"),
         lat: colors.CHART.EXTENDED.get("PINK"),
+       
       },
       source: "American Community Survey",
       timeframe: async () => {
@@ -113,8 +120,11 @@ export default {
         const groupings = {
           nhwhi: { value: row.nhwhi, me: row.nhwhi_me },
           nhaa: { value: row.nhaa, me: row.nhaa_me },
-          nhapi: { value: row.nhas + row.nhpi, me: null },
-          nhother: { value: row.nhoth + row.nhmlt + row.nhna, me: null },
+          nhas: { value: row.nhas, me: row.nhas_me },
+          nhpi: { value: row.nhpi, me: row.nhpi_me },
+          nhoth: { value: row.nhoth, me: row.nhoth_me },
+          nhmlt: { value: row.nhmlt, me: row.lat_me },
+          nhna: { value: row.nhna, me: row.nhna_me },
           lat: { value: row.lat, me: row.lat_me },
         };
         return Object.keys(groupings).reduce(
