@@ -840,7 +840,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
             const years = await fetchLatestYear(queryString);
             return years;
           },
-          columns: ["acs_year", "occv2", "cb", "o_notcb", "r_notcb", "ocb3050", "rcb3050", "cb_3050", "o_cb50", "r_cb50", "cb_50"],
+          columns: ["acs_year", "occv2", "cb", "o_notcb" ,"o_notcbmep", "r_notcb", "r_notcbme","ocb3050","ocb3050me", "rcb3050", "rcb3050me", "cb_3050", "cb_3050_me", "o_cb50", "o_cb50me", "r_cb50","r_cb50_mep", "cb_50","cb_50_me"],
         },
       },
       labels: {
@@ -867,31 +867,37 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
           {
             x: chart.labels.not_cb,
             y: row.o_notcb / (row.occv2 - row.cb),
+            me: row.o_notcbmep ,
             z: chart.labels.owner,
           },
           {
             x: chart.labels.not_cb,
             y: row.r_notcb / (row.occv2 - row.cb),
+            me: row.r_notcbme,
             z: chart.labels.renter,
           },
           {
             x: chart.labels.p3050,
             y: row.ocb3050 / row.cb_3050,
+            me: row.ocb3050me,
             z: chart.labels.owner,
           },
           {
             x: chart.labels.p3050,
             y: row.rcb3050 / row.cb_3050,
+            me: row.rcb3050me,
             z: chart.labels.renter,
           },
           {
             x: chart.labels["p50+"],
             y: row.o_cb50 / row.cb_50,
+            me: row.o_cb50me,
             z: chart.labels.owner,
           },
           {
             x: chart.labels["p50+"],
             y: row.r_cb50 / row.cb_50,
+            me: row.r_cb50_mep,
             z: chart.labels.renter,
           },
         ];
@@ -1211,7 +1217,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         "tabular.b08301_means_transportation_to_work_by_residence_acs_m": {
           yearCol: "acs_year",
           latestYearOnly: true,
-          columns: ["acs_year", "ctvsngl", "carpool", "pub", "taxi", "mcycle", "bicycle", "walk", "other"],
+          columns: ["acs_year", "ctvsngl","ctvsnglme", "carpool", "carpoolme", "pub", "pub_me", "taxi", "taxi_me", "mcycle", "mcycle_me", "bicycle", "bicycleme", "walk", "walk_me", "other", "other_me"],
         },
       },
       labels: {
@@ -1237,9 +1243,11 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
           return [];
         }
         const row = commData[0];
+        console.log(row)
         return Object.keys(chart.labels).map((key) => ({
           value: row[key],
           label: chart.labels[key],
+          me: row[`${key}me`] !== undefined ? row[`${key}me`] : row[`${key}_me`]
         }));
       },
     },
