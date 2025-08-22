@@ -216,7 +216,8 @@ const StackedBarChart = (props) => {
         const totpop_me = d.data.totpop_me;
 
         const formattedValue = typeof value === "number" && value < 1 ? (value * 100).toFixed(1) + "%" : d3.format(",")(value);
-        const formattedME = typeof me === "number" ? d3.format(",")(me) : null;
+        const formattedME = typeof me === "number" ? 
+          (me % 1 === 0 ? d3.format(",")(me) : d3.format(",.2f")(me)) : null;
         const formattedTotpop = typeof totpop === "number" ? d3.format(",")(totpop) : null;
         const formattedTotpopME = typeof totpop_me === "number" ? d3.format(",")(totpop_me) : null;
 
