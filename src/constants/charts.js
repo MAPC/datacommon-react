@@ -99,7 +99,7 @@ export default {
         nhas: colors.CHART.EXTENDED.get("TEAL_GREEN"),
         nhpi: colors.CHART.EXTENDED.get("LIGHT_GREEN"),
         nhoth: colors.CHART.EXTENDED.get("GREEN"),
-        nhmlt: colors.CHART.EXTENDED.get("LIGHT_GREEN"),
+        nhmlt: colors.CHART.EXTENDED.get("CYAN"),
         nhna: colors.CHART.EXTENDED.get("BLUE"),
         lat: colors.CHART.EXTENDED.get("PINK"),
        
