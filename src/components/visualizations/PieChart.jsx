@@ -82,6 +82,7 @@ class PieChart extends React.Component {
   renderChart() {
     const keys = [...new Set(this.props.data.map((slice) => slice.label))];
     const keyValue = this.props.data.reduce((map, d) => Object.assign(map, { [d.label]: d.value }), {});
+    const keyME = this.props.data.reduce((map, d) => Object.assign(map, { [d.label]: d.me }), {});
     const sum = this.props.data.reduce((acc, slice) => slice.value + acc, 0);
     const formatter = (key) => `${key} ${((keyValue[key] * 100) / sum).toFixed(1)}%`;
 
@@ -129,14 +130,25 @@ class PieChart extends React.Component {
       .attr("stroke-width", "1")
       .on("mouseover", (event, d) => {
         const percentage = ((d.data.value * 100) / sum).toFixed(1);
+        const me = d.data.me;
+        const formattedME = typeof me === "number" ? d3.format(",")(me) : null;
+        
+        let tooltipContent = `
+          <div style="padding: 4px;">
+            <div style="font-weight: bold;">${d.data.label}</div>
+            <div>Percentage: ${percentage}%</div>
+        `;
+        
+        if (formattedME !== null) {
+          tooltipContent += `<div>Margin of Error: ±${formattedME}</div>`;
+        }else{
+          tooltipContent += `<div>Margin of Error: Not Available</div>`;
+        }
+        
+        tooltipContent += `</div>`;
+        
         this.tooltip
-          .html(
-            `
-            <div>
-              ${d.data.label}: ${percentage}%
-            </div>
-            `,
-          )
+          .html(tooltipContent)
           .style("opacity", 1)
           .style("left", `${event.pageX + 10}px`)
           .style("top", `${event.pageY - 10}px`);
@@ -191,10 +203,12 @@ class PieChart extends React.Component {
 
 PieChart.propTypes = {
   colors: PropTypes.arrayOf(PropTypes.string),
+  title: PropTypes.string,
   data: PropTypes.arrayOf(
     PropTypes.shape({
       value: PropTypes.number.isRequired,
       label: PropTypes.string.isRequired,
+      me: PropTypes.number,
     }),
   ).isRequired,
 };

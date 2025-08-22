@@ -86,16 +86,23 @@ export default {
       labels: {
         nhwhi: "Non-hispanic White",
         nhaa: "Non-hispanic Black or African American",
-        nhapi: "Non-hispanic Asian and Pacific Islander",
-        nhother: "Non-hispanic Other",
+        nhas: "Non-Hispanic Asian",
+        nhpi: "Non-Hispanic Native Hawaiian and Other Pacific Islander",
+        nhoth:"Non-Hispanic Some Other Race alone",
+        nhmlt:"Non-Hispanic Two or More Races",
+        nhna:"Non-Hispanic American Indian and Alaska Native",
         lat: "Hispanic or Latino",
       },
       colors: {
         nhwhi: colors.CHART.EXTENDED.get("YELLOW"),
         nhaa: colors.CHART.EXTENDED.get("DARK_RED"),
-        nhapi: colors.CHART.EXTENDED.get("TEAL_GREEN"),
-        nhother: colors.CHART.EXTENDED.get("BLUE"),
+        nhas: colors.CHART.EXTENDED.get("TEAL_GREEN"),
+        nhpi: colors.CHART.EXTENDED.get("LIGHT_GREEN"),
+        nhoth: colors.CHART.EXTENDED.get("DARK_RED"),
+        nhmlt: colors.CHART.EXTENDED.get("LIGHT_GREEN"),
+        nhna: colors.CHART.EXTENDED.get("BLUE"),
         lat: colors.CHART.EXTENDED.get("PINK"),
+       
       },
       source: "American Community Survey",
       timeframe: async () => {
@@ -113,8 +120,11 @@ export default {
         const groupings = {
           nhwhi: { value: row.nhwhi, me: row.nhwhi_me },
           nhaa: { value: row.nhaa, me: row.nhaa_me },
-          nhapi: { value: row.nhas + row.nhpi, me: null },
-          nhother: { value: row.nhoth + row.nhmlt + row.nhna, me: null },
+          nhas: { value: row.nhas, me: row.nhas_me },
+          nhpi: { value: row.nhpi, me: row.nhpi_me },
+          nhoth: { value: row.nhoth, me: row.nhoth_me },
+          nhmlt: { value: row.nhmlt, me: row.lat_me },
+          nhna: { value: row.nhna, me: row.nhna_me },
           lat: { value: row.lat, me: row.lat_me },
         };
         return Object.keys(groupings).reduce(
@@ -459,37 +469,69 @@ export default {
           columns: [
             "acs_year",
             "nhwlh",
+            "nhwlh_me",
             "nhwhs",
+            "nhwhs_me",
             "nhwsc",
+            "nhwsc_me",
             "nhwbd",
+            "nhwbd_me",
             "aalh",
+            "aalh_me",
             "aahs",
+            "aahs_me",
             "aasc",
+            "aasc_me",
             "aabd",
+            "aabd_me",
             "nalh",
+            "nalh_me",
             "nahs",
+            "nahs_me",
             "nasc",
+            "nasc_me",
             "nabd",
+            "nabd_me",
             "aslh",
+            "aslh_me",
             "ashs",
+            "ashs_me",
             "assc",
+            "assc_me",
             "asbd",
+            "asbd_me",
             "pilh",
+            "pilh_me",
             "pihs",
+            "pihs_me",
             "pisc",
+            "pisc_me",
             "pibd",
+            "pibd_me",
             "othlh",
+            "othlh_me",
             "othhs",
+            "othhs_me",
             "othsc",
+            "othsc_me",
             "othbd",
+            "othbd_me",
             "mltlh",
+            "mltlh_me",
             "mlths",
+            "mlths_me",
             "mltsc",
+            "mltsc_me",
             "mltbd",
+            "mltbd_me",
             "latlh",
+            "latlh_me",
             "laths",
+            "laths_me",
             "latsc",
+            "latsc_me",
             "latbd",
+            "latbd_me",
           ],
         },
       },
@@ -498,11 +540,24 @@ export default {
         hs: "High school diploma",
         sc: "Some college or associate degree",
         bd: "Bachelor degree or higher",
-        nhw: "Non-hispanic White",
-        aa: "Black and African American",
-        api: "Asian and Pacific Islander",
-        oth: "Other",
+        nhw: "Non-Hispanic White",
+        aa: "Black or African American",
+        na: "American Indian and Alaska Native",
+        as: "Asian",
+        pi: "Pacific Islander",
+        oth: "Other race",
+        mlt: "Multi-race",
         lat: "Hispanic or Latino",
+      },
+      colors: {
+        nhw: colors.CHART.EXTENDED.get("YELLOW"),
+        aa: colors.CHART.EXTENDED.get("DARK_RED"),
+        na: colors.CHART.EXTENDED.get("BLUE"),
+        as: colors.CHART.EXTENDED.get("TEAL_GREEN"),
+        pi: colors.CHART.EXTENDED.get("LIGHT_GREEN"),
+        oth: colors.CHART.EXTENDED.get("CYAN"),
+        mlt: colors.CHART.EXTENDED.get("LIGHT_BLUE"),
+        lat: colors.CHART.EXTENDED.get("PINK"),
       },
       source: "American Community Survey",
       timeframe: async () => {
@@ -518,7 +573,6 @@ export default {
         }
         const row = eduData.find((entry) => entry.acs_year === "2019-23"); // to do
         const raceKeys = ["nhw", "aa", "na", "as", "pi", "oth", "mlt", "lat"];
-        const combinedRaceKeys = ["nhw", "aa", "api", "oth", "lat"];
         const eduKeys = ["lh", "hs", "sc", "bd"];
         const totals = eduKeys.reduce(
           (obj, edu) =>
@@ -532,13 +586,16 @@ export default {
             Object.assign(obj, {
               [`nhw${edu}`]: row[`nhw${edu}`] / totals[edu],
               [`aa${edu}`]: row[`aa${edu}`] / totals[edu],
+              [`na${edu}`]: row[`na${edu}`] / totals[edu],
+              [`as${edu}`]: row[`as${edu}`] / totals[edu],
+              [`pi${edu}`]: row[`pi${edu}`] / totals[edu],
+              [`oth${edu}`]: row[`oth${edu}`] / totals[edu],
+              [`mlt${edu}`]: row[`mlt${edu}`] / totals[edu],
               [`lat${edu}`]: row[`lat${edu}`] / totals[edu],
-              [`api${edu}`]: (row[`as${edu}`] + row[`pi${edu}`]) / totals[edu],
-              [`oth${edu}`]: (row[`oth${edu}`] + row[`mlt${edu}`] + row[`na${edu}`]) / totals[edu],
             }),
           {},
         );
-        return combinedRaceKeys.reduce(
+        return raceKeys.reduce(
           (raceAcc, race) =>
             raceAcc.concat(
               eduKeys.reduce(
@@ -548,6 +605,7 @@ export default {
                       x: chart.labels[edu],
                       y: consolidatedRow[`${race}${edu}`],
                       z: chart.labels[race],
+                      me: row[`${race}${edu}_me`],
                       totpop: totals[edu],
                     },
                   ]),
@@ -782,7 +840,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
             const years = await fetchLatestYear(queryString);
             return years;
           },
-          columns: ["acs_year", "occv2", "cb", "o_notcb", "r_notcb", "ocb3050", "rcb3050", "cb_3050", "o_cb50", "r_cb50", "cb_50"],
+          columns: ["acs_year", "occv2", "cb", "o_notcb" ,"o_notcbmep", "r_notcb", "r_notcbme","ocb3050","ocb3050me", "rcb3050", "rcb3050me", "cb_3050", "cb_3050_me", "o_cb50", "o_cb50me", "r_cb50","r_cb50_mep", "cb_50","cb_50_me"],
         },
       },
       labels: {
@@ -809,31 +867,37 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
           {
             x: chart.labels.not_cb,
             y: row.o_notcb / (row.occv2 - row.cb),
+            me: row.o_notcbmep ,
             z: chart.labels.owner,
           },
           {
             x: chart.labels.not_cb,
             y: row.r_notcb / (row.occv2 - row.cb),
+            me: row.r_notcbme,
             z: chart.labels.renter,
           },
           {
             x: chart.labels.p3050,
             y: row.ocb3050 / row.cb_3050,
+            me: row.ocb3050me,
             z: chart.labels.owner,
           },
           {
             x: chart.labels.p3050,
             y: row.rcb3050 / row.cb_3050,
+            me: row.rcb3050me,
             z: chart.labels.renter,
           },
           {
             x: chart.labels["p50+"],
             y: row.o_cb50 / row.cb_50,
+            me: row.o_cb50me,
             z: chart.labels.owner,
           },
           {
             x: chart.labels["p50+"],
             y: row.r_cb50 / row.cb_50,
+            me: row.r_cb50_mep,
             z: chart.labels.renter,
           },
         ];
@@ -1153,7 +1217,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         "tabular.b08301_means_transportation_to_work_by_residence_acs_m": {
           yearCol: "acs_year",
           latestYearOnly: true,
-          columns: ["acs_year", "ctvsngl", "carpool", "pub", "taxi", "mcycle", "bicycle", "walk", "other"],
+          columns: ["acs_year", "ctvsngl","ctvsnglme", "carpool", "carpoolme", "pub", "pub_me", "taxi", "taxi_me", "mcycle", "mcycle_me", "bicycle", "bicycleme", "walk", "walk_me", "other", "other_me"],
         },
       },
       labels: {
@@ -1179,9 +1243,11 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
           return [];
         }
         const row = commData[0];
+        console.log(row)
         return Object.keys(chart.labels).map((key) => ({
           value: row[key],
           label: chart.labels[key],
+          me: row[`${key}me`] !== undefined ? row[`${key}me`] : row[`${key}_me`]
         }));
       },
     },
