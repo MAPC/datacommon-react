@@ -220,8 +220,23 @@ const StackedBarChart = (props) => {
           (me % 1 === 0 ? d3.format(",")(me) : d3.format(",.2f")(me)) : null;
         const formattedTotpop = typeof totpop === "number" ? d3.format(",")(totpop) : null;
         const formattedTotpopME = typeof totpop_me === "number" ? d3.format(",")(totpop_me) : null;
-
-        tooltip
+        
+        if(props.chart.title === "Educational Attainment by Race"){
+          tooltip
+          .style("opacity", 1)
+          .html(
+            `
+            <div style="padding: 4px;">
+              <div style="font-weight: bold;">${d.series}</div>
+              <div>Value: ${formattedValue}</div>
+              <div>Margin of Error: ${formattedME === null ? "Not Available" : "±" + formattedME}</div>
+            </div>
+          `,
+          )
+          .style("left", `${event.pageX + 10}px`)
+          .style("top", `${event.pageY - 10}px`);
+        }else{
+          tooltip
           .style("opacity", 1)
           .html(
             `
@@ -244,6 +259,9 @@ const StackedBarChart = (props) => {
           )
           .style("left", `${event.pageX + 10}px`)
           .style("top", `${event.pageY - 10}px`);
+        }
+
+       
       })
       .on("mousemove", (event) => {
         tooltip.style("left", `${event.pageX + 10}px`).style("top", `${event.pageY - 10}px`);
