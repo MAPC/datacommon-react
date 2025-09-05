@@ -14,6 +14,7 @@ import "../src/assets/styles/app.scss";
 import CommunityProfilesPage from "./pages/CommunityProfilesPage";
 import tabs from "./constants/tabs";
 import municipalities from "./assets/data/ma-munis.json";
+import "./utils/introModal"; 
 
 // Create arrays of valid options
 const muniOptions = municipalities.features.map(
