@@ -16,6 +16,7 @@ import PieChart from "../containers/visualizations/PieChart";
 import LineChart from "../containers/visualizations/LineChart";
 import DownloadAllChartsButton from "./field/DownloadAllChartsButton";
 import DataTableModal from "./field/DataTableModal";
+import { store } from "../store";
 
 const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
   const dispatch = useDispatch();
@@ -54,19 +55,40 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
   }, [activeTab, muni, dispatch]);
 
   const handlePrintCharts = async () => {
-    // Load all chart data from all categories before printing
-    const fetchPromises = [];
+    // Check if all chart data is already loaded
+    const state = store.getState();
+    const allTables = [];
     
+    // Get all table names from charts
     Object.values(charts).forEach((category) => {
       Object.values(category).forEach((chartInfo) => {
-        fetchPromises.push(
-          dispatch(fetchChartData({ chartInfo: chartInfo, municipality: muni }))
-        );
+        Object.keys(chartInfo.tables).forEach((tableName) => {
+          allTables.push(tableName);
+        });
       });
     });
 
-    // Wait for all data to be loaded
-    await Promise.all(fetchPromises);
+    // Check if all data is already available
+    const allDataLoaded = allTables.every((tableName) => {
+      const data = state.chart.cache[tableName]?.[muni];
+      return data && data.length > 0;
+    });
+
+    // Only fetch data if not all data is loaded
+    if (!allDataLoaded) {
+      const fetchPromises = [];
+      
+      Object.values(charts).forEach((category) => {
+        Object.values(category).forEach((chartInfo) => {
+          fetchPromises.push(
+            dispatch(fetchChartData({ chartInfo: chartInfo, municipality: muni }))
+          );
+        });
+      });
+
+      // Wait for all data to be loaded
+      await Promise.all(fetchPromises);
+    }
     
     // Add print-specific CSS to show all tabs for printing
     const printStyle = document.createElement('style');
