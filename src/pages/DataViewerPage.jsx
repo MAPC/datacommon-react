@@ -23,151 +23,176 @@ class DataViewerClass extends React.Component {
     };
     this.updateSelectedYears = this.updateSelectedYears.bind(this);
     this.updatePage = this.updatePage.bind(this);
+    this.loadDatasetData = this.loadDatasetData.bind(this);
+    this.hasLoaded = false; // Flag to prevent duplicate API calls in StrictMode
   }
 
   componentDidMount() {
-    this.props.fetchDatasets().then(() => {
-      const dataset = this.props.datasets.filter((datasetObj) => +datasetObj.seq_id === +this.props.params.id)[0];
-      let headerQuery;
-      if (!dataset) {
-        this.setState({ loading: false, error: "Dataset not found" });
-        return;
-      }
+    // Prevent duplicate API calls in React.StrictMode
+    if (this.hasLoaded) {
+      return;
+    }
+    this.hasLoaded = true;
 
-      const tableQuery = axios.get(
-        `/api?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=${dataset.db_name}&schema=${dataset.schemaname}&table=${dataset.table_name}${dataset.yearcolumn ? `&orderByColumn=${dataset.yearcolumn}&orderByDirection=DESC` : ""}&limit=500000`,
+    // Check if datasets are already loaded, if not fetch them
+    if (this.props.datasets.length === 0) {
+      this.props.fetchDatasets().then(() => {
+        this.loadDatasetData();
+      });
+    } else {
+      this.loadDatasetData();
+    }
+  }
+
+  loadDatasetData() {
+    const dataset = this.props.datasets.filter((datasetObj) => +datasetObj.seq_id === +this.props.params.id)[0];
+    let headerQuery;
+    if (!dataset) {
+      this.setState({ loading: false, error: "Dataset not found" });
+      return;
+    }
+    let limit = 15000;
+    if (dataset.table_name === "econ_es202_naics_4d_m" || dataset.table_name === "econ_es202_naics_2d_m" || dataset.table_name === "econ_es202_naics_3d_m") {
+      limit = 460000 ;
+    }
+    const tableQuery = axios.get(
+      `/api?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=${dataset.db_name}&schema=${dataset.schemaname}&table=${dataset.table_name}${dataset.yearcolumn ? `&orderByColumn=${dataset.yearcolumn}&orderByDirection=DESC` : ""}&limit=15000`,
+    );
+
+    if (dataset.db_name === "gisdata" || dataset.db_name === "towndata") {
+      headerQuery = axios.get(
+        `/api/metadata?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=${dataset.db_name}&schema=${dataset.schemaname}&table=${dataset.table_name}`,
       );
+    } else {
+      headerQuery = axios.get(
+        `/api/metadata?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=${dataset.db_name}&schema=${dataset.schemaname}&table=${dataset.table_name}`,
+      );
+    }
 
-      if (dataset.db_name === "gisdata" || dataset.db_name === "towndata") {
-        headerQuery = axios.get(
-          `/api/metadata?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=${dataset.db_name}&schema=${dataset.schemaname}&table=${dataset.table_name}`,
+    if (dataset.schemaname === "tabular") {
+      if (dataset.yearcolumn) {
+        const yearQuery = axios.get(
+          `/api/?token=${import.meta.env.VITE_MAPC_API_TOKEN}&distinctColumn=${dataset.yearcolumn}&database=${dataset.db_name}&schema=${dataset.schemaname}&table=${dataset.table_name}&limit=50`,
         );
-      } else {
-        headerQuery = axios.get(
-          `/api/metadata?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=${dataset.db_name}&schema=${dataset.schemaname}&table=${dataset.table_name}`,
-        );
-      }
-
-      if (dataset.schemaname === "tabular") {
-        if (dataset.yearcolumn) {
-          const yearQuery = axios.get(
-            `/api/?token=${import.meta.env.VITE_MAPC_API_TOKEN}&distinctColumn=${dataset.yearcolumn}&database=${dataset.db_name}&schema=${dataset.schemaname}&table=${dataset.table_name}&limit=50`,
-          );
-          axios
-            .all([yearQuery, tableQuery, headerQuery])
-            .then((response) => {
-              const yearResults = response[0];
-              const tableResults = response[1];
-              const metadata = Object.values(response[2].data)[0];
-              // Validate metadata structure
-              const universeData = metadata.find((row) => row.name === "universe");
-              const descriptionData = metadata.find((row) => row.name === "descriptn");
-              this.setState({
-                availableYears: yearResults.data.rows
+        axios
+          .all([yearQuery, tableQuery, headerQuery])
+          .then((response) => {
+            const yearResults = response[0];
+            const tableResults = response[1];
+            const metadata = Object.values(response[2].data)[0];
+            // Validate metadata structure
+            const universeData = metadata.find((row) => row.name === "universe");
+            const descriptionData = metadata.find((row) => row.name === "descriptn");
+            this.setState({
+              availableYears: yearResults.data.rows
+                .map((year) => Object.values(year)[0])
+                .sort()
+                .reverse(),
+              rows: tableResults.data.rows,
+              universe: universeData ? universeData.details : "",
+              description: descriptionData ? descriptionData.details : "",
+              columnKeys: metadata
+                .filter((object) => tableResults.data.rows[0] && Object.keys(tableResults.data.rows[0]).includes(object.name))
+                .filter((header) => header.name !== "seq_id"),
+              metadata,
+              selectedYears: [
+                yearResults.data.rows
                   .map((year) => Object.values(year)[0])
                   .sort()
-                  .reverse(),
-                rows: tableResults.data.rows,
-                universe: universeData ? universeData.details : "",
-                description: descriptionData ? descriptionData.details : "",
-                columnKeys: metadata
-                  .filter((object) => tableResults.data.rows[0] && Object.keys(tableResults.data.rows[0]).includes(object.name))
-                  .filter((header) => header.name !== "seq_id"),
-                metadata,
-                selectedYears: [
-                  yearResults.data.rows
-                    .map((year) => Object.values(year)[0])
-                    .sort()
-                    .reverse()[0],
-                ],
-                table: dataset.table_name,
-                schema: dataset.schemaname,
-                database: dataset.db_name,
-                title: dataset.menu3,
-                source: dataset.source,
-                queryYearColumn: dataset.yearcolumn,
-                loading: false,
-              });
-            })
-            .catch((error) => {
-              this.setState({ loading: false, error: "Error loading dataset" });
-              console.error("Error:", error);
+                  .reverse()[0],
+              ],
+              table: dataset.table_name,
+              schema: dataset.schemaname,
+              database: dataset.db_name,
+              title: dataset.menu3,
+              source: dataset.source,
+              queryYearColumn: dataset.yearcolumn,
+              loading: false,
             });
-        } else {
-          axios
-            .all([tableQuery, headerQuery])
-            .then((response) => {
-              const tableResults = response[0];
-              const metadata = Object.values(response[1].data)[0];
-              // Validate metadata structure
-              const universeData = metadata.find((row) => row.name === "universe");
-              const descriptionData = metadata.find((row) => row.name === "descriptn");
-
-              this.setState({
-                rows: tableResults.data.rows,
-                universe: universeData ? universeData.details : "",
-                description: descriptionData ? descriptionData.details : "",
-                columnKeys: metadata
-                  .filter((object) => tableResults.data.rows[0] && Object.keys(tableResults.data.rows[0]).includes(object.name))
-                  .filter((header) => header.name !== "seq_id"),
-                metadata,
-                table: dataset.table_name,
-                schema: dataset.schemaname,
-                database: dataset.db_name,
-                title: dataset.menu3,
-                source: dataset.source,
-                queryYearColumn: dataset.yearcolumn,
-                loading: false,
-              });
-            })
-            .catch((error) => {
-              this.setState({ loading: false, error: "Error loading dataset" });
-              console.error("Error:", error);
-            });
-        }
+          })
+          .catch((error) => {
+            this.setState({ loading: false, error: "Error loading dataset" });
+            console.error("Error:", error);
+          });
       } else {
         axios
           .all([tableQuery, headerQuery])
-          .then(async (response) => {
+          .then((response) => {
             const tableResults = response[0];
             const metadata = Object.values(response[1].data)[0];
+            // Validate metadata structure
+            const universeData = metadata.find((row) => row.name === "universe");
+            const descriptionData = metadata.find((row) => row.name === "descriptn");
 
-            try {
-              const columns = Object.keys(tableResults.data.rows[0] || {});
-              const sortedMetadata = metadata.documentation.metadata.eainfo.detailed.attr
-                .map((attribute) => ({
-                  name: attribute.attrlabl,
-                  alias: attribute.attalias,
-                }))
-                .filter((header) => columns.includes(header.name))
-                .filter((header) => header.name !== "shape");
-
-              this.setState({
-                rows: tableResults.data.rows,
-                columnKeys: sortedMetadata,
-                metadata,
-                description: metadata.documentation.metadata.dataIdInfo.idPurp || "",
-                schema: dataset.schemaname,
-                source: dataset.source,
-                database: dataset.db_name,
-                table: dataset.table_name,
-                title: dataset.menu3,
-                loading: false,
-              });
-            } catch (error) {
-              this.setState({
-                loading: false,
-                error: "Error parsing metadata",
-              });
-              console.error("Error parsing metadata:", error);
-            }
+            this.setState({
+              rows: tableResults.data.rows,
+              universe: universeData ? universeData.details : "",
+              description: descriptionData ? descriptionData.details : "",
+              columnKeys: metadata
+                .filter((object) => tableResults.data.rows[0] && Object.keys(tableResults.data.rows[0]).includes(object.name))
+                .filter((header) => header.name !== "seq_id"),
+              metadata,
+              table: dataset.table_name,
+              schema: dataset.schemaname,
+              database: dataset.db_name,
+              title: dataset.menu3,
+              source: dataset.source,
+              queryYearColumn: dataset.yearcolumn,
+              loading: false,
+            });
           })
           .catch((error) => {
-            this.setState({ loading: false, error: "Error fetching datasets" });
+            this.setState({ loading: false, error: "Error loading dataset" });
             console.error("Error:", error);
           });
       }
-    });
+    } else {
+      axios
+        .all([tableQuery, headerQuery])
+        .then(async (response) => {
+          const tableResults = response[0];
+          const metadata = Object.values(response[1].data)[0];
+
+          try {
+            const columns = Object.keys(tableResults.data.rows[0] || {});
+            const sortedMetadata = metadata.documentation.metadata.eainfo.detailed.attr
+              .map((attribute) => ({
+                name: attribute.attrlabl,
+                alias: attribute.attalias,
+              }))
+              .filter((header) => columns.includes(header.name))
+              .filter((header) => header.name !== "shape");
+
+            this.setState({
+              rows: tableResults.data.rows,
+              columnKeys: sortedMetadata,
+              metadata,
+              description: metadata.documentation.metadata.dataIdInfo.idPurp || "",
+              schema: dataset.schemaname,
+              source: dataset.source,
+              database: dataset.db_name,
+              table: dataset.table_name,
+              title: dataset.menu3,
+              loading: false,
+            });
+          } catch (error) {
+            this.setState({
+              loading: false,
+              error: "Error parsing metadata",
+            });
+            console.error("Error parsing metadata:", error);
+          }
+        })
+        .catch((error) => {
+          this.setState({ loading: false, error: "Error fetching datasets" });
+          console.error("Error:", error);
+        });
+    }
+  }
+
+  componentWillUnmount() {
+    // Reset the flag when component unmounts
+    this.hasLoaded = false;
   }
 
   updateSelectedYears(e, year) {

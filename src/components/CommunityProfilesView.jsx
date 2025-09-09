@@ -16,6 +16,7 @@ import PieChart from "../containers/visualizations/PieChart";
 import LineChart from "../containers/visualizations/LineChart";
 import DownloadAllChartsButton from "./field/DownloadAllChartsButton";
 import DataTableModal from "./field/DataTableModal";
+import { store } from "../store";
 
 const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
   const dispatch = useDispatch();
@@ -53,6 +54,97 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
     }
   }, [activeTab, muni, dispatch]);
 
+  const handlePrintCharts = async () => {
+    // Check if all chart data is already loaded
+    const state = store.getState();
+    const allTables = [];
+    
+    // Get all table names from charts
+    Object.values(charts).forEach((category) => {
+      Object.values(category).forEach((chartInfo) => {
+        Object.keys(chartInfo.tables).forEach((tableName) => {
+          allTables.push(tableName);
+        });
+      });
+    });
+
+    // Check if all data is already available
+    const allDataLoaded = allTables.every((tableName) => {
+      const data = state.chart.cache[tableName]?.[muni];
+      return data && data.length > 0;
+    });
+
+    // Only fetch data if not all data is loaded
+    if (!allDataLoaded) {
+      const fetchPromises = [];
+      
+      Object.values(charts).forEach((category) => {
+        Object.values(category).forEach((chartInfo) => {
+          fetchPromises.push(
+            dispatch(fetchChartData({ chartInfo: chartInfo, municipality: muni }))
+          );
+        });
+      });
+
+      // Wait for all data to be loaded
+      await Promise.all(fetchPromises);
+    }
+    
+    // Add print-specific CSS to show all tabs for printing
+    const printStyle = document.createElement('style');
+    printStyle.textContent = `
+      @media print {
+        .tab {
+          display: block !important;
+        }
+        .tab:not(.active) {
+          display: block !important;
+        }
+        .tabs {
+          display: none !important;
+        }
+        .dropdown-wrapper {
+          display: none !important;
+        }
+        .button-group {
+          display: none !important;
+        }
+        .chart-wrapper .button-group {
+          display: none !important;
+        }
+        .chart-wrapper button {
+          display: none !important;
+        }
+        .chart-wrapper a {
+          display: none !important;
+        }
+        .tab__row {
+          display: flex !important;
+          flex-wrap: wrap !important;
+        }
+        .tab__row .chart-wrapper {
+          width: 50% !important;
+          box-sizing: border-box !important;
+          padding: 0 10px !important;
+        }
+        .chart-wrapper svg {
+          width: 100% !important;
+          height: auto !important;
+        }
+      }
+    `;
+    document.head.appendChild(printStyle);
+    
+    // Small delay to ensure charts are rendered with data
+    setTimeout(() => {
+      window.print();
+      // Clean up the print style after printing
+      setTimeout(() => {
+        document.head.removeChild(printStyle);
+      }, 1000);
+    }, 500);
+  };
+
   return (
     <article className="component CommunityProfiles">
       <div className="page-header">
@@ -70,7 +162,7 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
             <div className="description-wrapper">
               <p className="description">{descriptions[muniSlug.toLowerCase()] || "No description available."}</p>
               <div className="button-group">
-                <button onClick={() => window.print()} type="button" className="print-button">
+                <button onClick={handlePrintCharts} type="button" className="print-button">
                   Print charts
                 </button>
                 <DownloadAllChartsButton muni={muni} />
