@@ -1243,7 +1243,6 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
           return [];
         }
         const row = commData[0];
-        console.log(row)
         return Object.keys(chart.labels).map((key) => ({
           value: row[key],
           label: chart.labels[key],
