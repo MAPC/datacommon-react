@@ -111,7 +111,7 @@ class DataViewerClass extends React.Component {
             });
           })
           .catch((error) => {
-            this.setState({ loading: false, error: "Error loading dataset" });
+            this.setState({ loading: false, error: "Please try again later" });
             console.error("Error:", error);
           });
       } else {
@@ -142,7 +142,7 @@ class DataViewerClass extends React.Component {
             });
           })
           .catch((error) => {
-            this.setState({ loading: false, error: "Error loading dataset" });
+            this.setState({ loading: false, error: "Please try again later" });
             console.error("Error:", error);
           });
       }
