@@ -107,6 +107,7 @@ class DataViewerClass extends React.Component {
               title: dataset.menu3,
               source: dataset.source,
               queryYearColumn: dataset.yearcolumn,
+              updatedAt: dataset.updated_at,
               loading: false,
             });
           })
@@ -138,6 +139,7 @@ class DataViewerClass extends React.Component {
               title: dataset.menu3,
               source: dataset.source,
               queryYearColumn: dataset.yearcolumn,
+              updatedAt: dataset.updated_at,
               loading: false,
             });
           })
@@ -257,7 +259,7 @@ class DataViewerClass extends React.Component {
             title={this.state.title}
             updateSelectedYears={this.updateSelectedYears}
             universe={this.state.universe}
-
+            updatedAt={this.state.updatedAt}
           />
           <DatasetTable
             currentPage={this.state.currentPage}

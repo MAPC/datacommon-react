@@ -154,6 +154,31 @@ const setUniverse = (universe) => {
   return null;
 };
 
+const setUpdatedAt = (updatedAt) => {
+  if (updatedAt) {
+    const formatDate = (dateString) => {
+      try {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+      } catch (error) {
+        return dateString;
+      }
+    };
+    
+    return (
+      <li>
+        Last Updated:
+        <em>{` ${formatDate(updatedAt)}`}</em>
+      </li>
+    );
+  }
+  return null;
+};
+
 function DatasetHeader({
   title = "",
   table = "",
@@ -167,6 +192,7 @@ function DatasetHeader({
   updateSelectedYears,
   queryYearColumn = "",
   selectedYears = [],
+  updatedAt = "",
 }) {
   return (
     <div className="page-header">
@@ -193,6 +219,7 @@ function DatasetHeader({
                 Description:
                 <em>{` ${description}`}</em>
               </li>
+              {setUpdatedAt(updatedAt)}
             </ul>
             {setSelectYears(availableYears, updateSelectedYears, selectedYears)}
           </div>
@@ -229,6 +256,7 @@ DatasetHeader.propTypes = {
   title: PropTypes.string,
   updateSelectedYears: PropTypes.func.isRequired,
   universe: PropTypes.string,
+  updatedAt: PropTypes.string,
 };
 
 export default DatasetHeader;
