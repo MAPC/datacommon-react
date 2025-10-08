@@ -1,5 +1,5 @@
-import { connect } from 'react-redux';
-import StackedAreaChart from '../../components/visualizations/StackedAreaChart';
+import { connect } from "react-redux";
+import StackedAreaChart from "../../components/visualizations/StackedAreaChart";
 
 function valuesHaveData(transformedData) {
   const checkData = transformedData.reduce((acc, row) => {
@@ -35,6 +35,7 @@ const mapStateToProps = (state, props) => {
         return {
           ...props,
           xAxis: chart.xAxis,
+          yAxis: chart.yAxis,
           data: transformedData,
           hasData: valuesHaveData(transformedData),
         };
@@ -42,7 +43,8 @@ const mapStateToProps = (state, props) => {
         console.error('Error transforming RPA region data:', error);
         return {
           ...props,
-          xAxis: { format: (d) => d },
+          xAxis: { label: '', format: (d) => d },
+          yAxis: { label: '', format: (d) => d },
           data: [],
           hasData: false,
         };
@@ -62,6 +64,7 @@ const mapStateToProps = (state, props) => {
         return {
           ...props,
           xAxis: chart.xAxis,
+          yAxis: chart.yAxis,
           data: transformedData,
           hasData: valuesHaveData(transformedData),
         };
@@ -69,7 +72,8 @@ const mapStateToProps = (state, props) => {
         console.error('Error transforming subregion data:', error);
         return {
           ...props,
-          xAxis: { format: (d) => d },
+          xAxis: { label: '', format: (d) => d },
+          yAxis: { label: '', format: (d) => d },
           data: [],
           hasData: false,
         };
@@ -88,6 +92,7 @@ const mapStateToProps = (state, props) => {
       return {
         ...props,
         xAxis: chart.xAxis,
+        yAxis: chart.yAxis,
         data: transformedData,
         hasData: valuesHaveData(transformedData),
       };
@@ -95,7 +100,8 @@ const mapStateToProps = (state, props) => {
       console.error('Error transforming data:', error);
       return {
         ...props,
-        xAxis: { format: (d) => d },
+        xAxis: { label: '', format: (d) => d },
+        yAxis: { label: '', format: (d) => d },
         data: [],
         hasData: false,
       };
@@ -104,7 +110,8 @@ const mapStateToProps = (state, props) => {
 
   return {
     ...props,
-    xAxis: { format: (d) => d },
+    xAxis: { label: '', format: (d) => d },
+    yAxis: { label: '', format: (d) => d },
     data: [],
     hasData: false,
   };

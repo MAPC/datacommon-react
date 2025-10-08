@@ -16,6 +16,7 @@ import SubregionProfilesPage from "./pages/SubregionProfilesPage";
 import RPAregionProfilesPage from "./pages/RPAregionProfilesPage";
 import tabs from "./constants/tabs";
 import municipalities from "./assets/data/ma-munis.json";
+import "./utils/introModal"; 
 
 // Create arrays of valid options
 const muniOptions = municipalities.features.map(

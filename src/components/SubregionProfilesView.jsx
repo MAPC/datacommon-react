@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import styled from 'styled-components';
+import styled, { createGlobalStyle } from 'styled-components';
 import Tab from "./Tab";
 import Dropdown from "./field/Dropdown";
 import tabs from "../constants/tabs";
@@ -14,6 +14,35 @@ import PieChart from "../containers/visualizations/PieChart";
 import LineChart from "../containers/visualizations/LineChart";
 import DownloadAllChartsButton from './field/DownloadAllChartsButton';
 import DataTableModal from './field/DataTableModal';
+
+// Global Print Styles
+const PrintStyles = createGlobalStyle`
+  @media print {
+    .hide-on-print {
+      display: none !important;
+    }
+    
+    .chart-details-buttons {
+      display: none !important;
+    }
+    
+    .tab__row {
+      display: flex !important;
+      flex-wrap: wrap !important;
+    }
+    
+    .tab__row .chart-wrapper {
+      width: 50% !important;
+      box-sizing: border-box !important;
+      padding: 0 10px !important;
+    }
+    
+    .chart-wrapper svg {
+      max-width: 100% !important;
+      height: auto !important;
+    }
+  }
+`;
 
 // Styled Components
 const MunicipalitiesList = styled.div`
@@ -46,6 +75,11 @@ const MunicipalitiesList = styled.div`
   &::-webkit-scrollbar-thumb:hover {
     background: #555;
   }
+
+  @media print {
+    height: auto;
+    overflow: visible;
+  }
 `;
 
 const MunicipalitiesRow = styled.div`
@@ -64,10 +98,10 @@ const MunicipalityLinkWrapper = styled.div`
 const StyledLink = styled(Link)`
   color: #0066cc;
   text-decoration: none;
-  padding: 6px 24px 6px 8px;
+  padding: 6px 18px 6px 8px;
   border-radius: 4px;
   background-color: #f5f5f5;
-  font-size: 13px;
+  font-size: 12px;
   white-space: nowrap;
   border: 1px solid #e0e0e0;
   transition: all 0.2s ease;
@@ -84,11 +118,11 @@ const StyledLink = styled(Link)`
   &::after {
     content: "↗";
     position: absolute;
-    right: 8px;
+    right: 3px;
     top: 50%;
     transform: translateY(-50%);
-    font-size: 12px;
-    opacity: 0.7;
+    font-size: 9px;
+    opacity: 0.5;
   }
 
   &:hover {
@@ -98,7 +132,13 @@ const StyledLink = styled(Link)`
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     
     &::after {
-      opacity: 1;
+      opacity: 0.8;
+    }
+  }
+
+  @media print {
+    &::after {
+      display: none;
     }
   }
 `;
@@ -133,7 +173,11 @@ const SubregionProfilesView = () => {
   });
 
   const subregionData = useSelector(selectSubregionData);
+  const subregionCache = useSelector(state => state.subregion.cache);
   const municipalities = subregionData[subregionId]?.municipalities || [];
+  
+  // Extract abbreviation from subregion name (e.g., "Inner Core Committee [ICC]" -> "ICC")
+  const subregionAbbr = SUBREGIONS[subregionId]?.match(/\[([^\]]+)\]/)?.[1] || subregionId;
 
   useEffect(() => {
     setActiveTab(tab);
@@ -164,9 +208,38 @@ const SubregionProfilesView = () => {
     });
   };
 
+  const handlePrint = async () => {
+    // Get all charts for all tabs
+    const allTabs = Object.keys(charts);
+    const allCharts = [];
+    
+    allTabs.forEach(tabKey => {
+      if (charts[tabKey]) {
+        Object.values(charts[tabKey]).forEach(chart => {
+          allCharts.push(chart);
+        });
+      }
+    });
+
+    // Dispatch fetch for all charts
+    const promises = allCharts.map(chart => 
+      dispatch(fetchSubregionChartData({ subregionId: subregionId, chartInfo: chart }))
+    );
+
+    // Wait for all data to load
+    await Promise.all(promises);
+
+    // Small delay to ensure rendering is complete
+    setTimeout(() => {
+      window.print();
+    }, 500);
+  };
+
   return (
-    <article className="component CommunityProfiles">
-      <div className="page-header">
+    <>
+      <PrintStyles />
+      <article className="component CommunityProfiles">
+        <div className="page-header">
         <div className="container back-link">
           <Link to="/communities">{"< Back"}</Link>
         </div>
@@ -198,13 +271,19 @@ const SubregionProfilesView = () => {
               </MunicipalitiesList>
               <div className="button-group">
                 <button
-                  onClick={() => window.print()}
+                  onClick={handlePrint}
                   type="button"
                   className="print-button"
                 >
                   Print charts
                 </button>
-                <DownloadAllChartsButton muni={subregionId} datatype={'subregion'} />
+                <div className="hide-on-print">
+                  <DownloadAllChartsButton 
+                    muni={subregionId} 
+                    datatype={'subregion'}
+                    displayName={subregionAbbr}
+                  />
+                </div>
               </div>
             </div>
           </section>
@@ -503,15 +582,16 @@ const SubregionProfilesView = () => {
         </div>
       </div>
 
-      <DataTableModal
-        show={modalConfig.show}
-        handleClose={handleCloseModal}
-        data={modalConfig.data}
-        title={modalConfig.title}
-        muni={subregionId}
-        isSubregion={true}
-      />
-    </article>
+        <DataTableModal
+          show={modalConfig.show}
+          handleClose={handleCloseModal}
+          data={modalConfig.data}
+          title={modalConfig.title}
+          muni={subregionId}
+          isSubregion={true}
+        />
+      </article>
+    </>
   );
 };
 

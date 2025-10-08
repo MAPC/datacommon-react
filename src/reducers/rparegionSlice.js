@@ -50,8 +50,13 @@ export const fetchRPAregionChartData = createAsyncThunk(
         }
 
         try {
-          const api = `${locations.BROWSER_API}?token=${locations.DS_TOKEN}&query=${query}`;
+          const api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=${encodeURIComponent(query)}`;
           const response = await fetch(api);
+          
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          
           const payload = (await response.json()) || {};
           dispatchUpdate(payload.rows, tableName);
         } catch (error) {
@@ -78,8 +83,14 @@ export const fetchRPAregionChartData = createAsyncThunk(
     try {
       // For single table, use the first (and should be only) query
       const query = Array.isArray(queries) ? queries[0] : queries;
-      const api = `${locations.BROWSER_API}?token=${locations.DS_TOKEN}&query=${query}`;
+      const api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=${encodeURIComponent(query)}`;
+      console.log('api', api);
       const response = await fetch(api);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const payload = (await response.json()) || {};
       dispatchUpdate(payload.rows, tableName);
       return { table: tableName, muni: rpa_id, data: payload.rows };
@@ -93,7 +104,7 @@ export const fetchRPAregionChartData = createAsyncThunk(
 export const fetchRPAregionData = createAsyncThunk(
   "rparegion/fetchData",
   async () => {
-    const api = `${locations.BROWSER_API}?token=${locations.DS_TOKEN}&query=`;
+      const api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&query=`;
     const query = `
       SELECT 
         muni_id,
@@ -106,6 +117,11 @@ export const fetchRPAregionData = createAsyncThunk(
     `;
 
     const response = await fetch(`${api}${encodeURIComponent(query)}`);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
     const payload = await response.json();
 
     // Transform the data into the desired structure

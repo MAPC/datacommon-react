@@ -9,21 +9,33 @@ import { fetchRPAregionData, selectRPAregionData, selectRPAregionLoading } from 
 
 const styles = {
   subregionSelector: {
-    marginBottom: '1rem'
+    marginBottom: '1rem',
+    position: 'relative'
   },
   select: {
     width: '100%',
     padding: '0.5rem',
-    border: '1px solid #ccc',
-    borderRadius: '4px',
+    border: 'none',
     backgroundColor: 'white',
-    fontSize: '14px',
-    height: '38px'
+    fontFamily: "skolar-sans-latin, Helvetica,sans-serif",
+    height: '45px',
+    color: '#95989A',
+    padding: '0.5em 1.1em',
+    fontSize: '1rem',
+    fontWeight: '100',
   },
   selectFocus: {
     outline: 'none',
-    borderColor: '#0066cc',
     boxShadow: '0 0 0 2px rgba(0,102,204,0.2)'
+  },
+  gradientBorder: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '3px',
+    background: 'linear-gradient(to right, #6FC68E, #44aD89)',
+    pointerEvents: 'none'
   }
 };
 
@@ -92,7 +104,6 @@ const CommunitySelectorView = ({ muniLines, muniFill, municipalityPoly, toProfil
   return (
     <section className="component CommunitySelector">
       <div className="search-box">
-        <h2>Community Profiles</h2>
         <p>Search any community in Massachusetts to view their profile:</p>
 
         <div style={styles.subregionSelector}>
@@ -112,9 +123,10 @@ const CommunitySelectorView = ({ muniLines, muniFill, municipalityPoly, toProfil
               <option key={id} value={id}>{name}</option>
             ))}
           </select>
+          <div style={styles.gradientBorder}></div>
         </div>
 
-
+{/* 
         <div style={styles.subregionSelector}>
           <select 
             value={selectedSubregion}
@@ -132,7 +144,7 @@ const CommunitySelectorView = ({ muniLines, muniFill, municipalityPoly, toProfil
               <option key={id} value={id}>{name}</option>
             ))}
           </select>
-        </div>
+        </div> */}
 
         <SearchBar
           contextKey={'municipality'}

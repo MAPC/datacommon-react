@@ -5,10 +5,10 @@ import { createSelector } from "@reduxjs/toolkit";
 import styled from "styled-components";
 
 const StyledButton = styled.button`
-  background: #6FC68E;
+  background: #6fc68e;
   border: none;
   border-radius: 5px;
-  color: #FFFFFF;
+  color: #ffffff;
   cursor: pointer;
   font-family: "skolar-sans-latin", Helvetica, sans-serif;
   font-weight: 400;
@@ -16,7 +16,7 @@ const StyledButton = styled.button`
   padding: 8px 12px;
 
   &:hover {
-    background: #5DB37A;
+    background: #5db37a;
   }
 `;
 const SUBREGIONS = {
@@ -30,15 +30,18 @@ const SUBREGIONS = {
   362: 'Three Rivers Interlocal Council [TRIC]'
 };
 
-const makeSelectChartData = (tables, muni) => createSelector(
-  [(state) => state.chart.cache],
-  (cache) => tables.reduce((acc, table) => ({
-    ...acc,
-    [table]: cache[table]?.[muni] || []
-  }), {})
-);
+const makeSelectChartData = (tables, muni) =>
+  createSelector([(state) => state.chart.cache], (cache) =>
+    tables.reduce(
+      (acc, table) => ({
+        ...acc,
+        [table]: cache[table]?.[muni] || [],
+      }),
+      {},
+    ),
+  );
 
-export default function DownloadChartButton({ chart, muni, isSubregion, isRPAregion }) {
+export default function DownloadChartButton({ chart, muni, isSubregion, isRPAregion, displayName }) {
   const selectChartData = React.useMemo(
     () => makeSelectChartData(Object.keys(chart.tables), muni),
     [chart.tables, muni]
@@ -83,10 +86,10 @@ export default function DownloadChartButton({ chart, muni, isSubregion, isRPAreg
 
     
       if (!data || data.length === 0) {
-        console.error('No data available for the selected municipality.');
+        console.error("No data available for the selected municipality.");
         return;
       }
-    
+
       // Convert data to CSV
       const headers = Object.keys(data[0]);
       let firstRow;
@@ -110,25 +113,33 @@ export default function DownloadChartButton({ chart, muni, isSubregion, isRPAreg
         )
       ].join('\n');
 
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
-      link.setAttribute('download', `${chart.title}_${isSubregion ? SUBREGIONS[muni] : muni}.csv`);
+      
+      // Use displayName if provided, otherwise extract abbreviation or use muni
+      let nameSuffix;
+      if (displayName) {
+        nameSuffix = displayName;
+      } else if (isSubregion) {
+        nameSuffix = SUBREGIONS[muni]?.match(/\[([^\]]+)\]/)?.[1] || muni;
+      } else {
+        nameSuffix = muni;
+      }
+      
+      link.setAttribute('download', `${chart.title}_${nameSuffix}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Error downloading data:', error);
+      console.error("Error downloading data:", error);
     }
   };
 
   return (
-    <StyledButton 
-      onClick={downloadCsv}
-      title="Download chart data as CSV"
-    >
+    <StyledButton onClick={downloadCsv} title="Download chart data as CSV">
       Download Data
     </StyledButton>
   );
@@ -140,4 +151,7 @@ DownloadChartButton.propTypes = {
     tables: PropTypes.object.isRequired,
   }).isRequired,
   muni: PropTypes.string.isRequired,
+  isSubregion: PropTypes.bool,
+  isRPAregion: PropTypes.bool,
+  displayName: PropTypes.string,
 };

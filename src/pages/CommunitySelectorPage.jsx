@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { createSelector } from '@reduxjs/toolkit';
@@ -68,24 +68,78 @@ const CommunitySelectorPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   
+  // Styles
+  const styles = {
+    container: {
+      maxWidth: "1200px", 
+      margin: "0 auto"
+    },
+    heading: {
+      fontSize: "1.5rem",
+      fontWeight: "bold",
+      marginBottom: "1.5rem",
+      color: "#1F4E46",
+      paddingLeft: "2rem"
+    },
+    paragraph: {
+      fontSize: "1rem",
+      fontWeight: "lighter",
+      lineHeight: "1.5rem",
+      color: "#1F4E46",
+      paddingLeft: "2rem",
+      paddingRight: "2rem",
+      textAlign: "justify"
+    }
+  };
+  
   // Use memoized selector
   const { muniLines, muniFill, municipalityPoly } = useSelector(selectProcessedMapData);
 
   // Memoize handler
-  const handleMunicipalitySelect = useMemo(() => (municipality) => {
+  const handleMunicipalitySelect = useCallback((municipality) => {
     const formattedMuni = municipality.toLowerCase().replace(/\s+/g, '-');
     dispatch(fillPoly(formattedMuni));
     navigate(`/profile/${formattedMuni}`);
   }, [dispatch, navigate]);
 
   return (
-    <CommunitySelectorView
-      muniLines={muniLines}
-      muniFill={muniFill}
-      municipalityPoly={municipalityPoly}
-      toProfile={handleMunicipalitySelect}
-    />
+    <>
+      <section
+        className="page-section"
+      >
+        <br />
+        <div
+          className="container"
+          style={styles.container}
+        >
+          <h2
+            style={styles.heading}
+          >
+            Community Profiles
+          </h2>
+          <p
+            style={styles.paragraph}
+          >
+            MAPC's Community Profiles provide a comprehensive overview of each
+            of the 351 cities and towns in Massachusetts. Each profile lets you
+            explore data describing the population, housing characteristics,
+            economy, transportation patterns, and other factors about a
+            municipality. By aggregating data from state and federal agencies as
+            well as data from our own planning and research work the profiles
+            provide a single location where you can access and download
+            information about any municipality.
+          </p>
+        </div>
+      </section>
+      <CommunitySelectorView
+        muniLines={muniLines}
+        muniFill={muniFill}
+        municipalityPoly={municipalityPoly}
+        toProfile={handleMunicipalitySelect}
+      />
+    </>
   );
 };
+
 
 export default React.memo(CommunitySelectorPage);

@@ -129,16 +129,10 @@
         transition: color .12s;
       }
 
-      &.metadata-button,
-      &.csv-button,
-      &.json-button,
-      &.geojson-button,
-      &.shp-button {
+      &.file-button {
         background: linear-gradient(90deg, #64c08d, #5aba8c);
         font-size: $font_size-xsmall;
       }
-
-    
     }
   }
 

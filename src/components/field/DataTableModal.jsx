@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
 import styled, { keyframes } from 'styled-components';
 
@@ -212,6 +212,7 @@ const ButtonGroup = styled.div`
 
 const DataTableModal = ({ show, handleClose, data, title, muni }) => {
   const [copyStatus, setCopyStatus] = useState('Copy to Clipboard');
+  const tableWrapperRef = useRef(null);
 
   useEffect(() => {
     const handleEscapeKey = (event) => {
@@ -233,18 +234,30 @@ const DataTableModal = ({ show, handleClose, data, title, muni }) => {
     };
   }, [show, handleClose]);
 
-  const handleModalWheel = (e) => {
-    const modalBody = e.currentTarget;
-    const { scrollTop, scrollHeight, clientHeight } = modalBody;
-    
-    // Check if we're at the top or bottom of scrolling
-    if (
-      (scrollTop === 0 && e.deltaY < 0) || // At top and scrolling up
-      (scrollTop + clientHeight === scrollHeight && e.deltaY > 0) // At bottom and scrolling down
-    ) {
-      e.preventDefault();
-    }
-  };
+  // Add non-passive wheel event listener to prevent background scrolling
+  useEffect(() => {
+    const tableWrapper = tableWrapperRef.current;
+    if (!tableWrapper || !show) return;
+
+    const handleWheel = (e) => {
+      const { scrollTop, scrollHeight, clientHeight } = tableWrapper;
+      
+      // Check if we're at the top or bottom of scrolling
+      if (
+        (scrollTop === 0 && e.deltaY < 0) || // At top and scrolling up
+        (scrollTop + clientHeight >= scrollHeight && e.deltaY > 0) // At bottom and scrolling down
+      ) {
+        e.preventDefault();
+      }
+    };
+
+    // Add listener with { passive: false } to allow preventDefault
+    tableWrapper.addEventListener('wheel', handleWheel, { passive: false });
+
+    return () => {
+      tableWrapper.removeEventListener('wheel', handleWheel);
+    };
+  }, [show]);
 
   if (!show || !data || data.length === 0) return null;
 
@@ -343,8 +356,8 @@ const DataTableModal = ({ show, handleClose, data, title, muni }) => {
             ×
           </CloseButton>
         </ModalHeader>
-        <ModalBody onWheel={handleModalWheel}>
-          <TableWrapper>
+        <ModalBody>
+          <TableWrapper ref={tableWrapperRef}>
             <Table>
               <thead>
                 <tr>

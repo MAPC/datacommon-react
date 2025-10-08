@@ -18,9 +18,8 @@ export const fetchSubregionChartData = createAsyncThunk(
       );
     };
 
-    // Get all queries first
+    // Get the chart info query for the subregion
     const queries = chartInfo.subregionDataQuery(subregionId);
-
     // Handle multiple tables - match each table with its corresponding query
     if (tableNames.length > 1) {
       // Make sure we have the same number of queries as tables
@@ -29,7 +28,7 @@ export const fetchSubregionChartData = createAsyncThunk(
         return;
       }
 
-      // Process each table with its corresponding query
+      // Process each table with its corresponding subregion query
       for (let i = 0; i < tableNames.length; i++) {
         const tableName = tableNames[i];
         const query = queries[i];
@@ -50,8 +49,13 @@ export const fetchSubregionChartData = createAsyncThunk(
         }
 
         try {
-          const api = `${locations.BROWSER_API}?token=${locations.DS_TOKEN}&query=${query}`;
+          const api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=${encodeURIComponent(query)}`;
           const response = await fetch(api);
+          
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          
           const payload = (await response.json()) || {};
           dispatchUpdate(payload.rows, tableName);
         } catch (error) {
@@ -78,8 +82,13 @@ export const fetchSubregionChartData = createAsyncThunk(
     try {
       // For single table, use the first (and should be only) query
       const query = Array.isArray(queries) ? queries[0] : queries;
-      const api = `${locations.BROWSER_API}?token=${locations.DS_TOKEN}&query=${query}`;
+      const api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=${encodeURIComponent(query)}`;
       const response = await fetch(api);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const payload = (await response.json()) || {};
       dispatchUpdate(payload.rows, tableName);
     } catch (error) {
@@ -91,7 +100,7 @@ export const fetchSubregionChartData = createAsyncThunk(
 export const fetchSubregionData = createAsyncThunk(
   "subregion/fetchData",
   async () => {
-    const api = `${locations.BROWSER_API}?token=${locations.DS_TOKEN}&query=`;
+    const api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
     const query = `
       SELECT 
         muni_id,
@@ -104,6 +113,11 @@ export const fetchSubregionData = createAsyncThunk(
     `;
 
     const response = await fetch(`${api}${encodeURIComponent(query)}`);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
     const payload = await response.json();
 
     // Transform the data into the desired structure

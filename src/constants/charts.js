@@ -20,11 +20,15 @@ const format = {
 };
 
 const fetchLatestYear = async (queryString) => {
-  // TODO: Add a new location for the new API
-  const tabular_api = `${locations.BROWSER_API}?token=${locations.DS_TOKEN}&query=`;
+  const tabular_api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
   const query = `${tabular_api}${queryString}`;
   try {
     const response = await fetch(query);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
     const data = (await response.json()) || {};
     return data.rows?.map((row) => row.latest_year) || [];
   } catch (error) {
@@ -65,29 +69,45 @@ export default {
           columns: [
             "acs_year",
             "nhwhi",
+            "nhwhi_me",
             "nhaa",
+            "nhaa_me",
             "nhna",
+            "nhna_me",
             "nhas",
+            "nhas_me",
             "nhpi",
+            "nhpi_me",
             "nhoth",
+            "nhoth_me",
             "nhmlt",
             "lat",
+            "lat_me",
+            "totpop",
+            "totpop_me",
           ],
         },
       },
       labels: {
         nhwhi: "Non-hispanic White",
         nhaa: "Non-hispanic Black or African American",
-        nhapi: "Non-hispanic Asian and Pacific Islander",
-        nhother: "Non-hispanic Other",
+        nhas: "Non-Hispanic Asian",
+        nhpi: "Non-Hispanic Native Hawaiian and Other Pacific Islander",
+        nhoth:"Non-Hispanic Some Other Race",
+        nhmlt:"Non-Hispanic Two or More Races",
+        nhna:"Non-Hispanic American Indian and Alaska Native",
         lat: "Hispanic or Latino",
       },
       colors: {
         nhwhi: colors.CHART.EXTENDED.get("YELLOW"),
         nhaa: colors.CHART.EXTENDED.get("DARK_RED"),
-        nhapi: colors.CHART.EXTENDED.get("TEAL_GREEN"),
-        nhother: colors.CHART.EXTENDED.get("BLUE"),
+        nhas: colors.CHART.EXTENDED.get("TEAL_GREEN"),
+        nhpi: colors.CHART.EXTENDED.get("LIGHT_GREEN"),
+        nhoth: colors.CHART.EXTENDED.get("GREEN"),
+        nhmlt: colors.CHART.EXTENDED.get("CYAN"),
+        nhna: colors.CHART.EXTENDED.get("BLUE"),
         lat: colors.CHART.EXTENDED.get("PINK"),
+       
       },
       source: "American Community Survey",
       timeframe: async () => {
@@ -103,11 +123,14 @@ export default {
         }
         const row = raceEthnicityData[0];
         const groupings = {
-          nhwhi: row.nhwhi,
-          nhaa: row.nhaa,
-          nhapi: row.nhas + row.nhpi,
-          nhother: row.nhoth + row.nhmlt + row.nhna,
-          lat: row.lat,
+          nhwhi: { value: row.nhwhi, me: row.nhwhi_me },
+          nhaa: { value: row.nhaa, me: row.nhaa_me },
+          nhas: { value: row.nhas, me: row.nhas_me },
+          nhpi: { value: row.nhpi, me: row.nhpi_me },
+          nhoth: { value: row.nhoth, me: row.nhoth_me },
+          nhmlt: { value: row.nhmlt, me: row.lat_me },
+          nhna: { value: row.nhna, me: row.nhna_me },
+          lat: { value: row.lat, me: row.lat_me },
         };
         return Object.keys(groupings).reduce(
           (set, key) =>
@@ -116,12 +139,15 @@ export default {
               : set.concat([
                   {
                     x: row[tableDef.yearCol],
-                    y: groupings[key],
+                    y: groupings[key].value,
                     z: chart.labels[key],
                     color: chart.colors[key],
+                    me: groupings[key].me,
+                    totpop: row.totpop,
+                    totpop_me: row.totpop_me,
                   },
                 ]),
-          []
+          [],
         );
       },
       subregionDataQuery: (subregionId) => {
@@ -171,12 +197,12 @@ export default {
       xAxis: { label: "Year" },
       yAxis: { label: "Population", format: format.number.localeString },
       tables: {
-        "tabular.census2010_p12_pop_by_age_m": {
+        "tabular.demo_race_by_age_gender_m": {
           yearCol: "years",
           latestYearOnly: true,
           columns: [
             "years",
-            "totpop",
+            "pop",
             "pop_u18",
             "pop18_24",
             "pop25_34",
@@ -185,14 +211,13 @@ export default {
             "pop45_49",
             "pop50_54",
             "pop55_59",
-            "pop60_61",
-            "pop62_64",
-            "pop65_66",
-            "pop67_69",
+            "pop60_64",
+            "pop65_69",
             "pop70_74",
             "pop75_79",
             "pop80_84",
             "pop85o",
+            "race_eth"
           ],
         },
       },
@@ -205,83 +230,92 @@ export default {
         pop65_74: "65-74",
         pop75o: "75 and over",
       },
-      source: "2010 Census",
-      timeframe: "2010",
-      datasetLinks: { "Population by Age (Municipal)": 220 },
+      source: "2020 Census",
+      timeframe: async () => {
+        let queryString = `SELECT years as latest_year FROM tabular.demo_race_by_age_gender_m ORDER BY years DESC LIMIT 1`;
+        return await getFormattedYearRange(queryString);
+      },
+      datasetLinks: { "Race and Ethnicity by Gender and Age Groups (Municipal)": 315 },
       transformer: (tables, chart) => {
-        const popData = tables["tabular.census2010_p12_pop_by_age_m"];
+        const popData = tables["tabular.demo_race_by_age_gender_m"];
         if (popData.length < 1) {
           return [];
         }
-        const row = popData[0];
+        // For aggregated data (subregion/RPA), race_eth is already filtered in query
+        // For municipal data, filter for "All Race/Ethnicity"
+        const row = popData.filter((r) => r.race_eth === "All Race/Ethnicity")[0] || popData[0];
+       
         const data = {
           pop_u18: row.pop_u18,
           pop18_24: row.pop18_24,
           pop25_34: row.pop25_34,
           pop35_49: row.pop35_39 + row.pop40_44 + row.pop45_49,
-          pop50_64: row.pop50_54 + row.pop55_59 + row.pop60_61 + row.pop62_64,
-          pop65_74: row.pop65_66 + row.pop67_69 + row.pop70_74,
+          pop50_64: row.pop50_54 + row.pop55_59 + row.pop60_64,
+          pop65_74: row.pop65_69 + row.pop70_74,
           pop75o: row.pop75_79 + row.pop80_84 + row.pop85o,
         };
         return Object.keys(data).map((k) => ({
-          x: row[chart.tables["tabular.census2010_p12_pop_by_age_m"].yearCol],
+          x: row[chart.tables["tabular.demo_race_by_age_gender_m"].yearCol],
           y: data[k],
           z: chart.labels[k],
+          totpop: row.pop,
         }));
       },
       subregionDataQuery: (subregionId) => {
         const queryString = `
           SELECT
-            years,
-            totpop,
-            pop_u18,
-            pop18_24,
-            pop25_34,
-            pop35_39,
-            pop40_44,
-            pop45_49,
-            pop50_54,
-            pop55_59,
-            pop60_61,
-            pop62_64,
-            pop65_66,
-            pop67_69,
-            pop70_74,
-            pop75_79,
-            pop80_84,
-            pop85o
-          FROM
-            tabular.census2010_p12_pop_by_age_m
-          WHERE
-            muni_id = '${subregionId}'
+            d.years,
+            SUM(d.pop) as pop,
+            SUM(d.pop_u18) as pop_u18,
+            SUM(d.pop18_24) as pop18_24,
+            SUM(d.pop25_34) as pop25_34,
+            SUM(d.pop35_39) as pop35_39,
+            SUM(d.pop40_44) as pop40_44,
+            SUM(d.pop45_49) as pop45_49,
+            SUM(d.pop50_54) as pop50_54,
+            SUM(d.pop55_59) as pop55_59,
+            SUM(d.pop60_64) as pop60_64,
+            SUM(d.pop65_69) as pop65_69,
+            SUM(d.pop70_74) as pop70_74,
+            SUM(d.pop75_79) as pop75_79,
+            SUM(d.pop80_84) as pop80_84,
+            SUM(d.pop85o) as pop85o
+          FROM tabular.demo_race_by_age_gender_m d
+          JOIN tabular._datakeys_muni_all k ON d.muni_id = k.muni_id
+          WHERE k.subrg_id = '${subregionId}'
+            AND d.race_eth = 'All Race/Ethnicity'
+          GROUP BY d.years
+          ORDER BY d.years DESC
+          LIMIT 1
         `;
         return queryString;
       },
       rparegionDataQuery: (rpaId) => {
         const queryString = `
           SELECT
-            years,
-            totpop,
-            pop_u18,
-            pop18_24,
-            pop25_34,
-            pop35_39,
-            pop40_44,
-            pop45_49,
-            pop50_54,
-            pop55_59,
-            pop60_61,
-            pop62_64,
-            pop65_66,
-            pop67_69,
-            pop70_74,
-            pop75_79,
-            pop80_84,
-            pop85o
-          FROM
-            tabular.census2010_p12_pop_by_age_m
-          WHERE
-            muni_id = '${rpaId}'
+            d.years,
+            SUM(d.pop) as pop,
+            SUM(d.pop_u18) as pop_u18,
+            SUM(d.pop18_24) as pop18_24,
+            SUM(d.pop25_34) as pop25_34,
+            SUM(d.pop35_39) as pop35_39,
+            SUM(d.pop40_44) as pop40_44,
+            SUM(d.pop45_49) as pop45_49,
+            SUM(d.pop50_54) as pop50_54,
+            SUM(d.pop55_59) as pop55_59,
+            SUM(d.pop60_64) as pop60_64,
+            SUM(d.pop65_69) as pop65_69,
+            SUM(d.pop70_74) as pop70_74,
+            SUM(d.pop75_79) as pop75_79,
+            SUM(d.pop80_84) as pop80_84,
+            SUM(d.pop85o) as pop85o
+          FROM tabular.demo_race_by_age_gender_m d
+          JOIN tabular._datakeys_muni_all k ON d.muni_id = k.muni_id
+          WHERE k.region_id = '${rpaId}'
+            AND d.race_eth = 'All Race/Ethnicity'
+          GROUP BY d.years
+          ORDER BY d.years DESC
+          LIMIT 1
         `;
         return queryString;
       },
@@ -296,12 +330,12 @@ export default {
       tables: {
         "tabular.b23025_employment_acs_m": {
           yearCol: "acs_year",
-          years: async () => {  
+          years: async () => {
             let queryString = `SELECT distinct(acs_year) as latest_year FROM tabular.b23025_employment_acs_m GROUP BY acs_year ORDER BY acs_year DESC LIMIT 2`;
             const years = await fetchLatestYear(queryString);
             return years;
           },
-          columns: ["acs_year", "emp", "unemp"],
+          columns: ["acs_year", "emp", "unemp", "clf", "clf_me", "emp_me", "unemp_me"],
         },
       },
       labels: {
@@ -321,9 +355,7 @@ export default {
           return `${start}-20${end}`;
         };
 
-        return `${formatYearRange(previous)} and ${formatYearRange(
-          latest
-        )} 5-Year Estimates`;
+        return `${formatYearRange(previous)} and ${formatYearRange(latest)} 5-Year Estimates`;
       },
       datasetLinks: { "Labor Force (Municipal)": 129 },
       transformer: (tables, chart) => {
@@ -338,9 +370,12 @@ export default {
                 x: row[chart.tables["tabular.b23025_employment_acs_m"].yearCol],
                 y: row[key],
                 z: chart.labels[key],
-              }))
+                me: row[`${key}_me`],
+                totpop: row.clf,
+                totpop_me: row.clf_me,
+              })),
             ),
-          []
+          [],
         );
       },
       subregionDataQuery: (subregionId) => {
@@ -390,11 +425,9 @@ export default {
         "22+48-49": "Transportation, warehousing, and utilities",
         51: "Information",
         "52+53": "Finance, Insurance, Real Estate, and Rental and Leasing",
-        "54+55+56":
-          "Professional, technical, management, administrative, and waste management services",
+        "54+55+56": "Professional, technical, management, administrative, and waste management services",
         "61+62": "Education, health, and social services",
-        "71+72":
-          "Arts, entertainment, recreation, accommodation, and food services",
+        "71+72": "Arts, entertainment, recreation, accommodation, and food services",
         81: "Other services (other than public administration)",
         92: "Public administration",
       },
@@ -431,10 +464,7 @@ export default {
             "22+48-49": getOrZero(year, "22") + getOrZero(year, "48-49"),
             51: getOrZero(year, "51"),
             "52+53": getOrZero(year, "52") + getOrZero(year, "53"),
-            "54+55+56":
-              getOrZero(year, "54") +
-              getOrZero(year, "55") +
-              getOrZero(year, "56"),
+            "54+55+56": getOrZero(year, "54") + getOrZero(year, "55") + getOrZero(year, "56"),
             "61+62": getOrZero(year, "61") + getOrZero(year, "62"),
             "71+72": getOrZero(year, "71") + getOrZero(year, "72"),
             81: getOrZero(year, "81"),
@@ -448,7 +478,7 @@ export default {
               x: parseInt(year),
               y: yearData[key],
               z: chart.labels[key],
-            }))
+            })),
           );
         }, []);
         return data;
@@ -492,8 +522,8 @@ export default {
       tables: {
         "tabular.educ_enrollment_by_year_districts": {
           specialFetch: async (municipality, dispatchUpdate) => {
-            const spatial_api = `${locations.BROWSER_API}?token=${locations.GISDATA_TOKEN}&query=`;
-            const tabular_api = `${locations.BROWSER_API}?token=${locations.DS_TOKEN}&query=`;
+            const spatial_api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=gisdata&query=`;
+            const tabular_api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
             const gis_query =
               `${spatial_api}` +
               "SELECT districtid, district, madisttype, town_reg, municipal " +
@@ -505,13 +535,16 @@ export default {
               "AND madisttype in ('Local School', 'Regional Academic') " +
               "AND (ST_Area(ST_Intersection(mapc.school_districts_poly.shape, mapc.ma_municipalities.shape)) / ST_Area(mapc.ma_municipalities.shape)) > 0.5";
             const gis_response = await fetch(gis_query);
+            
+            if (!gis_response.ok) {
+              throw new Error(`HTTP error! status: ${gis_response.status}`);
+            }
+            
             const gis_payload = (await gis_response.json()) || {};
             if (!gis_payload.rows || gis_payload.rows.length < 1) {
               return dispatchUpdate([]);
             }
-            const districtIds = gis_payload.rows.map(
-              (district) => `'${district.districtid}'`
-            );
+            const districtIds = gis_payload.rows.map((district) => `'${district.districtid}'`);
             const query =
               `${tabular_api}` +
               "SELECT district, districtid, schoolyear, grade_k, grade_1," +
@@ -520,6 +553,11 @@ export default {
               "FROM tabular.educ_enrollment_by_year_districts " +
               `WHERE districtid IN (${districtIds.join(",")})`;
             const response = await fetch(query);
+            
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
             const payload = (await response.json()) || {};
             return dispatchUpdate(payload.rows);
           },
@@ -563,9 +601,7 @@ export default {
             acc.concat(
               Object.keys(district).reduce(
                 (group, key) =>
-                  key == "district" ||
-                  key == "districtid" ||
-                  key == "schoolyear"
+                  key == "district" || key == "districtid" || key == "schoolyear"
                     ? group
                     : group.concat([
                         {
@@ -575,21 +611,23 @@ export default {
                           order: chart.labels[key].order,
                         },
                       ]),
-                []
-              )
+                [],
+              ),
             ),
-          []
+          [],
         );
         return data;
       },
       subregionDataQuery: (subregionId) => {
-        const queryString = `
-        `;
+        // School enrollment data is complex - it requires spatial joins to get districts
+        // For now, returning empty query as this needs special handling for subregions
+        const queryString = ``;
         return queryString;
       },
       rparegionDataQuery: (rpaId) => {
-        const queryString = `
-        `;
+        // School enrollment data is complex - it requires spatial joins to get districts
+        // For now, returning empty query as this needs special handling for RPA regions
+        const queryString = ``;
         return queryString;
       },
     },
@@ -610,37 +648,69 @@ export default {
           columns: [
             "acs_year",
             "nhwlh",
+            "nhwlh_me",
             "nhwhs",
+            "nhwhs_me",
             "nhwsc",
+            "nhwsc_me",
             "nhwbd",
+            "nhwbd_me",
             "aalh",
+            "aalh_me",
             "aahs",
+            "aahs_me",
             "aasc",
+            "aasc_me",
             "aabd",
+            "aabd_me",
             "nalh",
+            "nalh_me",
             "nahs",
+            "nahs_me",
             "nasc",
+            "nasc_me",
             "nabd",
+            "nabd_me",
             "aslh",
+            "aslh_me",
             "ashs",
+            "ashs_me",
             "assc",
+            "assc_me",
             "asbd",
+            "asbd_me",
             "pilh",
+            "pilh_me",
             "pihs",
+            "pihs_me",
             "pisc",
+            "pisc_me",
             "pibd",
+            "pibd_me",
             "othlh",
+            "othlh_me",
             "othhs",
+            "othhs_me",
             "othsc",
+            "othsc_me",
             "othbd",
+            "othbd_me",
             "mltlh",
+            "mltlh_me",
             "mlths",
+            "mlths_me",
             "mltsc",
+            "mltsc_me",
             "mltbd",
+            "mltbd_me",
             "latlh",
+            "latlh_me",
             "laths",
+            "laths_me",
             "latsc",
+            "latsc_me",
             "latbd",
+            "latbd_me",
           ],
         },
       },
@@ -649,11 +719,24 @@ export default {
         hs: "High school diploma",
         sc: "Some college or associate degree",
         bd: "Bachelor degree or higher",
-        nhw: "Non-hispanic White",
-        aa: "Black and African American",
-        api: "Asian and Pacific Islander",
-        oth: "Other",
+        nhw: "Non-Hispanic White",
+        aa: "Black or African American",
+        na: "American Indian and Alaska Native",
+        as: "Asian",
+        pi: "Pacific Islander",
+        oth: "Other race",
+        mlt: "Multi-race",
         lat: "Hispanic or Latino",
+      },
+      colors: {
+        nhw: colors.CHART.EXTENDED.get("YELLOW"),
+        aa: colors.CHART.EXTENDED.get("DARK_RED"),
+        na: colors.CHART.EXTENDED.get("BLUE"),
+        as: colors.CHART.EXTENDED.get("TEAL_GREEN"),
+        pi: colors.CHART.EXTENDED.get("LIGHT_GREEN"),
+        oth: colors.CHART.EXTENDED.get("CYAN"),
+        mlt: colors.CHART.EXTENDED.get("LIGHT_BLUE"),
+        lat: colors.CHART.EXTENDED.get("PINK"),
       },
       source: "American Community Survey",
       timeframe: async () => {
@@ -663,36 +746,35 @@ export default {
       },
       datasetLinks: { "Educational Attainment by Race (Municipal)": 202 },
       transformer: (tables, chart) => {
-        const eduData =
-          tables["tabular.c15002_educational_attainment_by_race_acs_m"];
+        const eduData = tables["tabular.c15002_educational_attainment_by_race_acs_m"];
         if (eduData.length < 1) {
           return [];
         }
         const row = eduData.find((entry) => entry.acs_year === "2019-23"); // to do
         const raceKeys = ["nhw", "aa", "na", "as", "pi", "oth", "mlt", "lat"];
-        const combinedRaceKeys = ["nhw", "aa", "api", "oth", "lat"];
         const eduKeys = ["lh", "hs", "sc", "bd"];
         const totals = eduKeys.reduce(
           (obj, edu) =>
             Object.assign(obj, {
               [edu]: raceKeys.reduce((sum, k) => sum + row[`${k}${edu}`], 0),
             }),
-          {}
+          {},
         );
         const consolidatedRow = eduKeys.reduce(
           (obj, edu) =>
             Object.assign(obj, {
               [`nhw${edu}`]: row[`nhw${edu}`] / totals[edu],
               [`aa${edu}`]: row[`aa${edu}`] / totals[edu],
+              [`na${edu}`]: row[`na${edu}`] / totals[edu],
+              [`as${edu}`]: row[`as${edu}`] / totals[edu],
+              [`pi${edu}`]: row[`pi${edu}`] / totals[edu],
+              [`oth${edu}`]: row[`oth${edu}`] / totals[edu],
+              [`mlt${edu}`]: row[`mlt${edu}`] / totals[edu],
               [`lat${edu}`]: row[`lat${edu}`] / totals[edu],
-              [`api${edu}`]: (row[`as${edu}`] + row[`pi${edu}`]) / totals[edu],
-              [`oth${edu}`]:
-                (row[`oth${edu}`] + row[`mlt${edu}`] + row[`na${edu}`]) /
-                totals[edu],
             }),
-          {}
+          {},
         );
-        return combinedRaceKeys.reduce(
+        return raceKeys.reduce(
           (raceAcc, race) =>
             raceAcc.concat(
               eduKeys.reduce(
@@ -702,53 +784,59 @@ export default {
                       x: chart.labels[edu],
                       y: consolidatedRow[`${race}${edu}`],
                       z: chart.labels[race],
+                      me: row[`${race}${edu}_me`],
+                      totpop: totals[edu],
                     },
                   ]),
-                []
-              )
+                [],
+              ),
             ),
-          []
+          [],
         );
       },
       subregionDataQuery: (subregionId) => {
         const queryString = `
           SELECT 
-            acs_year,
-            nhwlh, nhwhs, nhwsc, nhwbd,
-            aalh, aahs, aasc, aabd,
-            nalh, nahs, nasc, nabd,
-            aslh, ashs, assc, asbd,
-            pilh, pihs, pisc, pibd,
-            othlh, othhs, othsc, othbd,
-            mltlh, mlths, mltsc, mltbd,
-            latlh, laths, latsc, latbd
-          FROM tabular.c15002_educational_attainment_by_race_acs_m
-          WHERE muni_id = '${subregionId}'
-          AND acs_year = (
+            e.acs_year,
+            SUM(e.nhwlh) as nhwlh, SUM(e.nhwhs) as nhwhs, SUM(e.nhwsc) as nhwsc, SUM(e.nhwbd) as nhwbd,
+            SUM(e.aalh) as aalh, SUM(e.aahs) as aahs, SUM(e.aasc) as aasc, SUM(e.aabd) as aabd,
+            SUM(e.nalh) as nalh, SUM(e.nahs) as nahs, SUM(e.nasc) as nasc, SUM(e.nabd) as nabd,
+            SUM(e.aslh) as aslh, SUM(e.ashs) as ashs, SUM(e.assc) as assc, SUM(e.asbd) as asbd,
+            SUM(e.pilh) as pilh, SUM(e.pihs) as pihs, SUM(e.pisc) as pisc, SUM(e.pibd) as pibd,
+            SUM(e.othlh) as othlh, SUM(e.othhs) as othhs, SUM(e.othsc) as othsc, SUM(e.othbd) as othbd,
+            SUM(e.mltlh) as mltlh, SUM(e.mlths) as mlths, SUM(e.mltsc) as mltsc, SUM(e.mltbd) as mltbd,
+            SUM(e.latlh) as latlh, SUM(e.laths) as laths, SUM(e.latsc) as latsc, SUM(e.latbd) as latbd
+          FROM tabular.c15002_educational_attainment_by_race_acs_m e
+          JOIN tabular._datakeys_muni_all k ON e.muni_id = k.muni_id
+          WHERE k.subrg_id = '${subregionId}'
+          AND e.acs_year = (
             SELECT MAX(acs_year)
             FROM tabular.c15002_educational_attainment_by_race_acs_m
           )
+          GROUP BY e.acs_year
         `;
         return queryString;
       },
       rparegionDataQuery: (rpaId) => {
         const queryString = `
           SELECT 
-            acs_year,
-            nhwlh, nhwhs, nhwsc, nhwbd,
-            aalh, aahs, aasc, aabd,
-            nalh, nahs, nasc, nabd,
-            aslh, ashs, assc, asbd,
-            pilh, pihs, pisc, pibd,
-            othlh, othhs, othsc, othbd,
-            mltlh, mlths, mltsc, mltbd,
-            latlh, laths, latsc, latbd
-          FROM tabular.c15002_educational_attainment_by_race_acs_m
-          WHERE muni_id = '${rpaId}'
-          AND acs_year = (
+            e.acs_year,
+            SUM(e.nhwlh) as nhwlh, SUM(e.nhwhs) as nhwhs, SUM(e.nhwsc) as nhwsc, SUM(e.nhwbd) as nhwbd,
+            SUM(e.aalh) as aalh, SUM(e.aahs) as aahs, SUM(e.aasc) as aasc, SUM(e.aabd) as aabd,
+            SUM(e.nalh) as nalh, SUM(e.nahs) as nahs, SUM(e.nasc) as nasc, SUM(e.nabd) as nabd,
+            SUM(e.aslh) as aslh, SUM(e.ashs) as ashs, SUM(e.assc) as assc, SUM(e.asbd) as asbd,
+            SUM(e.pilh) as pilh, SUM(e.pihs) as pihs, SUM(e.pisc) as pisc, SUM(e.pibd) as pibd,
+            SUM(e.othlh) as othlh, SUM(e.othhs) as othhs, SUM(e.othsc) as othsc, SUM(e.othbd) as othbd,
+            SUM(e.mltlh) as mltlh, SUM(e.mlths) as mlths, SUM(e.mltsc) as mltsc, SUM(e.mltbd) as mltbd,
+            SUM(e.latlh) as latlh, SUM(e.laths) as laths, SUM(e.latsc) as latsc, SUM(e.latbd) as latbd
+          FROM tabular.c15002_educational_attainment_by_race_acs_m e
+          JOIN tabular._datakeys_muni_all k ON e.muni_id = k.muni_id
+          WHERE k.region_id = '${rpaId}'
+          AND e.acs_year = (
             SELECT MAX(acs_year)
             FROM tabular.c15002_educational_attainment_by_race_acs_m
           )
+          GROUP BY e.acs_year
         `;
         return queryString;
       },
@@ -764,15 +852,7 @@ export default {
         "tabular.econ_municipal_taxes_revenue_m": {
           yearCol: "fy",
           latestYearOnly: true,
-          columns: [
-            "fy",
-            "res_taxes",
-            "os_taxes",
-            "comm_taxes",
-            "ind_taxes",
-            "p_prop_tax",
-            "tot_rev",
-          ],
+          columns: ["fy", "res_taxes", "os_taxes", "comm_taxes", "ind_taxes", "p_prop_tax", "tot_rev"],
         },
       },
       labels: {
@@ -798,19 +878,12 @@ export default {
           return [];
         }
         const row = taxData[0];
-        const directRev = [
-          "res_taxes",
-          "os_taxes",
-          "comm_taxes",
-          "ind_taxes",
-          "p_prop_tax",
-        ];
+        const directRev = ["res_taxes", "os_taxes", "comm_taxes", "ind_taxes", "p_prop_tax"];
         /*  const withImplied = Object.assign(row, {
           other: row.tot_rev - directRev.reduce((sum, k) => sum + row[k], 0),
         }); */
         const withImplied = Object.assign({}, row, {
-          other:
-            row.tot_rev - directRev.reduce((sum, k) => sum + (row[k] || 0), 0),
+          other: row.tot_rev - directRev.reduce((sum, k) => sum + (row[k] || 0), 0),
         });
         return Object.keys(chart.labels).map((key) => ({
           value: withImplied[key],
@@ -855,15 +928,7 @@ export default {
       },
       tables: {
         "tabular.env_dep_reviewed_water_demand_m": {
-          columns: [
-            "rgpcd2009",
-            "rgpcd2010",
-            "rgpcd2011",
-            "rgpcd2012",
-            "rgpcd2013",
-            "rgpcd2014",
-            "rgpcd2015",
-          ],
+          columns: ["rgpcd2009", "rgpcd2010", "rgpcd2011", "rgpcd2012", "rgpcd2013", "rgpcd2014", "rgpcd2015"],
         },
       },
       labels: {},
@@ -893,16 +958,40 @@ export default {
         return [
           {
             label: "Water Usage per Capita",
-            values: pairs.reduce(
-              (acc, [year, key]) =>
-                row[key] ? acc.concat([[year, row[key]]]) : acc,
-              []
-            ),
+            values: pairs.reduce((acc, [year, key]) => (row[key] ? acc.concat([[year, row[key]]]) : acc), []),
           },
         ];
       },
       subregionDataQuery: (subregionId) => {
-        const queryString = ``;
+        const queryString = `
+          SELECT
+            SUM(w.rgpcd2009) as rgpcd2009,
+            SUM(w.rgpcd2010) as rgpcd2010,
+            SUM(w.rgpcd2011) as rgpcd2011,
+            SUM(w.rgpcd2012) as rgpcd2012,
+            SUM(w.rgpcd2013) as rgpcd2013,
+            SUM(w.rgpcd2014) as rgpcd2014,
+            SUM(w.rgpcd2015) as rgpcd2015
+          FROM tabular.env_dep_reviewed_water_demand_m w
+          JOIN tabular._datakeys_muni_all k ON w.muni_id = k.muni_id
+          WHERE k.subrg_id = '${subregionId}'
+        `;
+        return queryString;
+      },
+      rparegionDataQuery: (rpaId) => {
+        const queryString = `
+          SELECT
+            SUM(w.rgpcd2009) as rgpcd2009,
+            SUM(w.rgpcd2010) as rgpcd2010,
+            SUM(w.rgpcd2011) as rgpcd2011,
+            SUM(w.rgpcd2012) as rgpcd2012,
+            SUM(w.rgpcd2013) as rgpcd2013,
+            SUM(w.rgpcd2014) as rgpcd2014,
+            SUM(w.rgpcd2015) as rgpcd2015
+          FROM tabular.env_dep_reviewed_water_demand_m w
+          JOIN tabular._datakeys_muni_all k ON w.muni_id = k.muni_id
+          WHERE k.region_id = '${rpaId}'
+        `;
         return queryString;
       },
     },
@@ -932,7 +1021,7 @@ export default {
 )
 SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         const years = await fetchLatestYear(queryString);
-        
+
         return years[0];
       },
       datasetLinks: {
@@ -940,10 +1029,8 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         "MassSave Res & Low Income Incentives and Savings (Municipal)": 252,
       },
       transformer: (tables, chart) => {
-        const commData =
-          tables["tabular.energy_masssave_elec_gas_ci_consumption_m"];
-        const resData =
-          tables["tabular.energy_masssave_elec_gas_res_li_consumption_m"];
+        const commData = tables["tabular.energy_masssave_elec_gas_ci_consumption_m"];
+        const resData = tables["tabular.energy_masssave_elec_gas_res_li_consumption_m"];
         const rows = commData.concat(resData);
         if (rows.length < 1) {
           return [];
@@ -957,15 +1044,62 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
                 z: `${row.sector} ${chart.labels.therm_use}`,
               },
             ]),
-          []
+          [],
         );
-        console.log("energy_usage_gas", data);
         return data;
       },
       subregionDataQuery: (subregionId) => {
+        console.log('subregionId', subregionId);
         const queryString1 = `
+          SELECT
+            e.cal_year,
+            e.sector,
+            SUM(e.mwh_use) as mwh_use,
+            SUM(e.therm_use) as therm_use
+          FROM tabular.energy_masssave_elec_gas_ci_consumption_m e
+          JOIN tabular._datakeys_muni_all k ON e.muni_id = k.muni_id
+          WHERE k.subrg_id = '${subregionId}'
+          GROUP BY e.cal_year, e.sector
+          ORDER BY e.cal_year
         `;
         const queryString2 = `
+          SELECT
+            e.cal_year,
+            e.sector,
+            SUM(e.mwh_use) as mwh_use,
+            SUM(e.therm_use) as therm_use
+          FROM tabular.energy_masssave_elec_gas_res_li_consumption_m e
+          JOIN tabular._datakeys_muni_all k ON e.muni_id = k.muni_id
+          WHERE k.subrg_id = '${subregionId}'
+          GROUP BY e.cal_year, e.sector
+          ORDER BY e.cal_year
+        `;
+        return [queryString1, queryString2];
+      },
+      rparegionDataQuery: (rpaId) => {
+        const queryString1 = `
+          SELECT
+            e.cal_year,
+            e.sector,
+            SUM(e.mwh_use) as mwh_use,
+            SUM(e.therm_use) as therm_use
+          FROM tabular.energy_masssave_elec_gas_ci_consumption_m e
+          JOIN tabular._datakeys_muni_all k ON e.muni_id = k.muni_id
+          WHERE k.region_id = '${rpaId}'
+          GROUP BY e.cal_year, e.sector
+          ORDER BY e.cal_year
+        `;
+        const queryString2 = `
+          SELECT
+            e.cal_year,
+            e.sector,
+            SUM(e.mwh_use) as mwh_use,
+            SUM(e.therm_use) as therm_use
+          FROM tabular.energy_masssave_elec_gas_res_li_consumption_m e
+          JOIN tabular._datakeys_muni_all k ON e.muni_id = k.muni_id
+          WHERE k.region_id = '${rpaId}'
+          GROUP BY e.cal_year, e.sector
+          ORDER BY e.cal_year
         `;
         return [queryString1, queryString2];
       },
@@ -1003,10 +1137,8 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         "MassSave Res & Low Income Incentives and Savings (Municipal)": 252,
       },
       transformer: (tables, chart) => {
-        const commData =
-          tables["tabular.energy_masssave_elec_gas_ci_consumption_m"];
-        const resData =
-          tables["tabular.energy_masssave_elec_gas_res_li_consumption_m"];
+        const commData = tables["tabular.energy_masssave_elec_gas_ci_consumption_m"];
+        const resData = tables["tabular.energy_masssave_elec_gas_res_li_consumption_m"];
         const rows = commData.concat(resData);
         if (rows.length < 1) {
           return [];
@@ -1022,13 +1154,60 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
                   },
                 ])
               : acc,
-          []
+          [],
         );
       },
       subregionDataQuery: (subregionId) => {
         const queryString1 = `
+          SELECT
+            e.cal_year,
+            e.sector,
+            SUM(e.mwh_use) as mwh_use,
+            SUM(e.therm_use) as therm_use
+          FROM tabular.energy_masssave_elec_gas_ci_consumption_m e
+          JOIN tabular._datakeys_muni_all k ON e.muni_id = k.muni_id
+          WHERE k.subrg_id = '${subregionId}'
+          GROUP BY e.cal_year, e.sector
+          ORDER BY e.cal_year
         `;
         const queryString2 = `
+          SELECT
+            e.cal_year,
+            e.sector,
+            SUM(e.mwh_use) as mwh_use,
+            SUM(e.therm_use) as therm_use
+          FROM tabular.energy_masssave_elec_gas_res_li_consumption_m e
+          JOIN tabular._datakeys_muni_all k ON e.muni_id = k.muni_id
+          WHERE k.subrg_id = '${subregionId}'
+          GROUP BY e.cal_year, e.sector
+          ORDER BY e.cal_year
+        `;
+        return [queryString1, queryString2];
+      },
+      rparegionDataQuery: (rpaId) => {
+        const queryString1 = `
+          SELECT
+            e.cal_year,
+            e.sector,
+            SUM(e.mwh_use) as mwh_use,
+            SUM(e.therm_use) as therm_use
+          FROM tabular.energy_masssave_elec_gas_ci_consumption_m e
+          JOIN tabular._datakeys_muni_all k ON e.muni_id = k.muni_id
+          WHERE k.region_id = '${rpaId}'
+          GROUP BY e.cal_year, e.sector
+          ORDER BY e.cal_year
+        `;
+        const queryString2 = `
+          SELECT
+            e.cal_year,
+            e.sector,
+            SUM(e.mwh_use) as mwh_use,
+            SUM(e.therm_use) as therm_use
+          FROM tabular.energy_masssave_elec_gas_res_li_consumption_m e
+          JOIN tabular._datakeys_muni_all k ON e.muni_id = k.muni_id
+          WHERE k.region_id = '${rpaId}'
+          GROUP BY e.cal_year, e.sector
+          ORDER BY e.cal_year
         `;
         return [queryString1, queryString2];
       },
@@ -1051,19 +1230,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
             const years = await fetchLatestYear(queryString);
             return years;
           },
-          columns: [
-            "acs_year",
-            "occv2",
-            "cb",
-            "o_notcb",
-            "r_notcb",
-            "ocb3050",
-            "rcb3050",
-            "cb_3050",
-            "o_cb50",
-            "r_cb50",
-            "cb_50",
-          ],
+          columns: ["acs_year", "occv2", "cb", "o_notcb" ,"o_notcbmep", "r_notcb", "r_notcbme","ocb3050","ocb3050me", "rcb3050", "rcb3050me", "cb_3050", "cb_3050_me", "o_cb50", "o_cb50me", "r_cb50","r_cb50_mep", "cb_50","cb_50_me"],
         },
       },
       labels: {
@@ -1090,31 +1257,37 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
           {
             x: chart.labels.not_cb,
             y: row.o_notcb / (row.occv2 - row.cb),
+            me: row.o_notcbmep ,
             z: chart.labels.owner,
           },
           {
             x: chart.labels.not_cb,
             y: row.r_notcb / (row.occv2 - row.cb),
+            me: row.r_notcbme,
             z: chart.labels.renter,
           },
           {
             x: chart.labels.p3050,
             y: row.ocb3050 / row.cb_3050,
+            me: row.ocb3050me,
             z: chart.labels.owner,
           },
           {
             x: chart.labels.p3050,
             y: row.rcb3050 / row.cb_3050,
+            me: row.rcb3050me,
             z: chart.labels.renter,
           },
           {
             x: chart.labels["p50+"],
             y: row.o_cb50 / row.cb_50,
+            me: row.o_cb50me,
             z: chart.labels.owner,
           },
           {
             x: chart.labels["p50+"],
             y: row.r_cb50 / row.cb_50,
+            me: row.r_cb50_mep,
             z: chart.labels.renter,
           },
         ];
@@ -1146,13 +1319,16 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
     units_permitted: {
       type: "stacked-area",
       title: "Housing Units Permitted",
-      xAxis: { label: "Year" },
+      xAxis: {
+        label: "Year",
+        format: format.string.default,
+        sort: (a, b) => parseInt(a) - parseInt(b),
+      },
       yAxis: { label: "Units Permitted" },
       tables: {
         "tabular.hous_building_permits_m": {
           yearCol: "cal_year",
-          where:
-            "months_rep = 12 AND cal_year >= 2001 AND cal_year <= 2023 order by cal_year",
+          where: "cal_year >= 2001 AND cal_year <= 2023 order by cal_year",
           columns: ["cal_year", "months_rep", "sf_units", "mf_units"],
         },
       },
@@ -1161,23 +1337,22 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         mf_units: "Multi Family Units",
       },
       source: "Census Building Permit Survey",
-      caveat:
-        "*Ignoring years for which the municipality did not report all 12 months.",
+      caveat: "*Ignoring years for which the municipality did not report all 12 months.",
       timeframe: async () => {
         let queryString = `WITH years AS (
             SELECT DISTINCT cal_year 
             FROM tabular.hous_building_permits_m 
-            WHERE months_rep = 12 AND cal_year >= 2001
+            WHERE cal_year >= 2001
         )
         SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year
-        FROM years;`
+        FROM years;`;
         const years = await fetchLatestYear(queryString);
-        return years[0]
+        return years[0];
       },
       datasetLinks: { "Building Permits by Type and Year (Municipal)": 384 },
       transformer: (tables, chart) => {
         const [offset, numYears] = [2001, 23];
-        const permitData = tables["tabular.hous_building_permits_m"];
+        const permitData = tables["tabular.hous_building_permits_m"].filter((row) => row.months_rep === 12);
         const tableDef = chart.tables["tabular.hous_building_permits_m"];
         if (permitData.length < 1) {
           return [];
@@ -1185,10 +1360,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         let rowIndex = 0;
         const allData = new Array(numYears);
         for (let yearIndex = 0; yearIndex < numYears; yearIndex += 1) {
-          if (
-            permitData[rowIndex] &&
-            permitData[rowIndex][tableDef.yearCol] == offset + yearIndex
-          ) {
+          if (permitData[rowIndex] && permitData[rowIndex][tableDef.yearCol] == offset + yearIndex) {
             allData[yearIndex] = permitData[rowIndex];
             rowIndex += 1;
           } else {
@@ -1213,11 +1385,43 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
                 z: chart.labels.sf_units,
               },
             ]),
-          []
+          [],
         );
       },
       subregionDataQuery: (subregionId) => {
-        const queryString = ``;
+        const queryString = `
+          SELECT
+            h.cal_year,
+            12 as months_rep,
+            SUM(h.sf_units) as sf_units,
+            SUM(h.mf_units) as mf_units
+          FROM tabular.hous_building_permits_m h
+          JOIN tabular._datakeys_muni_all k ON h.muni_id = k.muni_id
+          WHERE k.subrg_id = '${subregionId}'
+            AND h.cal_year >= 2001 
+            AND h.cal_year <= 2023
+            AND h.months_rep = 12
+          GROUP BY h.cal_year
+          ORDER BY h.cal_year
+        `;
+        return queryString;
+      },
+      rparegionDataQuery: (rpaId) => {
+        const queryString = `
+          SELECT
+            h.cal_year,
+            12 as months_rep,
+            SUM(h.sf_units) as sf_units,
+            SUM(h.mf_units) as mf_units
+          FROM tabular.hous_building_permits_m h
+          JOIN tabular._datakeys_muni_all k ON h.muni_id = k.muni_id
+          WHERE k.region_id = '${rpaId}'
+            AND h.cal_year >= 2001 
+            AND h.cal_year <= 2023
+            AND h.months_rep = 12
+          GROUP BY h.cal_year
+          ORDER BY h.cal_year
+        `;
         return queryString;
       },
     },
@@ -1227,7 +1431,16 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
       type: "stacked-bar",
       title: "Premature Mortality Rate by Race",
       xAxis: { label: "Race" },
-      yAxis: { label: "Age Adjusted Rate per 100,000" },
+      yAxis: { 
+        label: "Age Adjusted Rate per 100,000",
+        format: (d) => {
+          if (d == null || d === '') return d;
+          const num = Number(d);
+          if (isNaN(num)) return d;
+          // Only show 2 decimals if there is a decimal part
+          return num % 1 === 0 ? num.toString() : num.toFixed(2);
+        }
+      },
       tables: {
         "tabular.health_premature_mortality_race_m": {
           yearCol: "years",
@@ -1268,12 +1481,12 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         lat_art: "H & L",
       },
       labels: {
-        whi_art: "White",
-        aa_art: "Black and African American",
-        api_art: "Asian and Pacific Islander",
-        na_art: "Native American",
-        oth_art: "Other",
-        lat_art: "Hispanic and Latino",
+        whi_art: "White (W)",
+        aa_art: "Black and African American (B & AA)",
+        api_art: "Asian and Pacific Islander (A & PA)",
+        na_art: "Native American (NA)",
+        oth_art: "Other (Other)",
+        lat_art: "Hispanic and Latino (H & L)",
       },
       colors: {
         whi_art: colors.CHART.EXTENDED.get("YELLOW"),
@@ -1296,14 +1509,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
           return [];
         }
         const row = premoData[0];
-        const raceKeys = [
-          "whi_art",
-          "aa_art",
-          "api_art",
-          "na_art",
-          "oth_art",
-          "lat_art",
-        ];
+        const raceKeys = ["whi_art", "aa_art", "api_art", "na_art", "oth_art", "lat_art"];
         return raceKeys.reduce(
           (acc, key) =>
             acc.concat([
@@ -1314,11 +1520,48 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
                 color: chart.colors[key],
               },
             ]),
-          []
+          [],
         );
       },
       subregionDataQuery: (subregionId) => {
         const queryString = `
+          SELECT 
+            h.years,
+            AVG(h.whi_art) as whi_art,
+            AVG(h.aa_art) as aa_art,
+            AVG(h.api_art) as api_art,
+            AVG(h.na_art) as na_art,
+            AVG(h.oth_art) as oth_art,
+            AVG(h.lat_art) as lat_art
+          FROM tabular.health_premature_mortality_race_m h
+          JOIN tabular._datakeys_muni_all k ON h.muni_id = k.muni_id
+          WHERE k.subrg_id = '${subregionId}'
+            AND h.years = (
+              SELECT MAX(years)
+              FROM tabular.health_premature_mortality_race_m
+            )
+          GROUP BY h.years
+        `;
+        return queryString;
+      },
+      rparegionDataQuery: (rpaId) => {
+        const queryString = `
+          SELECT 
+            h.years,
+            AVG(h.whi_art) as whi_art,
+            AVG(h.aa_art) as aa_art,
+            AVG(h.api_art) as api_art,
+            AVG(h.na_art) as na_art,
+            AVG(h.oth_art) as oth_art,
+            AVG(h.lat_art) as lat_art
+          FROM tabular.health_premature_mortality_race_m h
+          JOIN tabular._datakeys_muni_all k ON h.muni_id = k.muni_id
+          WHERE k.region_id = '${rpaId}'
+            AND h.years = (
+              SELECT MAX(years)
+              FROM tabular.health_premature_mortality_race_m
+            )
+          GROUP BY h.years
         `;
         return queryString;
       },
@@ -1329,7 +1572,16 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
       xAxis: { label: "Cause", format: format.string.default },
       yAxis: {
         label: "Age Adjusted Rate per 100,000",
-        format: format.string.default,
+        format: (d) => {
+          if (d == null || d === '') return '';
+          const num = parseFloat(d);
+          if (isNaN(num)) return d;
+          // Only show 2 decimals if there is a decimal part
+          if (num % 1 === 0) {
+            return num.toFixed(0);
+          }
+          return num.toFixed(2);
+        }
       },
       tables: {
         // TODO: Heart failure data not loaded at this time.
@@ -1352,15 +1604,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
             const years = await fetchLatestYear(queryString);
             return years;
           },
-          columns: [
-            "cal_years",
-            "whi_arte",
-            "aa_arte",
-            "api_arte",
-            "na_arte",
-            "oth_arte",
-            "lat_arte",
-          ],
+          columns: ["cal_years", "whi_arte", "aa_arte", "api_arte", "na_arte", "oth_arte", "lat_arte"],
         },
       },
       abbreviations: {
@@ -1372,12 +1616,12 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         lat_arte: "H & L",
       },
       labels: {
-        whi_arte: "White",
-        aa_arte: "Black and African American",
-        api_arte: "Asian and Pacific Islander",
-        na_arte: "Native American",
-        oth_arte: "Other",
-        lat_arte: "Hispanic and Latino",
+        whi_arte: "White (W)",
+        aa_arte: "Black and African American (B & AA)",
+        api_arte: "Asian and Pacific Islander (A & PA)",
+        na_arte: "Native American (NA)",
+        oth_arte: "Other (Other)",
+        lat_arte: "Hispanic and Latino (H & L)",
       },
       colors: {
         whi_arte: colors.CHART.EXTENDED.get("YELLOW"),
@@ -1397,20 +1641,12 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         "Hypertension Related Hospitalizations (Municipal)": 385,
       },
       transformer: (tables, chart) => {
-        const hyperData =
-          tables["tabular.health_hospitalizations_hypertension_m"];
+        const hyperData = tables["tabular.health_hospitalizations_hypertension_m"];
         if (hyperData.length < 1) {
           return [];
         }
         const row = hyperData[0];
-        const raceKeys = [
-          "whi_arte",
-          "aa_arte",
-          "api_arte",
-          "na_arte",
-          "oth_arte",
-          "lat_arte",
-        ];
+        const raceKeys = ["whi_arte", "aa_arte", "api_arte", "na_arte", "oth_arte", "lat_arte"];
         return raceKeys.reduce(
           (acc, key) =>
             acc.concat([
@@ -1421,12 +1657,51 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
                 color: chart.colors[key],
               },
             ]),
-          []
+          [],
         );
         return [];
       },
       subregionDataQuery: (subregionId) => {
         const queryString = `
+          SELECT 
+            h.cal_years,
+            h.whi_arte,
+            h.aa_arte,
+            h.api_arte,
+            h.na_arte,
+            h.oth_arte,
+            h.lat_arte
+          FROM tabular.health_hospitalizations_hypertension_m h
+          JOIN tabular._datakeys_muni_all k ON h.muni_id = k.muni_id
+          WHERE k.subrg_id = '${subregionId}'
+            AND h.cal_years = (
+              SELECT MAX(cal_years)
+              FROM tabular.health_hospitalizations_hypertension_m
+            )
+          ORDER BY h.muni_id
+          LIMIT 1
+        `;
+        return queryString;
+      },
+      rparegionDataQuery: (rpaId) => {
+        const queryString = `
+          SELECT 
+            h.cal_years,
+            h.whi_arte,
+            h.aa_arte,
+            h.api_arte,
+            h.na_arte,
+            h.oth_arte,
+            h.lat_arte
+          FROM tabular.health_hospitalizations_hypertension_m h
+          JOIN tabular._datakeys_muni_all k ON h.muni_id = k.muni_id
+          WHERE k.region_id = '${rpaId}'
+            AND h.cal_years = (
+              SELECT MAX(cal_years)
+              FROM tabular.health_hospitalizations_hypertension_m
+            )
+          ORDER BY h.muni_id
+          LIMIT 1
         `;
         return queryString;
       },
@@ -1484,11 +1759,37 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
                 z: chart.labels.comm_vmt_hh,
               },
             ]),
-          []
+          [],
         );
       },
       subregionDataQuery: (subregionId) => {
-        const queryString = ``;
+        const queryString = `
+          SELECT
+            t.quarter,
+            SUM(t.hh_est) as hh_est,
+            SUM(t.pass_vmt) as pass_vmt,
+            SUM(t.comm_vmt) as comm_vmt
+          FROM tabular.trans_mavc_public_summary_m t
+          JOIN tabular._datakeys_muni_all k ON t.muni_id = k.muni_id
+          WHERE k.subrg_id = '${subregionId}'
+          GROUP BY t.quarter
+          ORDER BY t.quarter
+        `;
+        return queryString;
+      },
+      rparegionDataQuery: (rpaId) => {
+        const queryString = `
+          SELECT
+            t.quarter,
+            SUM(t.hh_est) as hh_est,
+            SUM(t.pass_vmt) as pass_vmt,
+            SUM(t.comm_vmt) as comm_vmt
+          FROM tabular.trans_mavc_public_summary_m t
+          JOIN tabular._datakeys_muni_all k ON t.muni_id = k.muni_id
+          WHERE k.region_id = '${rpaId}'
+          GROUP BY t.quarter
+          ORDER BY t.quarter
+        `;
         return queryString;
       },
     },
@@ -1499,17 +1800,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         "tabular.b08301_means_transportation_to_work_by_residence_acs_m": {
           yearCol: "acs_year",
           latestYearOnly: true,
-          columns: [
-            "acs_year",
-            "ctvsngl",
-            "carpool",
-            "pub",
-            "taxi",
-            "mcycle",
-            "bicycle",
-            "walk",
-            "other",
-          ],
+          columns: ["acs_year", "ctvsngl","ctvsnglme", "carpool", "carpoolme", "pub", "pub_me", "taxi", "taxi_me", "mcycle", "mcycle_me", "bicycle", "bicycleme", "walk", "walk_me", "other", "other_me"],
         },
       },
       labels: {
@@ -1530,10 +1821,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
       },
       datasetLinks: { "Transportation to Work from Residence (Municpal)": 38 },
       transformer: (tables, chart) => {
-        const commData =
-          tables[
-            "tabular.b08301_means_transportation_to_work_by_residence_acs_m"
-          ];
+        const commData = tables["tabular.b08301_means_transportation_to_work_by_residence_acs_m"];
         if (commData.length < 1) {
           return [];
         }
@@ -1541,26 +1829,52 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         return Object.keys(chart.labels).map((key) => ({
           value: row[key],
           label: chart.labels[key],
+          me: row[`${key}me`] !== undefined ? row[`${key}me`] : row[`${key}_me`]
         }));
       },
       subregionDataQuery: (subregionId) => {
         const queryString = `
-             SELECT 
-            acs_year,
-            ctvsngl,
-            carpool,
-            pub,
-             taxi,
-            mcycle,
-             bicycle,
-             walk,
-             other
-        FROM tabular.b08301_means_transportation_to_work_by_residence_acs_m
-        WHERE muni_id = '${subregionId}' 
-		    AND acs_year = (
-            SELECT MAX(acs_year) 
-            FROM tabular.b08301_means_transportation_to_work_by_residence_acs_m
-        )
+          SELECT 
+            c.acs_year,
+            SUM(c.ctvsngl) as ctvsngl,
+            SUM(c.carpool) as carpool,
+            SUM(c.pub) as pub,
+            SUM(c.taxi) as taxi,
+            SUM(c.mcycle) as mcycle,
+            SUM(c.bicycle) as bicycle,
+            SUM(c.walk) as walk,
+            SUM(c.other) as other
+          FROM tabular.b08301_means_transportation_to_work_by_residence_acs_m c
+          JOIN tabular._datakeys_muni_all k ON c.muni_id = k.muni_id
+          WHERE k.subrg_id = '${subregionId}' 
+            AND c.acs_year = (
+              SELECT MAX(acs_year) 
+              FROM tabular.b08301_means_transportation_to_work_by_residence_acs_m
+            )
+          GROUP BY c.acs_year
+        `;
+        return queryString;
+      },
+      rparegionDataQuery: (rpaId) => {
+        const queryString = `
+          SELECT 
+            c.acs_year,
+            SUM(c.ctvsngl) as ctvsngl,
+            SUM(c.carpool) as carpool,
+            SUM(c.pub) as pub,
+            SUM(c.taxi) as taxi,
+            SUM(c.mcycle) as mcycle,
+            SUM(c.bicycle) as bicycle,
+            SUM(c.walk) as walk,
+            SUM(c.other) as other
+          FROM tabular.b08301_means_transportation_to_work_by_residence_acs_m c
+          JOIN tabular._datakeys_muni_all k ON c.muni_id = k.muni_id
+          WHERE k.region_id = '${rpaId}' 
+            AND c.acs_year = (
+              SELECT MAX(acs_year) 
+              FROM tabular.b08301_means_transportation_to_work_by_residence_acs_m
+            )
+          GROUP BY c.acs_year
         `;
         return queryString;
       },

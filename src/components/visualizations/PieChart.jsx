@@ -81,17 +81,14 @@ class PieChart extends React.Component {
 
   renderChart() {
     const keys = [...new Set(this.props.data.map((slice) => slice.label))];
-    const keyValue = this.props.data.reduce(
-      (map, d) => Object.assign(map, { [d.label]: d.value }),
-      {}
-    );
+    const keyValue = this.props.data.reduce((map, d) => Object.assign(map, { [d.label]: d.value }), {});
+    const keyME = this.props.data.reduce((map, d) => Object.assign(map, { [d.label]: d.me }), {});
     const sum = this.props.data.reduce((acc, slice) => slice.value + acc, 0);
-    const formatter = (key) =>
-      `${key} ${((keyValue[key] * 100) / sum).toFixed(1)}%`;
+    const formatter = (key) => `${key} ${((keyValue[key] * 100) / sum).toFixed(1)}%`;
 
     const bonusSideMargin = maxTextToMargin(
       keys.reduce((acc, k) => Math.max(acc, k.length), 0),
-      12
+      12,
     );
     const margin = {
       ...defaultMargin,
@@ -100,7 +97,7 @@ class PieChart extends React.Component {
     };
     const width = container.width - margin.left - margin.right;
     const height = container.height - margin.top - margin.bottom;
-    
+
     this.chart.attr("viewBox", `0 0 ${container.width} ${height}`);
 
     const radius = Math.min(height, width) / 1.5;
@@ -113,25 +110,16 @@ class PieChart extends React.Component {
     this.color = d3
       .scaleOrdinal()
       .domain(keys)
-      .range(
-        this.props.colors ||
-        (keys.length > primaryColors.length ? extendedColors : primaryColors)
-      );
+      .range(this.props.colors || (keys.length > primaryColors.length ? extendedColors : primaryColors));
 
     this.chart.selectAll("*").remove();
 
-    const gChart = this.chart
-      .append("g")
-      .attr("transform", `translate(${width / 2 + margin.left},${height / 2})`);
+    const gChart = this.chart.append("g").attr("transform", `translate(${width / 2 + margin.left},${height / 2})`);
 
     const pieData = this.pie(this.props.data.sort((a, b) => a.value - b.value));
 
     // Create pie slices
-    const arcs = gChart
-      .selectAll(".arc")
-      .data(pieData)
-      .join("g")
-      .attr("class", "arc");
+    const arcs = gChart.selectAll(".arc").data(pieData).join("g").attr("class", "arc");
 
     // Add paths
     arcs
@@ -141,22 +129,32 @@ class PieChart extends React.Component {
       .attr("stroke", "white")
       .attr("stroke-width", "1")
       .on("mouseover", (event, d) => {
+        const percentage = ((d.data.value * 100) / sum).toFixed(1);
+        const me = d.data.me;
+        const formattedME = typeof me === "number" ? d3.format(",")(me) : null;
+        
+        let tooltipContent = `
+          <div style="padding: 4px;">
+            <div style="font-weight: bold;">${d.data.label}</div>
+            <div>Percentage: ${percentage}%</div>
+        `;
+        
+        if (formattedME !== null) {
+          tooltipContent += `<div>Margin of Error: ±${formattedME}</div>`;
+        }else{
+          tooltipContent += `<div>Margin of Error: Not Available</div>`;
+        }
+        
+        tooltipContent += `</div>`;
+        
         this.tooltip
-          .html(
-            `
-            <div>
-              ${d.data.label}: ${d.data.value}
-            </div>
-            `
-          )
+          .html(tooltipContent)
           .style("opacity", 1)
           .style("left", `${event.pageX + 10}px`)
           .style("top", `${event.pageY - 10}px`);
       })
       .on("mousemove", (event) => {
-        this.tooltip
-          .style("left", `${event.pageX + 10}px`)
-          .style("top", `${event.pageY - 10}px`);
+        this.tooltip.style("left", `${event.pageX + 10}px`).style("top", `${event.pageY - 10}px`);
       })
       .on("mouseout", () => {
         this.tooltip.style("opacity", 0);
@@ -170,7 +168,7 @@ class PieChart extends React.Component {
   renderBlankChart() {
     const bonusSideMargin = maxTextToMargin(
       this.props.data.reduce((acc, d) => Math.max(acc, d.label.length), 0),
-      12
+      12,
     );
     const margin = {
       ...defaultMargin,
@@ -188,7 +186,7 @@ class PieChart extends React.Component {
       .attr("y", height / 2 - 12)
       .attr("dy", "12")
       .style("text-anchor", "middle")
-      .text("Oops! We can't find this data right now.");
+      .text("Data not available.");
   }
 
   render() {
@@ -204,11 +202,13 @@ class PieChart extends React.Component {
 }
 
 PieChart.propTypes = {
+  colors: PropTypes.arrayOf(PropTypes.string),
+  title: PropTypes.string,
   data: PropTypes.arrayOf(
     PropTypes.shape({
       label: PropTypes.string.isRequired,
-      value: PropTypes.number.isRequired,
-    })
+      me: PropTypes.number,
+    }),
   ).isRequired,
   colors: PropTypes.arrayOf(PropTypes.string),
   hasData: PropTypes.bool,

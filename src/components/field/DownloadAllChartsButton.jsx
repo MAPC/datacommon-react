@@ -49,7 +49,7 @@ const Spinner = styled.div`
 `;
 
 const LoadingText = styled.span`
-  font-size: 14px;
+  font-size: inherit;
 `;
 
 const makeSelectAllChartsData = (allTables, muni, datatype) => {
@@ -90,12 +90,15 @@ const allTables = (() => {
   return Array.from(tables);
 })();
 
-export default function DownloadAllChartsButton({ muni, datatype }) {
+export default function DownloadAllChartsButton({ muni, datatype, displayName }) {
   const dispatch = useDispatch();
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState("");
   const selectAllChartsData = makeSelectAllChartsData(allTables, muni, datatype);
   const allData = useSelector(selectAllChartsData);
+  
+  // Use displayName if provided, otherwise use muni
+  const fileNamePrefix = displayName || muni;
 
   const fetchMissingData = async () => {
     const fetchPromises = [];
@@ -197,6 +200,8 @@ export default function DownloadAllChartsButton({ muni, datatype }) {
       });
     });
 
+    const usedSheetNames = new Set();
+    
     Object.entries(data).forEach(([tableName, tableData]) => {
       if (tableData && tableData.length > 0) {
         // Create worksheet with header based on data type
@@ -214,12 +219,24 @@ export default function DownloadAllChartsButton({ muni, datatype }) {
         // Excel has 31 char limit
         let sheetName =
           tableMapping[tableName]?.slice(0, 31) || tableName.slice(0, 31);
+        
+        // Ensure unique sheet names
+        let counter = 1;
+        let originalSheetName = sheetName;
+        while (usedSheetNames.has(sheetName)) {
+          const suffix = `_${counter}`;
+          const maxLength = 31 - suffix.length;
+          sheetName = originalSheetName.slice(0, maxLength) + suffix;
+          counter++;
+        }
+        usedSheetNames.add(sheetName);
+        
         XLSX.utils.book_append_sheet(wb, ws, sheetName);
       }
     });
 
     setLoadingStatus("Downloading...");
-    const filename = `${muni}_${datatype}_charts_data.xlsx`;
+    const filename = `${fileNamePrefix}_all_charts_data.xlsx`;
     XLSX.writeFile(wb, filename);
   };
 
@@ -240,4 +257,5 @@ export default function DownloadAllChartsButton({ muni, datatype }) {
 DownloadAllChartsButton.propTypes = {
   muni: PropTypes.string.isRequired,
   datatype: PropTypes.oneOf(['municipality', 'subregion', 'rpa']).isRequired,
+  displayName: PropTypes.string,
 };

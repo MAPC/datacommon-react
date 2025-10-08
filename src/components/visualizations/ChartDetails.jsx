@@ -1,31 +1,34 @@
-import React, { useState, useEffect } from 'react';
-import PropTypes from 'prop-types';
-import styled from 'styled-components';
-import { useSelector } from 'react-redux';
-import { createSelector } from '@reduxjs/toolkit';
-import DownloadChartButton from '../field/DownloadChartButton';
+import React, { useState, useEffect } from "react";
+import PropTypes from "prop-types";
+import styled from "styled-components";
+import { useSelector } from "react-redux";
+import { createSelector } from "@reduxjs/toolkit";
+import DownloadChartButton from "../field/DownloadChartButton";
+import DownloadChartImageButton from "../field/DownloadChartImageButton";
 
 const ChartHeader = styled.div`
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 1rem;
 `;
 
 const ChartTitle = styled.h3`
   margin: 0;
+  flex: 2;
 `;
 
 const ButtonGroup = styled.div`
   display: flex;
   gap: 8px;
+  flex: 3;
 `;
 
 const ViewButton = styled.button`
-  background: #6FC68E;
+  background: #6fc68e;
   border: none;
   border-radius: 5px;
-  color: #FFFFFF;
+  color: #ffffff;
   cursor: pointer;
   font-family: "skolar-sans-latin", Helvetica, sans-serif;
   font-weight: 400;
@@ -33,19 +36,22 @@ const ViewButton = styled.button`
   padding: 8px 12px;
 
   &:hover {
-     background: #5DB37A;
+    background: #5db37a;
   }
 `;
 
-const makeSelectChartData = (tables, muni) => createSelector(
-  [(state) => state.chart.cache],
-  (cache) => tables.reduce((acc, table) => ({
-    ...acc,
-    [table]: cache[table]?.[muni] || []
-  }), {})
-);
+const makeSelectChartData = (tables, muni) =>
+  createSelector([(state) => state.chart.cache], (cache) =>
+    tables.reduce(
+      (acc, table) => ({
+        ...acc,
+        [table]: cache[table]?.[muni] || [],
+      }),
+      {},
+    ),
+  );
 
-const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAregion }) => {
+const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAregion, displayName }) => {
   const [timeframe, setTimeframe] = useState(typeof chart.timeframe === 'string' ? chart.timeframe : 'Unknown');
 
   const selectChartData = React.useMemo(
@@ -107,7 +113,7 @@ const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAreg
           {chart.title || 'Chart Title'}
           {isSubregion && ' (Aggregated)'}
         </ChartTitle>
-        <ButtonGroup>
+        <ButtonGroup className="chart-details-buttons">
           <ViewButton
             onClick={handleViewData}
             title={`View ${isSubregion ? 'aggregated ' : ''}chart data in table format`}
@@ -119,6 +125,7 @@ const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAreg
             muni={muni} 
             isSubregion={isSubregion} 
             isRPAregion={isRPAregion}
+            displayName={displayName}
           />
         </ButtonGroup>
       </ChartHeader>
@@ -170,6 +177,8 @@ ChartDetails.propTypes = {
   muni: PropTypes.string.isRequired,
   onViewData: PropTypes.func.isRequired,
   isSubregion: PropTypes.bool,
+  isRPAregion: PropTypes.bool,
+  displayName: PropTypes.string,
 };
 
 ChartDetails.defaultProps = {
