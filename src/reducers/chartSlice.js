@@ -90,7 +90,6 @@ const chartSlice = createSlice({
         state.cache[table] = {};
       }
       state.cache[table][muni] = data;
-      console.log("updateChart= ", table, muni, data);
     },
   },
   extraReducers: (builder) => {

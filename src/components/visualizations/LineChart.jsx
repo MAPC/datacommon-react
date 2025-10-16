@@ -57,8 +57,6 @@ class LineChart extends React.Component {
       .style("padding", "5px")
       .style("border", "1px solid #ccc")
       .style("z-index", 1000);
-
-    console.log("LineChart props", this.props);
     // Render chart if we have data
     if (this.props.hasData) {
       this.renderChart();
@@ -286,7 +284,7 @@ LineChart.propTypes = {
   data: PropTypes.arrayOf(
     PropTypes.shape({
       label: PropTypes.string.isRequired,
-      values: PropTypes.arrayOf(PropTypes.array).isRequired,
+  /*     values: PropTypes.arrayOf(PropTypes.array).isRequired, */
       color: PropTypes.string,
       values: PropTypes.arrayOf(PropTypes.arrayOf(PropTypes.number)).isRequired,
     }),
