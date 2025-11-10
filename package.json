@@ -25,6 +25,7 @@
     "esri-leaflet": "^3.0.14",
     "event": "^1.0.0",
     "events": "^3.3.0",
+    "fuse.js": "^7.1.0",
     "leaflet": "^1.9.4",
     "mapbox-gl": "^3.7.1",
     "prettier": "^3.6.2",
