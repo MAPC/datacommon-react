@@ -438,6 +438,13 @@
   resolved "https://registry.npmjs.org/@mapbox/whoots-js/-/whoots-js-3.1.0.tgz"
   integrity sha512-Es6WcD0nO5l+2BOQS4uLfNPYQaNDfbot3X1XUoloz+x0mPDS3eeORZJl06HXjwBG1fOGwCRnzK88LMdxKRrd6Q==
 
+"@mapc/airtable-cms@^1.6.0":
+  version "1.6.0"
+  resolved "https://registry.npmjs.org/@mapc/airtable-cms/-/airtable-cms-1.6.0.tgz"
+  integrity sha512-pzxZt8csyWgWBWx3voBNCfKRiKBgy0tPXmMX/cQhBrcQEUv9RvpWF5dJ34dhsolHKfz7hOZ82NXSiaxEKY8QVQ==
+  dependencies:
+    airtable "^0.12.2"
+
 "@maplibre/maplibre-gl-style-spec@^19.2.1":
   version "19.3.3"
   resolved "https://registry.npmjs.org/@maplibre/maplibre-gl-style-spec/-/maplibre-gl-style-spec-19.3.3.tgz"

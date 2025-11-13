@@ -1,105 +1,147 @@
-import React, { useEffect, useState } from "react";
+import React, { useMemo } from "react";
+import styled, { keyframes } from "styled-components";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faSpinner } from "@fortawesome/free-solid-svg-icons";
+import { useAirtableCMS } from "@mapc/airtable-cms";
+
+const ErrorContainer = styled.div`
+  padding: 1rem;
+  background-color: #fee;
+  border: 1px solid #fcc;
+  border-radius: 4px;
+  color: #c33;
+`;
+
+const ErrorTitle = styled.p`
+  margin: 0;
+  font-weight: bold;
+`;
+
+const ErrorMessage = styled.p`
+  margin: 0.5rem 0 0 0;
+`;
+
+const LogsContainer = styled.div`
+  margin-top: 2rem;
+`;
+
+const LogItem = styled.div`
+  margin-bottom: 1.5rem;
+`;
+
+const LogDate = styled.div`
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+  font-size: 1rem;
+`;
+
+const LogDescription = styled.div`
+  margin-left: 0;
+`;
+
+const spin = keyframes`
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+`;
+
+const LoadingContainer = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 0;
+`;
+
+const SpinningIcon = styled(FontAwesomeIcon)`
+  animation: ${spin} 1s linear infinite;
+  font-size: 1.25rem;
+  color: #6fc68e;
+`;
+
+const LoadingText = styled.span`
+  font-size: 1rem;
+  color: #1f4e46;
+`;
 
 const AboutUpdatePage = () => {
-  const [logs, setLogs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    const fetchAirtableData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const baseId = import.meta.env.VITE_AIRTABLE_BASE_ID;
-        const apiKey = import.meta.env.VITE_AIRTABLE_API_KEY;
-        const tableName = "Feature Update Logs";
-
-        if (!baseId || !apiKey) {
-          throw new Error("Unable to load update information. Please contact support if this issue persists.");
-        }
-
-        // Fetch all records with pagination support
-        const allRecords = [];
-        let offset = null;
-
-        do {
-          // Build URL with pagination
-          let url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}?pageSize=100`;
-          if (offset) {
-            url += `&offset=${offset}`;
-          }
-
-          const response = await fetch(url, {
-            headers: {
-              Authorization: `Bearer ${apiKey}`,
-            },
-          });
-
-          if (!response.ok) {
-            // Convert technical errors to user-friendly messages
-            if (response.status === 401 || response.status === 403) {
-              throw new Error("Unable to access update information. Please try again later.");
-            } else if (response.status === 404) {
-              throw new Error("Update information is currently unavailable.");
-            } else if (response.status >= 500) {
-              throw new Error("Our servers are experiencing issues. Please try again in a few moments.");
-            } else {
-              throw new Error("Unable to load updates at this time. Please try again later.");
-            }
-          }
-
-          const data = await response.json();
-          allRecords.push(...data.records);
-          offset = data.offset || null;
-        } while (offset);
-
-        // Transform Airtable records to our format
-        const transformedLogs = allRecords
-          .map((record) => {
-            const updateDate = record.fields["Update Date"] || "";
-            // Parse date string to Date object for sorting
-            let dateObj = null;
-            if (updateDate) {
-              dateObj = new Date(updateDate);
-            }
-            
-            return {
-              id: record.id,
-              description: record.fields["Description"] || "",
-              updateDate: updateDate,
-              dateObj: dateObj,
-              order: record.fields["Order"] || 0,
-              ...record.fields, // Include all other fields
-            };
-          })
-          .sort((a, b) => {
-            // Sort by date descending (newest first), fallback to order if no date
-            if (a.dateObj && b.dateObj) {
-              return b.dateObj - a.dateObj;
-            } else if (a.dateObj) {
-              return -1;
-            } else if (b.dateObj) {
-              return 1;
-            }
-            return (b.order || 0) - (a.order || 0);
-          });
-
-        setLogs(transformedLogs);
-      } catch (err) {
-        console.error("Error fetching Airtable data:", err);
-        const userMessage = "Something went wrong while loading updates. Please try again later.";
-        setError({ message: userMessage });
-      } finally {
-        setLoading(false);
+  const response = useAirtableCMS({
+    tableName: "Feature Update Logs",
+    fieldMapping: {
+      description: "Description",
+      updateDate: "Update Date"
+    },
+    sortBy: (a, b) => {
+      // Sort by date descending (newest first)
+      const dateA = a.updateDate ? new Date(a.updateDate) : null;
+      const dateB = b.updateDate ? new Date(b.updateDate) : null;
+      
+      if (dateA && dateB) {
+        return dateB - dateA;
+      } else if (dateA) {
+        return -1;
+      } else if (dateB) {
+        return 1;
       }
-    };
+      // If no date, maintain original order
+      return 0;
+    },
+    asList: true,
+  });
 
-    fetchAirtableData();
-  }, []);
+  const logsData = response.data;
+  const loading = !response.metadata.done;
+  const error = response.metadata.error;
+
+  /**
+   * Transform logs to include dateObj for sorting and ensure we have an array
+   * @returns {Array} logs with dateObj
+   */
+  const logs = useMemo(() => {
+    if (!logsData || !Array.isArray(logsData)) {
+      return [];
+    }
+    
+    return logsData.map((log) => {
+      const updateDate = log.updateDate || "";
+      const dateObj = updateDate ? new Date(updateDate) : null;
+      
+      return {
+        id: log.recordId || log.description || `log-${Math.random()}`, // Use recordId from Airtable, fallback to description
+        description: log.description || "",
+        updateDate: updateDate,
+        dateObj: dateObj,
+        ...log,
+      };
+    });
+    // Note: sorting is already done by the hook's sortBy function
+  }, [logsData]);
+
+  /**
+   * Handle error state with user-friendly message
+   * @returns {string} error message
+   */
+  const errorMessage = useMemo(() => {
+    if (!error) return null;
+    
+    // Convert technical errors to user-friendly messages
+    if (error.message) {
+      if (error.message.includes("401") || error.message.includes("403")) {
+        return "Unable to access update information. Please try again later.";
+      } else if (error.message.includes("404")) {
+        return "Update information is currently unavailable.";
+      } else if (error.message.includes("500") || error.message.includes("502") || error.message.includes("503")) {
+        return "Our servers are experiencing issues. Please try again in a few moments.";
+      }
+    }
+    
+    return "Something went wrong while loading updates. Please try again later.";
+  }, [error]);
 
 
-  // Format date to M/D/YYYY format
+  /**
+   * string to date
+   * @param {*} dateString 
+   * @returns {string} date string in M/D/YYYY format
+   */
   const formatDate = (dateString) => {
     if (!dateString) return "";
     const date = new Date(dateString);
@@ -114,31 +156,29 @@ const AboutUpdatePage = () => {
   return (
     <section className="page page--about-update container">
       <h1>Update Log</h1>
-      {loading && <p>Loading updates...</p>}
-      {error && (
-        <div style={{ padding: "1rem", backgroundColor: "#fee", border: "1px solid #fcc", borderRadius: "4px", color: "#c33" }}>
-          <p style={{ margin: 0, fontWeight: "bold" }}>Unable to Load Updates</p>
-          <p style={{ margin: "0.5rem 0 0 0" }}>{error.message}</p>
-        </div>
+      {loading && (
+        <LoadingContainer>
+          <SpinningIcon icon={faSpinner} />
+          <LoadingText>Loading updates...</LoadingText>
+        </LoadingContainer>
       )}
-      {!loading && !error && logs.length > 0 && (
-        <div 
-          style={{ marginTop: "2rem" }}
-          className="update-logs-container"
-        >
+      {errorMessage && (
+        <ErrorContainer>
+          <ErrorTitle>Unable to Load Updates</ErrorTitle>
+          <ErrorMessage>{errorMessage}</ErrorMessage>
+        </ErrorContainer>
+      )}
+      {!loading && !errorMessage && logs.length > 0 && (
+        <LogsContainer className="update-logs-container">
           {logs.map((log) => (
-            <div key={log.id} style={{ marginBottom: "1.5rem" }}>
-              <div style={{ fontWeight: "bold", marginBottom: "0.5rem", fontSize: "1rem" }}>
-                {formatDate(log.updateDate)}
-              </div>
-              <div style={{ marginLeft: 0 }}>
-                {log.description}
-              </div>
-            </div>
+            <LogItem key={log.id}>
+              <LogDate>{formatDate(log.updateDate)}</LogDate>
+              <LogDescription>{log.description}</LogDescription>
+            </LogItem>
           ))}
-        </div>
+        </LogsContainer>
       )}
-      {!loading && !error && logs.length === 0 && (
+      {!loading && !errorMessage && logs.length === 0 && (
         <p>No update logs found.</p>
       )}
     </section>
