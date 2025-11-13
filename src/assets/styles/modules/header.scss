@@ -5,7 +5,9 @@ header {
 
   nav {
     flex: 1 0;
-    overflow-x: auto;
+    &.header-nav--dropdown-open {
+      overflow: visible;
+    }
     .scroll-wrapper {
       width: max-content;
       div, ul {
@@ -45,12 +47,25 @@ header {
       @include media(small) {
         margin: auto 1em;
       }
+
+      &.header-dropdown {
+        position: relative;
+        &--open {
+          z-index: 20;
+        }
+      }
     }
 
-    a {
+    a,
+    .header-dropdown__trigger {
       $_speed: .12s;
       color: $color_font-medium;
       transition: color $_speed;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      font: inherit;
+      padding: 0;
 
       &:hover {
         color: $color_font-medium--dark;
@@ -65,6 +80,72 @@ header {
         &:hover { color: $color_font-dark--brand; }
       }
     }
+  }
+
+  .header-dropdown__trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .header-dropdown__caret {
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 5px solid $color_font-medium;
+    display: inline-block;
+    transition: transform .18s ease, border-top-color .18s ease;
+  }
+
+  .header-dropdown__trigger:hover .header-dropdown__caret,
+  .header-dropdown__trigger:focus .header-dropdown__caret,
+  .header-dropdown__trigger.active .header-dropdown__caret {
+    border-top-color: $color_font-medium--dark;
+  }
+
+  .header-dropdown--open .header-dropdown__caret {
+    transform: rotate(180deg);
+  }
+
+  .header-dropdown__menu {
+    background: $color_bg-light;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    left: auto;
+    right: 0;
+    margin: 0;
+    min-width: 180px;
+    padding: 12px 0;
+    position: absolute;
+    top: calc(100% + 6px);
+    z-index: 10;
+    /* transition: opacity .18s ease, transform .18s ease, visibility .18s ease; */
+
+    li {
+      display: block;
+      margin: 0;
+      padding: 0;
+    }
+
+    a {
+      display: block;
+      padding: 8px 20px;
+      white-space: nowrap;
+
+      &:hover {
+        background: rgba(0, 0, 0, 0.05);
+      }
+    }
+  }
+
+  .header-dropdown--open .header-dropdown__menu {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translate(75%, 5px);
   }
 
   .login-button {
