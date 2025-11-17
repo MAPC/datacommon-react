@@ -154,33 +154,39 @@ const AboutUpdatePage = () => {
   };
 
   return (
-    <section className="page page--about-update container">
-      <h1>Update Log</h1>
-      {loading && (
-        <LoadingContainer>
-          <SpinningIcon icon={faSpinner} />
-          <LoadingText>Loading updates...</LoadingText>
-        </LoadingContainer>
-      )}
-      {errorMessage && (
-        <ErrorContainer>
-          <ErrorTitle>Unable to Load Updates</ErrorTitle>
-          <ErrorMessage>{errorMessage}</ErrorMessage>
-        </ErrorContainer>
-      )}
-      {!loading && !errorMessage && logs.length > 0 && (
-        <LogsContainer className="update-logs-container">
-          {logs.map((log) => (
-            <LogItem key={log.id}>
-              <LogDate>{formatDate(log.updateDate)}</LogDate>
-              <LogDescription>{log.description}</LogDescription>
-            </LogItem>
-          ))}
-        </LogsContainer>
-      )}
-      {!loading && !errorMessage && logs.length === 0 && (
-        <p>No update logs found.</p>
-      )}
+    <section className="page page--about-update">
+      <div className="page-header">
+        <div className="container tight">
+          <h1>Update Log</h1>
+        </div>
+      </div>
+      <section className="page-section container">
+        {loading && (
+          <LoadingContainer>
+            <SpinningIcon icon={faSpinner} />
+            <LoadingText>Loading updates...</LoadingText>
+          </LoadingContainer>
+        )}
+        {errorMessage && (
+          <ErrorContainer>
+            <ErrorTitle>Unable to Load Updates</ErrorTitle>
+            <ErrorMessage>{errorMessage}</ErrorMessage>
+          </ErrorContainer>
+        )}
+        {!loading && !errorMessage && logs.length > 0 && (
+          <LogsContainer className="update-logs-container">
+            {logs.map((log) => (
+              <LogItem key={log.id}>
+                <LogDate>{formatDate(log.updateDate)}</LogDate>
+                <LogDescription>{log.description}</LogDescription>
+              </LogItem>
+            ))}
+          </LogsContainer>
+        )}
+        {!loading && !errorMessage && logs.length === 0 && (
+          <p>No update logs found.</p>
+        )}
+      </section>
     </section>
   );
 };

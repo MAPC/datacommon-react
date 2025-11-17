@@ -1,15 +1,23 @@
 .page--about-update {
   // Prevent outer container from scrolling
   overflow: visible;
+
+  .page-header {
+    background: $color_bg-medium;
+  }
+
+  .page-section {
+    padding: 40px 0;
+  }
   
   .update-logs-container {
     max-height: 400px;
     overflow-y: auto;
     overflow-x: hidden;
     padding: 1rem;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    background-color: #fafafa;
+    border: 1px solid $color_brand-secondary;
+    border-radius: 0;
+    background-color: $color_bg-light;
 
     // Smooth scrolling
     scroll-behavior: smooth;

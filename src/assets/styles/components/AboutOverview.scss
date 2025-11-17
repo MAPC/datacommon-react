@@ -1,0 +1,20 @@
+.page--about-overview {
+  .page-header {
+    background: $color_bg-medium;
+  }
+
+  .page-section {
+    padding: 20px 0;
+  }
+
+  a {
+    color: $color_brand-secondary;
+    text-decoration: underline;
+    transition: color 0.2s ease;
+
+    &:hover {
+      color: $color_brand-secondary--dark;
+    }
+  }
+}
+
