@@ -10,7 +10,6 @@ import CommunitySelectorPage from "./pages/CommunitySelectorPage";
 import GalleryPage from "./pages/GalleryPage";
 import CalenderEntry from "./components/gallery/CalendarEntry";
 import AboutOverviewPage from "./pages/AboutOverviewPage";
-import AboutUpdatePage from "./pages/AboutUpdatePage";
 import store from "./store";
 import "../src/assets/styles/app.scss";
 import CommunityProfilesPage from "./pages/CommunityProfilesPage";
@@ -96,20 +95,7 @@ const router = createBrowserRouter([
       },
       {
         path: "about",
-        children: [
-          {
-            index: true,
-            element: <Navigate to="overview" replace />,
-          },
-          {
-            path: "overview",
-            element: <AboutOverviewPage />,
-          },
-          {
-            path: "update",
-            element: <AboutUpdatePage />,
-          },
-        ],
+        element: <AboutOverviewPage />,
       },
     ],
   },
