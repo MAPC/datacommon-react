@@ -16,9 +16,8 @@
   }
 
   p {
-    font-family: $font_family-primary;
     font-size: $p_size;
-    font-weight: normal;
+    font-weight: lighter;
     line-height: 1.5rem;
   }
 
@@ -56,15 +55,13 @@
   }
   
   &__info {
-    font-family: $font_family-primary;
     font-size: $p_size;
-    font-weight: normal;
+    font-weight: lighter;
     line-height: 1.5rem;
     
     p {
-      font-family: $font_family-primary;
       font-size: $p_size;
-      font-weight: normal;
+      font-weight: lighter;
       line-height: 1.5rem;
     }
     

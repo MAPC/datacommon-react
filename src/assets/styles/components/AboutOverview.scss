@@ -57,9 +57,8 @@
 
     p {
       margin-bottom: 1rem;
-      font-family: $font_family-primary;
       font-size: $p_size;
-      font-weight: normal;
+      font-weight: lighter;
       line-height: 1.5rem;
 
       &:last-child {
@@ -86,9 +85,8 @@
     }
 
     p {
-      font-family: $font_family-primary;
       font-size: $p_size;
-      font-weight: normal;
+      font-weight: lighter;
       line-height: 1.5rem;
     }
 
@@ -243,9 +241,8 @@
 
     p {
       margin: 0;
-      font-family: $font_family-primary;
       font-size: $p_size;
-      font-weight: normal;
+      font-weight: lighter;
       line-height: 1.5rem;
 
       &:not(:last-child) {
