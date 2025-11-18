@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useDispatch, useSelector } from 'react-redux';
-import SearchBar from "../components/partials/SearchBar";
 import { fetchDatasets } from '../reducers/datasetSlice';
 import MetadataModal from "../components/partials/MetadataModal";
 import styled from 'styled-components';
@@ -11,12 +10,6 @@ const PageContainer = styled.section`
     min-height: 100vh;
     background: #fff;
   }
-`;
-
-const PageHeader = styled.div`
-  background: #fff;
-  padding: 2rem 0;
-  border-bottom: 1px solid #e0e0e0;
 `;
 
 const MainContent = styled.div`
@@ -298,6 +291,37 @@ const LastUpdatedLabel = styled.span`
   margin-right: 0.5rem;
 `;
 
+const PageHeader = styled.div`
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2rem 1rem 1rem 1rem;
+`;
+
+const HeaderTitle = styled.h1`
+  margin: 0 0 0.5rem 0;
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: #333;
+`;
+
+const HeaderDescription = styled.p`
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+  color: #555;
+  line-height: 1.5;
+`;
+
+const DatasetCount = styled.div`
+  font-size: 1rem;
+  color: #666;
+  margin-top: 0.5rem;
+  
+  strong {
+    color: #333;
+    font-weight: 600;
+  }
+`;
+
 const SearchInputContainer = styled.div`
   margin-bottom: 1.5rem;
   position: relative;
@@ -520,16 +544,15 @@ const BrowserPage = () => {
   return (
     <PageContainer className="route categories">
       <PageHeader>
-        <div className="container tight">
-          <SearchBar
-            contextKey="dataset"
-            searchColumn="title"
-            onSelect={(selected) => toDataset(selected)}
-            placeholder={`Search ${datasets?.length || 0} datasets ...`}
-          />
-        </div>
+        <HeaderTitle>Datasets</HeaderTitle>
+        <HeaderDescription>
+          Explore and download data from the Census Bureau, state agencies, municipalities, and MAPC's work. 
+          Browse datasets by category, source, or search for specific topics.
+        </HeaderDescription>
+        <DatasetCount>
+          <strong>{datasets?.length || 0}</strong> {datasets?.length === 1 ? 'dataset' : 'datasets'} available
+        </DatasetCount>
       </PageHeader>
-      
       <MainContent>
         <Sidebar>
           <SidebarTitle>Filters</SidebarTitle>
