@@ -3,7 +3,6 @@ import { useDispatch, useSelector } from 'react-redux';
 import { fetchDatasets } from '../reducers/datasetSlice';
 import MetadataModal from "../components/partials/MetadataModal";
 import styled from 'styled-components';
-import Fuse from 'fuse.js';
 
 const PageContainer = styled.section`
   &.route.categories {
@@ -273,11 +272,6 @@ const ViewMetadataButton = styled.button`
   &:hover {
     opacity: 0.9;
   }
-  
-  &::after {
-    content: '↓';
-    font-size: 1rem;
-  }
 `;
 
 const LastUpdated = styled.div`
@@ -386,24 +380,58 @@ const BrowserPage = () => {
     let highlights = {};
 
     if (searchQuery.trim()) {
-      const fuse = new Fuse(filtered, {
-        keys: [
-          { name: 'table_name', weight: 0.3 },
-          { name: 'descriptn', weight: 0.4 },
-          { name: 'menu3', weight: 0.3 }
-        ],
-        threshold: 0.4,
-        includeMatches: true,
-        minMatchCharLength: 2
-      });
-
-      const fuseResults = fuse.search(searchQuery.trim());
-
-      filtered = fuseResults.map((result) => {
-        if (result.matches?.length) {
-          highlights[result.item.seq_id || result.item.id] = result.matches;
+      const query = searchQuery.trim();
+      // Escape special regex characters in the query
+      const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      
+      // Use whole-word matching for short queries (2 characters or less)
+      // Use substring matching for longer queries
+      const useWholeWord = query.length <= 2;
+      
+      filtered = filtered.filter((dataset) => {
+        const tableName = dataset.table_name || '';
+        const menu3 = dataset.menu3 || '';
+        
+        // Create fresh regex for each test to avoid state issues
+        const testRegex = useWholeWord 
+          ? new RegExp(`\\b${escapedQuery}\\b`, 'i')
+          : new RegExp(escapedQuery, 'i');
+        
+        const tableNameMatch = testRegex.test(tableName);
+        const menu3Match = testRegex.test(menu3);
+        
+        if (tableNameMatch || menu3Match) {
+          const datasetId = dataset.seq_id || dataset.id;
+          highlights[datasetId] = [];
+          
+          if (tableNameMatch) {
+            const highlightRegex = useWholeWord
+              ? new RegExp(`\\b${escapedQuery}\\b`, 'gi')
+              : new RegExp(escapedQuery, 'gi');
+            tableName.replace(highlightRegex, (matched, offset) => {
+              highlights[datasetId].push({
+                key: 'table_name',
+                indices: [[offset, offset + matched.length - 1]]
+              });
+            });
+          }
+          
+          if (menu3Match) {
+            const highlightRegex = useWholeWord
+              ? new RegExp(`\\b${escapedQuery}\\b`, 'gi')
+              : new RegExp(escapedQuery, 'gi');
+            menu3.replace(highlightRegex, (matched, offset) => {
+              highlights[datasetId].push({
+                key: 'menu3',
+                indices: [[offset, offset + matched.length - 1]]
+              });
+            });
+          }
+          
+          return true;
         }
-        return result.item;
+        
+        return false;
       });
     }
 
@@ -619,7 +647,7 @@ const BrowserPage = () => {
           <SearchInputContainer>
             <SearchInput
               type="text"
-              placeholder="Search by table name, description, or title..."
+              placeholder="Search by table name or title..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
