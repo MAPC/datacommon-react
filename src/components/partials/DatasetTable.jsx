@@ -2,7 +2,6 @@ import React from "react";
 import PropTypes from "prop-types";
 import DataRow from "./DataRow";
 
-<<<<<<< HEAD
 class DatasetTable extends React.Component {
   constructor(props) {
     super(props);
@@ -11,26 +10,6 @@ class DatasetTable extends React.Component {
       sortDirection: 'asc'
     };
     this.handleSort = this.handleSort.bind(this);
-=======
-function setTableHeaders(columnKeys) {
-  return columnKeys.map((header, index) => (
-    <th className="ui table" key={`${header.name}-${index}`}>
-      {header.alias}
-    </th>
-  ));
-}
-
-function DatasetTable({ columnKeys = [], currentPage = 1, metadata = [], queryYearColumn = "", rows = [], selectedYears = [], updatePage }) {
-  const renderedHeaders = setTableHeaders(columnKeys);
-  let allRows;
-  const selectedYearsSet = new Set(selectedYears);
-  if (queryYearColumn) {
-    allRows = rows
-      .filter((row) => selectedYearsSet.has(row[queryYearColumn]))
-      .map((row, i) => <DataRow key={i} rowData={row} headers={columnKeys.map((key) => key.name)} />);
-  } else {
-    allRows = rows.map((row, i) => <DataRow key={i} rowData={row} headers={columnKeys.map((key) => key.name)} />);
->>>>>>> subregion
   }
 
   handleSort(columnName) {
