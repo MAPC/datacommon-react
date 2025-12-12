@@ -13,6 +13,11 @@ export const fetchDatasets = createAsyncThunk("dataset/fetchDatasets", async () 
   const response = await fetch(
     `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_data_browser&active=true`,
   );
+  
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+  
   const data = await response.json();
   return data.rows;
 });

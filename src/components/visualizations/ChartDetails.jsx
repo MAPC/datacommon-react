@@ -51,52 +51,110 @@ const makeSelectChartData = (tables, muni) =>
     ),
   );
 
-const ChartDetails = ({ chart, children, muni, onViewData }) => {
-  const [timeframe, setTimeframe] = useState(typeof chart.timeframe === "string" ? chart.timeframe : "Unknown");
-  const chartRef = React.useRef(null);
+const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAregion, displayName }) => {
+  const [timeframe, setTimeframe] = useState(typeof chart.timeframe === 'string' ? chart.timeframe : 'Unknown');
 
-  const selectChartData = React.useMemo(() => makeSelectChartData(Object.keys(chart.tables), muni), [chart.tables, muni]);
-
+  const selectChartData = React.useMemo(
+    () => makeSelectChartData(Object.keys(chart.tables), muni),
+    [chart.tables, muni]
+  );
+  
   const chartData = useSelector(selectChartData);
   const tableName = Object.keys(chartData)[0];
   const data = chartData[tableName];
 
+  // Add selector for subregion cache
+  const selectSubregionCache = createSelector(
+    [(state) => state.subregion.cache],
+    (cache) => {
+      if (isSubregion) {
+        const tableName = Object.keys(chart.tables)[0];
+        return cache[tableName]?.[muni] || [];
+      }
+      return [];
+    }
+  );
+
+  const selectRPAregionCache = createSelector(
+    [(state) => state.rparegion.cache],
+    (cache) => {
+      if (isRPAregion) {
+        const tableName = Object.keys(chart.tables)[0];
+        return cache[tableName]?.[muni] || [];
+      }
+      return [];
+    }
+  );
+
+  const subregionCache = useSelector(selectSubregionCache);
+  const rpaCache = useSelector(selectRPAregionCache);
+
   useEffect(() => {
-    if (typeof chart.timeframe === "function") {
+    if (typeof chart.timeframe === 'function') {
       chart.timeframe().then(setTimeframe);
     }
   }, [chart.timeframe]);
 
   const handleViewData = () => {
-    onViewData(data, chart.title);
+    if (isSubregion) {
+      // Use the cached aggregated data from subregion state
+      onViewData(subregionCache, chart.title);
+    } else if (isRPAregion) {
+      onViewData(rpaCache, chart.title);
+    } else {
+      onViewData(data, chart.title);
+    }
   };
 
   return (
-    <div className="chart-wrapper" ref={chartRef}>
+    <div className="chart-wrapper">
       <ChartHeader>
-        <ChartTitle className="chart__title">{chart.title || "Chart Title"}</ChartTitle>
-        <ButtonGroup>
-          <ViewButton onClick={handleViewData} title="View chart data in table format">
+        <ChartTitle className="chart__title">
+          {chart.title || 'Chart Title'}
+          {isSubregion && ' (Aggregated)'}
+        </ChartTitle>
+        <ButtonGroup className="chart-details-buttons">
+          <ViewButton
+            onClick={handleViewData}
+            title={`View ${isSubregion ? 'aggregated ' : ''}chart data in table format`}
+          >
             View Data
           </ViewButton>
-          <DownloadChartButton chart={chart} muni={muni} />
-          <DownloadChartImageButton chartRef={chartRef} chartTitle={chart.title} />
+          <DownloadChartButton 
+            chart={chart} 
+            muni={muni} 
+            isSubregion={isSubregion} 
+            isRPAregion={isRPAregion}
+            displayName={displayName}
+          />
         </ButtonGroup>
       </ChartHeader>
       {children}
-      {chart.caveat ? <div className="caveat">Caveat: {chart.caveat}</div> : null}
+      {chart.caveat ? (
+        <div className="caveat">
+          Caveat:
+          {' '}
+          {chart.caveat}
+        </div>
+      ) : null}
       <div className="metadata">
         <div className="source-timeframe">
-          <div className="source">Source: {chart.source || "Unknown"}</div>
-          <div className="timeframe">Years: {timeframe}</div>
+          <div className="source">
+            Source:
+            {' '}
+            {chart.source || 'Unknown'}
+          </div>
+          <div className="timeframe">
+            Years:
+            {' '}
+            {timeframe}
+          </div>
         </div>
         {chart.datasetLinks ? (
           <div className="link">
             <span>Link to: </span>
             {Object.keys(chart.datasetLinks).map((label) => (
-              <a key={label} href={`${window.location.origin}/browser/datasets/${chart.datasetLinks[label]}`}>
-                {label}
-              </a>
+              <a key={label} href={`${window.location.origin}/browser/datasets/${chart.datasetLinks[label]}`}>{label}</a>
             ))}
           </div>
         ) : null}
@@ -109,12 +167,23 @@ ChartDetails.propTypes = {
   chart: PropTypes.shape({
     title: PropTypes.string,
     source: PropTypes.string,
-    timeframe: PropTypes.oneOfType([PropTypes.string, PropTypes.func]),
+    timeframe: PropTypes.oneOfType([
+      PropTypes.string,
+      PropTypes.func
+    ]),
     datasetLinks: PropTypes.object,
     tables: PropTypes.object.isRequired,
   }).isRequired,
   muni: PropTypes.string.isRequired,
   onViewData: PropTypes.func.isRequired,
+  isSubregion: PropTypes.bool,
+  isRPAregion: PropTypes.bool,
+  displayName: PropTypes.string,
+};
+
+ChartDetails.defaultProps = {
+  isSubregion: false,
+  isRPAregion: false
 };
 
 export default ChartDetails;

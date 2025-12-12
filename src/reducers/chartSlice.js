@@ -43,6 +43,11 @@ export const fetchChartData = createAsyncThunk("chart/fetchData", async ({ chart
 
     if (yearCol && latestYearOnly && !years) {
       const yearResponse = await fetch(`${api}SELECT ${yearCol} from ${tableName} ORDER BY ${yearCol} DESC LIMIT 1`);
+      
+      if (!yearResponse.ok) {
+        throw new Error(`HTTP error! status: ${yearResponse.status}`);
+      }
+      
       const payload = (await yearResponse.json()) || {};
 
       if (payload.rows?.[0]?.[yearCol]) {
@@ -57,6 +62,11 @@ export const fetchChartData = createAsyncThunk("chart/fetchData", async ({ chart
     }
 
     const response = await fetch(query);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
     const payload = (await response.json()) || {};
 
     dispatchUpdate(payload.rows || []);

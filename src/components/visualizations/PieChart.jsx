@@ -206,11 +206,15 @@ PieChart.propTypes = {
   title: PropTypes.string,
   data: PropTypes.arrayOf(
     PropTypes.shape({
-      value: PropTypes.number.isRequired,
       label: PropTypes.string.isRequired,
       me: PropTypes.number,
     }),
   ).isRequired,
+  colors: PropTypes.arrayOf(PropTypes.string),
+  hasData: PropTypes.bool,
+  width: PropTypes.number,
+  height: PropTypes.number,
+  isSubregion: PropTypes.bool,
 };
 
 export default PieChart;
