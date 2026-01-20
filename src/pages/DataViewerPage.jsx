@@ -59,8 +59,9 @@ class DataViewerClass extends React.Component {
     if (dataset.table_name === "econ_es202_naics_4d_m" || dataset.table_name === "econ_es202_naics_2d_m" || dataset.table_name === "econ_es202_naics_3d_m") {
       limit = 460000 ;
     }
+    
     const tableQuery = axios.get(
-      `/api?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=${dataset.db_name}&schema=${dataset.schemaname}&table=${dataset.table_name}${dataset.yearcolumn ? `&orderByColumn=${dataset.yearcolumn}&orderByDirection=DESC` : ""}&limit=15000`,
+      `/api?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=${dataset.db_name}&schema=${dataset.schemaname}&table=${dataset.table_name}${dataset.yearcolumn ? `&orderByColumn=${dataset.yearcolumn}&orderByDirection=DESC` : ""}&limit=${limit}`,
     );
 
     if (dataset.db_name === "gisdata" || dataset.db_name === "towndata") {
