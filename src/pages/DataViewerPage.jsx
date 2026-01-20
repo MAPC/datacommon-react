@@ -20,9 +20,13 @@ class DataViewerClass extends React.Component {
     this.state = {
       currentPage: 1,
       loading: true,
+      rowsPerPage: 25,
+      selectedColumns: [], // Will be initialized with all columns
     };
     this.updateSelectedYears = this.updateSelectedYears.bind(this);
+    this.updateSelectedColumns = this.updateSelectedColumns.bind(this);
     this.updatePage = this.updatePage.bind(this);
+    this.updateRowsPerPage = this.updateRowsPerPage.bind(this);
     this.loadDatasetData = this.loadDatasetData.bind(this);
     this.hasLoaded = false; // Flag to prevent duplicate API calls in StrictMode
   }
@@ -83,6 +87,9 @@ class DataViewerClass extends React.Component {
             // Validate metadata structure
             const universeData = metadata.find((row) => row.name === "universe");
             const descriptionData = metadata.find((row) => row.name === "descriptn");
+            const columnKeys = metadata
+              .filter((object) => tableResults.data.rows[0] && Object.keys(tableResults.data.rows[0]).includes(object.name))
+              .filter((header) => header.name !== "seq_id");
             this.setState({
               availableYears: yearResults.data.rows
                 .map((year) => Object.values(year)[0])
@@ -91,9 +98,8 @@ class DataViewerClass extends React.Component {
               rows: tableResults.data.rows,
               universe: universeData ? universeData.details : "",
               description: descriptionData ? descriptionData.details : "",
-              columnKeys: metadata
-                .filter((object) => tableResults.data.rows[0] && Object.keys(tableResults.data.rows[0]).includes(object.name))
-                .filter((header) => header.name !== "seq_id"),
+              columnKeys: columnKeys,
+              selectedColumns: columnKeys.map((col) => col.name), // Initialize with all columns
               metadata,
               selectedYears: [
                 yearResults.data.rows
@@ -125,13 +131,15 @@ class DataViewerClass extends React.Component {
             const universeData = metadata.find((row) => row.name === "universe");
             const descriptionData = metadata.find((row) => row.name === "descriptn");
 
+            const columnKeys = metadata
+              .filter((object) => tableResults.data.rows[0] && Object.keys(tableResults.data.rows[0]).includes(object.name))
+              .filter((header) => header.name !== "seq_id");
             this.setState({
               rows: tableResults.data.rows,
               universe: universeData ? universeData.details : "",
               description: descriptionData ? descriptionData.details : "",
-              columnKeys: metadata
-                .filter((object) => tableResults.data.rows[0] && Object.keys(tableResults.data.rows[0]).includes(object.name))
-                .filter((header) => header.name !== "seq_id"),
+              columnKeys: columnKeys,
+              selectedColumns: columnKeys.map((col) => col.name), // Initialize with all columns
               metadata,
               table: dataset.table_name,
               schema: dataset.schemaname,
@@ -168,6 +176,7 @@ class DataViewerClass extends React.Component {
             this.setState({
               rows: tableResults.data.rows,
               columnKeys: sortedMetadata,
+              selectedColumns: sortedMetadata.map((col) => col.name), // Initialize with all columns
               metadata,
               description: metadata.documentation.metadata.dataIdInfo.idPurp || "",
               schema: dataset.schemaname,
@@ -211,6 +220,24 @@ class DataViewerClass extends React.Component {
     });
   }
 
+  updateSelectedColumns(columnName) {
+    this.setState((prevState) => {
+      if (prevState.selectedColumns.includes(columnName)) {
+        // Don't allow deselecting all columns - at least one must be selected
+        if (prevState.selectedColumns.length === 1) {
+          return prevState;
+        }
+        const index = prevState.selectedColumns.indexOf(columnName);
+        const front = prevState.selectedColumns.slice(0, index);
+        const back = prevState.selectedColumns.slice(index + 1);
+        const newArray = front.concat(back);
+        return { selectedColumns: newArray };
+      }
+      prevState.selectedColumns.push(columnName);
+      return { selectedColumns: prevState.selectedColumns };
+    });
+  }
+
   updatePage(e, action, numOfPages = 1) {
     this.setState((prevState) => {
       let updatedPage;
@@ -225,6 +252,10 @@ class DataViewerClass extends React.Component {
       }
       return { currentPage: updatedPage };
     });
+  }
+
+  updateRowsPerPage(rowsPerPage) {
+    this.setState({ rowsPerPage, currentPage: 1 }); // Reset to page 1 when changing rows per page
   }
 
   render() {
@@ -248,15 +279,18 @@ class DataViewerClass extends React.Component {
         <section className="datasets">
           <DatasetHeader
             availableYears={this.state.availableYears}
+            columnKeys={this.state.columnKeys}
             database={this.state.database}
             description={this.state.description}
             metadata={this.state.metadata}
             queryYearColumn={this.state.queryYearColumn}
             schema={this.state.schema}
+            selectedColumns={this.state.selectedColumns}
             selectedYears={this.state.selectedYears}
             source={this.state.source}
             table={this.state.table}
             title={this.state.title}
+            updateSelectedColumns={this.updateSelectedColumns}
             updateSelectedYears={this.updateSelectedYears}
             universe={this.state.universe}
             updatedAt={this.state.updatedAt}
@@ -266,8 +300,11 @@ class DataViewerClass extends React.Component {
             columnKeys={this.state.columnKeys}
             rows={this.state.rows}
             queryYearColumn={this.state.queryYearColumn}
+            rowsPerPage={this.state.rowsPerPage}
+            selectedColumns={this.state.selectedColumns}
             selectedYears={this.state.selectedYears}
             updatePage={this.updatePage}
+            updateRowsPerPage={this.updateRowsPerPage}
             metadata={this.state.metadata}
           />
         </section>

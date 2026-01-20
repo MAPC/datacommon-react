@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
 import PropTypes from "prop-types";
 
@@ -142,6 +142,113 @@ const setSelectYears = (availableYears, updateSelectedYears, selectedYears) => {
   return null;
 };
 
+const ColumnSelectorDropdown = ({ columnKeys, updateSelectedColumns, selectedColumns }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
+
+  if (!columnKeys || columnKeys.length === 0) {
+    return null;
+  }
+
+  // Sort columns alphabetically by alias (or name if no alias)
+  const sortedColumnKeys = [...columnKeys].sort((a, b) => {
+    const aName = (a.alias || a.name).toLowerCase();
+    const bName = (b.alias || b.name).toLowerCase();
+    return aName.localeCompare(bName);
+  });
+
+  const selectedCount = selectedColumns.length;
+  const totalCount = sortedColumnKeys.length;
+  const displayText = selectedCount === totalCount 
+    ? `All Columns (${totalCount})` 
+    : `${selectedCount} of ${totalCount} Columns Selected`;
+
+  return (
+    <div className="column-filter-dropdown" ref={dropdownRef}>
+      <button
+        type="button"
+        className="column-dropdown-button"
+        onClick={() => setIsOpen(!isOpen)}
+        aria-expanded={isOpen}
+        aria-haspopup="true"
+      >
+        <span>{displayText}</span>
+        <span className="dropdown-arrow">{isOpen ? '▲' : '▼'}</span>
+      </button>
+      {isOpen && (
+        <div className="column-dropdown-menu">
+          <div className="column-dropdown-header">
+            <span>Select Columns:</span>
+            <button
+              type="button"
+              className="select-all-button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (selectedCount === totalCount) {
+                  // Deselect all except first (keep at least one selected)
+                  const firstColumn = sortedColumnKeys[0].name;
+                  sortedColumnKeys.forEach((col) => {
+                    if (col.name !== firstColumn && selectedColumns.includes(col.name)) {
+                      updateSelectedColumns(col.name);
+                    }
+                  });
+                } else {
+                  // Select all columns that aren't currently selected
+                  sortedColumnKeys.forEach((col) => {
+                    if (!selectedColumns.includes(col.name)) {
+                      updateSelectedColumns(col.name);
+                    }
+                  });
+                }
+              }}
+            >
+              {selectedCount === totalCount ? 'Deselect All' : 'Select All'}
+            </button>
+          </div>
+          <div className="column-checkboxes">
+            {sortedColumnKeys.map((column) => (
+              <label key={column.name} className="column-checkbox-label">
+              <input
+                type="checkbox"
+                checked={selectedColumns.includes(column.name)}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  updateSelectedColumns(column.name);
+                }}
+                className="column-checkbox"
+              />
+                <span>{column.alias || column.name}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+ColumnSelectorDropdown.propTypes = {
+  columnKeys: PropTypes.arrayOf(PropTypes.object),
+  updateSelectedColumns: PropTypes.func,
+  selectedColumns: PropTypes.arrayOf(PropTypes.string),
+};
+
 const setUniverse = (universe) => {
   if (universe) {
     return (
@@ -186,11 +293,14 @@ function DatasetHeader({
   universe = "",
   description = "",
   availableYears = [],
+  columnKeys = [],
   metadata = [],
   schema = "",
   database = "ds",
   updateSelectedYears,
+  updateSelectedColumns,
   queryYearColumn = "",
+  selectedColumns = [],
   selectedYears = [],
   updatedAt = "",
 }) {
@@ -222,6 +332,11 @@ function DatasetHeader({
               {setUpdatedAt(updatedAt)}
             </ul>
             {setSelectYears(availableYears, updateSelectedYears, selectedYears)}
+            <ColumnSelectorDropdown
+              columnKeys={columnKeys}
+              updateSelectedColumns={updateSelectedColumns}
+              selectedColumns={selectedColumns}
+            />
           </div>
           <div className="details-content-column download-section">
             {setDownloadButton(metadata, schema, table, title, description, selectedYears, queryYearColumn, database)}
@@ -245,15 +360,18 @@ function DatasetHeader({
 
 DatasetHeader.propTypes = {
   availableYears: PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.string, PropTypes.number])),
+  columnKeys: PropTypes.arrayOf(PropTypes.object),
   database: PropTypes.string,
   description: PropTypes.string,
   metadata: PropTypes.oneOfType([PropTypes.arrayOf(PropTypes.object), PropTypes.objectOf(PropTypes.object)]),
   queryYearColumn: PropTypes.string,
   schema: PropTypes.string,
+  selectedColumns: PropTypes.arrayOf(PropTypes.string),
   selectedYears: PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.string, PropTypes.number])),
   source: PropTypes.string,
   table: PropTypes.string,
   title: PropTypes.string,
+  updateSelectedColumns: PropTypes.func,
   updateSelectedYears: PropTypes.func.isRequired,
   universe: PropTypes.string,
   updatedAt: PropTypes.string,
