@@ -176,6 +176,28 @@ const DatasetGrid = styled.div`
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  max-height: 50vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  
+  /* Custom scrollbar styling */
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+    
+    &:hover {
+      background: #a8a8a8;
+    }
+  }
 `;
 
 const DatasetBox = styled.div`

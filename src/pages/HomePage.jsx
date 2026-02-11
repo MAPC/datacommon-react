@@ -3,10 +3,11 @@ import { useDispatch, useSelector } from "react-redux";
 import CallToAction from "../components/partials/CallToAction";
 import Particles from "../components/partials/Particles";
 import { fetchDatasets } from "../reducers/datasetSlice";
-import SearchBar from "../components/partials/SearchBar";
+import DatasetSearchBar from "../components/partials/DatasetSearchBar";
 import CategoryGrid from "../components/CategoryGrid";
 import CommunityProfiles from "../assets/images/homepage/community-profiles.jpeg";
 import Image from "react-bootstrap/Image";
+
 const Home = () => {
   const dispatch = useDispatch();
   const { cache: datasets, status } = useSelector((state) => state.dataset);
@@ -18,7 +19,7 @@ const Home = () => {
   }, [dispatch, status]);
 
   const toDataset = (dataset) => {
-    window.location.pathname = `/browser/datasets/${dataset.id}`;
+    window.location.pathname = `/browser/datasets/${dataset.seq_id || dataset.id}`;
   };
 
   return (
@@ -26,11 +27,11 @@ const Home = () => {
       <div className="page-header">
         <Particles />
         <div className="container tight">
-          <SearchBar
-            contextKey="dataset"
-            searchColumn="title"
-            onSelect={(selected) => toDataset(selected)}
+          <DatasetSearchBar
+            datasets={datasets || []}
             placeholder={`Search ${datasets?.length || 0} datasets ...`}
+            onSelect={toDataset}
+            maxResults={10}
           />
         </div>
       </div>
