@@ -154,30 +154,22 @@ const DatasetSearchBar = ({
       // Escape special regex characters in the query
       const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       
-      // Use whole-word matching for short queries (2 characters or less)
-      // Use substring matching for longer queries
-      const useWholeWord = query.length <= 2;
+      // Use substring matching for all queries (no minimum character requirement)
+      const searchRegex = new RegExp(escapedQuery, 'i');
       
       filtered = filtered.filter((dataset) => {
         const tableName = dataset.table_name || '';
         const menu3 = dataset.menu3 || '';
         
-        // Create fresh regex for each test to avoid state issues
-        const testRegex = useWholeWord 
-          ? new RegExp(`\\b${escapedQuery}\\b`, 'i')
-          : new RegExp(escapedQuery, 'i');
-        
-        const tableNameMatch = testRegex.test(tableName);
-        const menu3Match = testRegex.test(menu3);
+        const tableNameMatch = searchRegex.test(tableName);
+        const menu3Match = searchRegex.test(menu3);
         
         if (tableNameMatch || menu3Match) {
           const datasetId = dataset.seq_id || dataset.id;
           highlights[datasetId] = [];
           
           if (tableNameMatch) {
-            const highlightRegex = useWholeWord
-              ? new RegExp(`\\b${escapedQuery}\\b`, 'gi')
-              : new RegExp(escapedQuery, 'gi');
+            const highlightRegex = new RegExp(escapedQuery, 'gi');
             tableName.replace(highlightRegex, (matched, offset) => {
               highlights[datasetId].push({
                 key: 'table_name',
@@ -187,9 +179,7 @@ const DatasetSearchBar = ({
           }
           
           if (menu3Match) {
-            const highlightRegex = useWholeWord
-              ? new RegExp(`\\b${escapedQuery}\\b`, 'gi')
-              : new RegExp(escapedQuery, 'gi');
+            const highlightRegex = new RegExp(escapedQuery, 'gi');
             menu3.replace(highlightRegex, (matched, offset) => {
               highlights[datasetId].push({
                 key: 'menu3',
