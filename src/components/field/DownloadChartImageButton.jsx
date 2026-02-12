@@ -64,6 +64,7 @@ const DownloadChartImageButton = ({ chartRef, chartTitle }) => {
       
       if (!chartContainer) {
         console.error('Chart container not found');
+        setIsDownloading(false);
         return;
       }
 
@@ -71,6 +72,7 @@ const DownloadChartImageButton = ({ chartRef, chartTitle }) => {
       const svg = chartContainer.querySelector('svg');
       if (!svg) {
         console.error('SVG not found');
+        setIsDownloading(false);
         return;
       }
 

@@ -332,11 +332,13 @@ function DatasetHeader({
               {setUpdatedAt(updatedAt)}
             </ul>
             {setSelectYears(availableYears, updateSelectedYears, selectedYears)}
+            {/* Column selection functionality commented out
             <ColumnSelectorDropdown
               columnKeys={columnKeys}
               updateSelectedColumns={updateSelectedColumns}
               selectedColumns={selectedColumns}
             />
+            */}
           </div>
           <div className="details-content-column download-section">
             {setDownloadButton(metadata, schema, table, title, description, selectedYears, queryYearColumn, database)}

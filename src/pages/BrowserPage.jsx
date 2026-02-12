@@ -6,7 +6,6 @@ import styled from 'styled-components';
 
 const PageContainer = styled.section`
   &.route.categories {
-    min-height: 100vh;
     background: #fff;
   }
 `;
@@ -15,7 +14,7 @@ const MainContent = styled.div`
   display: flex;
   max-width: 1400px;
   margin: 0 auto;
-  padding: 2rem 1rem;
+  padding: 0rem 1rem;
   gap: 2rem;
 `;
 

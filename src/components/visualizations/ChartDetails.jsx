@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import PropTypes from "prop-types";
 import styled from "styled-components";
 import { useSelector } from "react-redux";
@@ -53,6 +53,7 @@ const makeSelectChartData = (tables, muni) =>
 
 const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAregion, displayName }) => {
   const [timeframe, setTimeframe] = useState(typeof chart.timeframe === 'string' ? chart.timeframe : 'Unknown');
+  const chartWrapperRef = useRef(null);
 
   const selectChartData = React.useMemo(
     () => makeSelectChartData(Object.keys(chart.tables), muni),
@@ -107,7 +108,7 @@ const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAreg
   };
 
   return (
-    <div className="chart-wrapper">
+    <div className="chart-wrapper" ref={chartWrapperRef}>
       <ChartHeader>
         <ChartTitle className="chart__title">
           {chart.title || 'Chart Title'}
@@ -126,6 +127,10 @@ const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAreg
             isSubregion={isSubregion} 
             isRPAregion={isRPAregion}
             displayName={displayName}
+          />
+          <DownloadChartImageButton 
+            chartRef={chartWrapperRef}
+            chartTitle={chart.title || 'Chart'}
           />
         </ButtonGroup>
       </ChartHeader>

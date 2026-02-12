@@ -89,7 +89,9 @@ class DatasetTable extends React.Component {
     const { sortColumn, sortDirection } = this.state;
     
     // Filter columnKeys based on selectedColumns
-    const filteredColumnKeys = columnKeys.filter((col) => selectedColumns.includes(col.name));
+    // Column selection functionality commented out - show all columns
+    // const filteredColumnKeys = columnKeys.filter((col) => selectedColumns.includes(col.name));
+    const filteredColumnKeys = columnKeys; // Show all columns
     
     const renderedHeaders = this.setTableHeaders(filteredColumnKeys);
     let allRows;
@@ -116,6 +118,7 @@ class DatasetTable extends React.Component {
     return (
       <div className="table-wrapper">
         <div className="container tight">
+          {/* Rows per page functionality commented out
           <div className="table-controls-top">
             <div className="rows-per-page-selector">
               <label htmlFor="rows-per-page" className="rows-per-page-label">
@@ -133,6 +136,7 @@ class DatasetTable extends React.Component {
               </select>
             </div>
           </div>
+          */}
           <div className="scroll-horizontal-rotated ui lift">
             <div className="cancel-rotate">
               <div className="table-container">
