@@ -1,4 +1,16 @@
 .component.CommunityProfiles {
+  font-family: $font_family-primary;
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: $font_family-primary;
+  }
+
+  p {
+    font-family: $font_family-primary;
+    font-size: $p_size;
+    font-weight: normal;
+    line-height: 1.5rem;
+  }
 
   .page-header {
     padding-bottom: 0;
@@ -72,9 +84,10 @@
       }
     }
     .description {
-      font-family: unset;
-      font-weight: unset;
-      line-height: unset;
+      font-family: $font_family-primary;
+      font-size: $p_size;
+      font-weight: normal;
+      line-height: 1.5rem;
       margin-top: 0;
     }
 

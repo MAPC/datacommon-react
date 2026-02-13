@@ -9,9 +9,12 @@ import DataViewerPage from "./pages/DataViewerPage";
 import CommunitySelectorPage from "./pages/CommunitySelectorPage";
 import GalleryPage from "./pages/GalleryPage";
 import CalenderEntry from "./components/gallery/CalendarEntry";
+import AboutOverviewPage from "./pages/AboutOverviewPage";
 import store from "./store";
 import "../src/assets/styles/app.scss";
 import CommunityProfilesPage from "./pages/CommunityProfilesPage";
+import SubregionProfilesPage from "./pages/SubregionProfilesPage";
+import RPAregionProfilesPage from "./pages/RPAregionProfilesPage";
 import tabs from "./constants/tabs";
 import municipalities from "./assets/data/ma-munis.json";
 import "./utils/introModal"; 
@@ -22,6 +25,8 @@ const muniOptions = municipalities.features.map(
 );
 
 const tabOptions = tabs.map(tab => tab.value);
+// todo: get this from the api ? 
+const VALID_SUBREGIONS = ['355', '356', '357', '358', '359', '360', '361', '362'];
 
 const ProfileRoute = ({ muniOptions, tabOptions }) => {
   const { muni, tab } = useParams();
@@ -36,6 +41,39 @@ const ProfileRoute = ({ muniOptions, tabOptions }) => {
   
   return <CommunityProfilesPage muni={muni} tab={tab} />;
 };
+
+const SubregionProfileRoute = ({ tabOptions }) => {
+  const { subregionId, tab } = useParams();
+  
+  if (!VALID_SUBREGIONS.includes(subregionId)) {
+    return <Navigate to="/" />;
+  }
+  
+  if (!tab || !tabOptions.includes(tab)) {
+    return <Navigate to={`/profile/subregion/${subregionId}/${tabOptions[0]}`} />;
+  }
+  
+  if (!subregionId || !VALID_SUBREGIONS.includes(subregionId)) {
+    return <div>Subregion not found</div>;
+  }
+  
+  return <SubregionProfilesPage />;
+};
+
+const RPAProfileRoute = ({ tabOptions }) => {
+  const { rpaId, tab } = useParams();
+  
+  if (!tab || !tabOptions.includes(tab)) {
+    return <Navigate to={`/profile/rpa/${rpaId}/${tabOptions[0]}`} />;
+  }
+  
+  if(!rpaId) {
+    return <div>RPA not found</div>;
+  }
+
+  return <RPAregionProfilesPage />;
+};
+
 
 const router = createBrowserRouter([
   {
@@ -74,7 +112,16 @@ const router = createBrowserRouter([
       {
         path: "/profile/:muni/:tab?",
         element: <ProfileRoute muniOptions={muniOptions} tabOptions={tabOptions} />
-      },{
+      },
+      {
+        path: "/profile/subregion/:subregionId/:tab?",
+        element: <SubregionProfileRoute tabOptions={tabOptions} />
+      },
+      {
+        path: "/profile/rpa/:rpaId/:tab?",
+        element: <RPAProfileRoute tabOptions={tabOptions} />
+      },
+      {
         path:"gallery",
         children:[
           {
@@ -88,9 +135,26 @@ const router = createBrowserRouter([
         ]
       },
       {
-        path:"/calendar/:year/:month",
-        element:<CalenderEntry />
-      }
+        path: "gallery",
+        children: [
+          {
+            index: true,
+            element: <GalleryPage />,
+          },
+          {
+            path: ":year/:month",
+            element: <CalenderEntry />,
+          },
+        ],
+      },
+      {
+        path: "/calendar/:year/:month",
+        element: <CalenderEntry />,
+      },
+      {
+        path: "about",
+        element: <AboutOverviewPage />,
+      },
     ],
   },
 ]);

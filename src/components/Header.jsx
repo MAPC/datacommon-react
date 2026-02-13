@@ -43,13 +43,20 @@ const Header = () => {
                 Datasets
               </a>
             </li>
-
             <li>
               <a
                 className={handleActivePage(location.pathname, "/gallery")}
                 href="/gallery"
               >
                 Gallery
+              </a>
+            </li>
+            <li>
+              <a
+                className={handleActivePage(location.pathname, "/about")}
+                href="/about"
+              >
+                About
               </a>
             </li>
           </ul>

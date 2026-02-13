@@ -165,7 +165,7 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 <button onClick={handlePrintCharts} type="button" className="print-button">
                   Print charts
                 </button>
-                <DownloadAllChartsButton muni={muni} />
+                <DownloadAllChartsButton muni={muni} datatype={'municipality'} />
               </div>
             </div>
           </section>

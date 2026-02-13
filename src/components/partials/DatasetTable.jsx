@@ -85,10 +85,15 @@ class DatasetTable extends React.Component {
   }
 
   render() {
-    const { columnKeys = [], currentPage = 1, metadata = [], queryYearColumn = "", rows = [], selectedYears = [], updatePage } = this.props;
+    const { columnKeys = [], currentPage = 1, metadata = [], queryYearColumn = "", rows = [], rowsPerPage = 25, selectedColumns = [], selectedYears = [], updatePage, updateRowsPerPage } = this.props;
     const { sortColumn, sortDirection } = this.state;
     
-    const renderedHeaders = this.setTableHeaders(columnKeys);
+    // Filter columnKeys based on selectedColumns
+    // Column selection functionality commented out - show all columns
+    // const filteredColumnKeys = columnKeys.filter((col) => selectedColumns.includes(col.name));
+    const filteredColumnKeys = columnKeys; // Show all columns
+    
+    const renderedHeaders = this.setTableHeaders(filteredColumnKeys);
     let allRows;
     const selectedYearsSet = new Set(selectedYears);
     
@@ -103,16 +108,35 @@ class DatasetTable extends React.Component {
     
     // Convert to DataRow components
     const dataRows = sortedRows.map((row, i) => 
-      <DataRow key={i} rowData={row} headers={columnKeys.map((key) => key.name)} />
+      <DataRow key={i} rowData={row} headers={filteredColumnKeys.map((key) => key.name)} />
     );
 
-    const renderedRows = dataRows.slice((currentPage - 1) * 50, currentPage * 50);
-    const numOfPages = Math.ceil(dataRows.length / 50);
+    const renderedRows = dataRows.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+    const numOfPages = Math.ceil(dataRows.length / rowsPerPage);
     const backButtonClasses = currentPage === 1 ? "button-wrapper lift disabled" : "button-wrapper lift";
     const forwardButtonClasses = currentPage === numOfPages ? "button-wrapper list disabled" : "button-wrapper lift";
     return (
       <div className="table-wrapper">
         <div className="container tight">
+          {/* Rows per page functionality commented out
+          <div className="table-controls-top">
+            <div className="rows-per-page-selector">
+              <label htmlFor="rows-per-page" className="rows-per-page-label">
+                Rows per page:
+              </label>
+              <select
+                id="rows-per-page"
+                className="rows-per-page-dropdown"
+                value={rowsPerPage}
+                onChange={(e) => updateRowsPerPage(Number(e.target.value))}
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+              </select>
+            </div>
+          </div>
+          */}
           <div className="scroll-horizontal-rotated ui lift">
             <div className="cancel-rotate">
               <div className="table-container">
@@ -184,8 +208,11 @@ DatasetTable.propTypes = {
   metadata: PropTypes.oneOfType([PropTypes.arrayOf(PropTypes.object), PropTypes.objectOf(PropTypes.object)]),
   queryYearColumn: PropTypes.string,
   rows: PropTypes.arrayOf(PropTypes.object),
+  rowsPerPage: PropTypes.number,
+  selectedColumns: PropTypes.arrayOf(PropTypes.string),
   selectedYears: PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.string, PropTypes.number])),
   updatePage: PropTypes.func.isRequired,
+  updateRowsPerPage: PropTypes.func.isRequired,
 };
 
 export default DatasetTable;

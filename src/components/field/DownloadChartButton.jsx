@@ -19,6 +19,16 @@ const StyledButton = styled.button`
     background: #5db37a;
   }
 `;
+const SUBREGIONS = {
+  355: 'Inner Core Committee [ICC]',
+  356: 'Minuteman Advisory Group on Interlocal Coordination [MAGIC]',
+  357: 'MetroWest Regional Collaborative [MWRC]',
+  358: 'North Shore Task Force [NSTF]',
+  359: 'North Suburban Planning Council [NSPC]',
+  360: 'South Shore Coalition [SSC]',
+  361: 'South West Advisory Planning Committee [SWAP]',
+  362: 'Three Rivers Interlocal Council [TRIC]'
+};
 
 const makeSelectChartData = (tables, muni) =>
   createSelector([(state) => state.chart.cache], (cache) =>
@@ -31,16 +41,50 @@ const makeSelectChartData = (tables, muni) =>
     ),
   );
 
-export default function DownloadChartButton({ chart, muni }) {
-  const selectChartData = React.useMemo(() => makeSelectChartData(Object.keys(chart.tables), muni), [chart.tables, muni]);
-
+export default function DownloadChartButton({ chart, muni, isSubregion, isRPAregion, displayName }) {
+  const selectChartData = React.useMemo(
+    () => makeSelectChartData(Object.keys(chart.tables), muni),
+    [chart.tables, muni]
+  );
+  
   const chartData = useSelector(selectChartData);
 
+   // Add selector for subregion cache
+   const selectSubregionCache = createSelector(
+    [(state) => state.subregion.cache],
+    (cache) => {
+      if (isSubregion) {
+        const tableName = Object.keys(chart.tables)[0];
+        return cache[tableName]?.[muni] || [];
+      }
+      return [];
+    }
+  );
+
+  const selectRPAregionCache = createSelector(
+    [(state) => state.rparegion.cache],
+    (cache) => {
+      if (isRPAregion) {
+        const tableName = Object.keys(chart.tables)[0];
+        return cache[tableName]?.[muni] || [];
+      }
+      return [];
+    }
+  );
+
+  const subregionCache = useSelector(selectSubregionCache);
+  const rpaCache = useSelector(selectRPAregionCache);
   const downloadCsv = () => {
     try {
       const tableName = Object.keys(chartData)[0];
-      const data = chartData[tableName];
+      let data;
+      if (isRPAregion) {
+        data = rpaCache;
+      } else {
+        data = isSubregion ? subregionCache : chartData[tableName];
+      }
 
+    
       if (!data || data.length === 0) {
         console.error("No data available for the selected municipality.");
         return;
@@ -48,24 +92,43 @@ export default function DownloadChartButton({ chart, muni }) {
 
       // Convert data to CSV
       const headers = Object.keys(data[0]);
+      let firstRow;
+      if (isSubregion) {
+        firstRow = ['Subregion:', SUBREGIONS[muni]];
+      } else if (isRPAregion) {
+        firstRow = ['RPAregion:', "MAPC"];
+      } else {
+        firstRow = ['Municipality:', muni];
+      }
       const csv = [
-        ["Municipality:", muni].join(","),
-        headers.join(","),
-        ...data.map((row) =>
-          headers
-            .map((header) => {
-              const value = row[header];
-              return typeof value === "string" && value.includes(",") ? `"${value}"` : value;
-            })
-            .join(","),
-        ),
-      ].join("\n");
+        firstRow,
+        headers.join(','),
+        ...data.map(row => 
+          headers.map(header => {
+            const value = row[header];
+            return typeof value === 'string' && value.includes(',') 
+              ? `"${value}"` 
+              : value;
+          }).join(',')
+        )
+      ].join('\n');
 
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute("download", `${chart.title}_${muni}.csv`);
+      
+      // Use displayName if provided, otherwise extract abbreviation or use muni
+      let nameSuffix;
+      if (displayName) {
+        nameSuffix = displayName;
+      } else if (isSubregion) {
+        nameSuffix = SUBREGIONS[muni]?.match(/\[([^\]]+)\]/)?.[1] || muni;
+      } else {
+        nameSuffix = muni;
+      }
+      
+      link.setAttribute('download', `${chart.title}_${nameSuffix}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -88,4 +151,7 @@ DownloadChartButton.propTypes = {
     tables: PropTypes.object.isRequired,
   }).isRequired,
   muni: PropTypes.string.isRequired,
+  isSubregion: PropTypes.bool,
+  isRPAregion: PropTypes.bool,
+  displayName: PropTypes.string,
 };
