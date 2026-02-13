@@ -106,6 +106,7 @@ const CommunitySelectorView = ({ muniLines, muniFill, municipalityPoly, toProfil
       <div className="search-box">
         <p>Search any community in Massachusetts to view their profile:</p>
 
+        {/* Subregion selector hidden
         <div style={styles.subregionSelector}>
           <select 
             value={selectedSubregion}
@@ -125,6 +126,7 @@ const CommunitySelectorView = ({ muniLines, muniFill, municipalityPoly, toProfil
           </select>
           <div style={styles.gradientBorder}></div>
         </div>
+        */}
 
 {/* 
         <div style={styles.subregionSelector}>
