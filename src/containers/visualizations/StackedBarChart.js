@@ -2,19 +2,13 @@ import { connect } from 'react-redux';
 import StackedBarChart from '../../components/visualizations/StackedBarChart';
 
 function valuesHaveData(transformedData) {
-  const checkData = transformedData.reduce((acc, row) => {
-    let datumHasValue = false;
-    if (row.y !== null && row.y !== 0) {
-      datumHasValue = true;
-    }
-    acc.push(datumHasValue);
-    return acc;
-  }, []);
-
-  if (checkData.includes(true)) {
-    return true;
+  if (!transformedData || !Array.isArray(transformedData) || transformedData.length === 0) {
+    return false;
   }
-  return false;
+  return transformedData.some((row) => {
+    const yValue = typeof row.y === 'number' ? row.y : parseFloat(row.y);
+    return row.y != null && row.y !== undefined && !isNaN(yValue) && yValue !== 0;
+  });
 }
 
 const mapStateToProps = (state, props) => {
@@ -44,14 +38,17 @@ const mapStateToProps = (state, props) => {
         hasData: valuesHaveData(chart.transformer(rpaTables, chart)),
       };
     }
-  } else if (tables.every((table) => state.chart.cache[table] && state.chart.cache[table][muni])) {
+  } else if (tables.every((table) => state.chart.cache[table] && state.chart.cache[table][muni] && Array.isArray(state.chart.cache[table][muni]) && state.chart.cache[table][muni].length > 0)) {
     const muniTables = tables.reduce((acc, table) => Object.assign(acc, { [table]: state.chart.cache[table][muni] }), {});
+    const transformedData = chart.transformer(muniTables, chart);
+    const hasDataResult = valuesHaveData(transformedData);
     return {
       ...props,
+      chart: chart,
       xAxis: chart.xAxis,
       yAxis: chart.yAxis,
-      data: chart.transformer(muniTables, chart),
-      hasData: valuesHaveData(chart.transformer(muniTables, chart)),
+      data: transformedData,
+      hasData: hasDataResult,
     };
   }
 

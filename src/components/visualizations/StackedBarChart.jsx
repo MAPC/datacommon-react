@@ -87,6 +87,12 @@ const StackedBarChart = (props) => {
     const tooltip = tooltipRef.current;
     const stack = stackRef.current;
 
+    // Guard: ensure we have data
+    if (!props.data || !Array.isArray(props.data) || props.data.length === 0) {
+      renderBlankChart();
+      return;
+    }
+
     // Measure data and calculate size and margins
     const maxLeftLabel = props.horizontal
       ? props.data.reduce((acc, d) => Math.max(acc, props.xAxis.format ? props.xAxis.format(d.x).length : String(d.x).length), 0)
@@ -223,6 +229,12 @@ const StackedBarChart = (props) => {
         const formattedTotpop = typeof totpop === "number" ? d3.format(",")(totpop) : null;
         const formattedTotpopME = typeof totpop_me === "number" ? d3.format(",")(totpop_me) : null;
         
+        const isPercentChart = props.chart?.title === "Internet Usage by Income Level";
+        const valueDisplay = isPercentChart && typeof value === "number" && !String(formattedValue).endsWith("%")
+          ? `${formattedValue}%`
+          : formattedValue;
+        const meDisplay = formattedME === null ? "Not Available" : (isPercentChart ? `±${formattedME}%` : `±${formattedME}`);
+
         if(props.chart.title === "Educational Attainment by Race"){
           tooltip
           .style("opacity", 1)
@@ -237,15 +249,15 @@ const StackedBarChart = (props) => {
           )
           .style("left", `${event.pageX + 10}px`)
           .style("top", `${event.pageY - 10}px`);
-        }else{
+        } else {
           tooltip
           .style("opacity", 1)
           .html(
             `
             <div style="padding: 4px;">
               <div style="font-weight: bold;">${d.series}</div>
-              <div>Value: ${formattedValue}</div>
-              <div>Margin of Error: ${formattedME === null ? "Not Available" : "±" + formattedME}</div>
+              <div>Value: ${valueDisplay}</div>
+              <div>Margin of Error: ${meDisplay}</div>
               ${
                 formattedTotpop
                   ? `
@@ -353,7 +365,9 @@ const StackedBarChart = (props) => {
   useEffect(() => {
     if (!svgRef.current) return;
 
-    if (props.hasData) {
+    const hasDataToRender = props.data && Array.isArray(props.data) && props.data.length > 0;
+
+    if (hasDataToRender) {
       renderChart();
     } else {
       renderBlankChart();

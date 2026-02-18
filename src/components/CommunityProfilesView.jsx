@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import Tab from "./Tab";
 import Dropdown from "./field/Dropdown";
@@ -14,12 +14,14 @@ import StackedAreaChart from "../containers/visualizations/StackedAreaChart";
 import ChartDetails from "./visualizations/ChartDetails";
 import PieChart from "../containers/visualizations/PieChart";
 import LineChart from "../containers/visualizations/LineChart";
+import GaugeChart from "../containers/visualizations/GaugeChart";
 import DownloadAllChartsButton from "./field/DownloadAllChartsButton";
 import DataTableModal from "./field/DataTableModal";
 import { store } from "../store";
 
 const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const { muni, tab } = useParams();
   const [activeTab, setActiveTab] = useState(tab || "demographics");
   const [modalConfig, setModalConfig] = useState({
@@ -187,13 +189,9 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
               value={activeTab}
               options={tabs}
               onChange={(e) => {
-                setActiveTab(e.target.value);
-                dispatch(
-                  fetchChartData({
-                    chartInfo: charts[e.target.value],
-                    municipality: muni,
-                  }),
-                );
+                const newTab = e.target.value;
+                setActiveTab(newTab);
+                navigate(`/profile/${muniSlug}/${newTab}`, { replace: true });
               }}
             />
           </div>
@@ -303,6 +301,27 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 </ChartDetails>
                 <ChartDetails chart={charts.transportation.commute_to_work} muni={muni} onViewData={handleShowModal}>
                   <PieChart chart={charts.transportation.commute_to_work} muni={muni} />
+                </ChartDetails>
+              </div>
+            </Tab>
+            <Tab active={activeTab === "digital-equity"}>
+              <header className="print-header">
+                <h3>Digital Equity</h3>
+              </header>
+              <div className="tab__row">
+                <ChartDetails chart={charts["digital-equity"].no_computer_access} muni={muni} onViewData={handleShowModal} hideButtons>
+                  <GaugeChart chart={charts["digital-equity"].no_computer_access} muni={muni} />
+                </ChartDetails>
+                <ChartDetails chart={charts["digital-equity"].internet_access} muni={muni} onViewData={handleShowModal} hideButtons>
+                  <GaugeChart chart={charts["digital-equity"].internet_access} muni={muni} />
+                </ChartDetails>
+                <ChartDetails chart={charts["digital-equity"].smartphone_only} muni={muni} onViewData={handleShowModal} hideButtons>
+                  <GaugeChart chart={charts["digital-equity"].smartphone_only} muni={muni} />
+                </ChartDetails>
+              </div>
+              <div className="tab__row">
+                <ChartDetails chart={charts["digital-equity"].internet_usage_by_income} muni={muni} onViewData={handleShowModal}>
+                  <StackedBarChart chart={charts["digital-equity"].internet_usage_by_income} muni={muni} />
                 </ChartDetails>
               </div>
             </Tab>

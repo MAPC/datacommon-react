@@ -1049,7 +1049,6 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         return data;
       },
       subregionDataQuery: (subregionId) => {
-        console.log('subregionId', subregionId);
         const queryString1 = `
           SELECT
             e.cal_year,
@@ -1877,6 +1876,254 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
           GROUP BY c.acs_year
         `;
         return queryString;
+      },
+    },
+  },
+  "digital-equity": {
+    no_computer_access: {
+      type: "gauge",
+      title: "Percent Household has no computer devices",
+      minValue: 0,
+      maxValue: 100,
+      valueColor: "#44aa44",
+      backgroundColor: "#e0e0e0",
+      showUnit: true,
+      unit: "%",
+      showLabels: true,
+      valueFormat: (d) => d.toFixed(1),
+      width: 500,
+      height: 400,
+      tables: {
+        "tabular.s2801_computer_internet_acs_m": {
+          yearCol: "acs_year",
+          latestYearOnly: true,
+          columns: ["acs_year", "municipal", "nocmp_p", "nocmp_mp"],
+          specialFetch: async (municipality, dispatchUpdate) => {
+            const tabular_api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
+            const municipalityFormatted = municipality.replace("-", " ");
+            const queryString = `SELECT acs_year, municipal, nocmp_p, nocmp_mp FROM tabular.s2801_computer_internet_acs_m WHERE municipal ilike '%${municipalityFormatted}%' AND acs_year = (SELECT MAX(acs_year) FROM tabular.s2801_computer_internet_acs_m)`;
+            const response = await fetch(`${tabular_api}${encodeURIComponent(queryString)}`);
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const payload = (await response.json()) || {};
+            dispatchUpdate(payload.rows || []);
+          },
+        },
+      },
+      source: "American Community Survey (ACS)",
+      timeframe: async () => {
+        const queryString = `SELECT acs_year as latest_year FROM tabular.s2801_computer_internet_acs_m GROUP BY acs_year ORDER BY acs_year DESC LIMIT 1`;
+        const years = await fetchLatestYear(queryString);
+        return years[0] || "N/A";
+      },
+      transformer: (tables, chart) => {
+        const data = tables["tabular.s2801_computer_internet_acs_m"];
+        if (!data || data.length < 1) {
+          return [{ value: 0, marginOfError: null }];
+        }
+        const row = data[0];
+        const noComputer = parseFloat(row.nocmp_p) || 0;
+        const marginOfError = row.nocmp_mp !== null && row.nocmp_mp !== undefined ? parseFloat(row.nocmp_mp) : null;
+        const value = Math.max(0, Math.min(100, noComputer));
+        return [{ value, marginOfError }];
+      },
+    },
+    internet_access: {
+      type: "gauge",
+      title: "Percent Household has no internet",
+      minValue: 0,
+      maxValue: 100,
+      valueColor: "#44aa44",
+      backgroundColor: "#e0e0e0",
+      showUnit: true,
+      unit: "%",
+      showLabels: true,
+      valueFormat: (d) => d.toFixed(1),
+      width: 500,
+      height: 400,
+      tables: {
+        "tabular.s2801_computer_internet_acs_m": {
+          yearCol: "acs_year",
+          latestYearOnly: true,
+          columns: ["acs_year", "municipal", "noint_p", "noint_mp"],
+          specialFetch: async (municipality, dispatchUpdate) => {
+            const tabular_api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
+            const municipalityFormatted = municipality.replace("-", " ");
+            // Select all columns to ensure we get the right one
+            const queryString = `SELECT acs_year, municipal, noint_p, noint_mp, nocmp_p, nocmp_mp, moblo_p, moblo_mp FROM tabular.s2801_computer_internet_acs_m WHERE municipal ilike '%${municipalityFormatted}%' AND acs_year = (SELECT MAX(acs_year) FROM tabular.s2801_computer_internet_acs_m)`;
+            const response = await fetch(`${tabular_api}${encodeURIComponent(queryString)}`);
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const payload = (await response.json()) || {};
+            dispatchUpdate(payload.rows || []);
+          },
+        },
+      },
+      source: "American Community Survey (ACS)",
+      timeframe: async () => {
+        const queryString = `SELECT acs_year as latest_year FROM tabular.s2801_computer_internet_acs_m GROUP BY acs_year ORDER BY acs_year DESC LIMIT 1`;
+        const years = await fetchLatestYear(queryString);
+        return years[0] || "N/A";
+      },
+      transformer: (tables, chart) => {
+        const data = tables["tabular.s2801_computer_internet_acs_m"];
+        if (!data || data.length < 1) {
+          return [{ value: 0, marginOfError: null }];
+        }
+        const row = data[0];
+        // Check if noint_p exists, if not try alternative field names
+        const noInternet = row.noint_p !== null && row.noint_p !== undefined 
+          ? parseFloat(row.noint_p) 
+          : (row.nocmp_p !== null && row.nocmp_p !== undefined ? parseFloat(row.nocmp_p) : 0);
+        const marginOfError = row.noint_mp !== null && row.noint_mp !== undefined ? parseFloat(row.noint_mp) : null;
+        const value = isNaN(noInternet) ? 0 : Math.max(0, Math.min(100, noInternet));
+        return [{ value, marginOfError }];
+      },
+    },
+    smartphone_only: {
+      type: "gauge",
+      title: "Percent Has one or more types of computing devices: Smartphone Only",
+      minValue: 0,
+      maxValue: 100,
+      valueColor: "#44aa44",
+      backgroundColor: "#e0e0e0",
+      showUnit: true,
+      unit: "%",
+      showLabels: true,
+      valueFormat: (d) => d.toFixed(1),
+      width: 500,
+      height: 400,
+      tables: {
+        "tabular.s2801_computer_internet_acs_m": {
+          yearCol: "acs_year",
+          latestYearOnly: true,
+          columns: ["acs_year", "municipal", "moblo_p", "moblo_mp"],
+          specialFetch: async (municipality, dispatchUpdate) => {
+            const tabular_api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
+            const municipalityFormatted = municipality.replace("-", " ");
+            // Select all columns to ensure we get the right one
+            const queryString = `SELECT acs_year, municipal, noint_p, noint_mp, nocmp_p, nocmp_mp, moblo_p, moblo_mp FROM tabular.s2801_computer_internet_acs_m WHERE municipal ilike '%${municipalityFormatted}%' AND acs_year = (SELECT MAX(acs_year) FROM tabular.s2801_computer_internet_acs_m)`;
+            const response = await fetch(`${tabular_api}${encodeURIComponent(queryString)}`);
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const payload = (await response.json()) || {};
+            dispatchUpdate(payload.rows || []);
+          },
+        },
+      },
+      source: "American Community Survey (ACS)",
+      timeframe: async () => {
+        const queryString = `SELECT acs_year as latest_year FROM tabular.s2801_computer_internet_acs_m GROUP BY acs_year ORDER BY acs_year DESC LIMIT 1`;
+        const years = await fetchLatestYear(queryString);
+        return years[0] || "N/A";
+      },
+      transformer: (tables, chart) => {
+        const data = tables["tabular.s2801_computer_internet_acs_m"];
+        if (!data || data.length < 1) {
+          return [{ value: 0, marginOfError: null }];
+        }
+        const row = data[0];
+        const smartphoneOnly = row.moblo_p !== null && row.moblo_p !== undefined ? parseFloat(row.moblo_p) : 0;
+        const marginOfError = row.moblo_mp !== null && row.moblo_mp !== undefined ? parseFloat(row.moblo_mp) : null;
+        const value = isNaN(smartphoneOnly) ? 0 : Math.max(0, Math.min(100, smartphoneOnly));
+        return [{ value, marginOfError }];
+      },
+    },
+    internet_usage_by_income: {
+      type: "stacked-bar",
+      title: "Internet Usage by Income Level",
+      xAxis: {
+        label: "Household Income Level",
+        format: format.string.default,
+        sort: (a, b) => {
+          const order = ["Below $20000", "$20000 - $74999", "$75000+"];
+          return order.indexOf(a) - order.indexOf(b);
+        },
+      },
+      yAxis: { 
+        label: "Percent of Household", 
+        format: (d) => {
+          if (d == null || isNaN(d)) return "";
+          const num = Number(d);
+          return `${num.toFixed(1)}%`;
+        }
+      },
+      tables: {
+        // Use a dedicated cache key so we always fetch income columns (gauges use same table but different columns and would otherwise overwrite cache)
+        "tabular.s2801_computer_internet_acs_m_income": {
+          yearCol: "acs_year",
+          latestYearOnly: true,
+          columns: [
+            "acs_year",
+            "municipal",
+            "lt20dia_p",
+            "lt20nin_p",
+            "lt20dia_mp",
+            "lt20nin_mp",
+            "i2074di_p",
+            "i2074ni_p",
+            "i2074di_mp",
+            "i2074ni_mp",
+            "mt74dia_p",
+            "mt74nin_p",
+            "mt74dia_mp",
+            "mt74nin_mp",
+          ],
+          specialFetch: async (municipality, dispatchUpdate) => {
+            const tabular_api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
+            const municipalityFormatted = municipality.replace("-", " ");
+            const queryString = `SELECT acs_year, municipal, lt20dia_p, lt20nin_p, lt20dia_mp, lt20nin_mp, i2074di_p, i2074ni_p, i2074di_mp, i2074ni_mp, mt74dia_p, mt74nin_p, mt74dia_mp, mt74nin_mp FROM tabular.s2801_computer_internet_acs_m WHERE municipal ilike '%${municipalityFormatted}%' AND acs_year = (SELECT MAX(acs_year) FROM tabular.s2801_computer_internet_acs_m)`;
+            const response = await fetch(`${tabular_api}${encodeURIComponent(queryString)}`);
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const payload = (await response.json()) || {};
+            dispatchUpdate(payload.rows || []);
+          },
+        },
+      },
+      labels: {
+        "dial-up only": "Dial-up only",
+        "no internet": "No internet",
+      },
+      datasetLinks: { "Computers and Internet Subscriptions (Municipal)": 455 },
+      source: "American Community Survey (ACS)",
+      timeframe: async () => {
+        const queryString = `SELECT acs_year as latest_year FROM tabular.s2801_computer_internet_acs_m GROUP BY acs_year ORDER BY acs_year DESC LIMIT 1`;
+        const years = await fetchLatestYear(queryString);
+        return years[0] ? formatYearRange(years[0]) : "N/A";
+      },
+      transformer: (tables, chart) => {
+        const data = tables["tabular.s2801_computer_internet_acs_m_income"];
+        if (!data || data.length < 1) {
+          return [];
+        }
+        const row = data[0];
+        const parse = (v) => {
+          if (v == null || v === "" || v === undefined) return 0;
+          const parsed = parseFloat(v);
+          return isNaN(parsed) ? 0 : parsed;
+        };
+        const parseMe = (v) => {
+          if (v == null || v === "" || v === undefined) return undefined;
+          const parsed = parseFloat(v);
+          return isNaN(parsed) ? undefined : parsed;
+        };
+        const categories = [
+          { x: "Below $20000", dialUp: "lt20dia_p", noInternet: "lt20nin_p", dialUpMe: "lt20dia_mp", noInternetMe: "lt20nin_mp" },
+          { x: "$20000 - $74999", dialUp: "i2074di_p", noInternet: "i2074ni_p", dialUpMe: "i2074di_mp", noInternetMe: "i2074ni_mp" },
+          { x: "$75000+", dialUp: "mt74dia_p", noInternet: "mt74nin_p", dialUpMe: "mt74dia_mp", noInternetMe: "mt74nin_mp" },
+        ];
+        const dialUpLabel = chart.labels && chart.labels["dial-up only"] ? chart.labels["dial-up only"] : "Dial-up only";
+        const noInternetLabel = chart.labels && chart.labels["no internet"] ? chart.labels["no internet"] : "No internet";
+        const zOrder = { [dialUpLabel]: 0, [noInternetLabel]: 1 };
+        return categories.flatMap((cat) => [
+          { x: cat.x, y: parse(row[cat.dialUp]), z: dialUpLabel, order: zOrder[dialUpLabel], me: parseMe(row[cat.dialUpMe]) },
+          { x: cat.x, y: parse(row[cat.noInternet]), z: noInternetLabel, order: zOrder[noInternetLabel], me: parseMe(row[cat.noInternetMe]) },
+        ]);
       },
     },
   },

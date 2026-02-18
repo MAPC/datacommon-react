@@ -1,6 +1,30 @@
 .chart {
   font-size: $font_size-xsmall;
   margin-bottom: 1em;
+  
+  // Gauge chart responsive styling
+  &.GaugeChart {
+    margin-bottom: 0;
+    
+    .svg-wrapper {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+      margin-bottom: 0.15em;
+      
+      .chart-container {
+        width: 100%;
+        max-width: 500px;
+        margin: 0 auto;
+        
+        svg {
+          width: 100%;
+          height: auto;
+        }
+      }
+    }
+  }
 
   &__title {
     margin: 0;
@@ -145,10 +169,17 @@
 }
 .metadata {
   font-style: italic;
+  margin-top: 0.5em;
+  
   .source-timeframe {
     display: flex;
     & > *:not(:last-child) {
       margin-right: 1em;
     }
   }
+}
+
+// Reduce spacing for gauge charts (strong selector so it wins over .metadata)
+.chart-wrapper:has(.chart.GaugeChart) .metadata {
+  margin-top: 0 !important;
 }
