@@ -125,6 +125,7 @@
   }
   .data {
     @extend ._partial-bg;
+    background-color: $color_bg-medium;
     @include media(medium) {
       &:after {
         display: none;
