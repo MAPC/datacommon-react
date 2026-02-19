@@ -23,7 +23,18 @@ const DownloadButton = styled.button`
   }
 `;
 
-const DownloadChartImageButton = ({ chartRef, chartTitle }) => {
+const SUBREGIONS = {
+  355: 'Inner Core Committee [ICC]',
+  356: 'Minuteman Advisory Group on Interlocal Coordination [MAGIC]',
+  357: 'MetroWest Regional Collaborative [MWRC]',
+  358: 'North Shore Task Force [NSTF]',
+  359: 'North Suburban Planning Council [NSPC]',
+  360: 'South Shore Coalition [SSC]',
+  361: 'South West Advisory Planning Committee [SWAP]',
+  362: 'Three Rivers Interlocal Council [TRIC]'
+};
+
+const DownloadChartImageButton = ({ chartRef, chartTitle, muni, isSubregion, isRPAregion, displayName }) => {
   const [isDownloading, setIsDownloading] = React.useState(false);
 
   // Common function to wrap text
@@ -353,7 +364,24 @@ const DownloadChartImageButton = ({ chartRef, chartTitle }) => {
           const downloadUrl = URL.createObjectURL(blob);
           const link = document.createElement('a');
           link.href = downloadUrl;
-          link.download = `${chartTitle || 'chart'}.png`;
+          
+          // Format municipality name for filename
+          let nameSuffix;
+          if (displayName) {
+            nameSuffix = displayName;
+          } else if (isSubregion) {
+            nameSuffix = SUBREGIONS[muni]?.match(/\[([^\]]+)\]/)?.[1] || muni;
+          } else if (isRPAregion) {
+            nameSuffix = 'MAPC';
+          } else {
+            nameSuffix = muni;
+          }
+          
+          // Sanitize filename: remove invalid characters and replace spaces with underscores
+          const sanitizedChartTitle = (chartTitle || 'chart').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+          const sanitizedMuni = nameSuffix.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+          
+          link.download = `${sanitizedChartTitle}_${sanitizedMuni}.png`;
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
@@ -385,6 +413,10 @@ const DownloadChartImageButton = ({ chartRef, chartTitle }) => {
 DownloadChartImageButton.propTypes = {
   chartRef: PropTypes.object.isRequired,
   chartTitle: PropTypes.string,
+  muni: PropTypes.string,
+  isSubregion: PropTypes.bool,
+  isRPAregion: PropTypes.bool,
+  displayName: PropTypes.string,
 };
 
 export default DownloadChartImageButton; 

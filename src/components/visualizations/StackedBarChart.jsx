@@ -221,18 +221,25 @@ const StackedBarChart = (props) => {
         const totpop = d.data.totpop;
         const totpop_me = d.data.totpop_me;
 
+        const isPercentChart = props.chart?.title === "Internet Usage by Income Level";
+        
+        // For Internet Usage by Income Level, values are already percentages (0-100 range), so format directly
         const formattedValue = typeof value === "number" ? 
-          (value < 1 ? (value * 100).toFixed(1) + "%" : 
-           value % 1 === 0 ? value.toFixed(0) : value.toFixed(2)) : value;
+          (isPercentChart 
+            ? value.toFixed(1) + "%"  // Already a percentage, format with 1 decimal
+            : value < 1 ? (value * 100).toFixed(1) + "%" 
+              : value % 1 === 0 ? value.toFixed(0) : value.toFixed(2)) 
+          : value;
+        
         const formattedME = typeof me === "number" ? 
-          (me % 1 === 0 ? me.toFixed(0) : me.toFixed(2)) : null;
+          (isPercentChart 
+            ? me.toFixed(1)  // Already a percentage, format with 1 decimal
+            : me % 1 === 0 ? me.toFixed(0) : me.toFixed(2)) 
+          : null;
         const formattedTotpop = typeof totpop === "number" ? d3.format(",")(totpop) : null;
         const formattedTotpopME = typeof totpop_me === "number" ? d3.format(",")(totpop_me) : null;
         
-        const isPercentChart = props.chart?.title === "Internet Usage by Income Level";
-        const valueDisplay = isPercentChart && typeof value === "number" && !String(formattedValue).endsWith("%")
-          ? `${formattedValue}%`
-          : formattedValue;
+        const valueDisplay = formattedValue;
         const meDisplay = formattedME === null ? "Not Available" : (isPercentChart ? `±${formattedME}%` : `±${formattedME}`);
 
         if(props.chart.title === "Educational Attainment by Race"){

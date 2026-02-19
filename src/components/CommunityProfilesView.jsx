@@ -10,6 +10,7 @@ import descriptions from "../constants/descriptions";
 import capitalize from "../utils/capitalize";
 import { fetchChartData } from "../reducers/chartSlice";
 import StackedBarChart from "../containers/visualizations/StackedBarChart";
+import GroupedBarChart from "../containers/visualizations/GroupedBarChart";
 import StackedAreaChart from "../containers/visualizations/StackedAreaChart";
 import ChartDetails from "./visualizations/ChartDetails";
 import PieChart from "../containers/visualizations/PieChart";
@@ -322,6 +323,9 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
               <div className="tab__row">
                 <ChartDetails chart={charts["digital-equity"].internet_usage_by_income} muni={muni} onViewData={handleShowModal}>
                   <StackedBarChart chart={charts["digital-equity"].internet_usage_by_income} muni={muni} />
+                </ChartDetails>
+                <ChartDetails chart={charts["digital-equity"].internet_subscription_types} muni={muni} onViewData={handleShowModal}>
+                  <GroupedBarChart chart={charts["digital-equity"].internet_subscription_types} muni={muni} />
                 </ChartDetails>
               </div>
             </Tab>

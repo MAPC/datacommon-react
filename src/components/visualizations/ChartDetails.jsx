@@ -133,6 +133,10 @@ const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAreg
             <DownloadChartImageButton 
               chartRef={chartWrapperRef}
               chartTitle={chart.title || 'Chart'}
+              muni={muni}
+              isSubregion={isSubregion}
+              isRPAregion={isRPAregion}
+              displayName={displayName}
             />
           </ButtonGroup>
         )}

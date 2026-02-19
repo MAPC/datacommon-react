@@ -1901,7 +1901,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
           specialFetch: async (municipality, dispatchUpdate) => {
             const tabular_api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
             const municipalityFormatted = municipality.replace("-", " ");
-            const queryString = `SELECT acs_year, municipal, nocmp_p, nocmp_mp FROM tabular.s2801_computer_internet_acs_m WHERE municipal ilike '%${municipalityFormatted}%' AND acs_year = (SELECT MAX(acs_year) FROM tabular.s2801_computer_internet_acs_m)`;
+            const queryString = `SELECT acs_year, municipal, nocmp_p, nocmp_mp FROM tabular.s2801_computer_internet_acs_m WHERE municipal ilike '${municipalityFormatted}%' AND acs_year = (SELECT MAX(acs_year) FROM tabular.s2801_computer_internet_acs_m)`;
             const response = await fetch(`${tabular_api}${encodeURIComponent(queryString)}`);
             if (!response.ok) {
               throw new Error(`HTTP error! status: ${response.status}`);
@@ -1951,7 +1951,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
             const tabular_api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
             const municipalityFormatted = municipality.replace("-", " ");
             // Select all columns to ensure we get the right one
-            const queryString = `SELECT acs_year, municipal, noint_p, noint_mp, nocmp_p, nocmp_mp, moblo_p, moblo_mp FROM tabular.s2801_computer_internet_acs_m WHERE municipal ilike '%${municipalityFormatted}%' AND acs_year = (SELECT MAX(acs_year) FROM tabular.s2801_computer_internet_acs_m)`;
+            const queryString = `SELECT acs_year, municipal, noint_p, noint_mp, nocmp_p, nocmp_mp, moblo_p, moblo_mp FROM tabular.s2801_computer_internet_acs_m WHERE municipal ilike '${municipalityFormatted}%' AND acs_year = (SELECT MAX(acs_year) FROM tabular.s2801_computer_internet_acs_m)`;
             const response = await fetch(`${tabular_api}${encodeURIComponent(queryString)}`);
             if (!response.ok) {
               throw new Error(`HTTP error! status: ${response.status}`);
@@ -2004,7 +2004,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
             const tabular_api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
             const municipalityFormatted = municipality.replace("-", " ");
             // Select all columns to ensure we get the right one
-            const queryString = `SELECT acs_year, municipal, noint_p, noint_mp, nocmp_p, nocmp_mp, moblo_p, moblo_mp FROM tabular.s2801_computer_internet_acs_m WHERE municipal ilike '%${municipalityFormatted}%' AND acs_year = (SELECT MAX(acs_year) FROM tabular.s2801_computer_internet_acs_m)`;
+            const queryString = `SELECT acs_year, municipal, noint_p, noint_mp, nocmp_p, nocmp_mp, moblo_p, moblo_mp FROM tabular.s2801_computer_internet_acs_m WHERE municipal ilike '${municipalityFormatted}%' AND acs_year = (SELECT MAX(acs_year) FROM tabular.s2801_computer_internet_acs_m)`;
             const response = await fetch(`${tabular_api}${encodeURIComponent(queryString)}`);
             if (!response.ok) {
               throw new Error(`HTTP error! status: ${response.status}`);
@@ -2075,7 +2075,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
           specialFetch: async (municipality, dispatchUpdate) => {
             const tabular_api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
             const municipalityFormatted = municipality.replace("-", " ");
-            const queryString = `SELECT acs_year, municipal, lt20dia_p, lt20nin_p, lt20dia_mp, lt20nin_mp, i2074di_p, i2074ni_p, i2074di_mp, i2074ni_mp, mt74dia_p, mt74nin_p, mt74dia_mp, mt74nin_mp FROM tabular.s2801_computer_internet_acs_m WHERE municipal ilike '%${municipalityFormatted}%' AND acs_year = (SELECT MAX(acs_year) FROM tabular.s2801_computer_internet_acs_m)`;
+            const queryString = `SELECT acs_year, municipal, lt20dia_p, lt20nin_p, lt20dia_mp, lt20nin_mp, i2074di_p, i2074ni_p, i2074di_mp, i2074ni_mp, mt74dia_p, mt74nin_p, mt74dia_mp, mt74nin_mp FROM tabular.s2801_computer_internet_acs_m WHERE municipal ilike '${municipalityFormatted}%' AND acs_year = (SELECT MAX(acs_year) FROM tabular.s2801_computer_internet_acs_m)`;
             const response = await fetch(`${tabular_api}${encodeURIComponent(queryString)}`);
             if (!response.ok) {
               throw new Error(`HTTP error! status: ${response.status}`);
@@ -2124,6 +2124,104 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
           { x: cat.x, y: parse(row[cat.dialUp]), z: dialUpLabel, order: zOrder[dialUpLabel], me: parseMe(row[cat.dialUpMe]) },
           { x: cat.x, y: parse(row[cat.noInternet]), z: noInternetLabel, order: zOrder[noInternetLabel], me: parseMe(row[cat.noInternetMe]) },
         ]);
+      },
+    },
+    internet_subscription_types: {
+      type: "grouped-bar",
+      title: "Internet Subscription Types",
+      xAxis: {
+        label: "Subscription Type",
+        format: format.string.default,
+        sort: (a, b) => {
+          const order = ["Broadband (Cable, DSL)", "Cellular Plan", "dial-up"];
+          return order.indexOf(a) - order.indexOf(b);
+        },
+      },
+      yAxis: {
+        label: "Percent (%)",
+        format: (d) => {
+          if (d == null || isNaN(d)) return "";
+          const num = Number(d);
+          return `${num.toFixed(1)}%`;
+        }
+      },
+      tables: {
+        "tabular.s2801_computer_internet_acs_m_subscription": {
+          yearCol: "acs_year",
+          latestYearOnly: false,
+          years: async () => {
+            const queryString = `SELECT DISTINCT acs_year as latest_year FROM tabular.s2801_computer_internet_acs_m WHERE acs_year IN ('2020-24', '2015-19') ORDER BY acs_year DESC`;
+            const years = await fetchLatestYear(queryString);
+            return years.filter(y => y === '2020-24' || y === '2015-19');
+          },
+          columns: [
+            "acs_year",
+            "municipal",
+            "dialo_p",
+            "dialo_mp",
+            "cdpinto_p",
+            "cdpinto_mp",
+            "bbfib_p",
+            "bbfib_mp",
+          ],
+          specialFetch: async (municipality, dispatchUpdate) => {
+            const tabular_api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
+            const municipalityFormatted = municipality.replace("-", " ");
+            const queryString = `SELECT acs_year, municipal, dialo_p, dialo_mp, cdpinto_p, cdpinto_mp, bbfib_p, bbfib_mp FROM tabular.s2801_computer_internet_acs_m WHERE municipal ilike '${municipalityFormatted}%' AND acs_year IN ('2020-24', '2015-19') ORDER BY acs_year DESC`;
+            const response = await fetch(`${tabular_api}${encodeURIComponent(queryString)}`);
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const payload = (await response.json()) || {};
+            dispatchUpdate(payload.rows || []);
+          },
+        },
+      },
+      labels: {
+        "2020-2024": "2020-2024",
+        "2015-2019": "2015-2019",
+      },
+      datasetLinks: { "Computers and Internet Subscriptions (Municipal)": 455 },
+      source: "American Community Survey (ACS)",
+      timeframe: async () => {
+        return "2015-2019 and 2020-2024";
+      },
+      transformer: (tables, chart) => {
+        const data = tables["tabular.s2801_computer_internet_acs_m_subscription"];
+        if (!data || data.length < 1) {
+          return [];
+        }
+        const parse = (v) => {
+          if (v == null || v === "" || v === undefined) return 0;
+          const parsed = parseFloat(v);
+          return isNaN(parsed) ? 0 : parsed;
+        };
+        const parseMe = (v) => {
+          if (v == null || v === "" || v === undefined) return undefined;
+          const parsed = parseFloat(v);
+          return isNaN(parsed) ? undefined : parsed;
+        };
+        const formatYearRange = (yearStr) => {
+          if (yearStr === '2020-24') return '2020-2024';
+          if (yearStr === '2015-19') return '2015-2019';
+          const [start, end] = yearStr.split("-");
+          return `${start}-20${end}`;
+        };
+        const subscriptionTypes = [
+          { x: "Broadband (Cable, DSL)", column: "bbfib_p", meColumn: "bbfib_mp" },
+          { x: "Cellular Plan", column: "cdpinto_p", meColumn: "cdpinto_mp" },
+          { x: "dial-up", column: "dialo_p", meColumn: "dialo_mp" },
+        ];
+        return data.flatMap((row) => {
+          const yearRange = formatYearRange(row.acs_year);
+          return subscriptionTypes.map((type) => ({
+            x: type.x,
+            y: parse(row[type.column]),
+            z: yearRange,
+            me: parseMe(row[type.meColumn]),
+            order: yearRange === "2020-2024" ? 0 : 1,
+          }));
+        });
       },
     },
   },

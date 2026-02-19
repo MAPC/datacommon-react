@@ -10,6 +10,7 @@
   font-size: #{(10/16)}rem;
 
   background: $color_bg-dark;
+  margin-top: auto;
 
   @include media($_break) {
     font-size: #{(14/16)}rem;
