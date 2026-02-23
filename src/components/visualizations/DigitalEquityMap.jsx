@@ -4,7 +4,6 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { MAP_CONFIG } from '../../constants/mapConfig';
 import { MAPC_MUNICIPALITIES } from '../../constants/municipalities';
 import Dropdown from '../field/Dropdown';
-import MassachusettsGeoJSON from '../../assets/data/Massachusetts.geojson?url';
 
 // Color scale (green scale from template)
 const COLOR_SCALE = ['#f0f9f0', '#a8d4aa', '#689968', '#2d5a2f', '#1a3d1a'];
@@ -95,49 +94,15 @@ const DigitalEquityMap = ({ geojsonData, baseLayerData, highlightMunicipalityNam
 
   const [selectedVariable, setSelectedVariable] = useState(VARIABLES[0]);
   const [selectedYear, setSelectedYear] = useState(YEARS[YEARS.length - 1]);
-  const [selectedMunicipality, setSelectedMunicipality] = useState('none');
   const [showMAPCOnly, setShowMAPCOnly] = useState(false);
   const [quantiles, setQuantiles] = useState([]);
   const [dataMin, setDataMin] = useState(null);
   const [dataMax, setDataMax] = useState(null);
-  const [municipalityHistory, setMunicipalityHistory] = useState([]);
-  const [municipalityNamesFromFile, setMunicipalityNamesFromFile] = useState([]);
-
   const selectedVariableRef = useRef(selectedVariable);
   selectedVariableRef.current = selectedVariable;
 
-  // Read municipality list from Massachusetts.geojson for dropdown
-  useEffect(() => {
-    let cancelled = false;
-    fetch(MassachusettsGeoJSON)
-      .then(res => res.ok ? res.json() : Promise.reject(new Error(res.statusText)))
-      .then(geojson => {
-        if (cancelled || !geojson?.features?.length) return;
-        const names = [...new Set(geojson.features.map(f => {
-          const p = f.properties || {};
-          const town = p.town || p.TOWN || p.NAME || p.municipal || p.name;
-          return town ? String(town).toUpperCase() : null;
-        }).filter(Boolean))].sort();
-        setMunicipalityNamesFromFile(names);
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, []);
-
   const variables = VARIABLES;
   const years = YEARS;
-
-  // Municipality list: from Massachusetts.geojson (dropdown), fallback to geojsonData if file not loaded yet
-  const municipalities = React.useMemo(() => {
-    if (municipalityNamesFromFile.length) return municipalityNamesFromFile;
-    if (!geojsonData?.features) return [];
-    const muniSet = new Set();
-    geojsonData.features.forEach(feature => {
-      const muni = feature.properties['TOWN'] || feature.properties['Municipality name'];
-      if (muni) muniSet.add(muni);
-    });
-    return Array.from(muniSet).sort();
-  }, [geojsonData, municipalityNamesFromFile]);
 
   useEffect(() => {
     if (variables.length > 0 && !selectedVariable) setSelectedVariable(variables[0]);
@@ -286,9 +251,10 @@ const DigitalEquityMap = ({ geojsonData, baseLayerData, highlightMunicipalityNam
     };
   }, [choroplethData]);
 
-  // Zoom to and highlight municipality when viewing from community profile
+  // Zoom to and highlight municipality when viewing from community profile (on top, transparent fill, red border)
   const highlightSourceId = 'digital-equity-highlight';
-  const highlightLayerId = 'digital-equity-highlight-line';
+  const highlightFillLayerId = 'digital-equity-highlight-fill';
+  const highlightLineLayerId = 'digital-equity-highlight-line';
   const highlightFeature = React.useMemo(() => {
     if (!highlightMunicipalityName || !baseLayerData?.features?.length) return null;
     const key = String(highlightMunicipalityName).toUpperCase().trim();
@@ -303,7 +269,8 @@ const DigitalEquityMap = ({ geojsonData, baseLayerData, highlightMunicipalityNam
 
     const apply = () => {
       try {
-        if (map.getLayer(highlightLayerId)) map.removeLayer(highlightLayerId);
+        if (map.getLayer(highlightLineLayerId)) map.removeLayer(highlightLineLayerId);
+        if (map.getLayer(highlightFillLayerId)) map.removeLayer(highlightFillLayerId);
         if (map.getSource(highlightSourceId)) map.removeSource(highlightSourceId);
       } catch (_) { /* ignore */ }
 
@@ -313,8 +280,19 @@ const DigitalEquityMap = ({ geojsonData, baseLayerData, highlightMunicipalityNam
       const bbox = getFeatureBounds(highlightFeature);
 
       map.addSource(highlightSourceId, { type: 'geojson', data: collection });
+      // Transparent fill (so choropleth shows through), then line on top for visible red border
       map.addLayer({
-        id: highlightLayerId,
+        id: highlightFillLayerId,
+        type: 'fill',
+        source: highlightSourceId,
+        paint: {
+          'fill-color': '#dc2626',
+          'fill-opacity': 0,
+          'fill-outline-color': '#dc2626',
+        },
+      });
+      map.addLayer({
+        id: highlightLineLayerId,
         type: 'line',
         source: highlightSourceId,
         paint: {
@@ -329,19 +307,29 @@ const DigitalEquityMap = ({ geojsonData, baseLayerData, highlightMunicipalityNam
       }
     };
 
-    if (map.isStyleLoaded()) {
-      apply();
-    } else {
-      map.once('load', apply);
-    }
+    const runWhenStyleReady = () => {
+      if (!map.isStyleLoaded()) {
+        map.once('load', runWhenStyleReady);
+        return;
+      }
+      // Add highlight after choropleth so it renders on top
+      if (map.getLayer('digital-equity-choropleth')) {
+        apply();
+      } else {
+        map.once('idle', () => { apply(); });
+      }
+    };
+
+    runWhenStyleReady();
 
     return () => {
       try {
-        if (map.getStyle() && map.getLayer(highlightLayerId)) map.removeLayer(highlightLayerId);
+        if (map.getStyle() && map.getLayer(highlightLineLayerId)) map.removeLayer(highlightLineLayerId);
+        if (map.getStyle() && map.getLayer(highlightFillLayerId)) map.removeLayer(highlightFillLayerId);
         if (map.getStyle() && map.getSource(highlightSourceId)) map.removeSource(highlightSourceId);
       } catch (_) { /* map may already be destroyed */ }
     };
-  }, [highlightFeature]);
+  }, [highlightFeature, choroplethData]);
 
   // Popup on click (single listener, reads current variable from ref)
   useEffect(() => {
@@ -392,10 +380,10 @@ const DigitalEquityMap = ({ geojsonData, baseLayerData, highlightMunicipalityNam
     };
   }, []);
 
-  // Fit bounds when filtered data changes
+  // Fit bounds when filtered data changes (skip when community profile: we zoom to that municipality instead)
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !filteredGeoJSON?.features?.length) return;
+    if (!map || !filteredGeoJSON?.features?.length || highlightMunicipalityName) return;
 
     const getBounds = () => {
       let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
@@ -419,24 +407,7 @@ const DigitalEquityMap = ({ geojsonData, baseLayerData, highlightMunicipalityNam
 
     const b = getBounds();
     if (b) map.fitBounds(b, { padding: 40, maxZoom: 12 });
-  }, [filteredGeoJSON]);
-
-  const handleMunicipalityChange = (e) => {
-    const newMuni = e.target.value;
-    if (newMuni !== 'none') {
-      setSelectedMunicipality(newMuni);
-      setMunicipalityHistory(prev => {
-        const updated = prev.includes(newMuni) ? prev : [...prev, newMuni];
-        return updated.slice(-2);
-      });
-    } else {
-      setSelectedMunicipality('none');
-    }
-  };
-
-  const filteredMunicipalities = React.useMemo(() => {
-    return showMAPCOnly ? municipalities.filter(m => MAPC_MUNICIPALITIES.includes(m)) : municipalities;
-  }, [municipalities, showMAPCOnly]);
+  }, [filteredGeoJSON, highlightMunicipalityName]);
 
   const minVal = dataMin != null ? dataMin : 0;
   const maxVal = dataMax != null ? dataMax : (quantiles[quantiles.length - 1] || 100);
@@ -467,14 +438,6 @@ const DigitalEquityMap = ({ geojsonData, baseLayerData, highlightMunicipalityNam
         <div className="control-item">
           <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Select Year:</label>
           <Dropdown value={selectedYear} options={years.map(y => ({ value: y, label: y }))} onChange={(e) => setSelectedYear(e.target.value)} />
-        </div>
-        <div className="control-item">
-          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Compare Municipality:</label>
-          <Dropdown
-            value={selectedMunicipality}
-            options={[{ value: 'none', label: 'Select a municipality...' }, ...filteredMunicipalities.map(m => ({ value: m, label: m }))]}
-            onChange={handleMunicipalityChange}
-          />
         </div>
         <div className="control-item">
           <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
