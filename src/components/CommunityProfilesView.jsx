@@ -18,6 +18,7 @@ import LineChart from "../containers/visualizations/LineChart";
 import GaugeChart from "../containers/visualizations/GaugeChart";
 import DownloadAllChartsButton from "./field/DownloadAllChartsButton";
 import DataTableModal from "./field/DataTableModal";
+import DigitalEquityMapWrapper from "./visualizations/DigitalEquityMapWrapper";
 import { store } from "../store";
 
 const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
@@ -327,6 +328,11 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 <ChartDetails chart={charts["digital-equity"].internet_subscription_types} muni={muni} onViewData={handleShowModal}>
                   <GroupedBarChart chart={charts["digital-equity"].internet_subscription_types} muni={muni} />
                 </ChartDetails>
+              </div>
+              <div className="tab__row" style={{ width: '100%', padding: '2em 0' }}>
+                <div style={{ width: '100%' }}>
+                  <DigitalEquityMapWrapper highlightMunicipalityName={municipalFeature?.properties?.town} />
+                </div>
               </div>
             </Tab>
           </div>
