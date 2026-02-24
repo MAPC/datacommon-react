@@ -25,6 +25,7 @@
       align-items: center;
       width: 100%;
       margin-bottom: 0.15em;
+      position: relative;
       
       .chart-container {
         width: 100%;
@@ -35,6 +36,16 @@
           width: 100%;
           height: auto;
         }
+      }
+
+      .gauge-loader {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+        z-index: 2;
       }
     }
   }

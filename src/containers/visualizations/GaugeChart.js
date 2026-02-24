@@ -1,5 +1,6 @@
 import { connect } from 'react-redux';
 import GaugeChart from '../../components/visualizations/GaugeChart';
+import { selectChartLoading } from '../../reducers/chartSlice';
 
 function valuesHaveData(transformedData) {
   const checkData = transformedData.reduce((acc, row) => {
@@ -19,6 +20,7 @@ function valuesHaveData(transformedData) {
 
 const mapStateToProps = (state, props) => {
   const { muni, chart, isSubregion, isRPAregion } = props;
+  const isLoading = selectChartLoading(state);
   const tables = Object.keys(chart.tables);
 
   // Handle subregion data
@@ -44,6 +46,7 @@ const mapStateToProps = (state, props) => {
         title: chart.title,
         width: chart.width,
         height: chart.height,
+        isLoading,
       };
     }
   } else if (isRPAregion) {
@@ -68,6 +71,7 @@ const mapStateToProps = (state, props) => {
         title: chart.title,
         width: chart.width,
         height: chart.height,
+        isLoading,
       };
     }
   } else if (tables.every((table) => state.chart.cache[table] && state.chart.cache[table][muni])) {
@@ -91,6 +95,7 @@ const mapStateToProps = (state, props) => {
       title: chart.title,
       width: chart.width,
       height: chart.height,
+      isLoading,
     };
   }
 
@@ -100,6 +105,7 @@ const mapStateToProps = (state, props) => {
     hasData: false,
     minValue: 0,
     maxValue: 100,
+    isLoading,
   };
 };
 

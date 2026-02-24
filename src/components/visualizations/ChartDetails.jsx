@@ -111,6 +111,7 @@ const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAreg
     } else if (isRPAregion) {
       onViewData(rpaCache, chart.title);
     } else {
+      console.log(data);
       onViewData(data, chart.title);
     }
   };
