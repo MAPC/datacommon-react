@@ -6,6 +6,14 @@
   &.GaugeChart {
     margin-bottom: 0;
 
+    // Smaller "Data not available." text for compact gauge SVG
+    svg {
+      text.missing-data {
+        font-size: 5px;
+        max-width: none;
+      }
+    }
+
     // Print: show static segment (no animation), hide animated one so gauge renders correctly
     .donut-segment--print {
       display: none;

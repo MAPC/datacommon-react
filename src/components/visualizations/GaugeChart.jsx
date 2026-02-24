@@ -213,10 +213,19 @@ const GaugeChart = (props) => {
   useEffect(() => {
     if (!svgRef.current) return;
 
+    // While loading, clear any previous content so only the spinner is visible
+    if (props.isLoading && !props.hasData) {
+      const chart = chartGroupRef.current;
+      if (chart) {
+        chart.selectAll("*").remove();
+      }
+      return;
+    }
+
     if (props.hasData) {
       renderChart();
-    } else if (!props.isLoading) {
-      // Only show "Data not available." once loading has finished
+    } else {
+      // Not loading and no data -> show "Data not available."
       renderBlankChart();
     }
   }, [props.data, props.hasData, props.isLoading]);
