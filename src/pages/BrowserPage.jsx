@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchDatasets } from '../reducers/datasetSlice';
 import MetadataModal from "../components/partials/MetadataModal";
+import { formatUpdated, parseUpdatedForSort } from '../utils/formatUpdated';
 import styled from 'styled-components';
 
 const PageContainer = styled.section`
@@ -461,15 +462,15 @@ const BrowserPage = () => {
         return sorted.sort((a, b) => (b.menu3 || '').localeCompare(a.menu3 || ''));
       case 'Newest First':
         return sorted.sort((a, b) => {
-          const dateA = new Date(a.updated_at || 0);
-          const dateB = new Date(b.updated_at || 0);
-          return dateB - dateA;
+          const keyA = parseUpdatedForSort(a.updated);
+          const keyB = parseUpdatedForSort(b.updated);
+          return keyB.localeCompare(keyA);
         });
       case 'Oldest First':
         return sorted.sort((a, b) => {
-          const dateA = new Date(a.updated_at || 0);
-          const dateB = new Date(b.updated_at || 0);
-          return dateA - dateB;
+          const keyA = parseUpdatedForSort(a.updated);
+          const keyB = parseUpdatedForSort(b.updated);
+          return keyA.localeCompare(keyB);
         });
       default:
         return sorted;
@@ -546,20 +547,6 @@ const BrowserPage = () => {
 
   const clearMenu1Filter = () => {
     setSelectedMenu1s([]);
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
-      });
-    } catch (e) {
-      return dateString;
-    }
   };
 
   const handleViewMetadata = (dataset) => {
@@ -726,7 +713,7 @@ const BrowserPage = () => {
                       </ViewMetadataButton>
                       <LastUpdated>
                         <LastUpdatedLabel>Last updated:</LastUpdatedLabel>
-                        {formatDate(dataset.updated_at)}
+                        {formatUpdated(dataset.updated)}
                       </LastUpdated>
                     </DatasetActions>
                   </DatasetBody>
