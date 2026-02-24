@@ -1897,11 +1897,18 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         "tabular.s2801_computer_internet_acs_m": {
           yearCol: "acs_year",
           latestYearOnly: true,
-          columns: ["acs_year", "municipal", "nocmp_p", "nocmp_mp"],
+          columns: ["acs_year", "muni_id", "municipal", "nocmp_p", "nocmp_mp"],
           specialFetch: async (municipality, dispatchUpdate) => {
             const tabular_api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
             const municipalityFormatted = municipality.replace("-", " ");
-            const queryString = `SELECT acs_year, municipal, nocmp_p, nocmp_mp FROM tabular.s2801_computer_internet_acs_m WHERE municipal ilike '${municipalityFormatted}%' AND acs_year = (SELECT MAX(acs_year) FROM tabular.s2801_computer_internet_acs_m)`;
+            // Fetch selected municipality and Massachusetts (muni_id = 353) for view/download data
+            const queryString = `
+              SELECT acs_year, muni_id, municipal, nocmp_p, nocmp_mp
+              FROM tabular.s2801_computer_internet_acs_m
+              WHERE (municipal ILIKE '${municipalityFormatted}%' OR muni_id = 353)
+                AND acs_year = (SELECT MAX(acs_year) FROM tabular.s2801_computer_internet_acs_m)
+              ORDER BY CASE WHEN muni_id = 353 THEN 1 ELSE 0 END, municipal
+            `;
             const response = await fetch(`${tabular_api}${encodeURIComponent(queryString)}`);
             if (!response.ok) {
               throw new Error(`HTTP error! status: ${response.status}`);
@@ -1912,6 +1919,9 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         },
       },
       source: "American Community Survey (ACS)",
+      datasetLinks: {
+        "Computers and Internet Subscriptions (Municipal)": 455,
+      },
       timeframe: async () => {
         const queryString = `SELECT acs_year as latest_year FROM tabular.s2801_computer_internet_acs_m GROUP BY acs_year ORDER BY acs_year DESC LIMIT 1`;
         const years = await fetchLatestYear(queryString);
@@ -1946,12 +1956,18 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         "tabular.s2801_computer_internet_acs_m": {
           yearCol: "acs_year",
           latestYearOnly: true,
-          columns: ["acs_year", "municipal", "noint_p", "noint_mp"],
+          columns: ["acs_year", "muni_id", "municipal", "noint_p", "noint_mp"],
           specialFetch: async (municipality, dispatchUpdate) => {
             const tabular_api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
             const municipalityFormatted = municipality.replace("-", " ");
-            // Select all columns to ensure we get the right one
-            const queryString = `SELECT acs_year, municipal, noint_p, noint_mp, nocmp_p, nocmp_mp, moblo_p, moblo_mp FROM tabular.s2801_computer_internet_acs_m WHERE municipal ilike '${municipalityFormatted}%' AND acs_year = (SELECT MAX(acs_year) FROM tabular.s2801_computer_internet_acs_m)`;
+            // Fetch selected municipality and Massachusetts (muni_id = 353) for view/download data
+            const queryString = `
+              SELECT acs_year, muni_id, municipal, noint_p, noint_mp, nocmp_p, nocmp_mp, moblo_p, moblo_mp
+              FROM tabular.s2801_computer_internet_acs_m
+              WHERE (municipal ILIKE '${municipalityFormatted}%' OR muni_id = 353)
+                AND acs_year = (SELECT MAX(acs_year) FROM tabular.s2801_computer_internet_acs_m)
+              ORDER BY CASE WHEN muni_id = 353 THEN 1 ELSE 0 END, municipal
+            `;
             const response = await fetch(`${tabular_api}${encodeURIComponent(queryString)}`);
             if (!response.ok) {
               throw new Error(`HTTP error! status: ${response.status}`);
@@ -1962,6 +1978,9 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         },
       },
       source: "American Community Survey (ACS)",
+      datasetLinks: {
+        "Computers and Internet Subscriptions (Municipal)": 455,
+      },
       timeframe: async () => {
         const queryString = `SELECT acs_year as latest_year FROM tabular.s2801_computer_internet_acs_m GROUP BY acs_year ORDER BY acs_year DESC LIMIT 1`;
         const years = await fetchLatestYear(queryString);
@@ -1999,12 +2018,18 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         "tabular.s2801_computer_internet_acs_m": {
           yearCol: "acs_year",
           latestYearOnly: true,
-          columns: ["acs_year", "municipal", "moblo_p", "moblo_mp"],
+          columns: ["acs_year", "muni_id", "municipal", "moblo_p", "moblo_mp"],
           specialFetch: async (municipality, dispatchUpdate) => {
             const tabular_api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
             const municipalityFormatted = municipality.replace("-", " ");
-            // Select all columns to ensure we get the right one
-            const queryString = `SELECT acs_year, municipal, noint_p, noint_mp, nocmp_p, nocmp_mp, moblo_p, moblo_mp FROM tabular.s2801_computer_internet_acs_m WHERE municipal ilike '${municipalityFormatted}%' AND acs_year = (SELECT MAX(acs_year) FROM tabular.s2801_computer_internet_acs_m)`;
+            // Fetch selected municipality and Massachusetts (muni_id = 353) for view/download data
+            const queryString = `
+              SELECT acs_year, muni_id, municipal, noint_p, noint_mp, nocmp_p, nocmp_mp, moblo_p, moblo_mp
+              FROM tabular.s2801_computer_internet_acs_m
+              WHERE (municipal ILIKE '${municipalityFormatted}%' OR muni_id = 353)
+                AND acs_year = (SELECT MAX(acs_year) FROM tabular.s2801_computer_internet_acs_m)
+              ORDER BY CASE WHEN muni_id = 353 THEN 1 ELSE 0 END, municipal
+            `;
             const response = await fetch(`${tabular_api}${encodeURIComponent(queryString)}`);
             if (!response.ok) {
               throw new Error(`HTTP error! status: ${response.status}`);
@@ -2015,6 +2040,9 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         },
       },
       source: "American Community Survey (ACS)",
+      datasetLinks: {
+        "Computers and Internet Subscriptions (Municipal)": 455,
+      },
       timeframe: async () => {
         const queryString = `SELECT acs_year as latest_year FROM tabular.s2801_computer_internet_acs_m GROUP BY acs_year ORDER BY acs_year DESC LIMIT 1`;
         const years = await fetchLatestYear(queryString);

@@ -310,13 +310,13 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 <h3>Digital Equity</h3>
               </header>
               <div className="tab__row">
-                <ChartDetails chart={charts["digital-equity"].no_computer_access} muni={muni} onViewData={handleShowModal} hideButtons>
+                <ChartDetails chart={charts["digital-equity"].no_computer_access} muni={muni} onViewData={handleShowModal}>
                   <GaugeChart chart={charts["digital-equity"].no_computer_access} muni={muni} />
                 </ChartDetails>
-                <ChartDetails chart={charts["digital-equity"].internet_access} muni={muni} onViewData={handleShowModal} hideButtons>
+                <ChartDetails chart={charts["digital-equity"].internet_access} muni={muni} onViewData={handleShowModal}>
                   <GaugeChart chart={charts["digital-equity"].internet_access} muni={muni} />
                 </ChartDetails>
-                <ChartDetails chart={charts["digital-equity"].smartphone_only} muni={muni} onViewData={handleShowModal} hideButtons>
+                <ChartDetails chart={charts["digital-equity"].smartphone_only} muni={muni} onViewData={handleShowModal}>
                   <GaugeChart chart={charts["digital-equity"].smartphone_only} muni={muni} />
                 </ChartDetails>
               </div>
