@@ -11,12 +11,19 @@ const ChartHeader = styled.div`
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: 1rem;
+
+  &.gauge-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
 `;
 
 const ChartTitle = styled.h3`
   margin: 0;
   flex: 2;
-  ${props => props.hideButtons ? 'min-height: 60px;' : ''}
+  ${props => props.hideButtons ? 'min-height: 60px;' : ''};
+  ${props => props.isGauge ? 'min-height: 52px;' : ''};
 `;
 
 const ButtonGroup = styled.div`
@@ -108,10 +115,16 @@ const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAreg
     }
   };
 
+  const isGauge = chart.type === "gauge";
+
   return (
     <div className="chart-wrapper" ref={chartWrapperRef}>
-      <ChartHeader>
-        <ChartTitle className="chart__title" hideButtons={hideButtons}>
+      <ChartHeader className={isGauge ? "gauge-header" : ""}>
+        <ChartTitle
+          className="chart__title"
+          hideButtons={hideButtons}
+          isGauge={isGauge}
+        >
           {chart.title || 'Chart Title'}
           {isSubregion && ' (Aggregated)'}
         </ChartTitle>

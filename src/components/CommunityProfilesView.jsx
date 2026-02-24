@@ -119,9 +119,6 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
         .chart-wrapper button {
           display: none !important;
         }
-        .chart-wrapper a {
-          display: none !important;
-        }
         .tab__row {
           display: flex !important;
           flex-wrap: wrap !important;
@@ -134,6 +131,9 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
         .chart-wrapper svg {
           width: 100% !important;
           height: auto !important;
+        }
+        .tab__row--after-gauges {
+          margin-top: 2.5em !important;
         }
       }
     `;
@@ -311,17 +311,17 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 <h3>Digital Equity</h3>
               </header>
               <div className="tab__row">
-                <ChartDetails chart={charts["digital-equity"].no_computer_access} muni={muni} onViewData={handleShowModal} hideButtons>
+                <ChartDetails chart={charts["digital-equity"].no_computer_access} muni={muni} onViewData={handleShowModal}>
                   <GaugeChart chart={charts["digital-equity"].no_computer_access} muni={muni} />
                 </ChartDetails>
-                <ChartDetails chart={charts["digital-equity"].internet_access} muni={muni} onViewData={handleShowModal} hideButtons>
+                <ChartDetails chart={charts["digital-equity"].internet_access} muni={muni} onViewData={handleShowModal}>
                   <GaugeChart chart={charts["digital-equity"].internet_access} muni={muni} />
                 </ChartDetails>
-                <ChartDetails chart={charts["digital-equity"].smartphone_only} muni={muni} onViewData={handleShowModal} hideButtons>
+                <ChartDetails chart={charts["digital-equity"].smartphone_only} muni={muni} onViewData={handleShowModal}>
                   <GaugeChart chart={charts["digital-equity"].smartphone_only} muni={muni} />
                 </ChartDetails>
               </div>
-              <div className="tab__row">
+              <div className="tab__row tab__row--after-gauges">
                 <ChartDetails chart={charts["digital-equity"].internet_usage_by_income} muni={muni} onViewData={handleShowModal}>
                   <StackedBarChart chart={charts["digital-equity"].internet_usage_by_income} muni={muni} />
                 </ChartDetails>

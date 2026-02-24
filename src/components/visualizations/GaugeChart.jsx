@@ -39,14 +39,14 @@ const GaugeChart = (props) => {
       .style("border-radius", "3px")
       .style("z-index", 1000);
 
-    // Create SVG with responsive sizing
+    // Create SVG with responsive sizing and fixed gauge viewBox (matches CodePen example)
     svgRef.current = d3
       .select(chartRef.current)
       .append("svg")
       .attr("width", "100%")
       .attr("height", "100%")
       .attr("preserveAspectRatio", "xMidYMid meet")
-      .attr("viewBox", `0 0 ${props.width || container.width} ${props.height || container.height}`);
+      .attr("viewBox", "0 0 80 40");
 
     // Create chart group
     chartGroupRef.current = svgRef.current.append("g");
@@ -61,10 +61,6 @@ const GaugeChart = (props) => {
     const chart = chartGroupRef.current;
     const tooltip = tooltipRef.current;
 
-    const margin = defaultMargin;
-    const width = (props.width || container.width) - margin.left - margin.right;
-    const height = (props.height || container.height) - margin.top - margin.bottom;
-
     // Get the value and margin of error from data (expects single value or array with one value)
     const dataItem = props.data && props.data.length > 0 ? props.data[0] : { value: 0, marginOfError: null };
     const dataValue = dataItem.value || 0;
@@ -76,70 +72,60 @@ const GaugeChart = (props) => {
     // Calculate percentage
     const percentage = ((value - minValue) / (maxValue - minValue)) * 100;
 
-    // Gauge configuration
-    const radius = Math.min(width, height) / 2.5;
-    const centerX = width / 2 + margin.left;
-    // Position arc lower to avoid being hidden by title text
-    const centerY = margin.top + radius * 1.5;
-
-    // Arc angles (horizontal semicircle from left to right, top half)
-    // Math.PI = 180° (left), 0 = 0° (right) - goes counter-clockwise
-    // Start from top center (-Math.PI/2) and fill symmetrically
-    const startAngle = -Math.PI / 2;
-    const endAngle = Math.PI / 2;
-    const angleRange = Math.abs(endAngle - startAngle);
-
     // Clear existing content
     chart.selectAll("*").remove();
     svgRef.current.selectAll(".axis-label").remove();
 
-    // Create chart group
-    const g = chart.append("g").attr("transform", `translate(${centerX},${centerY})`);
+    // Geometry matching the CodePen SVG
+    const cx = 40;
+    const cy = 40;
+    const radius = 31.8309886184;
+    const fullCirc = 2 * Math.PI * radius; // ≈ 200
+    const halfCirc = fullCirc / 2;
+    const clampedPct = Math.max(0, Math.min(100, percentage));
+    const dashValue = (clampedPct / 100) * halfCirc;
+    const dashGap = fullCirc - dashValue;
 
-    // Define arc generator for background (full semicircle)
-    const arcBackground = d3
-      .arc()
-      .innerRadius(radius * 0.6)
-      .outerRadius(radius)
-      .startAngle(startAngle)
-      .endAngle(endAngle);
-
-    // Define arc generator for value (only the percentage portion, centered at top)
-    const arcValue = d3
-      .arc()
-      .innerRadius(radius * 0.6)
-      .outerRadius(radius)
-      .startAngle((d) => {
-        // Calculate start angle based on percentage (0-100)
-        // Fill symmetrically from top center outward
-        // For 7%, fill 7% of the arc centered at the top
-        const percentageAngle = (d / 100) * angleRange;
-        const halfAngle = percentageAngle / 2;
-        return startAngle - halfAngle;
-      })
-      .endAngle((d) => {
-        // Calculate end angle based on percentage (0-100)
-        const percentageAngle = (d / 100) * angleRange;
-        const halfAngle = percentageAngle / 2;
-        return startAngle + halfAngle;
-      });
-
-    // Draw background arc (full semicircle in white/gray)
-    g.append("path")
-      .datum(100)
-      .attr("d", arcBackground)
-      .attr("fill", props.backgroundColor || "#e0e0e0")
-      .attr("stroke", "#fff")
-      .attr("stroke-width", 2);
-
-    // Draw value arc (only the percentage portion in color, on top of background)
     const valueColor = props.valueColor || primaryColors[0];
-    g.append("path")
-      .datum(percentage)
-      .attr("d", arcValue)
-      .attr("fill", valueColor)
-      .attr("stroke", "#fff")
-      .attr("stroke-width", 2)
+
+    const trackColor = props.backgroundColor || "#d2d3d4";
+
+    // Background ring (full donut ring; only top half is visible due to viewBox)
+    chart
+      .append("circle")
+      .attr("class", "donut-ring")
+      .attr("cx", cx)
+      .attr("cy", cy)
+      .attr("r", radius)
+      .attr("fill", "transparent")
+      .attr("stroke", trackColor)
+      .attr("stroke-width", 15);
+
+    // Value segment for print: static circle (no animation). Browsers don't run SVG animate when printing.
+    chart
+      .append("circle")
+      .attr("class", "donut-segment donut-segment--print")
+      .attr("cx", cx)
+      .attr("cy", cy)
+      .attr("r", radius)
+      .attr("fill", "transparent")
+      .attr("stroke", valueColor)
+      .attr("stroke-width", 15)
+      .attr("stroke-dasharray", `${dashValue} ${dashGap}`)
+      .attr("stroke-dashoffset", -halfCirc);
+
+    // Value segment (animated) for screen — start empty, then draw to final value
+    const segment = chart
+      .append("circle")
+      .attr("class", "donut-segment donut-segment--animated")
+      .attr("cx", cx)
+      .attr("cy", cy)
+      .attr("r", radius)
+      .attr("fill", "transparent")
+      .attr("stroke", valueColor)
+      .attr("stroke-width", 15)
+      .attr("stroke-dasharray", `0 ${fullCirc}`)
+      .attr("stroke-dashoffset", -halfCirc)
       .on("mouseover", (event) => {
         const formattedPercentage = props.valueFormat ? `${props.valueFormat(value)}%` : `${value.toFixed(1)}%`;
         const formattedME = marginOfError !== null ? (marginOfError % 1 === 0 ? marginOfError.toFixed(0) : marginOfError.toFixed(1)) : null;
@@ -164,39 +150,57 @@ const GaugeChart = (props) => {
         tooltip.style("opacity", 0);
       });
 
-    // Center semicircle removed - not needed
+    // Animate the value arc drawing from 0 to final (smooth ease-out)
+    segment
+      .transition()
+      .duration(1200)
+      .ease(d3.easeCubicOut)
+      .attrTween("stroke-dasharray", function () {
+        const interp = d3.interpolateNumber(0, dashValue);
+        return function (t) {
+          const v = interp(t);
+          return `${v} ${fullCirc - v}`;
+        };
+      });
 
-    // Add value text in center with % symbol
+    // Value text near bottom center — count up and fade in
     const formattedValue = props.valueFormat ? props.valueFormat(value) : value.toFixed(1);
-    g.append("text")
-      .attr("x", 0)
-      .attr("y", 0)
-      .attr("dy", "0.35em")
+    const valueText = chart
+      .append("text")
+      .attr("x", cx)
+      .attr("y", 39.5)
       .attr("text-anchor", "middle")
-      .attr("font-size", "32px")
-      .attr("font-weight", "bold")
+      .attr("class", "gauge-text")
+      .attr("font-size", "10")
+      .attr("font-weight", "400")
       .attr("fill", valueColor)
-      .text(`${formattedValue}%`);
+      .attr("opacity", 0)
+      .text("0%");
 
-    // Unit text removed - not needed
-
-    // Min/max labels removed - not needed
-
-    // Title removed - shown in ChartDetails instead
+    valueText
+      .transition()
+      .delay(400)
+      .duration(800)
+      .ease(d3.easeCubicOut)
+      .attr("opacity", 1)
+      .textTween(function () {
+        const interp = d3.interpolateNumber(0, value);
+        const format = props.valueFormat || ((n) => n.toFixed(1));
+        return function (t) {
+          return `${format(interp(t))}%`;
+        };
+      });
   };
 
   const renderBlankChart = () => {
     const chart = chartGroupRef.current;
-    const width = (props.width || container.width) - defaultMargin.left - defaultMargin.right;
-    const height = (props.height || container.height) - defaultMargin.top - defaultMargin.bottom;
-
     chart.selectAll("*").remove();
 
     chart
       .append("text")
       .attr("class", "missing-data")
-      .attr("x", width / 2)
-      .attr("y", height / 2 - 12)
+      .attr("x", 40)
+      .attr("y", 20)
       .attr("dy", "12")
       .style("text-anchor", "middle")
       .text("Data not available.");
