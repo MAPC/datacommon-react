@@ -118,9 +118,6 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
         .chart-wrapper button {
           display: none !important;
         }
-        .chart-wrapper a {
-          display: none !important;
-        }
         .tab__row {
           display: flex !important;
           flex-wrap: wrap !important;
@@ -133,6 +130,9 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
         .chart-wrapper svg {
           width: 100% !important;
           height: auto !important;
+        }
+        .tab__row--after-gauges {
+          margin-top: 2.5em !important;
         }
       }
     `;
@@ -320,13 +320,27 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                   <GaugeChart chart={charts["digital-equity"].smartphone_only} muni={muni} />
                 </ChartDetails>
               </div>
-              <div className="tab__row">
+              <div className="tab__row tab__row--after-gauges">
                 <ChartDetails chart={charts["digital-equity"].internet_usage_by_income} muni={muni} onViewData={handleShowModal}>
                   <StackedBarChart chart={charts["digital-equity"].internet_usage_by_income} muni={muni} />
                 </ChartDetails>
                 <ChartDetails chart={charts["digital-equity"].internet_subscription_types} muni={muni} onViewData={handleShowModal}>
                   <GroupedBarChart chart={charts["digital-equity"].internet_subscription_types} muni={muni} />
                 </ChartDetails>
+              </div>
+              <div className="tab__row digital-equity-map">
+                <div className="chart-wrapper" style={{ maxWidth: "100%", flex: "0 0 100%" }}>
+                  <div className="chart-body">
+                    <iframe
+                      title="Digital Equity Map"
+                      src="https://experience.arcgis.com/experience/a7122a3c5c2d4b62a4ac63f3eee3f79e/"
+                      width="100%"
+                      height="600"
+                      style={{ border: "none" }}
+                      loading="lazy"
+                    />
+                  </div>
+                </div>
               </div>
             </Tab>
           </div>

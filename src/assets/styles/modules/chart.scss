@@ -5,6 +5,19 @@
   // Gauge chart responsive styling
   &.GaugeChart {
     margin-bottom: 0;
+
+    // Print: show static segment (no animation), hide animated one so gauge renders correctly
+    .donut-segment--print {
+      display: none;
+    }
+    @media print {
+      .donut-segment--animated {
+        display: none;
+      }
+      .donut-segment--print {
+        display: block;
+      }
+    }
     
     .svg-wrapper {
       display: flex;

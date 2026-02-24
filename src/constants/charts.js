@@ -45,7 +45,7 @@ const formatYearRange = (latestYear) => {
   if (startStr && endStr) {
     const startYear = parseInt(startStr);
     const endYear = parseInt("20" + endStr);
-    return `${startYear}-${endYear} 5-Year Estimates`;
+    return `${startYear}-${endYear}`;
   }
   return yearStr;
 };
@@ -1882,7 +1882,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
   "digital-equity": {
     no_computer_access: {
       type: "gauge",
-      title: "Percent Household has no computer devices",
+      title: "Percent Household Has No Computer Devices",
       minValue: 0,
       maxValue: 100,
       valueColor: "#44aa44",
@@ -1941,7 +1941,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
     },
     internet_access: {
       type: "gauge",
-      title: "Percent Household has no internet",
+      title: "Percent Household Has No Internet",
       minValue: 0,
       maxValue: 100,
       valueColor: "#44aa44",
@@ -2003,7 +2003,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
     },
     smartphone_only: {
       type: "gauge",
-      title: "Percent Has one or more types of computing devices: Smartphone Only",
+      title: "Percent Has One or More Types of Computing Devices: Smartphone Only",
       minValue: 0,
       maxValue: 100,
       valueColor: "#44aa44",

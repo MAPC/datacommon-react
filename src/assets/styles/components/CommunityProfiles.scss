@@ -123,6 +123,12 @@
       padding: 0 0 1em 0;
     }
   }
+  .digital-equity-map {
+    @media print {
+      display: none !important;
+    }
+  }
+
   .data {
     @extend ._partial-bg;
     background-color: $color_bg-medium;
