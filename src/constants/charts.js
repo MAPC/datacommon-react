@@ -1903,16 +1903,27 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
             const municipalityFormatted = municipality.replace("-", " ");
             // Fetch selected municipality and Massachusetts (muni_id = 353) for view/download data
             const queryString = `
-              SELECT acs_year, muni_id, municipal, nocmp_p, nocmp_mp
-              FROM tabular.s2801_computer_internet_acs_m
-              WHERE (municipal ILIKE '${municipalityFormatted}%' OR muni_id = 353)
-                AND acs_year = (SELECT MAX(acs_year) FROM tabular.s2801_computer_internet_acs_m)
-              ORDER BY CASE WHEN muni_id = 353 THEN 1 ELSE 0 END, municipal
+              WITH city_county_id AS (
+                    SELECT county_id
+                    FROM tabular._datakeys_muni_all
+                    WHERE muni_name ILIKE '${municipalityFormatted}%'
+                ),
+                latest_data AS (
+                    SELECT *
+                    FROM tabular.s2801_computer_internet_acs_m
+                    WHERE acs_year = (SELECT MAX(acs_year) FROM tabular.s2801_computer_internet_acs_m)
+                )
+                SELECT acs_year, muni_id, municipal, nocmp_p, nocmp_mp
+                FROM latest_data t
+                WHERE t.muni_id IN (SELECT county_id FROM city_county_id)
+                  OR t.municipal ILIKE '${municipalityFormatted}%'
+                  OR t.muni_id = 353
             `;
+            
             const response = await fetch(`${tabular_api}${encodeURIComponent(queryString)}`);
             if (!response.ok) {
               throw new Error(`HTTP error! status: ${response.status}`);
-            }
+             }
             const payload = (await response.json()) || {};
             dispatchUpdate(payload.rows || []);
           },

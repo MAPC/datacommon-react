@@ -194,6 +194,7 @@ const GaugeChart = (props) => {
 
   const renderBlankChart = () => {
     const chart = chartGroupRef.current;
+    if (!chart) return;
     chart.selectAll("*").remove();
 
     chart
@@ -201,8 +202,10 @@ const GaugeChart = (props) => {
       .attr("class", "missing-data")
       .attr("x", 40)
       .attr("y", 20)
-      .attr("dy", "12")
-      .style("text-anchor", "middle")
+      .attr("dy", "0.35em")
+      .attr("text-anchor", "middle")
+      .attr("font-size", "5")
+      .style("fill", "currentColor")
       .text("Data not available.");
   };
 
@@ -218,7 +221,16 @@ const GaugeChart = (props) => {
 
   return (
     <div className="component chart GaugeChart">
-      <div className="svg-wrapper" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
+      <div
+        className="svg-wrapper"
+        style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          width: '100%',
+          minHeight: props.hasData ? undefined : 120,
+        }}
+      >
         <div ref={chartRef} className="chart-container" style={{ width: '100%', maxWidth: `${props.width || container.width}px`, margin: '0 auto' }} />
       </div>
     </div>
