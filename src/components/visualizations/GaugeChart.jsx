@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState } from "react";
 import PropTypes from "prop-types";
 import * as d3 from "d3";
+import MoonLoader from "react-spinners/MoonLoader";
 
 import colors from "../../constants/colors";
 
@@ -214,10 +215,11 @@ const GaugeChart = (props) => {
 
     if (props.hasData) {
       renderChart();
-    } else {
+    } else if (!props.isLoading) {
+      // Only show "Data not available." once loading has finished
       renderBlankChart();
     }
-  }, [props.data, props.hasData]);
+  }, [props.data, props.hasData, props.isLoading]);
 
   return (
     <div className="component chart GaugeChart">
@@ -231,6 +233,11 @@ const GaugeChart = (props) => {
           minHeight: props.hasData ? undefined : 120,
         }}
       >
+        {props.isLoading && !props.hasData && (
+          <div className="gauge-loader">
+            <MoonLoader size={24} color="#767676" />
+          </div>
+        )}
         <div ref={chartRef} className="chart-container" style={{ width: '100%', maxWidth: `${props.width || container.width}px`, margin: '0 auto' }} />
       </div>
     </div>
@@ -266,6 +273,7 @@ GaugeChart.propTypes = {
   hasData: PropTypes.bool,
   width: PropTypes.number,
   height: PropTypes.number,
+  isLoading: PropTypes.bool,
 };
 
 export default GaugeChart;
