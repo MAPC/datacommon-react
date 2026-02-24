@@ -1,9 +1,138 @@
-import React, { useEffect, useState, useRef } from 'react';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
-import { MAP_CONFIG } from '../../constants/mapConfig';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
+import styled from 'styled-components';
+import { MapContainer, TileLayer, GeoJSON, Pane, useMap } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
 import { MAPC_MUNICIPALITIES } from '../../constants/municipalities';
+import { VARIABLE_TO_FIELD, FIELD_TO_MOE } from '../../constants/digitalEquityMap';
 import Dropdown from '../field/Dropdown';
+
+const LoadingOverlay = styled.div`
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+`;
+
+const LoadingCard = styled.div`
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+  border-radius: 10px;
+  padding: 14px 16px;
+  width: min(360px, calc(100% - 32px));
+`;
+
+const LoadingTitle = styled.div`
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 10px;
+`;
+
+const ProgressTrack = styled.div`
+  height: 10px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  overflow: hidden;
+`;
+
+const ProgressFill = styled.div`
+  height: 100%;
+  width: ${props => props.$pct}%;
+  background: #2d5a2f;
+  border-radius: 999px;
+  transition: width 180ms ease-out;
+`;
+
+const IndeterminateFill = styled.div`
+  height: 100%;
+  width: 40%;
+  background: #2d5a2f;
+  border-radius: 999px;
+  animation: slide 1.2s ease-in-out infinite;
+
+  @keyframes slide {
+    0% { transform: translateX(-120%); }
+    100% { transform: translateX(280%); }
+  }
+`;
+
+const LegendWrapper = styled.div`
+  position: absolute;
+  bottom: 30px;
+  right: 30px;
+  background: white;
+  padding: 10px;
+  border-radius: 5px;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+  font-size: 12px;
+  max-width: 200px;
+  z-index: 1000;
+`;
+
+const LegendTitle = styled.div`
+  margin-bottom: 5px;
+  font-weight: bold;
+  font-size: 13px;
+`;
+
+const LegendRow = styled.div`
+  display: flex;
+  align-items: center;
+  margin-bottom: 3px;
+`;
+
+const LegendColor = styled.div`
+  width: 20px;
+  height: 15px;
+  margin-right: 5px;
+  border: 1px solid #999;
+  background-color: ${props => props.$bg};
+`;
+
+const LegendTopRange = styled(LegendRow)`
+  margin-top: 3px;
+`;
+
+const LegendNoDataRow = styled(LegendRow)`
+  margin-top: 5px;
+  padding-top: 5px;
+  border-top: 1px solid #ccc;
+`;
+
+const MapWrapper = styled.div`
+  position: relative;
+  width: 100%;
+`;
+
+const MapFooter = styled.footer`
+  margin-top: 0;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  font-size: 12px;
+  color: #475569;
+  width: 100%;
+  box-sizing: border-box;
+
+  a {
+    color: #2563eb;
+    text-decoration: none;
+  }
+  a:hover {
+    text-decoration: underline;
+  }
+  ul {
+    margin: 0;
+    padding-left: 20px;
+  }
+  li {
+    margin-bottom: 4px;
+  }
+`;
 
 // Color scale (green scale from template)
 const COLOR_SCALE = ['#f0f9f0', '#a8d4aa', '#689968', '#2d5a2f', '#1a3d1a'];
@@ -11,6 +140,19 @@ const NO_DATA_COLOR = '#cccccc';
 
 const CHOROPLETH_BIN_PROP = '__choroplethBin';
 const NO_DATA_BIN = -1;
+
+// Massachusetts extent from munimap_template (Leaflet: [[south, west], [north, east]])
+// Bounds: [[south, west], [north, east]] (Leaflet latLng order)
+const MASSACHUSETTS_BOUNDS = [
+  [40.85537053192496, -74.20166015625001],   // southwest
+  [43.33316939281735, -69.19738769531251],   // northeast
+];
+// Center and zoom from munimap_template (higher zoom = more zoomed in)
+const MASSACHUSETTS_CENTER = [42.4072, -71.3824];
+const MASSACHUSETTS_ZOOM = 10;
+// CARTO basemap from munimap_template (light, no labels)
+const BASEMAP_URL = 'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png';
+const BASEMAP_ATTRIBUTION = '© OpenStreetMap contributors © CARTO';
 
 function calculateQuantiles(values, numBins = 5) {
   if (values.length === 0) return [];
@@ -23,7 +165,6 @@ function calculateQuantiles(values, numBins = 5) {
   return quantiles;
 }
 
-/** Assign bin index 0..4 (or NO_DATA_BIN) from numeric value and quantile thresholds. */
 function getBinIndex(value, quantiles) {
   if (value == null || value !== value || quantiles.length < 4) return NO_DATA_BIN;
   const n = Number(value);
@@ -34,228 +175,121 @@ function getBinIndex(value, quantiles) {
   return 4;
 }
 
-/** Mapbox expression: color from precomputed __choroplethBin (0-4 or -1). */
-function getChoroplethFillColorExpression() {
-  return [
-    'match',
-    ['get', CHOROPLETH_BIN_PROP],
-    0, COLOR_SCALE[0],
-    1, COLOR_SCALE[1],
-    2, COLOR_SCALE[2],
-    3, COLOR_SCALE[3],
-    4, COLOR_SCALE[4],
-    NO_DATA_COLOR
-  ];
-}
-
-/** Bounding box [[minLng, minLat], [maxLng, maxLat]] from a GeoJSON feature. */
-function getFeatureBounds(feature) {
+/** Center [lat, lng] of a GeoJSON feature (from bounding box). */
+function getFeatureCenter(feature) {
   const coords = feature?.geometry?.coordinates;
   if (!coords) return null;
   const flat = coords.flat(3);
-  let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
+  let minLat = Infinity, minLng = Infinity, maxLat = -Infinity, maxLng = -Infinity;
   for (let i = 0; i < flat.length; i += 2) {
     const lng = flat[i], lat = flat[i + 1];
     if (typeof lng === 'number' && typeof lat === 'number') {
-      minLng = Math.min(minLng, lng);
       minLat = Math.min(minLat, lat);
-      maxLng = Math.max(maxLng, lng);
+      minLng = Math.min(minLng, lng);
       maxLat = Math.max(maxLat, lat);
+      maxLng = Math.max(maxLng, lng);
     }
   }
-  if (minLng === Infinity) return null;
-  return [[minLng, minLat], [maxLng, maxLat]];
+  if (minLat === Infinity) return null;
+  return [(minLat + maxLat) / 2, (minLng + maxLng) / 2];
+}
+
+const ZOOM_TO_HIGHLIGHT = 12;
+
+function ZoomToHighlight({ feature, zoom }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!feature || !map) return;
+    const center = getFeatureCenter(feature);
+    if (center) map.setView(center, zoom ?? ZOOM_TO_HIGHLIGHT);
+  }, [map, feature, zoom]);
+  return null;
 }
 
 const VARIABLES = [
-  "Percent Internet Subscription with Broadband such as cable - fiber optic - or DSL",
-  "Percent Internet Subscription with Broadband of any type",
-  "Percent Internet Subscription with Broadband of any type & Cellular data plan",
-  "Percent Internet Subscription with Cellular data plan only",
-  "Percent Has one or more types of computing devices",
-  "Percent Internet Subscription with dial-up only",
-  "Percent Has one or more types of computing devices: Desktop or Laptop",
-  "Percent Has one or more types of computing devices: Desktop or Laptop only",
-  "Percent Households with Internet Subscription of any type",
-  "Percent Has one or more types of computing devices: Smartphone",
   "Percent Has one or more types of computing devices: Smartphone Only",
   "Percent Household has no computer devices",
-  "Percent Household has no internet",
-  "Percent Household has other kind of computer devices",
-  "Percent Household has other kind of computer devices only",
-  "Percent Internet Subscription with other type"
+  "Percent Household has no internet"
 ];
 const YEARS = ["2013-17", "2014-18", "2015-19", "2016-20", "2017-21", "2018-22", "2019-23", "2020-24"];
 
-const DigitalEquityMap = ({ geojsonData, baseLayerData, highlightMunicipalityName, loadingEquityData }) => {
-  const mapContainerRef = useRef(null);
-  const mapRef = useRef(null);
-  const popupRef = useRef(null);
-
+const DigitalEquityMap = ({ geojsonData, baseLayerData, highlightMunicipalityName, selectedYear: selectedYearProp, onYearChange, choroplethLoading, choroplethProgress = null }) => {
   const [selectedVariable, setSelectedVariable] = useState(VARIABLES[0]);
-  const [selectedYear, setSelectedYear] = useState(YEARS[YEARS.length - 1]);
+  const [internalYear, setInternalYear] = useState(YEARS[YEARS.length - 1]);
+  const selectedYear = selectedYearProp !== undefined ? selectedYearProp : internalYear;
+  const setSelectedYear = onYearChange ? (y) => onYearChange(y) : setInternalYear;
   const [showMAPCOnly, setShowMAPCOnly] = useState(false);
   const [quantiles, setQuantiles] = useState([]);
   const [dataMin, setDataMin] = useState(null);
   const [dataMax, setDataMax] = useState(null);
-  const selectedVariableRef = useRef(selectedVariable);
-  selectedVariableRef.current = selectedVariable;
+  const [clickedChoroplethIndex, setClickedChoroplethIndex] = useState(null);
 
   const variables = VARIABLES;
   const years = YEARS;
 
   useEffect(() => {
     if (variables.length > 0 && !selectedVariable) setSelectedVariable(variables[0]);
-    if (years.length > 0 && !selectedYear) setSelectedYear(years[years.length - 1]);
-  }, [variables, years, selectedVariable, selectedYear]);
+    if (years.length > 0 && selectedYearProp === undefined && !internalYear) setInternalYear(years[years.length - 1]);
+  }, [variables, years, selectedVariable, selectedYearProp, internalYear]);
 
-  const filteredGeoJSON = React.useMemo(() => {
+  const filteredGeoJSON = useMemo(() => {
     if (!geojsonData?.features) return null;
     const features = geojsonData.features.filter(f => {
-      const municipalityName = f.properties['TOWN'] || f.properties['Municipality name'];
-      if (showMAPCOnly && !MAPC_MUNICIPALITIES.includes(municipalityName)) return false;
-      if (selectedYear && f.properties['ACS year of publication'] !== selectedYear) return false;
+      const municipalityName = (f.properties?.['TOWN'] || f.properties?.['Municipality name'] || f.properties?.TOWN || '').toUpperCase?.() || '';
+      if (showMAPCOnly && MAPC_MUNICIPALITIES.length && !MAPC_MUNICIPALITIES.includes(municipalityName)) return false;
+      if (selectedYearProp === undefined) {
+        const yearRaw = f.properties?.['acs_year'];
+        const year = yearRaw != null ? String(yearRaw).trim() : '';
+        if (selectedYear && year !== selectedYear) return false;
+      }
       return true;
     });
     return { type: 'FeatureCollection', features };
-  }, [geojsonData, selectedYear, showMAPCOnly]);
+  }, [geojsonData, selectedYear, showMAPCOnly, selectedYearProp]);
 
   useEffect(() => {
     if (!filteredGeoJSON?.features?.length || !selectedVariable) return;
+    const field = VARIABLE_TO_FIELD[selectedVariable];
     const values = filteredGeoJSON.features
-      .map(f => f.properties[selectedVariable])
-      .filter(val => val !== null && val !== undefined && !isNaN(val));
+      .map(f => field != null ? f.properties?.[field] : f.properties?.[selectedVariable])
+      .filter(val => val !== null && val !== undefined && !isNaN(Number(val)));
     if (values.length === 0) {
       setQuantiles([]);
       setDataMin(null);
       setDataMax(null);
       return;
     }
-    setDataMin(Math.min(...values));
-    setDataMax(Math.max(...values));
-    setQuantiles(calculateQuantiles(values, 5));
+    const nums = values.map(Number);
+    setDataMin(Math.min(...nums));
+    setDataMax(Math.max(...nums));
+    setQuantiles(calculateQuantiles(nums, 5));
   }, [filteredGeoJSON, selectedVariable]);
 
-  // Choropleth data: same features with __choroplethBin (0-4 or -1) so Mapbox only does a simple match
-  const choroplethData = React.useMemo(() => {
+  const choroplethData = useMemo(() => {
     if (!filteredGeoJSON?.features?.length || !selectedVariable || quantiles.length < 4) {
       return { type: 'FeatureCollection', features: [] };
     }
-    const features = filteredGeoJSON.features.map(feature => {
-      const raw = feature.properties[selectedVariable];
+    const field = VARIABLE_TO_FIELD[selectedVariable];
+    const features = filteredGeoJSON.features.map((feature, i) => {
+      const raw = field != null ? feature.properties?.[field] : feature.properties?.[selectedVariable];
       const bin = getBinIndex(raw, quantiles);
       return {
         ...feature,
         properties: {
           ...feature.properties,
           [CHOROPLETH_BIN_PROP]: bin,
+          __featureIndex: i,
         },
       };
     });
     return { type: 'FeatureCollection', features };
   }, [filteredGeoJSON, selectedVariable, quantiles]);
 
-  // Initialize Mapbox map (same style as community profile homepage)
   useEffect(() => {
-    if (!mapContainerRef.current || !MAP_CONFIG.accessToken) return;
+    setClickedChoroplethIndex(null);
+  }, [selectedYear, selectedVariable, showMAPCOnly]);
 
-    mapboxgl.accessToken = MAP_CONFIG.accessToken;
-    const map = new mapboxgl.Map({
-      container: mapContainerRef.current,
-      style: MAP_CONFIG.style,
-      bounds: MAP_CONFIG.bounds,
-      fitBoundsOptions: { padding: MAP_CONFIG.padding, animate: false },
-    });
-
-    map.addControl(new mapboxgl.NavigationControl(MAP_CONFIG.navigationControl), 'bottom-right');
-    mapRef.current = map;
-
-    return () => {
-      map.remove();
-      mapRef.current = null;
-    };
-  }, []);
-
-  // Base layer (Massachusetts)
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !baseLayerData?.features?.length) return;
-
-    const onLoad = () => {
-      if (map.getSource('digital-equity-base')) return;
-      map.addSource('digital-equity-base', { type: 'geojson', data: baseLayerData });
-      map.addLayer({
-        id: 'digital-equity-base',
-        type: 'fill',
-        source: 'digital-equity-base',
-        paint: {
-          'fill-color': '#f5f5f5',
-          'fill-opacity': 0.6,
-          'fill-outline-color': '#999',
-        },
-      });
-    };
-
-    if (map.isStyleLoaded()) onLoad();
-    else map.once('load', onLoad);
-
-    return () => {
-      try {
-        if (map.getStyle() && map.getLayer('digital-equity-base')) map.removeLayer('digital-equity-base');
-        if (map.getStyle() && map.getSource('digital-equity-base')) map.removeSource('digital-equity-base');
-      } catch (_) { /* map may already be destroyed */ }
-    };
-  }, [baseLayerData]);
-
-  // Choropleth layer: data has __choroplethBin (0-4 or -1), paint is a simple match on that
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-
-    const sourceId = 'digital-equity-choropleth';
-    const layerId = 'digital-equity-choropleth';
-    const fillColorExpr = getChoroplethFillColorExpression();
-
-    const applyChoropleth = () => {
-      if (map.getSource(sourceId)) {
-        map.getSource(sourceId).setData(choroplethData);
-        if (map.getLayer(layerId)) {
-          map.setPaintProperty(layerId, 'fill-color', fillColorExpr);
-        }
-      } else {
-        map.addSource(sourceId, { type: 'geojson', data: choroplethData, generateId: true });
-        map.addLayer({
-          id: layerId,
-          type: 'fill',
-          source: sourceId,
-          paint: {
-            'fill-color': fillColorExpr,
-            'fill-opacity': 1,
-            'fill-outline-color': '#fff',
-          },
-        });
-      }
-    };
-
-    if (map.isStyleLoaded()) {
-      applyChoropleth();
-    } else {
-      map.once('load', applyChoropleth);
-    }
-
-    return () => {
-      try {
-        if (map.getStyle() && map.getLayer(layerId)) map.removeLayer(layerId);
-        if (map.getStyle() && map.getSource(sourceId)) map.removeSource(sourceId);
-      } catch (_) { /* map may already be destroyed */ }
-    };
-  }, [choroplethData]);
-
-  // Zoom to and highlight municipality when viewing from community profile (on top, transparent fill, red border)
-  const highlightSourceId = 'digital-equity-highlight';
-  const highlightFillLayerId = 'digital-equity-highlight-fill';
-  const highlightLineLayerId = 'digital-equity-highlight-line';
-  const highlightFeature = React.useMemo(() => {
+  const highlightFeature = useMemo(() => {
     if (!highlightMunicipalityName || !baseLayerData?.features?.length) return null;
     const key = String(highlightMunicipalityName).toUpperCase().trim();
     return baseLayerData.features.find(
@@ -263,161 +297,57 @@ const DigitalEquityMap = ({ geojsonData, baseLayerData, highlightMunicipalityNam
     ) || null;
   }, [highlightMunicipalityName, baseLayerData]);
 
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
+  const highlightCollection = useMemo(
+    () => (highlightFeature ? { type: 'FeatureCollection', features: [highlightFeature] } : null),
+    [highlightFeature]
+  );
 
-    const apply = () => {
-      try {
-        if (map.getLayer(highlightLineLayerId)) map.removeLayer(highlightLineLayerId);
-        if (map.getLayer(highlightFillLayerId)) map.removeLayer(highlightFillLayerId);
-        if (map.getSource(highlightSourceId)) map.removeSource(highlightSourceId);
-      } catch (_) { /* ignore */ }
+  const formatLabel = (v) => {
+    if (v == null || v === '') return '—';
+    const s = String(v).trim();
+    return s.toUpperCase() === 'UNKNOWN' ? '—' : s;
+  };
 
-      if (!highlightFeature) return;
+  /** Data is already in %; only format to 2 decimal places (e.g. 85.123 → "85.12"). No calculation. */
+  const formatPct = (v) => {
+    if (v == null || v === '' || Number.isNaN(Number(v))) return null;
+    return Number(v).toFixed(2);
+  };
 
-      const collection = { type: 'FeatureCollection', features: [highlightFeature] };
-      const bbox = getFeatureBounds(highlightFeature);
-
-      map.addSource(highlightSourceId, { type: 'geojson', data: collection });
-      // Transparent fill (so choropleth shows through), then line on top for visible red border
-      map.addLayer({
-        id: highlightFillLayerId,
-        type: 'fill',
-        source: highlightSourceId,
-        paint: {
-          'fill-color': '#dc2626',
-          'fill-opacity': 0,
-          'fill-outline-color': '#dc2626',
-        },
-      });
-      map.addLayer({
-        id: highlightLineLayerId,
-        type: 'line',
-        source: highlightSourceId,
-        paint: {
-          'line-color': '#dc2626',
-          'line-width': 3,
-          'line-opacity': 1,
-        },
-      });
-
-      if (bbox) {
-        map.fitBounds(bbox, { padding: 60, maxZoom: 12, duration: 800 });
-      }
-    };
-
-    const runWhenStyleReady = () => {
-      if (!map.isStyleLoaded()) {
-        map.once('load', runWhenStyleReady);
-        return;
-      }
-      // Add highlight after choropleth so it renders on top
-      if (map.getLayer('digital-equity-choropleth')) {
-        apply();
-      } else {
-        map.once('idle', () => { apply(); });
-      }
-    };
-
-    runWhenStyleReady();
-
-    return () => {
-      try {
-        if (map.getStyle() && map.getLayer(highlightLineLayerId)) map.removeLayer(highlightLineLayerId);
-        if (map.getStyle() && map.getLayer(highlightFillLayerId)) map.removeLayer(highlightFillLayerId);
-        if (map.getStyle() && map.getSource(highlightSourceId)) map.removeSource(highlightSourceId);
-      } catch (_) { /* map may already be destroyed */ }
-    };
-  }, [highlightFeature, choroplethData]);
-
-  // Popup on click (single listener, reads current variable from ref)
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-
-    const formatLabel = (v) => {
-      if (v == null || v === '') return '—';
-      const s = String(v).trim();
-      return s.toUpperCase() === 'UNKNOWN' ? '—' : s;
-    };
-
-    const onClick = (e) => {
-      const features = map.queryRenderedFeatures(e.point, { layers: ['digital-equity-choropleth'] });
-      if (!features.length) return;
-
-      const props = features[0].properties;
-      const name = formatLabel(props['TOWN'] || props['Municipality name']);
-      const variable = selectedVariableRef.current;
-      const value = props[variable];
-      const moeKey = variable ? `${variable} (margin of error)` : null;
-      const moe = moeKey ? props[moeKey] : null;
-      const year = formatLabel(props['ACS year of publication']);
-
-      const valueLine = value != null && !isNaN(value) ? `${Number(value).toFixed(1)}%` : '—';
-      const moeLine = moe != null && !isNaN(moe) ? ` (±${Number(moe).toFixed(1)}%)` : '';
-
-      if (popupRef.current) popupRef.current.remove();
-      popupRef.current = new mapboxgl.Popup({ closeButton: true, closeOnClick: false })
-        .setLngLat(e.lngLat)
-        .setHTML(`
-          <div>
-            ${name !== '—' ? `<h3 style="margin:0 0 8px 0;font-size:14px;">${name}</h3>` : ''}
-            <strong>${variable || 'Value'}:</strong> ${valueLine}${moeLine}<br/>
-            ${year !== '—' ? `<strong>Year:</strong> ${year}<br/>` : ''}
-          </div>
-        `)
-        .addTo(map);
-    };
-
-    map.on('click', 'digital-equity-choropleth', onClick);
-    return () => {
-      map.off('click', 'digital-equity-choropleth', onClick);
-      if (popupRef.current) {
-        popupRef.current.remove();
-        popupRef.current = null;
-      }
-    };
-  }, []);
-
-  // Fit bounds when filtered data changes (skip when community profile: we zoom to that municipality instead)
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !filteredGeoJSON?.features?.length || highlightMunicipalityName) return;
-
-    const getBounds = () => {
-      let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
-      filteredGeoJSON.features.forEach(f => {
-        const coords = f.geometry?.coordinates;
-        if (!coords) return;
-        const flat = coords.flat(3);
-        for (let i = 0; i < flat.length; i += 2) {
-          const lng = flat[i], lat = flat[i + 1];
-          if (typeof lng === 'number' && typeof lat === 'number') {
-            minLng = Math.min(minLng, lng);
-            minLat = Math.min(minLat, lat);
-            maxLng = Math.max(maxLng, lng);
-            maxLat = Math.max(maxLat, lat);
-          }
-        }
-      });
-      if (minLng === Infinity) return null;
-      return [[minLng, minLat], [maxLng, maxLat]];
-    };
-
-    const b = getBounds();
-    if (b) map.fitBounds(b, { padding: 40, maxZoom: 12 });
-  }, [filteredGeoJSON, highlightMunicipalityName]);
+  const getPopupContent = (props) => {
+    const variable = selectedVariable;
+    const field = VARIABLE_TO_FIELD[variable];
+    const municipality = formatLabel(props['TOWN'] || props['Municipality name'] || props['town'] || props['municipal']);
+    const value = field != null ? props[field] : props[variable];
+    const moeField = field ? FIELD_TO_MOE[field] : null;
+    const moe = moeField ? props[moeField] : (props[`${variable} (margin of error)`]);
+    const year = formatLabel(props['acs_year'] ?? props['ACS year of publication']);
+    const valueLine = formatPct(value) != null ? `${formatPct(value)}%` : '—';
+    const moeLine = formatPct(moe) != null ? `±${formatPct(moe)}%` : '—';
+    const baseStyle = 'min-width:200px;padding:10px 12px;font-size:13px;line-height:1.5;font-family:system-ui,sans-serif;color:#1f2937;';
+    const rowStyle = 'margin:6px 0 0 0;padding:0;';
+    const labelStyle = 'color:#6b7280;font-weight:600;';
+    const municipalityBlock =
+      municipality !== '—'
+        ? `<div style="margin:0 0 10px 0;padding:0 0 8px 0;border-bottom:1px solid #e5e7eb;"><div style="font-size:14px;font-weight:700;color:#111827;">${municipality}</div><div style="font-size:11px;color:#6b7280;">Municipality</div></div>`
+        : '';
+    const rows = [
+      variable ? `<div style="${rowStyle}"><span style="${labelStyle}">${variable}</span><br/><span style="font-size:15px;font-weight:600;">${valueLine}</span></div>` : '',
+      `<div style="${rowStyle}"><span style="${labelStyle}">Margin of error</span><br/>${moeLine}</div>`,
+      year !== '—' ? `<div style="${rowStyle}"><span style="${labelStyle}">Year</span><br/>${year}</div>` : '',
+    ].filter(Boolean);
+    return `<div style="${baseStyle}">${municipalityBlock}${rows.join('')}</div>`;
+  };
 
   const minVal = dataMin != null ? dataMin : 0;
   const maxVal = dataMax != null ? dataMax : (quantiles[quantiles.length - 1] || 100);
 
-  if (!geojsonData) {
+  if (!baseLayerData?.features?.length && !geojsonData?.features?.length && !choroplethLoading) {
     return <div>Loading map data...</div>;
   }
 
   return (
-    <div className="digital-equity-map">
+    <MapWrapper className="digital-equity-map">
       <div className="map-controls" style={{
         background: '#2c3e50',
         color: 'white',
@@ -447,63 +377,131 @@ const DigitalEquityMap = ({ geojsonData, baseLayerData, highlightMunicipalityNam
         </div>
       </div>
       <div style={{ position: 'relative', height: '600px', width: '100%' }}>
-        <div ref={mapContainerRef} className="map-layer" style={{ height: '100%', width: '100%' }} />
-        {loadingEquityData && (
-          <div style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'rgba(255,255,255,0.85)',
-            zIndex: 10,
-          }}>
-            <div style={{ width: '60%', maxWidth: 320 }}>
-              <div style={{ fontSize: 14, marginBottom: 8, textAlign: 'center', color: '#333' }}>Loading digital equity data...</div>
-              <div style={{ height: 6, background: '#e5e7eb', borderRadius: 3, overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: '40%', background: '#2563eb', borderRadius: 3, animation: 'digital-equity-loading 1.2s ease-in-out infinite' }} />
-              </div>
-            </div>
-          </div>
+        <MapContainer
+          center={MASSACHUSETTS_CENTER}
+          zoom={MASSACHUSETTS_ZOOM}
+          minZoom={7}
+          maxZoom={18}
+          maxBounds={MASSACHUSETTS_BOUNDS}
+          maxBoundsViscosity={1.0}
+          style={{ height: '100%', width: '100%' }}
+          scrollWheelZoom={true}
+          zoomControl={true}
+        >
+          {highlightFeature && <ZoomToHighlight feature={highlightFeature} zoom={ZOOM_TO_HIGHLIGHT} />}
+          <TileLayer
+            url={BASEMAP_URL}
+            attribution={BASEMAP_ATTRIBUTION}
+            maxZoom={18}
+          />
+          {baseLayerData?.features?.length > 0 && (
+            <GeoJSON
+              key="base"
+              data={baseLayerData}
+              style={{
+                color: '#999',
+                weight: 1,
+                fillColor: '#f5f5f5',
+                fillOpacity: 0.6,
+              }}
+            />
+          )}
+          {choroplethData?.features?.length > 0 && (
+            <GeoJSON
+              key={`choropleth-${selectedYear}-${selectedVariable}-${showMAPCOnly}`}
+              data={choroplethData}
+              style={(feature) => {
+                const bin = feature?.properties?.[CHOROPLETH_BIN_PROP];
+                const fillColor = bin >= 0 && bin <= 4 ? COLOR_SCALE[bin] : NO_DATA_COLOR;
+                const isClicked = feature?.properties?.__featureIndex === clickedChoroplethIndex;
+                return {
+                  color: isClicked ? '#ea580c' : '#e5e7eb',
+                  weight: isClicked ? 2 : 1,
+                  fillColor,
+                  fillOpacity: 1,
+                };
+              }}
+              onEachFeature={(feature, layer) => {
+                layer.bindPopup(getPopupContent(feature.properties || {}));
+                layer.on('click', () => {
+                  setClickedChoroplethIndex(feature.properties?.__featureIndex ?? null);
+                  layer.bringToFront();
+                });
+                layer.on('popupclose', () => {
+                  setClickedChoroplethIndex(null);
+                });
+              }}
+            />
+          )}
+          {highlightCollection && (
+            <Pane name="highlight-pane" style={{ zIndex: 650 }}>
+              <GeoJSON
+                key="highlight"
+                data={highlightCollection}
+                pathOptions={{ interactive: false }}
+                style={{
+                  color: '#dc2626',
+                  weight: 3,
+                  fillColor: '#dc2626',
+                  fillOpacity: 0,
+                }}
+              />
+            </Pane>
+          )}
+        </MapContainer>
+        {choroplethLoading && (
+          <LoadingOverlay>
+            <LoadingCard>
+              <LoadingTitle>
+                Loading data{typeof choroplethProgress === 'number' ? `… ${Math.round(choroplethProgress * 100)}%` : '…'}
+              </LoadingTitle>
+              <ProgressTrack>
+                {typeof choroplethProgress === 'number'
+                  ? <ProgressFill $pct={Math.max(0, Math.min(100, choroplethProgress * 100))} />
+                  : <IndeterminateFill />}
+              </ProgressTrack>
+            </LoadingCard>
+          </LoadingOverlay>
         )}
         {quantiles.length > 0 && (
-          <div className="custom-legend" style={{
-            position: 'absolute',
-            bottom: 30,
-            right: 30,
-            background: 'white',
-            padding: '10px',
-            borderRadius: '5px',
-            boxShadow: '0 0 15px rgba(0,0,0,0.2)',
-            fontSize: '12px',
-            maxWidth: '200px',
-            zIndex: 1
-          }}>
-            <div style={{ marginBottom: '5px', fontWeight: 'bold', fontSize: '13px' }}>{selectedVariable || 'Variable'}</div>
+          <LegendWrapper>
+            <LegendTitle>{selectedVariable || 'Variable'}</LegendTitle>
             {quantiles.map((q, i) => {
               const prevQ = i === 0 ? minVal : quantiles[i - 1];
               return (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', marginBottom: '3px' }}>
-                  <div style={{ width: 20, height: 15, backgroundColor: COLOR_SCALE[i], marginRight: 5, border: '1px solid #999' }} />
-                  <span>{prevQ.toFixed(1)}% - {q.toFixed(1)}%</span>
-                </div>
+                <LegendRow key={i}>
+                  <LegendColor $bg={COLOR_SCALE[i]} />
+                  <span>{formatPct(prevQ)}% - {formatPct(q)}%</span>
+                </LegendRow>
               );
             })}
-            <div style={{ display: 'flex', alignItems: 'center', marginTop: '3px' }}>
-              <div style={{ width: 20, height: 15, backgroundColor: COLOR_SCALE[4], marginRight: 5, border: '1px solid #999' }} />
-              <span>{quantiles[quantiles.length - 1].toFixed(1)}% - {maxVal.toFixed(1)}%</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', marginTop: '5px', paddingTop: '5px', borderTop: '1px solid #ccc' }}>
-              <div style={{ width: 20, height: 15, backgroundColor: NO_DATA_COLOR, marginRight: 5, border: '1px solid #999' }} />
+            <LegendTopRange>
+              <LegendColor $bg={COLOR_SCALE[4]} />
+              <span>{formatPct(quantiles[quantiles.length - 1])}% - {formatPct(maxVal)}%</span>
+            </LegendTopRange>
+            <LegendNoDataRow>
+              <LegendColor $bg={NO_DATA_COLOR} />
               <span>No data</span>
-            </div>
-          </div>
+            </LegendNoDataRow>
+          </LegendWrapper>
         )}
       </div>
-    </div>
+      <MapFooter>
+        <strong>Additional information:</strong>
+        <ul>
+          <li>
+            <a href="https://broadband.masstech.org/internetforall" target="_blank" rel="noopener noreferrer">
+              MBI Internet for All MA Digital Equity Plan
+            </a>
+          </li>
+          <li>
+            <a href="https://broadbandmap.fcc.gov/data-download/nationwide-data?version=jun2025&pubDataVer=jun2025" target="_blank" rel="noopener noreferrer">
+              FCC National Broadband Map Data Download
+            </a>
+          </li>
+        </ul>
+      </MapFooter>
+    </MapWrapper>
   );
 };
 
