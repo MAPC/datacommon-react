@@ -369,12 +369,19 @@ const DigitalEquityMap = ({ geojsonData, baseLayerData, highlightMunicipalityNam
           <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Select Year:</label>
           <Dropdown value={selectedYear} options={years.map(y => ({ value: y, label: y }))} onChange={(e) => setSelectedYear(e.target.value)} />
         </div>
+        {/*
         <div className="control-item">
           <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-            <input type="checkbox" checked={showMAPCOnly} onChange={(e) => setShowMAPCOnly(e.target.checked)} style={{ marginRight: '5px', cursor: 'pointer' }} />
+            <input
+              type="checkbox"
+              checked={showMAPCOnly}
+              onChange={(e) => setShowMAPCOnly(e.target.checked)}
+              style={{ marginRight: '5px', cursor: 'pointer' }}
+            />
             Show MAPC Region Only
           </label>
         </div>
+        */}
       </div>
       <div style={{ position: 'relative', height: '600px', width: '100%' }}>
         <MapContainer
