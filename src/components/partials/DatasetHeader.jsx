@@ -306,11 +306,6 @@ function DatasetHeader({
 }) {
   return (
     <div className="page-header">
-      <div className="container back-link">
-        <Link to="/browser" className="back-link">
-          {"< Back"}
-        </Link>
-      </div>
       <div className="container tight">
         <h2>{title}</h2>
         <div className="dataset-details-content">

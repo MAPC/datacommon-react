@@ -148,9 +148,6 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
   return (
     <article className="component CommunityProfiles">
       <div className="page-header">
-        <div className="container back-link">
-          <Link to="/communities">{"< Back"}</Link>
-        </div>
         <div className="container">
           <header>
             <h2>{capitalize(name)}</h2>
