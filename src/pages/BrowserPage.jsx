@@ -560,7 +560,8 @@ const BrowserPage = () => {
   };
 
   const toDataset = (dataset) => {
-    window.location.pathname = `/browser/datasets/${dataset.seq_id}`;
+    // open in new tab to preserve user's search & filters from the datasets landing page
+    window.open(`/browser/datasets/${dataset.seq_id}`, '_blank', 'noreferrer');
   };
 
   const handleDatasetClick = (dataset) => {
