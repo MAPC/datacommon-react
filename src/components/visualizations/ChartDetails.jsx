@@ -11,11 +11,19 @@ const ChartHeader = styled.div`
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: 1rem;
+
+  &.gauge-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
 `;
 
 const ChartTitle = styled.h3`
   margin: 0;
   flex: 2;
+  ${props => props.hideButtons ? 'min-height: 60px;' : ''};
+  ${props => props.isGauge ? 'min-height: 52px;' : ''};
 `;
 
 const ButtonGroup = styled.div`
@@ -51,7 +59,7 @@ const makeSelectChartData = (tables, muni) =>
     ),
   );
 
-const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAregion, displayName }) => {
+const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAregion, displayName, hideButtons }) => {
   const [timeframe, setTimeframe] = useState(typeof chart.timeframe === 'string' ? chart.timeframe : 'Unknown');
   const chartWrapperRef = useRef(null);
 
@@ -103,36 +111,49 @@ const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAreg
     } else if (isRPAregion) {
       onViewData(rpaCache, chart.title);
     } else {
+      console.log(data);
       onViewData(data, chart.title);
     }
   };
 
+  const isGauge = chart.type === "gauge";
+
   return (
     <div className="chart-wrapper" ref={chartWrapperRef}>
-      <ChartHeader>
-        <ChartTitle className="chart__title">
+      <ChartHeader className={isGauge ? "gauge-header" : ""}>
+        <ChartTitle
+          className="chart__title"
+          hideButtons={hideButtons}
+          isGauge={isGauge}
+        >
           {chart.title || 'Chart Title'}
           {isSubregion && ' (Aggregated)'}
         </ChartTitle>
-        <ButtonGroup className="chart-details-buttons">
-          <ViewButton
-            onClick={handleViewData}
-            title={`View ${isSubregion ? 'aggregated ' : ''}chart data in table format`}
-          >
-            View Data
-          </ViewButton>
-          <DownloadChartButton 
-            chart={chart} 
-            muni={muni} 
-            isSubregion={isSubregion} 
-            isRPAregion={isRPAregion}
-            displayName={displayName}
-          />
-          <DownloadChartImageButton 
-            chartRef={chartWrapperRef}
-            chartTitle={chart.title || 'Chart'}
-          />
-        </ButtonGroup>
+        {!hideButtons && (
+          <ButtonGroup className="chart-details-buttons">
+            <ViewButton
+              onClick={handleViewData}
+              title={`View ${isSubregion ? 'aggregated ' : ''}chart data in table format`}
+            >
+              View Data
+            </ViewButton>
+            <DownloadChartButton 
+              chart={chart} 
+              muni={muni} 
+              isSubregion={isSubregion} 
+              isRPAregion={isRPAregion}
+              displayName={displayName}
+            />
+            <DownloadChartImageButton 
+              chartRef={chartWrapperRef}
+              chartTitle={chart.title || 'Chart'}
+              muni={muni}
+              isSubregion={isSubregion}
+              isRPAregion={isRPAregion}
+              displayName={displayName}
+            />
+          </ButtonGroup>
+        )}
       </ChartHeader>
       {children}
       {chart.caveat ? (
@@ -184,6 +205,7 @@ ChartDetails.propTypes = {
   isSubregion: PropTypes.bool,
   isRPAregion: PropTypes.bool,
   displayName: PropTypes.string,
+  hideButtons: PropTypes.bool,
 };
 
 ChartDetails.defaultProps = {

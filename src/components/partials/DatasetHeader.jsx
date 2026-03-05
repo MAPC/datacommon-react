@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
 import PropTypes from "prop-types";
+import { formatUpdated } from "../../utils/formatUpdated";
 
 const formats = {
   csv: {
@@ -261,30 +262,12 @@ const setUniverse = (universe) => {
   return null;
 };
 
-const setUpdatedAt = (updatedAt) => {
-  if (updatedAt) {
-    const formatDate = (dateString) => {
-      try {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        });
-      } catch (error) {
-        return dateString;
-      }
-    };
-    
-    return (
-      <li>
-        Last Updated:
-        <em>{` ${formatDate(updatedAt)}`}</em>
-      </li>
-    );
-  }
-  return null;
-};
+const setUpdatedAt = (updatedAt) => (
+  <li>
+    Last Updated:
+    <em>{` ${formatUpdated(updatedAt)}`}</em>
+  </li>
+);
 
 function DatasetHeader({
   title = "",
@@ -332,13 +315,11 @@ function DatasetHeader({
               {setUpdatedAt(updatedAt)}
             </ul>
             {setSelectYears(availableYears, updateSelectedYears, selectedYears)}
-            {/* Column selection functionality commented out
             <ColumnSelectorDropdown
               columnKeys={columnKeys}
               updateSelectedColumns={updateSelectedColumns}
               selectedColumns={selectedColumns}
             />
-            */}
           </div>
           <div className="details-content-column download-section">
             {setDownloadButton(metadata, schema, table, title, description, selectedYears, queryYearColumn, database)}

@@ -1,6 +1,62 @@
 .chart {
   font-size: $font_size-xsmall;
   margin-bottom: 1em;
+  
+  // Gauge chart responsive styling
+  &.GaugeChart {
+    margin-bottom: 0;
+
+    // Smaller "Data not available." text for compact gauge SVG
+    svg {
+      text.missing-data {
+        font-size: 5px;
+        max-width: none;
+      }
+    }
+
+    // Print: show static segment (no animation), hide animated one so gauge renders correctly
+    .donut-segment--print {
+      display: none;
+    }
+    @media print {
+      .donut-segment--animated {
+        display: none;
+      }
+      .donut-segment--print {
+        display: block;
+      }
+    }
+    
+    .svg-wrapper {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+      margin-bottom: 0.15em;
+      position: relative;
+      
+      .chart-container {
+        width: 100%;
+        max-width: 500px;
+        margin: 0 auto;
+        
+        svg {
+          width: 100%;
+          height: auto;
+        }
+      }
+
+      .gauge-loader {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+        z-index: 2;
+      }
+    }
+  }
 
   &__title {
     margin: 0;
@@ -145,10 +201,17 @@
 }
 .metadata {
   font-style: italic;
+  margin-top: 0.5em;
+  
   .source-timeframe {
     display: flex;
     & > *:not(:last-child) {
       margin-right: 1em;
     }
   }
+}
+
+// Reduce spacing for gauge charts (strong selector so it wins over .metadata)
+.chart-wrapper:has(.chart.GaugeChart) .metadata {
+  margin-top: 0 !important;
 }

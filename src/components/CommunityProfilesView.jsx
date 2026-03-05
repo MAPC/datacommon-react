@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import Tab from "./Tab";
 import Dropdown from "./field/Dropdown";
@@ -10,16 +10,19 @@ import descriptions from "../constants/descriptions";
 import capitalize from "../utils/capitalize";
 import { fetchChartData } from "../reducers/chartSlice";
 import StackedBarChart from "../containers/visualizations/StackedBarChart";
+import GroupedBarChart from "../containers/visualizations/GroupedBarChart";
 import StackedAreaChart from "../containers/visualizations/StackedAreaChart";
 import ChartDetails from "./visualizations/ChartDetails";
 import PieChart from "../containers/visualizations/PieChart";
 import LineChart from "../containers/visualizations/LineChart";
+import GaugeChart from "../containers/visualizations/GaugeChart";
 import DownloadAllChartsButton from "./field/DownloadAllChartsButton";
 import DataTableModal from "./field/DataTableModal";
 import { store } from "../store";
 
 const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const { muni, tab } = useParams();
   const [activeTab, setActiveTab] = useState(tab || "demographics");
   const [modalConfig, setModalConfig] = useState({
@@ -115,9 +118,6 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
         .chart-wrapper button {
           display: none !important;
         }
-        .chart-wrapper a {
-          display: none !important;
-        }
         .tab__row {
           display: flex !important;
           flex-wrap: wrap !important;
@@ -130,6 +130,9 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
         .chart-wrapper svg {
           width: 100% !important;
           height: auto !important;
+        }
+        .tab__row--after-gauges {
+          margin-top: 2.5em !important;
         }
       }
     `;
@@ -187,13 +190,9 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
               value={activeTab}
               options={tabs}
               onChange={(e) => {
-                setActiveTab(e.target.value);
-                dispatch(
-                  fetchChartData({
-                    chartInfo: charts[e.target.value],
-                    municipality: muni,
-                  }),
-                );
+                const newTab = e.target.value;
+                setActiveTab(newTab);
+                navigate(`/profile/${muniSlug}/${newTab}`, { replace: true });
               }}
             />
           </div>
@@ -304,6 +303,44 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 <ChartDetails chart={charts.transportation.commute_to_work} muni={muni} onViewData={handleShowModal}>
                   <PieChart chart={charts.transportation.commute_to_work} muni={muni} />
                 </ChartDetails>
+              </div>
+            </Tab>
+            <Tab active={activeTab === "digital-equity"}>
+              <header className="print-header">
+                <h3>Digital Equity</h3>
+              </header>
+              <div className="tab__row">
+                <ChartDetails chart={charts["digital-equity"].no_computer_access} muni={muni} onViewData={handleShowModal}>
+                  <GaugeChart chart={charts["digital-equity"].no_computer_access} muni={muni} />
+                </ChartDetails>
+                <ChartDetails chart={charts["digital-equity"].internet_access} muni={muni} onViewData={handleShowModal}>
+                  <GaugeChart chart={charts["digital-equity"].internet_access} muni={muni} />
+                </ChartDetails>
+                <ChartDetails chart={charts["digital-equity"].smartphone_only} muni={muni} onViewData={handleShowModal}>
+                  <GaugeChart chart={charts["digital-equity"].smartphone_only} muni={muni} />
+                </ChartDetails>
+              </div>
+              <div className="tab__row tab__row--after-gauges">
+                <ChartDetails chart={charts["digital-equity"].internet_usage_by_income} muni={muni} onViewData={handleShowModal}>
+                  <StackedBarChart chart={charts["digital-equity"].internet_usage_by_income} muni={muni} />
+                </ChartDetails>
+                <ChartDetails chart={charts["digital-equity"].internet_subscription_types} muni={muni} onViewData={handleShowModal}>
+                  <GroupedBarChart chart={charts["digital-equity"].internet_subscription_types} muni={muni} />
+                </ChartDetails>
+              </div>
+              <div className="tab__row digital-equity-map">
+                <div className="chart-wrapper" style={{ maxWidth: "100%", flex: "0 0 100%" }}>
+                  <div className="chart-body">
+                    <iframe
+                      title="Digital Equity Map"
+                      src="https://experience.arcgis.com/experience/a7122a3c5c2d4b62a4ac63f3eee3f79e/"
+                      width="100%"
+                      height="600"
+                      style={{ border: "none" }}
+                      loading="lazy"
+                    />
+                  </div>
+                </div>
               </div>
             </Tab>
           </div>

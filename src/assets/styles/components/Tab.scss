@@ -13,12 +13,65 @@
   &__row {
     display: flex;
     padding: 2em 8em;
+    
+    // For 3 charts in a row (digital equity tab)
+    &:has(.chart-wrapper:nth-child(3)) {
+      .chart-wrapper {
+        max-width: calc(33.333% - 2em);
+        flex: 0 0 calc(33.333% - 2em);
+        height: 200px; // Ensure all charts have same minimum height
+
+        // Gauges are compact; let wrapper shrink to content to avoid big gap below
+        &:has(.chart.GaugeChart) {
+          height: auto;
+        }
+        
+        &:not(:last-child) {
+          margin-right: 3em;
+        }
+        
+        &:first-child {
+          margin-right: 3em;
+        }
+      }
+    }
+    
     @include media(large) {
       display: block;
       padding: 2em 12em;
+      
+      // For 3 charts, stack them vertically on smaller screens
+      &:has(.chart-wrapper:nth-child(3)) {
+        .chart-wrapper {
+          max-width: 100%;
+          flex: 0 0 auto;
+          margin-right: 0 !important;
+          margin-bottom: 2em;
+          height: auto;
+          
+          &:last-child {
+            margin-bottom: 0;
+          }
+        }
+      }
     }
     @include media(medium-small) {
       padding: 2em 0em;
+      
+      // Center charts on small screens
+      &:has(.chart-wrapper:nth-child(3)) {
+        .chart-wrapper {
+          max-width: 100%;
+          flex: 0 0 auto;
+          margin-right: 0 !important;
+          margin-bottom: 2em;
+          height: auto;
+          
+          &:last-child {
+            margin-bottom: 0;
+          }
+        }
+      }
     }
     @media print {
       padding: 0;

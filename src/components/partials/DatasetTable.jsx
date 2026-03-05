@@ -89,9 +89,7 @@ class DatasetTable extends React.Component {
     const { sortColumn, sortDirection } = this.state;
     
     // Filter columnKeys based on selectedColumns
-    // Column selection functionality commented out - show all columns
-    // const filteredColumnKeys = columnKeys.filter((col) => selectedColumns.includes(col.name));
-    const filteredColumnKeys = columnKeys; // Show all columns
+    const filteredColumnKeys = columnKeys.filter((col) => selectedColumns.includes(col.name));
     
     const renderedHeaders = this.setTableHeaders(filteredColumnKeys);
     let allRows;

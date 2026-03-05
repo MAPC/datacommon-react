@@ -22,6 +22,9 @@ const tabs = [{
 }, {
   value: 'transportation',
   label: 'Transportation',
+}, {
+  value: 'digital-equity',
+  label: 'Digital Equity',
 }];
 
 export default tabs;

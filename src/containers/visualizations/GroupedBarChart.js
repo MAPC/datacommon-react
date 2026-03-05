@@ -1,5 +1,5 @@
 import { connect } from 'react-redux';
-import StackedBarChart from '../../components/visualizations/StackedBarChart';
+import GroupedBarChart from '../../components/visualizations/GroupedBarChart';
 
 function valuesHaveData(transformedData) {
   if (!transformedData || !Array.isArray(transformedData) || transformedData.length === 0) {
@@ -67,5 +67,5 @@ const mapStateToProps = (state, props) => {
 
 const mapDispatchToProps = (dispatch, props) => ({});
 
-export default connect(mapStateToProps, mapDispatchToProps)(StackedBarChart);
+export default connect(mapStateToProps, mapDispatchToProps)(GroupedBarChart);
 export { valuesHaveData };
