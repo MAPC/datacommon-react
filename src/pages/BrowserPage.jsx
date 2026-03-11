@@ -176,7 +176,7 @@ const DatasetGrid = styled.div`
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
-  max-height: 50vh;
+  max-height: 31.5em;
   overflow-y: auto;
   overflow-x: hidden;
   
