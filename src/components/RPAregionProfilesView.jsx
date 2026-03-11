@@ -114,7 +114,11 @@ const chunkArray = (array, size) => {
 const RPAregionProfilesView = () => {
   const dispatch = useDispatch();
   const { rpaId, tab } = useParams();
-  const [activeTab, setActiveTab] = useState(tab || 'demographics');
+  // RPA region view does not support the Digital Equity tab
+  const availableTabs = tabs.filter((t) => t.value !== "digital-equity");
+  const sanitizeTab = (value) =>
+    value && value !== "digital-equity" ? value : "demographics";
+  const [activeTab, setActiveTab] = useState(sanitizeTab(tab));
   const [modalConfig, setModalConfig] = useState({
     show: false,
     data: null,
@@ -199,7 +203,7 @@ const RPAregionProfilesView = () => {
       <div className="data">
         <div className="container tab-selection">
           <ul className="tabs">
-            {tabs.map((tabItem) => (
+            {availableTabs.map((tabItem) => (
               <li 
                 key={tabItem.value} 
                 className={tabItem.value === activeTab ? "active" : ""}
@@ -216,8 +220,8 @@ const RPAregionProfilesView = () => {
           <div className="dropdown-wrapper">
             <Dropdown
               value={activeTab}
-              options={tabs}
-              onChange={(e) => setActiveTab(e.target.value)}
+              options={availableTabs}
+              onChange={(e) => setActiveTab(sanitizeTab(e.target.value))}
             />
           </div>
         </div>

@@ -9,6 +9,7 @@ import { fetchChartData } from "../../reducers/chartSlice";
 import { fetchSubregionChartData } from "../../reducers/subregionSlice";
 import { fetchRPAregionChartData } from "../../reducers/rparegionSlice";
 import { store } from "../../store";
+import locations from "../../constants/locations";
 
 const spin = keyframes`
   0% { transform: rotate(0deg); }
@@ -176,6 +177,24 @@ export default function DownloadAllChartsButton({ muni, datatype, displayName })
           });
         });
       });
+
+      // Also include Internet Speed Test (Municipal) data for municipalities
+      if (datatype === "municipality") {
+        try {
+          const muniName = displayName || muni;
+          const apiBase = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
+          const escapedName = muniName.replace(/'/g, "''");
+          const query = `${apiBase}SELECT * FROM tabular.internet_speed_test_m WHERE muni_name ilike '${escapedName}'`;
+          const response = await fetch(query);
+          if (response.ok) {
+            const payload = (await response.json()) || {};
+            const rows = payload.rows || [];
+            excelData.internet_speed_test_m = rows;
+          }
+        } catch (e) {
+          console.error("Error fetching Internet Speed Test data for Download All:", e);
+        }
+      }
       generateExcel(excelData);
 
     } catch (error) {

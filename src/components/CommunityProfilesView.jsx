@@ -9,6 +9,7 @@ import charts from "../constants/charts";
 import descriptions from "../constants/descriptions";
 import capitalize from "../utils/capitalize";
 import { fetchChartData } from "../reducers/chartSlice";
+import InternetSpeedTest from "./visualizations/InternetSpeedTest";
 import StackedBarChart from "../containers/visualizations/StackedBarChart";
 import GroupedBarChart from "../containers/visualizations/GroupedBarChart";
 import StackedAreaChart from "../containers/visualizations/StackedAreaChart";
@@ -118,6 +119,19 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
         .chart-wrapper button {
           display: none !important;
         }
+        .digital-equity-speed-stats .chart-details-buttons {
+          display: none !important;
+        }
+        .digital-equity-speed-stats button {
+          display: none !important;
+        }
+        .digital-equity-speed-stats-row--nodata {
+          display: none !important;
+        }
+        /* Hide any chart panels that only show "Data not available." */
+        .chart-wrapper:has(.missing-data) {
+          display: none !important;
+        }
         .tab__row {
           display: flex !important;
           flex-wrap: wrap !important;
@@ -165,7 +179,7 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 <button onClick={handlePrintCharts} type="button" className="print-button">
                   Print charts
                 </button>
-                <DownloadAllChartsButton muni={muni} datatype={'municipality'} />
+                <DownloadAllChartsButton muni={muni} datatype={'municipality'} displayName={name} />
               </div>
             </div>
           </section>
@@ -325,6 +339,7 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                   <GroupedBarChart chart={charts["digital-equity"].internet_subscription_types} muni={muni} />
                 </ChartDetails>
               </div>
+              <InternetSpeedTest municipalityName={name} onViewData={handleShowModal} />
               <div className="tab__row digital-equity-map">
                 <div className="chart-wrapper" style={{ maxWidth: "100%", flex: "0 0 100%" }}>
                   <div className="chart-body">
@@ -336,6 +351,51 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                       style={{ border: "none" }}
                       loading="lazy"
                     />
+                  </div>
+                </div>
+              </div>
+              <div className="tab__row digital-equity-resources">
+                <div className="chart-wrapper" style={{ maxWidth: "100%", flex: "0 0 100%" }}>
+                  <div className="digital-equity-resources__content">
+                    <h4 className="digital-equity-resources__title">Additional Digital Equity Resources</h4>
+                    <ul className="digital-equity-resources__list">
+                      <li>
+                        <a
+                          href="https://broadband.masstech.org/internetforall"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          MBI Internet for All MA Digital Equity Plan
+                        </a>
+                      </li>
+                      <li>
+                        <a
+                          href="https://broadbandmap.fcc.gov/data-download/nationwide-data?version=jun2025&pubDataVer=jun2025"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          FCC Broadband Serviceable Locations (BSL) Data
+                        </a>
+                      </li>
+                      <li>
+                        <a
+                          href="https://broadband.masstech.org/municipal"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          Municipal Digital Equity Plans
+                        </a>
+                      </li>
+                      <li>
+                        <a
+                          href="https://www.digitalinclusion.org/research-data/"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          National Digital Inclusion Alliance Data and Research
+                        </a>
+                      </li>
+                    </ul>
                   </div>
                 </div>
               </div>
