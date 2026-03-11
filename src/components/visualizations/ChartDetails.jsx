@@ -33,18 +33,24 @@ const ButtonGroup = styled.div`
 `;
 
 const ViewButton = styled.button`
-  background: #6fc68e;
-  border: none;
-  border-radius: 5px;
-  color: #ffffff;
+  background: transparent;
+  border: 1px solid #555555;
+  border-radius: 4px;
+  color: #555555;
   cursor: pointer;
   font-family: "skolar-sans-latin", Helvetica, sans-serif;
   font-weight: 400;
   font-size: 12px;
-  padding: 8px 12px;
+  padding: 4px 8px;
 
   &:hover {
-    background: #5db37a;
+    color: #6fc68e;
+    border-color: #6fc68e;
+  }
+
+  i {
+    color: inherit;
+    font-size: 14px;
   }
 `;
 
@@ -134,8 +140,19 @@ const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAreg
             <ViewButton
               onClick={handleViewData}
               title={`View ${isSubregion ? 'aggregated ' : ''}chart data in table format`}
+              aria-label={`View ${isSubregion ? 'aggregated ' : ''}chart data in table format`}
             >
-              View Data
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <title>View chart data in table format</title>
+                <path d="M0 2a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2zm15 2h-4v3h4zm0 4h-4v3h4zm0 4h-4v3h3a1 1 0 0 0 1-1zm-5 3v-3H6v3zm-5 0v-3H1v2a1 1 0 0 0 1 1zm-4-4h4V8H1zm0-4h4V4H1zm5-3v3h4V4zm4 4H6v3h4z" />
+              </svg>
             </ViewButton>
             <DownloadChartButton 
               chart={chart} 
@@ -180,7 +197,14 @@ const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAreg
           <div className="link">
             <span>Link to: </span>
             {Object.keys(chart.datasetLinks).map((label) => (
-              <a key={label} href={`${window.location.origin}/browser/datasets/${chart.datasetLinks[label]}`}>{label}</a>
+              <a
+                key={label}
+                href={`${window.location.origin}/browser/datasets/${chart.datasetLinks[label]}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {label}
+              </a>
             ))}
           </div>
         ) : null}

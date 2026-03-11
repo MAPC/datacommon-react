@@ -165,7 +165,11 @@ const chunkArray = (array, size) => {
 const SubregionProfilesView = () => {
   const dispatch = useDispatch();
   const { subregionId, tab } = useParams();
-  const [activeTab, setActiveTab] = useState(tab || 'demographics');
+  // Subregion view does not support the Digital Equity tab
+  const availableTabs = tabs.filter((t) => t.value !== "digital-equity");
+  const sanitizeTab = (value) =>
+    value && value !== "digital-equity" ? value : "demographics";
+  const [activeTab, setActiveTab] = useState(sanitizeTab(tab));
   const [modalConfig, setModalConfig] = useState({
     show: false,
     data: null,
@@ -180,7 +184,7 @@ const SubregionProfilesView = () => {
   const subregionAbbr = SUBREGIONS[subregionId]?.match(/\[([^\]]+)\]/)?.[1] || subregionId;
 
   useEffect(() => {
-    setActiveTab(tab);
+    setActiveTab(sanitizeTab(tab));
   }, [tab]);
 
   // Effect for fetching chart data
@@ -210,7 +214,7 @@ const SubregionProfilesView = () => {
 
   const handlePrint = async () => {
     // Get all charts for all tabs
-    const allTabs = Object.keys(charts);
+    const allTabs = Object.keys(charts).filter((t) => t !== "digital-equity");
     const allCharts = [];
     
     allTabs.forEach(tabKey => {
@@ -293,7 +297,7 @@ const SubregionProfilesView = () => {
       <div className="data">
         <div className="container tab-selection">
           <ul className="tabs">
-            {tabs.map((tabItem) => (
+            {availableTabs.map((tabItem) => (
               <li 
                 key={tabItem.value} 
                 className={tabItem.value === activeTab ? "active" : ""}
@@ -310,8 +314,8 @@ const SubregionProfilesView = () => {
           <div className="dropdown-wrapper">
             <Dropdown
               value={activeTab}
-              options={tabs}
-              onChange={(e) => setActiveTab(e.target.value)}
+              options={availableTabs}
+              onChange={(e) => setActiveTab(sanitizeTab(e.target.value))}
             />
           </div>
         </div>

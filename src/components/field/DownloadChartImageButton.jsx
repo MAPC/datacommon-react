@@ -3,23 +3,30 @@ import PropTypes from 'prop-types';
 import styled from 'styled-components';
 
 const DownloadButton = styled.button`
-  background: #6FC68E;
-  border: none;
-  border-radius: 5px;
-  color: #FFFFFF;
+  background: transparent;
+  border: 1px solid #555555;
+  border-radius: 4px;
+  color: #555555;
   cursor: pointer;
   font-family: "skolar-sans-latin", Helvetica, sans-serif;
   font-weight: 400;
   font-size: 12px;
-  padding: 8px 12px;
+  padding: 4px 8px;
 
   &:hover {
-    background: #5DB37A;
+    color: #6FC68E;
+    border-color: #6FC68E;
   }
 
   &:disabled {
-    background: #ccc;
+    color: #aaaaaa;
     cursor: not-allowed;
+  }
+
+  i,
+  span {
+    color: inherit;
+    font-size: 14px;
   }
 `;
 
@@ -34,7 +41,7 @@ const SUBREGIONS = {
   362: 'Three Rivers Interlocal Council [TRIC]'
 };
 
-const DownloadChartImageButton = ({ chartRef, chartTitle, muni, isSubregion, isRPAregion, displayName }) => {
+const DownloadChartImageButton = ({ chartRef, chartTitle, muni, isSubregion, isRPAregion, displayName, hideTitle }) => {
   const [isDownloading, setIsDownloading] = React.useState(false);
 
   // Common function to wrap text
@@ -73,8 +80,11 @@ const DownloadChartImageButton = ({ chartRef, chartTitle, muni, isSubregion, isR
       const metadata = chartWrapper.querySelector('.metadata');
       const isGaugeChart = !!chartWrapper.querySelector('.GaugeChart');
       
-      // Get the SVG element
-      const svg = chartWrapper.querySelector('svg');
+      // Get the SVG element: prefer the main chart SVG, not small icon SVGs
+      let svg = chartWrapper.querySelector('.chart svg');
+      if (!svg) {
+        svg = chartWrapper.querySelector('svg');
+      }
       if (!svg) {
         console.error('SVG not found');
         setIsDownloading(false);
@@ -84,13 +94,19 @@ const DownloadChartImageButton = ({ chartRef, chartTitle, muni, isSubregion, isR
       // Clone the SVG to avoid modifying the original
       const clonedSvg = svg.cloneNode(true);
       
-      // For gauges, switch to the static (print) segment so the exported image shows the final value, not mid-animation
+      // For gauges, switch to the static (print) segment so the exported image shows the final value, not mid-animation,
+      // and ensure the value text is dark green for better contrast in the downloaded image.
       if (isGaugeChart) {
         const animatedSeg = clonedSvg.querySelector('.donut-segment--animated');
         const printSeg = clonedSvg.querySelector('.donut-segment--print');
         if (animatedSeg && printSeg) {
           animatedSeg.parentNode.removeChild(animatedSeg);
           printSeg.style.display = 'block';
+        }
+
+        const gaugeValueText = clonedSvg.querySelector('.gauge-text');
+        if (gaugeValueText) {
+          gaugeValueText.setAttribute('fill', '#1F4E46'); // dark brand green
         }
       }
       
@@ -99,7 +115,10 @@ const DownloadChartImageButton = ({ chartRef, chartTitle, muni, isSubregion, isR
       const svgWidth = parseInt(computedStyle.width) || 500;
       
       // Calculate dynamic height based on chart type and content
-      let svgHeight = 550; // Default height
+      // Default height works well for most charts; we tighten it for certain special layouts.
+      const isSpeedTestMetrics =
+        hideTitle && chartWrapper.classList && chartWrapper.classList.contains('digital-equity-speed-stats');
+      let svgHeight = isSpeedTestMetrics ? 260 : 550;
       
       // Check chart type for sizing tweaks
       const chartType = chartWrapper.querySelector('.StackedAreaChart') ? 'stacked-area' : 
@@ -107,7 +126,7 @@ const DownloadChartImageButton = ({ chartRef, chartTitle, muni, isSubregion, isR
                        chartWrapper.querySelector('.PieChart') ? 'pie' :
                        isGaugeChart ? 'gauge' : 'other';
       
-      if (legend) {
+      if (legend && !isSpeedTestMetrics) {
         const legendItems = legend.querySelectorAll('li');
         const numLegendItems = legendItems.length;
         
@@ -177,27 +196,17 @@ const DownloadChartImageButton = ({ chartRef, chartTitle, muni, isSubregion, isR
         metadataHeight = lines * 16 + 20; // 16px per line + 20px padding
       }
       
-      // Wrap long chart title; force break before "device(s)" so that word is on second line and not hidden
-      const rawTitle = chartTitle || 'Chart Title';
+      // Wrap long chart title; optionally hide title entirely.
+      // Use a single, consistent wrapping rule so any long title breaks cleanly onto multiple lines.
+      const rawTitle = hideTitle ? '' : (chartTitle || 'Chart Title');
       const maxTitleWidth = Math.max(50, svgWidth - 40);
-      let titleLines = [];
-      if (rawTitle.includes(' devices ') || rawTitle.includes(' devices:')) {
-        const idx = rawTitle.indexOf(' devices');
-        const firstPart = rawTitle.slice(0, idx).trim();
-        const secondPart = rawTitle.slice(idx).trim(); // "devices: ..." or "devices ..."
-        titleLines = wrapText(firstPart, maxTitleWidth).concat(wrapText(secondPart, maxTitleWidth));
-      } else if (rawTitle.includes(' device ') || rawTitle.includes(' device:')) {
-        const idx = rawTitle.indexOf(' device');
-        const firstPart = rawTitle.slice(0, idx).trim();
-        const secondPart = rawTitle.slice(idx).trim();
-        titleLines = wrapText(firstPart, maxTitleWidth).concat(wrapText(secondPart, maxTitleWidth));
-      } else {
-        titleLines = wrapText(rawTitle, maxTitleWidth);
-      }
-      const titleHeight = titleLines.length * 18;
+      const titleLines = rawTitle ? wrapText(rawTitle, maxTitleWidth) : [];
+      const titleHeight = rawTitle ? titleLines.length * 18 : 0;
 
       // Top offset for chart (gauge needs more space; multi-line title needs more space)
-      const chartTop = Math.max(isGaugeChart ? 55 : 40, 30 + titleHeight + 10);
+      const chartTop = rawTitle
+        ? Math.max(isGaugeChart ? 55 : 40, 30 + titleHeight + 10)
+        : (isGaugeChart ? 40 : 30);
       const topPadding = chartTop - 40;
 
       // Create a new SVG that will contain everything
@@ -207,21 +216,25 @@ const DownloadChartImageButton = ({ chartRef, chartTitle, muni, isSubregion, isR
       combinedSvg.setAttribute('viewBox', `0 0 ${svgWidth + 80} ${svgHeight + legendHeight + metadataHeight + 50 + topPadding}`);
       combinedSvg.style.backgroundColor = 'white';
       
-      // Add chart title (multiple lines when long)
-      const titleGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-      titleLines.forEach((line, i) => {
-        const titleLine = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        titleLine.setAttribute('x', 50);
-        titleLine.setAttribute('y', 30 + i * 18);
-        titleLine.setAttribute('font-family', 'Arial, sans-serif');
-        titleLine.setAttribute('font-size', '16px');
-        titleLine.setAttribute('font-weight', 'bold');
-        titleLine.setAttribute('fill', 'black');
-        titleLine.setAttribute('text-anchor', 'start');
-        titleLine.textContent = line;
-        titleGroup.appendChild(titleLine);
-      });
-      combinedSvg.appendChild(titleGroup);
+      // Add chart title (multiple lines when long), unless hidden
+      if (rawTitle) {
+        const titleGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        titleLines.forEach((line, i) => {
+          const titleLine = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          titleLine.setAttribute('x', 50);
+          titleLine.setAttribute('y', 30 + i * 18);
+          titleLine.setAttribute('font-family', 'Arial, sans-serif');
+          // Slightly smaller title font so long titles (including gauge charts)
+          // render consistently without being clipped in downloaded images.
+          titleLine.setAttribute('font-size', '14px');
+          titleLine.setAttribute('font-weight', 'bold');
+          titleLine.setAttribute('fill', 'black');
+          titleLine.setAttribute('text-anchor', 'start');
+          titleLine.textContent = line;
+          titleGroup.appendChild(titleLine);
+        });
+        combinedSvg.appendChild(titleGroup);
+      }
       
       // Add the chart SVG (chartTop leaves room for title so it doesn't overlap gauge)
       const chartGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -309,13 +322,32 @@ const DownloadChartImageButton = ({ chartRef, chartTitle, muni, isSubregion, isR
       // Add metadata with proper styling if it exists
       if (metadata) {
         const metadataGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-        metadataGroup.setAttribute('transform', `translate(50, ${chartTop + svgHeight + legendHeight + 10})`);
+        // Slightly tighter spacing between chart and metadata when no title is drawn (e.g., Internet Speed Test),
+        // so the exported image more closely matches on-screen layout.
+        const metadataYOffset = hideTitle
+          ? chartTop + svgHeight + legendHeight
+          : chartTop + svgHeight + legendHeight + 10;
+        metadataGroup.setAttribute('transform', `translate(50, ${metadataYOffset})`);
         
         // Get metadata sections
         const sourceTimeframe = metadata.querySelector('.source-timeframe');
         const link = metadata.querySelector('.link');
         
         let yOffset = 0;
+
+        // For Internet Speed Test metrics, add the title above Source/Years/Link, aligned vertically.
+        if (hideTitle && isSpeedTestMetrics) {
+          const titleText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          titleText.setAttribute('x', '0');
+          titleText.setAttribute('y', yOffset + 12);
+          titleText.setAttribute('font-family', 'Arial, sans-serif');
+          titleText.setAttribute('font-size', '12px');
+          titleText.setAttribute('font-weight', 'bold');
+          titleText.setAttribute('fill', 'black');
+          titleText.textContent = 'Internet Speed Test (Municipal)';
+          metadataGroup.appendChild(titleText);
+          yOffset += 18;
+        }
         
         if (sourceTimeframe) {
           const source = sourceTimeframe.querySelector('.source');
@@ -444,8 +476,21 @@ const DownloadChartImageButton = ({ chartRef, chartTitle, muni, isSubregion, isR
       onClick={downloadChartImage}
       disabled={isDownloading}
       title="Download chart as image"
+      aria-label="Download chart as image"
     >
-      {isDownloading ? 'Downloading...' : 'Download Image'}
+      <span aria-hidden="true">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 16 16"
+          fill="currentColor"
+        >
+          <title>Download chart as image</title>
+          <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0" />
+          <path d="M1.5 2A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2zm13 1a.5.5 0 0 1 .5.5v6l-3.775-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12v.54L1 12.5v-9a.5.5 0 0 1 .5-.5z" />
+        </svg>
+      </span>
     </DownloadButton>
   );
 };
@@ -457,6 +502,7 @@ DownloadChartImageButton.propTypes = {
   isSubregion: PropTypes.bool,
   isRPAregion: PropTypes.bool,
   displayName: PropTypes.string,
+  hideTitle: PropTypes.bool,
 };
 
 export default DownloadChartImageButton; 

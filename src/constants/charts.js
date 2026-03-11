@@ -638,7 +638,7 @@ export default {
         label: async () => {
           let queryString = `SELECT acs_year as latest_year FROM tabular.c15002_educational_attainment_by_race_acs_m GROUP BY acs_year ORDER BY acs_year DESC LIMIT 1`;
           const years = await fetchLatestYear(queryString);
-          return formatYearRange(years);
+          return formatYearRange(years) + " 5-Year Estimates";
         },
       },
       yAxis: { label: "Attainment", format: format.number.percentage }, // to do

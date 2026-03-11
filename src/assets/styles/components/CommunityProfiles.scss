@@ -129,6 +129,127 @@
     }
   }
 
+  .digital-equity-speed-stats-row {
+    margin-bottom: 0;
+    flex-wrap: wrap;
+  }
+
+  .digital-equity-speed-stats {
+    width: 100%;
+    max-width: 100%;
+
+    .digital-equity-speed-stat-grid {
+      display: block;
+      width: 100%;
+      text-align: center;
+    }
+
+    .digital-equity-speed-stats__title {
+      width: 100%;
+      margin: 0 0 1rem 0;
+      flex: 0 0 100%;
+      text-align: left;
+    }
+
+    .digital-equity-speed-stat {
+      padding: 1rem 1.5rem;
+      background-color: $color_bg-light;
+      border: 1px solid $color_font-medium;
+      border-radius: $elem_button-radius;
+      display: inline-flex;
+      flex-direction: column;
+      justify-content: space-between;
+      width: calc(25% - 1rem);
+      max-width: calc(25% - 1rem);
+      min-height: 140px;
+      margin: 0 0.5rem 1.5rem 0.5rem;
+      vertical-align: top;
+      font-family: $font_family-primary;
+      text-align: center;
+
+      .digital-equity-speed-stat__label {
+        font-size: $font_size-small;
+        color: $color_font-dark;
+        margin-bottom: 0.25rem;
+        font-style: normal;
+        text-align: center;
+        font-weight: 700;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        hyphens: auto;
+      }
+
+      .digital-equity-speed-stat__value {
+        font-size: 2rem;
+        font-weight: 600;
+        color: $color_font-dark;
+        text-align: center;
+      }
+    }
+
+    @include media(large) {
+      .digital-equity-speed-stat {
+        width: calc(50% - 1rem);
+        max-width: calc(50% - 1rem);
+      }
+    }
+
+    @include media(medium-small) {
+      .digital-equity-speed-stat {
+        width: 100%;
+        max-width: 100%;
+        margin: 0 0 1rem 0;
+      }
+    }
+
+    // Match chart metadata style for source / link
+    .metadata {
+      width: 100%;
+      margin-top: 0.75rem;
+      text-align: left;
+
+      .link a {
+        color: $color_font-medium;
+        cursor: pointer;
+        text-decoration: underline;
+
+        @media print {
+          color: unset;
+        }
+      }
+    }
+  }
+
+  .digital-equity-resources {
+    .digital-equity-resources__content {
+      padding: 0.5rem 0;
+      font-size: $font_size-xsmall;
+      color: $color_font-medium;
+    }
+
+    .digital-equity-resources__title {
+      margin: 0 0 0.5rem 0;
+      font-size: $font_size-small;
+      font-weight: 700;
+      color: $color_font-dark;
+    }
+
+    .digital-equity-resources__list {
+      margin: 0;
+      padding-left: 1rem;
+      li {
+        margin-bottom: 0.25rem;
+        a {
+          color: $color_font-medium;
+          text-decoration: underline;
+          &:hover {
+            color: $color_font-dark--brand;
+          }
+        }
+      }
+    }
+  }
+
   .data {
     @extend ._partial-bg;
     background-color: $color_bg-medium;

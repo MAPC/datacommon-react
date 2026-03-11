@@ -5,18 +5,24 @@ import { createSelector } from "@reduxjs/toolkit";
 import styled from "styled-components";
 
 const StyledButton = styled.button`
-  background: #6fc68e;
-  border: none;
-  border-radius: 5px;
-  color: #ffffff;
+  background: transparent;
+  border: 1px solid #555555;
+  border-radius: 4px;
+  color: #555555;
   cursor: pointer;
   font-family: "skolar-sans-latin", Helvetica, sans-serif;
   font-weight: 400;
   font-size: 12px;
-  padding: 8px 12px;
+  padding: 4px 8px;
 
   &:hover {
-    background: #5db37a;
+    color: #6fc68e;
+    border-color: #6fc68e;
+  }
+
+  i, span {
+    color: inherit;
+    font-size: 14px;
   }
 `;
 const SUBREGIONS = {
@@ -139,8 +145,23 @@ export default function DownloadChartButton({ chart, muni, isSubregion, isRPAreg
   };
 
   return (
-    <StyledButton onClick={downloadCsv} title="Download chart data as CSV">
-      Download Data
+    <StyledButton
+      onClick={downloadCsv}
+      title="Download chart data as CSV"
+      aria-label="Download chart data as CSV"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="16"
+        height="16"
+        viewBox="0 0 16 16"
+        fill="currentColor"
+        aria-hidden="true"
+      >
+        <title>Download chart data as CSV</title>
+        <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5" />
+        <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708z" />
+      </svg>
     </StyledButton>
   );
 }
