@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useDispatch, useSelector } from 'react-redux';
+import { useLocation, useNavigate } from "react-router-dom";
 import { fetchDatasets } from '../reducers/datasetSlice';
 import MetadataModal from "../components/partials/MetadataModal";
 import { formatUpdated, parseUpdatedForSort } from '../utils/formatUpdated';
@@ -147,6 +148,13 @@ const ContentHeader = styled.div`
   margin-bottom: 1.5rem;
 `;
 
+const HeaderControls = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+`;
+
 const SortContainer = styled.div`
   display: flex;
   align-items: center;
@@ -159,7 +167,7 @@ const SortLabel = styled.label`
 `;
 
 const SortSelect = styled.select`
-  padding: 0.5rem 1rem;
+  padding: 0.25rem 0.75rem;
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 0.9375rem;
@@ -169,6 +177,41 @@ const SortSelect = styled.select`
   &:focus {
     outline: none;
     border-color: #6fc68e;
+  }
+`;
+
+const ShareLinkContainer = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #666;
+`;
+
+const ShareLinkButton = styled.button`
+  background: linear-gradient(90deg, #64c08d, #5aba8c);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+
+  &:hover {
+    opacity: 0.9;
+  }
+`;
+
+const ShareStatusText = styled.span`
+  font-size: 0.8rem;
+  color: #666;
+
+  &:hover {
+    color: #555;
   }
 `;
 
@@ -365,15 +408,40 @@ const SearchInput = styled.input`
 const BrowserPage = () => {
   const dispatch = useDispatch();
   const datasets = useSelector(state => state.dataset.cache);
-  const [selectedSources, setSelectedSources] = useState([]);
-  const [selectedMenu1s, setSelectedMenu1s] = useState([]);
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const [selectedSources, setSelectedSources] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const sourcesParam = params.get("source");
+    return sourcesParam ? sourcesParam.split(",").filter(Boolean) : [];
+  });
+
+  const [selectedMenu1s, setSelectedMenu1s] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const categoriesParam = params.get("category");
+    return categoriesParam ? categoriesParam.split(",").filter(Boolean) : [];
+  });
+
   const [sortBy, setSortBy] = useState('A to Z');
   const [selectedDataset, setSelectedDataset] = useState(null);
   const [showMetadataModal, setShowMetadataModal] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("q") || "";
+  });
   const [displayDatasets, setDisplayDatasets] = useState([]);
   const [highlightMatches, setHighlightMatches] = useState({});
+  const [shareCopied, setShareCopied] = useState(false);
+
+  const arraysEqual = (a, b) => {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i += 1) {
+      if (a[i] !== b[i]) return false;
+    }
+    return true;
+  };
 
   useEffect(() => {
     dispatch(fetchDatasets());
@@ -463,6 +531,50 @@ const BrowserPage = () => {
     setDisplayDatasets(filtered);
   }, [datasets, selectedSources, selectedMenu1s, searchQuery]);
 
+  // Keep URL query parameters in sync with search and filters so users can share links
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+
+    const currentQ = params.get("q") || "";
+    const currentSources = (params.get("source") || "").split(",").filter(Boolean);
+    const currentCategories = (params.get("category") || "").split(",").filter(Boolean);
+
+    const shouldUpdate =
+      currentQ !== searchQuery ||
+      !arraysEqual(currentSources, selectedSources) ||
+      !arraysEqual(currentCategories, selectedMenu1s);
+
+    if (!shouldUpdate) {
+      return;
+    }
+
+    if (searchQuery) {
+      params.set("q", searchQuery);
+    } else {
+      params.delete("q");
+    }
+
+    if (selectedSources.length > 0) {
+      params.set("source", selectedSources.join(","));
+    } else {
+      params.delete("source");
+    }
+
+    if (selectedMenu1s.length > 0) {
+      params.set("category", selectedMenu1s.join(","));
+    } else {
+      params.delete("category");
+    }
+
+    const newSearch = params.toString();
+    const newUrl = `${location.pathname}${newSearch ? `?${newSearch}` : ""}`;
+    const currentUrl = `${location.pathname}${location.search}`;
+
+    if (newUrl !== currentUrl) {
+      navigate(newUrl, { replace: true });
+    }
+  }, [searchQuery, selectedSources, selectedMenu1s, location.pathname, location.search, navigate]);
+
   // Sort datasets
   const sortedDatasets = useMemo(() => {
     const sorted = [...displayDatasets];
@@ -531,6 +643,32 @@ const BrowserPage = () => {
     }
 
     return <>{segments}</>;
+  };
+
+  const handleCopyShareLink = async () => {
+    const url = window.location.href;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = url;
+        textArea.style.position = 'fixed';
+        textArea.style.top = '-1000px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      setShareCopied(true);
+      window.setTimeout(() => setShareCopied(false), 2000);
+    } catch (e) {
+      // If copying fails, just log; UI remains unchanged
+      // eslint-disable-next-line no-console
+      console.error('Failed to copy share link', e);
+    }
   };
 
   const handleSourceChange = (source) => {
@@ -668,19 +806,29 @@ const BrowserPage = () => {
             <div>
               <strong>{sortedDatasets.length}</strong> {sortedDatasets.length === 1 ? 'dataset' : 'datasets'} found
             </div>
-            <SortContainer>
-              <SortLabel htmlFor="sort-select">Sort by:</SortLabel>
-              <SortSelect
-                id="sort-select"
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-              >
-                <option value="A to Z">A to Z</option>
-                <option value="Z to A">Z to A</option>
-                <option value="Newest First">Newest First</option>
-                <option value="Oldest First">Oldest First</option>
-              </SortSelect>
-            </SortContainer>
+            <HeaderControls>
+              <SortContainer>
+                <SortLabel htmlFor="sort-select">Sort by:</SortLabel>
+                <SortSelect
+                  id="sort-select"
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                >
+                  <option value="A to Z">A to Z</option>
+                  <option value="Z to A">Z to A</option>
+                  <option value="Newest First">Newest First</option>
+                  <option value="Oldest First">Oldest First</option>
+                </SortSelect>
+              </SortContainer>
+              {(searchQuery.trim() || selectedSources.length > 0 || selectedMenu1s.length > 0) && (
+                <ShareLinkContainer>
+                  <ShareLinkButton type="button" onClick={handleCopyShareLink}>
+                    Share Search Result
+                  </ShareLinkButton>
+                  {shareCopied && <ShareStatusText>Link copied!</ShareStatusText>}
+                </ShareLinkContainer>
+              )}
+            </HeaderControls>
           </ContentHeader>
 
           <DatasetGrid>
