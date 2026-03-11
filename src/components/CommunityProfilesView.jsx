@@ -128,6 +128,11 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
         .digital-equity-speed-stats-row--nodata {
           display: none !important;
         }
+        /* Hide the additional Digital Equity resource links block entirely */
+        .tab__row.digital-equity-resources,
+        .tab__row.digital-equity-resources * {
+          display: none !important;
+        }
         /* Hide any chart panels that only show "Data not available." */
         .chart-wrapper:has(.missing-data) {
           display: none !important;

@@ -220,6 +220,26 @@
     }
   }
 
+  /* Ensure Internet Speed Test metric cards keep consistent height when printing (e.g. in Edge) */
+  @media print {
+    .digital-equity-speed-stats {
+      .digital-equity-speed-stat-grid {
+        display: flex !important;
+        flex-wrap: nowrap;
+        justify-content: center;
+      }
+
+      .digital-equity-speed-stat {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        width: 25%;
+        max-width: 25%;
+        margin: 0 0.5rem;
+      }
+    }
+  }
+
   .digital-equity-resources {
     .digital-equity-resources__content {
       padding: 0.5rem 0;
