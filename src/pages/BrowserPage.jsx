@@ -379,11 +379,19 @@ const BrowserPage = () => {
     dispatch(fetchDatasets());
   }, [dispatch]);
 
-  // Get unique sources and menu1 values
+  // Get unique sources
   const sources = useMemo(() => {
-    return [...new Set(datasets.map(d => d.source).filter(Boolean))].sort();
+    // Datasets with multiple sources have them separated by '; '.
+    // Source names should align across datasets, edit the table if a source is not consistent across datasets
+    const uniqueSources = new Set();
+    datasets.forEach(d => {
+      d.source && d.source.split("; ").forEach(s => uniqueSources.add(s));
+    });
+
+    return [...uniqueSources].sort();
   }, [datasets]);
 
+  // Get unique Menu1 values
   const menu1Options = useMemo(() => {
     return [...new Set(datasets.map(d => d.menu1).filter(Boolean))].sort();
   }, [datasets]);
@@ -392,7 +400,11 @@ const BrowserPage = () => {
     let filtered = datasets || [];
 
     if (selectedSources.length > 0) {
-      filtered = filtered.filter(d => selectedSources.includes(d.source));
+      filtered = filtered.filter(d => {
+        // check if any source in the dataset is a selected source
+        // datasets with multiple sources are separated with '; '
+        return d.source && d.source.split('; ').some(source => selectedSources.includes(source));
+      });
     }
 
     if (selectedMenu1s.length > 0) {
