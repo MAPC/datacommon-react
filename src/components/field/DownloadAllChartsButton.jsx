@@ -227,7 +227,7 @@ export default function DownloadAllChartsButton({ muni, datatype, displayName })
         const header = [
           [datatype === 'subregion' ? 'Subregion:' : 
            datatype === 'rpa' ? 'RPA Region:' : 
-           'Municipality:', muni],
+           'Municipality:', fileNamePrefix],
           []
         ];
         const ws = XLSX.utils.aoa_to_sheet(header);

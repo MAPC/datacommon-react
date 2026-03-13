@@ -12,6 +12,8 @@ import StackedAreaChart from "../containers/visualizations/StackedAreaChart";
 import ChartDetails from "./visualizations/ChartDetails";
 import PieChart from "../containers/visualizations/PieChart";
 import LineChart from "../containers/visualizations/LineChart";
+import GaugeChart from "../containers/visualizations/GaugeChart";
+import GroupedBarChart from "../containers/visualizations/GroupedBarChart";
 import DownloadAllChartsButton from './field/DownloadAllChartsButton';
 import DataTableModal from './field/DataTableModal';
 
@@ -165,10 +167,9 @@ const chunkArray = (array, size) => {
 const SubregionProfilesView = () => {
   const dispatch = useDispatch();
   const { subregionId, tab } = useParams();
-  // Subregion view does not support the Digital Equity tab
-  const availableTabs = tabs.filter((t) => t.value !== "digital-equity");
+  const availableTabs = tabs;
   const sanitizeTab = (value) =>
-    value && value !== "digital-equity" ? value : "demographics";
+    value ? value : "demographics";
   const [activeTab, setActiveTab] = useState(sanitizeTab(tab));
   const [modalConfig, setModalConfig] = useState({
     show: false,
@@ -180,8 +181,7 @@ const SubregionProfilesView = () => {
   const subregionCache = useSelector(state => state.subregion.cache);
   const municipalities = subregionData[subregionId]?.municipalities || [];
   
-  // Extract abbreviation from subregion name (e.g., "Inner Core Committee [ICC]" -> "ICC")
-  const subregionAbbr = SUBREGIONS[subregionId]?.match(/\[([^\]]+)\]/)?.[1] || subregionId;
+  const subregionName = SUBREGIONS[subregionId] || subregionId;
 
   useEffect(() => {
     setActiveTab(sanitizeTab(tab));
@@ -214,7 +214,7 @@ const SubregionProfilesView = () => {
 
   const handlePrint = async () => {
     // Get all charts for all tabs
-    const allTabs = Object.keys(charts).filter((t) => t !== "digital-equity");
+    const allTabs = Object.keys(charts);
     const allCharts = [];
     
     allTabs.forEach(tabKey => {
@@ -282,7 +282,7 @@ const SubregionProfilesView = () => {
                   <DownloadAllChartsButton 
                     muni={subregionId} 
                     datatype={'subregion'}
-                    displayName={subregionAbbr}
+                    displayName={subregionName}
                   />
                 </div>
               </div>
@@ -577,6 +577,134 @@ const SubregionProfilesView = () => {
                     isSubregion={true}
                   />
                 </ChartDetails>
+              </div>
+            </Tab>
+            <Tab active={activeTab === "digital-equity"}>
+              <header className="print-header">
+                <h3>Digital Equity</h3>
+              </header>
+              <div className="tab__row">
+                <ChartDetails 
+                  chart={charts["digital-equity"].no_computer_access} 
+                  muni={subregionId}
+                  onViewData={handleShowModal}
+                  isSubregion={true}
+                >
+                  <GaugeChart 
+                    chart={charts["digital-equity"].no_computer_access} 
+                    muni={subregionId}
+                    isSubregion={true}
+                  />
+                </ChartDetails>
+                <ChartDetails 
+                  chart={charts["digital-equity"].internet_access} 
+                  muni={subregionId}
+                  onViewData={handleShowModal}
+                  isSubregion={true}
+                >
+                  <GaugeChart 
+                    chart={charts["digital-equity"].internet_access} 
+                    muni={subregionId}
+                    isSubregion={true}
+                  />
+                </ChartDetails>
+                <ChartDetails 
+                  chart={charts["digital-equity"].smartphone_only} 
+                  muni={subregionId}
+                  onViewData={handleShowModal}
+                  isSubregion={true}
+                >
+                  <GaugeChart 
+                    chart={charts["digital-equity"].smartphone_only} 
+                    muni={subregionId}
+                    isSubregion={true}
+                  />
+                </ChartDetails>
+              </div>
+              <div className="tab__row">
+                <ChartDetails 
+                  chart={charts["digital-equity"].internet_usage_by_income} 
+                  muni={subregionId}
+                  onViewData={handleShowModal}
+                  isSubregion={true}
+                >
+                  <StackedBarChart 
+                    chart={charts["digital-equity"].internet_usage_by_income} 
+                    muni={subregionId}
+                    isSubregion={true}
+                  />
+                </ChartDetails>
+                <ChartDetails 
+                  chart={charts["digital-equity"].internet_subscription_types} 
+                  muni={subregionId}
+                  onViewData={handleShowModal}
+                  isSubregion={true}
+                >
+                  <GroupedBarChart 
+                    chart={charts["digital-equity"].internet_subscription_types} 
+                    muni={subregionId}
+                    isSubregion={true}
+                  />
+                </ChartDetails>
+              </div>
+              <div className="tab__row digital-equity-map">
+                <div className="chart-wrapper" style={{ maxWidth: "100%", flex: "0 0 100%" }}>
+                  <div className="chart-body">
+                    <iframe
+                      title="Digital Equity Map"
+                      src="https://experience.arcgis.com/experience/a7122a3c5c2d4b62a4ac63f3eee3f79e/"
+                      width="100%"
+                      height="600"
+                      style={{ border: "none" }}
+                      loading="lazy"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="tab__row digital-equity-resources">
+                <div className="chart-wrapper" style={{ maxWidth: "100%", flex: "0 0 100%" }}>
+                  <div className="digital-equity-resources__content">
+                    <h4 className="digital-equity-resources__title">Additional Digital Equity Resources</h4>
+                    <ul className="digital-equity-resources__list">
+                      <li>
+                        <a
+                          href="https://broadband.masstech.org/internetforall"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          MBI Internet for All MA Digital Equity Plan
+                        </a>
+                      </li>
+                      <li>
+                        <a
+                          href="https://broadbandmap.fcc.gov/data-download/nationwide-data?version=jun2025&pubDataVer=jun2025"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          FCC Broadband Serviceable Locations (BSL) Data
+                        </a>
+                      </li>
+                      <li>
+                        <a
+                          href="https://broadband.masstech.org/municipal"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          Municipal Digital Equity Plans
+                        </a>
+                      </li>
+                      <li>
+                        <a
+                          href="https://www.digitalinclusion.org/research-data/"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          National Digital Inclusion Alliance Data and Research
+                        </a>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
               </div>
             </Tab>
           </div>
