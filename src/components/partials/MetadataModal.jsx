@@ -173,7 +173,7 @@ const MetadataModal = ({ show, handleClose, dataset }) => {
       );
       
       // Handle gisdata differently - it has a different structure
-      if (dataset.db_name === 'gisdata') {
+      if (dataset.db_name === 'gisdata' || dataset.db_name === 'towndata') {
         // For gisdata, first get the metadata object from response
         const metadata = Object.values(response.data)[0];
         // Then navigate to documentation.metadata.eainfo.detailed.attr
@@ -183,7 +183,7 @@ const MetadataModal = ({ show, handleClose, dataset }) => {
           const mappedMetadata = eainfo.detailed.attr.map(attr => ({
             name: attr.attrlabl || 'N/A',
             alias: attr.attalias || 'N/A',
-            details: attr.attrdef || 'undefined'
+            details: attr.attrdef || 'N/A'
           }));
           setMetadata(mappedMetadata);
         } else {
