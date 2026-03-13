@@ -1961,6 +1961,23 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         const value = Math.max(0, Math.min(100, noComputer));
         return [{ value, marginOfError }];
       },
+      subregionDataQuery: (subregionId) => {
+        const queryString = `
+          SELECT 
+            acs_year,
+            muni_id,
+            municipal,
+            nocmp_p,
+            nocmp_mp
+          FROM tabular.s2801_computer_internet_acs_m
+          WHERE muni_id = '${subregionId}'
+            AND acs_year = (
+              SELECT MAX(acs_year)
+              FROM tabular.s2801_computer_internet_acs_m
+            )
+        `;
+        return queryString;
+      },
     },
     internet_access: {
       type: "gauge",
@@ -2046,6 +2063,23 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         const value = isNaN(noInternet) ? 0 : Math.max(0, Math.min(100, noInternet));
         return [{ value, marginOfError }];
       },
+      subregionDataQuery: (subregionId) => {
+        const queryString = `
+          SELECT 
+            acs_year,
+            muni_id,
+            municipal,
+            noint_p,
+            noint_mp
+          FROM tabular.s2801_computer_internet_acs_m
+          WHERE muni_id = '${subregionId}'
+            AND acs_year = (
+              SELECT MAX(acs_year)
+              FROM tabular.s2801_computer_internet_acs_m
+            )
+        `;
+        return queryString;
+      },
     },
     smartphone_only: {
       type: "gauge",
@@ -2125,6 +2159,23 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         const marginOfError = row.moblo_mp !== null && row.moblo_mp !== undefined ? parseFloat(row.moblo_mp) : null;
         const value = isNaN(smartphoneOnly) ? 0 : Math.max(0, Math.min(100, smartphoneOnly));
         return [{ value, marginOfError }];
+      },
+      subregionDataQuery: (subregionId) => {
+        const queryString = `
+          SELECT 
+            acs_year,
+            muni_id,
+            municipal,
+            moblo_p,
+            moblo_mp
+          FROM tabular.s2801_computer_internet_acs_m
+          WHERE muni_id = '${subregionId}'
+            AND acs_year = (
+              SELECT MAX(acs_year)
+              FROM tabular.s2801_computer_internet_acs_m
+            )
+        `;
+        return queryString;
       },
     },
     internet_usage_by_income: {
@@ -2219,6 +2270,32 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
           { x: cat.x, y: parse(row[cat.dialUp]), z: dialUpLabel, order: zOrder[dialUpLabel], me: parseMe(row[cat.dialUpMe]) },
           { x: cat.x, y: parse(row[cat.noInternet]), z: noInternetLabel, order: zOrder[noInternetLabel], me: parseMe(row[cat.noInternetMe]) },
         ]);
+      },
+      subregionDataQuery: (subregionId) => {
+        const queryString = `
+          SELECT 
+            acs_year,
+            municipal,
+            lt20dia_p,
+            lt20nin_p,
+            lt20dia_mp,
+            lt20nin_mp,
+            i2074di_p,
+            i2074ni_p,
+            i2074di_mp,
+            i2074ni_mp,
+            mt74dia_p,
+            mt74nin_p,
+            mt74dia_mp,
+            mt74nin_mp
+          FROM tabular.s2801_computer_internet_acs_m
+          WHERE muni_id = '${subregionId}'
+            AND acs_year = (
+              SELECT MAX(acs_year)
+              FROM tabular.s2801_computer_internet_acs_m
+            )
+        `;
+        return queryString;
       },
     },
     internet_subscription_types: {
@@ -2317,6 +2394,24 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
             order: yearRange === "2020-2024" ? 0 : 1,
           }));
         });
+      },
+      subregionDataQuery: (subregionId) => {
+        const queryString = `
+          SELECT 
+            acs_year,
+            municipal,
+            dialo_p,
+            dialo_mp,
+            cdpinto_p,
+            cdpinto_mp,
+            bbfib_p,
+            bbfib_mp
+          FROM tabular.s2801_computer_internet_acs_m
+          WHERE muni_id = '${subregionId}'
+            AND acs_year IN ('2020-24', '2015-19')
+          ORDER BY acs_year DESC
+        `;
+        return queryString;
       },
     },
   },
