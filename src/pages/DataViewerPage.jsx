@@ -50,29 +50,31 @@ class DataViewerClass extends React.Component {
 
   loadDatasetData() {
     const dataset = this.props.datasets.filter((datasetObj) => +datasetObj.seq_id === +this.props.params.id)[0];
-    let headerQuery;
     if (!dataset) {
       this.setState({ loading: false, error: "Dataset not found" });
       return;
     }
+
+    // construct the query for the data in the table and handle some special cases.
     let limit = 15000;
     if (dataset.table_name === "econ_es202_naics_4d_m" || dataset.table_name === "econ_es202_naics_2d_m" || dataset.table_name === "econ_es202_naics_3d_m") {
+      // these tables are large and need a much higher limit
+      // TODO: setup backend pagination and only fetch 25 results at a time?
       limit = 460000 ;
     }
-    
-    const tableQuery = axios.get(
-      `/api?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=${dataset.db_name}&schema=${dataset.schemaname}&table=${dataset.table_name}${dataset.yearcolumn ? `&orderByColumn=${dataset.yearcolumn}&orderByDirection=DESC` : ""}&limit=${limit}`,
-    );
-
-    if (dataset.db_name === "gisdata" || dataset.db_name === "towndata") {
-      headerQuery = axios.get(
-        `/api/metadata?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=${dataset.db_name}&schema=${dataset.schemaname}&table=${dataset.table_name}`,
-      );
-    } else {
-      headerQuery = axios.get(
-        `/api/metadata?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=${dataset.db_name}&schema=${dataset.schemaname}&table=${dataset.table_name}`,
-      );
+    let tableQueryUrl = `/api?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=${dataset.db_name}&schema=${dataset.schemaname}&table=${dataset.table_name}&limit=${limit}`;
+    if (dataset.yearcolumn) {
+      tableQueryUrl = `${tableQueryUrl}&orderByColumn=${dataset.yearcolumn}&orderByDirection=DESC`;
     }
+    if (dataset.table_name === "_data_browser") {
+      // filter on active datasets if viewing the data browser
+      tableQueryUrl = `${tableQueryUrl}&active=true`;
+    }
+    const tableQuery = axios.get(tableQueryUrl);
+
+    const headerQuery = axios.get(
+      `/api/metadata?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=${dataset.db_name}&schema=${dataset.schemaname}&table=${dataset.table_name}`,
+    );
 
     if (dataset.schemaname === "tabular") {
       if (dataset.yearcolumn) {
