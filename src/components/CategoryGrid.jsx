@@ -35,7 +35,7 @@ const CategoryGrid = () => {
   const renderCategories = useMemo(() => {
     return categories.map((category) => (
       <li key={category} className="lift">
-        <a href={`/browser/${category}`} className="category-link">
+        <a href={`/browser?category=${category}`} className="category-link">
           <div className="category-image">
             <img
               src={icons[category] || icons["default"]}
