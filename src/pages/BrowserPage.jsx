@@ -5,7 +5,6 @@ import { fetchDatasets } from '../reducers/datasetSlice';
 import MetadataModal from "../components/partials/MetadataModal";
 import { formatUpdated, parseUpdatedForSort } from '../utils/formatUpdated';
 import styled from 'styled-components';
-import { filter } from "d3";
 
 const PageContainer = styled.section`
   &.route.categories {
