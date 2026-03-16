@@ -31,7 +31,10 @@ function parseMonthYear(updatedStr) {
 export function formatUpdated(updatedStr) {
   const parsed = parseMonthYear(updatedStr);
   if (!parsed) return updatedStr == null || String(updatedStr).trim() === '' ? 'N/A' : String(updatedStr).trim();
-  return `${parsed.year}/${parsed.month}`;
+  // Format like "Feb, 2026"
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const monthLabel = monthNames[parsed.month - 1] || parsed.month;
+  return `${monthLabel}, ${parsed.year}`;
 }
 
 export function parseUpdatedForSort(updatedStr) {
