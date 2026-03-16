@@ -22,12 +22,16 @@ class DataViewerClass extends React.Component {
       loading: true,
       rowsPerPage: 25,
       selectedColumns: [], // Will be initialized with all columns
+      availableGeographies: [],
+      selectedGeographies: [],
+      geographyColumn: null,
     };
     this.updateSelectedYears = this.updateSelectedYears.bind(this);
     this.updateSelectedColumns = this.updateSelectedColumns.bind(this);
     this.updatePage = this.updatePage.bind(this);
     this.updateRowsPerPage = this.updateRowsPerPage.bind(this);
     this.loadDatasetData = this.loadDatasetData.bind(this);
+    this.updateSelectedGeographies = this.updateSelectedGeographies.bind(this);
     this.hasLoaded = false; // Flag to prevent duplicate API calls in StrictMode
   }
 
@@ -93,6 +97,24 @@ class DataViewerClass extends React.Component {
             const columnKeys = metadata
               .filter((object) => tableResults.data.rows[0] && Object.keys(tableResults.data.rows[0]).includes(object.name))
               .filter((header) => header.name !== "seq_id");
+
+            // Initialize geography filter for municipal (_m) tables
+            let geographyColumn = null;
+            let availableGeographies = [];
+            if (dataset.table_name && dataset.table_name.endsWith("_m")) {
+              const candidateColumns = ["muni_name", "municipal", "muni"];
+              geographyColumn = candidateColumns.find((col) => tableResults.data.rows[0] && col in tableResults.data.rows[0]) || null;
+              if (geographyColumn) {
+                const geoSet = new Set();
+                tableResults.data.rows.forEach((row) => {
+                  if (row[geographyColumn]) {
+                    geoSet.add(row[geographyColumn]);
+                  }
+                });
+                availableGeographies = Array.from(geoSet).sort((a, b) => String(a).localeCompare(String(b)));
+              }
+            }
+
             this.setState({
               availableYears: yearResults.data.rows
                 .map((year) => Object.values(year)[0])
@@ -117,6 +139,9 @@ class DataViewerClass extends React.Component {
               source: dataset.source,
               queryYearColumn: dataset.yearcolumn,
               updatedAt: dataset.updated,
+              geographyColumn,
+              availableGeographies,
+              selectedGeographies: availableGeographies, // default: show all
               loading: false,
             });
           })
@@ -137,6 +162,24 @@ class DataViewerClass extends React.Component {
             const columnKeys = metadata
               .filter((object) => tableResults.data.rows[0] && Object.keys(tableResults.data.rows[0]).includes(object.name))
               .filter((header) => header.name !== "seq_id");
+            
+            // Initialize geography filter for municipal (_m) tables
+            let geographyColumn = null;
+            let availableGeographies = [];
+            if (dataset.table_name && dataset.table_name.endsWith("_m")) {
+              const candidateColumns = ["muni_name", "municipal", "muni"];
+              geographyColumn = candidateColumns.find((col) => tableResults.data.rows[0] && col in tableResults.data.rows[0]) || null;
+              if (geographyColumn) {
+                const geoSet = new Set();
+                tableResults.data.rows.forEach((row) => {
+                  if (row[geographyColumn]) {
+                    geoSet.add(row[geographyColumn]);
+                  }
+                });
+                availableGeographies = Array.from(geoSet).sort((a, b) => String(a).localeCompare(String(b)));
+              }
+            }
+
             this.setState({
               rows: tableResults.data.rows,
               universe: universeData ? universeData.details : "",
@@ -151,6 +194,9 @@ class DataViewerClass extends React.Component {
               source: dataset.source,
               queryYearColumn: dataset.yearcolumn,
               updatedAt: dataset.updated,
+              geographyColumn,
+              availableGeographies,
+              selectedGeographies: availableGeographies, // default: show all
               loading: false,
             });
           })
@@ -261,6 +307,27 @@ class DataViewerClass extends React.Component {
     this.setState({ rowsPerPage, currentPage: 1 }); // Reset to page 1 when changing rows per page
   }
 
+  updateSelectedGeographies(geoName) {
+    this.setState((prevState) => {
+      const { selectedGeographies, availableGeographies } = prevState;
+      if (!availableGeographies || availableGeographies.length === 0) {
+        return prevState;
+      }
+
+      // Toggle selection
+      const isSelected = selectedGeographies.includes(geoName);
+      let nextSelection;
+
+      if (isSelected) {
+        nextSelection = selectedGeographies.filter((g) => g !== geoName);
+      } else {
+        nextSelection = [...selectedGeographies, geoName];
+      }
+
+      return { selectedGeographies: nextSelection, currentPage: 1 };
+    });
+  }
+
   render() {
     let pageContents;
 
@@ -290,6 +357,9 @@ class DataViewerClass extends React.Component {
             schema={this.state.schema}
             selectedColumns={this.state.selectedColumns}
             selectedYears={this.state.selectedYears}
+            availableGeographies={this.state.availableGeographies}
+            selectedGeographies={this.state.selectedGeographies}
+            updateSelectedGeographies={this.updateSelectedGeographies}
             source={this.state.source}
             table={this.state.table}
             title={this.state.title}
@@ -306,6 +376,8 @@ class DataViewerClass extends React.Component {
             rowsPerPage={this.state.rowsPerPage}
             selectedColumns={this.state.selectedColumns}
             selectedYears={this.state.selectedYears}
+            selectedGeographies={this.state.selectedGeographies}
+            geographyColumn={this.state.geographyColumn}
             updatePage={this.updatePage}
             updateRowsPerPage={this.updateRowsPerPage}
             metadata={this.state.metadata}

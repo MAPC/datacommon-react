@@ -143,6 +143,102 @@ const setSelectYears = (availableYears, updateSelectedYears, selectedYears) => {
   return null;
 };
 
+const GeographyFilter = ({ availableGeographies = [], selectedGeographies = [], updateSelectedGeographies }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isOpen]);
+
+  if (!availableGeographies.length || !updateSelectedGeographies) {
+    return null;
+  }
+
+  const totalCount = availableGeographies.length;
+  const selectedCount = selectedGeographies.length || 0;
+  const displayText =
+    selectedCount === 0
+      ? "No geographies selected"
+      : selectedCount === totalCount
+      ? `All geographies (${totalCount})`
+      : `${selectedCount} of ${totalCount} geographies selected`;
+
+  return (
+    <div className="column-filter-dropdown" ref={dropdownRef}>
+      <button
+        type="button"
+        className="column-dropdown-button"
+        onClick={() => setIsOpen(!isOpen)}
+        aria-expanded={isOpen}
+        aria-haspopup="true"
+      >
+        <span>{displayText}</span>
+        <span className="dropdown-arrow">{isOpen ? "▲" : "▼"}</span>
+      </button>
+      {isOpen && (
+        <div className="column-dropdown-menu">
+          <div className="column-dropdown-header">
+            <span>{displayText}</span>
+            <button
+              type="button"
+              className="select-all-button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (selectedCount === totalCount) {
+                  // Deselect all
+                  availableGeographies.forEach((geo) => {
+                    if (selectedGeographies.includes(geo)) {
+                      updateSelectedGeographies(geo);
+                    }
+                  });
+                } else {
+                  // Select all
+                  availableGeographies.forEach((geo) => {
+                    if (!selectedGeographies.includes(geo)) {
+                      updateSelectedGeographies(geo);
+                    }
+                  });
+                }
+              }}
+            >
+              {selectedCount === totalCount ? "Deselect All" : "Select All"}
+            </button>
+          </div>
+          <div className="column-checkboxes">
+            {availableGeographies.map((geo) => (
+              <label key={String(geo)} className="column-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={selectedGeographies.includes(geo)}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    updateSelectedGeographies(geo);
+                  }}
+                  className="column-checkbox"
+                />
+                <span>{geo}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const ColumnSelectorDropdown = ({ columnKeys, updateSelectedColumns, selectedColumns }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -286,6 +382,9 @@ function DatasetHeader({
   selectedColumns = [],
   selectedYears = [],
   updatedAt = "",
+  availableGeographies = [],
+  selectedGeographies = [],
+  updateSelectedGeographies,
 }) {
   return (
     <div className="page-header">
@@ -310,11 +409,18 @@ function DatasetHeader({
               {setUpdatedAt(updatedAt)}
             </ul>
             {setSelectYears(availableYears, updateSelectedYears, selectedYears)}
-            <ColumnSelectorDropdown
-              columnKeys={columnKeys}
-              updateSelectedColumns={updateSelectedColumns}
-              selectedColumns={selectedColumns}
-            />
+            <div style={{ marginTop: "12px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
+              <ColumnSelectorDropdown
+                columnKeys={columnKeys}
+                updateSelectedColumns={updateSelectedColumns}
+                selectedColumns={selectedColumns}
+              />
+              <GeographyFilter
+                availableGeographies={availableGeographies}
+                selectedGeographies={selectedGeographies}
+                updateSelectedGeographies={updateSelectedGeographies}
+              />
+            </div>
           </div>
           <div className="details-content-column download-section">
             {setDownloadButton(metadata, schema, table, title, description, selectedYears, queryYearColumn, database)}
@@ -351,6 +457,9 @@ DatasetHeader.propTypes = {
   title: PropTypes.string,
   updateSelectedColumns: PropTypes.func,
   updateSelectedYears: PropTypes.func.isRequired,
+  availableGeographies: PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.string, PropTypes.number])),
+  selectedGeographies: PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.string, PropTypes.number])),
+  updateSelectedGeographies: PropTypes.func,
   universe: PropTypes.string,
   updatedAt: PropTypes.string,
 };
