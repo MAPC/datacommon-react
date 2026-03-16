@@ -85,7 +85,20 @@ class DatasetTable extends React.Component {
   }
 
   render() {
-    const { columnKeys = [], currentPage = 1, metadata = [], queryYearColumn = "", rows = [], rowsPerPage = 25, selectedColumns = [], selectedYears = [], updatePage, updateRowsPerPage } = this.props;
+    const { 
+      columnKeys = [], 
+      currentPage = 1, 
+      metadata = [], 
+      queryYearColumn = "", 
+      rows = [], 
+      rowsPerPage = 25, 
+      selectedColumns = [], 
+      selectedYears = [], 
+      selectedGeographies = [], 
+      geographyColumn = null,
+      updatePage, 
+      updateRowsPerPage 
+    } = this.props;
     const { sortColumn, sortDirection } = this.state;
     
     // Filter columnKeys based on selectedColumns
@@ -99,6 +112,17 @@ class DatasetTable extends React.Component {
       allRows = rows.filter((row) => selectedYearsSet.has(row[queryYearColumn]));
     } else {
       allRows = rows;
+    }
+
+    // Apply geography filter if configured
+    if (geographyColumn) {
+      if (selectedGeographies && selectedGeographies.length > 0) {
+        const geoSet = new Set(selectedGeographies);
+        allRows = allRows.filter((row) => geoSet.has(row[geographyColumn]));
+      } else {
+        // If no geographies are selected, show zero rows
+        allRows = [];
+      }
     }
     
     // Apply sorting
@@ -209,6 +233,8 @@ DatasetTable.propTypes = {
   rowsPerPage: PropTypes.number,
   selectedColumns: PropTypes.arrayOf(PropTypes.string),
   selectedYears: PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.string, PropTypes.number])),
+  selectedGeographies: PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.string, PropTypes.number])),
+  geographyColumn: PropTypes.string,
   updatePage: PropTypes.func.isRequired,
   updateRowsPerPage: PropTypes.func.isRequired,
 };
