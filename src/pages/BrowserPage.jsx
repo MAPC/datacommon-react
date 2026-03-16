@@ -5,6 +5,7 @@ import { fetchDatasets } from '../reducers/datasetSlice';
 import MetadataModal from "../components/partials/MetadataModal";
 import { formatUpdated, parseUpdatedForSort } from '../utils/formatUpdated';
 import styled from 'styled-components';
+import { filter } from "d3";
 
 const PageContainer = styled.section`
   &.route.categories {
@@ -526,6 +527,18 @@ const BrowserPage = () => {
         return false;
       });
     }
+
+    // remove the duplicate datasets using table_name to identify duplicates
+    // note: we're leaving duplicates in the db b/c they have different menu1 values and we want to keep that for filtering
+    const dupesRemoved = [];
+    const seenDatasets = new Set();
+    filtered.forEach(dataset => {
+      if (!seenDatasets.has(dataset.table_name)) {
+        dupesRemoved.push(dataset);
+        seenDatasets.add(dataset.table_name);
+      }
+    });
+    filtered = dupesRemoved;
 
     setHighlightMatches(highlights);
     setDisplayDatasets(filtered);
