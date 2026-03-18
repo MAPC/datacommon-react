@@ -174,7 +174,8 @@ const SubregionProfilesView = () => {
   const [modalConfig, setModalConfig] = useState({
     show: false,
     data: null,
-    title: ''
+    title: '',
+    tableKey: ''
   });
 
   const subregionData = useSelector(selectSubregionData);
@@ -196,11 +197,12 @@ const SubregionProfilesView = () => {
     } 
   }, [activeTab, subregionId, dispatch]);
 
-  const handleShowModal = (data, title) => {
+  const handleShowModal = (data, title, tableKey = '') => {
     setModalConfig({
       show: true,
       data: data,
-      title: `${title} (Aggregated)`
+      title: `${title} (Aggregated)`,
+      tableKey,
     });
   }
 
@@ -208,7 +210,8 @@ const SubregionProfilesView = () => {
     setModalConfig({
       show: false,
       data: null,
-      title: ''
+      title: '',
+      tableKey: ''
     });
   };
 
@@ -407,11 +410,9 @@ const SubregionProfilesView = () => {
                   onViewData={handleShowModal}
                   isSubregion={true}
                 >
-                  <StackedBarChart
+                  <GroupedBarChart
                     chart={charts.education.edu_attainment_by_race}
                     muni={subregionId}
-                    horizontal={true}
-                    wrapLeftLabel={true}
                     isSubregion={true}
                   />
                 </ChartDetails>
@@ -717,6 +718,7 @@ const SubregionProfilesView = () => {
           data={modalConfig.data}
           title={modalConfig.title}
           muni={subregionId}
+          tableKey={modalConfig.tableKey}
           isSubregion={true}
         />
       </article>

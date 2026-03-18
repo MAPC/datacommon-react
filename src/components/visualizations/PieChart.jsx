@@ -130,19 +130,25 @@ class PieChart extends React.Component {
       .attr("stroke-width", "1")
       .on("mouseover", (event, d) => {
         const percentage = ((d.data.value * 100) / sum).toFixed(1);
-        const me = d.data.me;
-        const formattedME = typeof me === "number" ? d3.format(",")(me) : null;
+        const count = d.data.count ?? d.data.value;
+        const countME = d.data.countMarginOfError ?? d.data.me;
+        const formattedCount = typeof count === "number" ? d3.format(",")(count) : null;
+        const formattedME = typeof countME === "number" ? d3.format(",")(countME) : null;
         
         let tooltipContent = `
           <div style="padding: 4px;">
             <div style="font-weight: bold;">${d.data.label}</div>
             <div>Percentage: ${percentage}%</div>
         `;
+
+        if (formattedCount !== null) {
+          tooltipContent += `<div>Count: ${formattedCount}</div>`;
+        }
         
         if (formattedME !== null) {
-          tooltipContent += `<div>Margin of Error: ±${formattedME}</div>`;
-        }else{
-          tooltipContent += `<div>Margin of Error: Not Available</div>`;
+          tooltipContent += `<div>Margin of Error (Count): ±${formattedME}</div>`;
+        } else {
+          tooltipContent += `<div>Margin of Error (Count): Not Available</div>`;
         }
         
         tooltipContent += `</div>`;

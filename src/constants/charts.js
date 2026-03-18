@@ -15,6 +15,8 @@ const format = {
     nearestTenth: (d) => (notNothing(d) ? d.toFixed(1) : ""),
     ignoreFloat: (d) => (notNothing(d) && d % 1 == 0 ? d.toFixed(0) : ""),
     integerPercentage: (d) => (notNothing(d) ? `${(d * 100).toFixed(0)}%` : ""),
+    // For charts where the data is already in percent (0-100), not a ratio (0-1)
+    integerPercent: (d) => (notNothing(d) ? `${d.toFixed(0)}%` : ""),
     localeString: (d) => (notNothing(d) ? d.toLocaleString() : ""),
   },
 };
@@ -60,6 +62,7 @@ export default {
     race_ethnicity: {
       type: "stacked-bar",
       title: "Race and Ethnicity",
+      tooltip: { type: "countAndPercent" }, // Match Race and Ethnicity tooltip style: count + MOE and percent + percent MOE
       xAxis: { label: "5-Year Estimates" },
       yAxis: { label: "Population", format: format.number.localeString },
       tables: {
@@ -70,19 +73,37 @@ export default {
             "acs_year",
             "nhwhi",
             "nhwhi_me",
+            "nhwhi_p",
+            "nhwhi_mep",
+            "nh_mep",
             "nhaa",
             "nhaa_me",
+            "nhaa_p",
+            "nhaa_mep", 
             "nhna",
             "nhna_me",
+            "nhna_p",
+            "nhna_mep",
             "nhas",
             "nhas_me",
+            "nhas_p",
+            "nhas_mep",
             "nhpi",
             "nhpi_me",
+            "nhpi_p",
+            "nhpi_mep",
             "nhoth",
             "nhoth_me",
+            "nhoth_p",
+            "nhoth_mep",
             "nhmlt",
+            "nhmlt_me",
+            "nhmlt_p",
+            "nhmlt_mep",
             "lat",
             "lat_me",
+            "lat_p",
+            "lat_mep",
             "totpop",
             "totpop_me",
           ],
@@ -122,15 +143,21 @@ export default {
           return [];
         }
         const row = raceEthnicityData[0];
+        const toNumber = (v) => {
+          if (v == null || v === "") return undefined;
+          const n = Number(v);
+          return Number.isFinite(n) ? n : undefined;
+        };
+
         const groupings = {
-          nhwhi: { value: row.nhwhi, me: row.nhwhi_me },
-          nhaa: { value: row.nhaa, me: row.nhaa_me },
-          nhas: { value: row.nhas, me: row.nhas_me },
-          nhpi: { value: row.nhpi, me: row.nhpi_me },
-          nhoth: { value: row.nhoth, me: row.nhoth_me },
-          nhmlt: { value: row.nhmlt, me: row.lat_me },
-          nhna: { value: row.nhna, me: row.nhna_me },
-          lat: { value: row.lat, me: row.lat_me },
+          nhwhi: { value: toNumber(row.nhwhi), me: toNumber(row.nhwhi_me), pct: toNumber(row.nhwhi_p), pct_me: toNumber(row.nhwhi_mep) },
+          nhaa: { value: toNumber(row.nhaa), me: toNumber(row.nhaa_me), pct: toNumber(row.nhaa_p), pct_me: toNumber(row.nhaa_mep) },
+          nhas: { value: toNumber(row.nhas), me: toNumber(row.nhas_me), pct: toNumber(row.nhas_p), pct_me: toNumber(row.nhas_mep) },
+          nhpi: { value: toNumber(row.nhpi), me: toNumber(row.nhpi_me), pct: toNumber(row.nhpi_p), pct_me: toNumber(row.nhpi_mep) },
+          nhoth: { value: toNumber(row.nhoth), me: toNumber(row.nhoth_me), pct: toNumber(row.nhoth_p), pct_me: toNumber(row.nhoth_mep) },
+          nhmlt: { value: toNumber(row.nhmlt), me: toNumber(row.nhmlt_me), pct: toNumber(row.nhmlt_p), pct_me: toNumber(row.nhmlt_mep) },
+          nhna: { value: toNumber(row.nhna), me: toNumber(row.nhna_me), pct: toNumber(row.nhna_p), pct_me: toNumber(row.nhna_mep) },
+          lat: { value: toNumber(row.lat), me: toNumber(row.lat_me), pct: toNumber(row.lat_p), pct_me: toNumber(row.lat_mep) },
         };
         return Object.keys(groupings).reduce(
           (set, key) =>
@@ -145,6 +172,8 @@ export default {
                     me: groupings[key].me,
                     totpop: row.totpop,
                     totpop_me: row.totpop_me,
+                    pct: groupings[key].pct,
+                    pct_me: groupings[key].pct_me,
                   },
                 ]),
           [],
@@ -154,14 +183,15 @@ export default {
         const queryString = `
                 select 
               acs_year,
-              nhwhi,
-              nhaa,
-              nhna,
-              nhas,
-              nhpi,
-              nhoth,
-              nhmlt,
-              lat 
+              nhwhi, nhwhi_me, nhwhi_p, nhwhi_mep,
+              nhaa, nhaa_me, nhaa_p, nhaa_mep,
+              nhna, nhna_me, nhna_p, nhna_mep,
+              nhas, nhas_me, nhas_p, nhas_mep,
+              nhpi, nhpi_me, nhpi_p, nhpi_mep,
+              nhoth, nhoth_me, nhoth_p, nhoth_mep,
+              nhmlt, nhmlt_me, nhmlt_p, nhmlt_mep,
+              lat, lat_me, lat_p, lat_mep,
+              totpop, totpop_me
             from 
             tabular.b03002_race_ethnicity_acs_m 
             where muni_id = '${subregionId}'
@@ -174,14 +204,15 @@ export default {
         const queryString = `
                 select 
               acs_year,
-              nhwhi,
-              nhaa,
-              nhna,
-              nhas,
-              nhpi,
-              nhoth,
-              nhmlt,
-              lat 
+              nhwhi, nhwhi_me, nhwhi_p, nhwhi_mep,
+              nhaa, nhaa_me, nhaa_p, nhaa_mep,
+              nhna, nhna_me, nhna_p, nhna_mep,
+              nhas, nhas_me, nhas_p, nhas_mep,
+              nhpi, nhpi_me, nhpi_p, nhpi_mep,
+              nhoth, nhoth_me, nhoth_p, nhoth_mep,
+              nhmlt, nhmlt_me, nhmlt_p, nhmlt_mep,
+              lat, lat_me, lat_p, lat_mep,
+              totpop, totpop_me
             from 
             tabular.b03002_race_ethnicity_acs_m 
             where muni_id = '${rpaId}'
@@ -325,6 +356,7 @@ export default {
     resident_employment: {
       type: "stacked-bar",
       title: "Employment of Residents",
+      tooltip: { type: "countAndPercent", showTotals: true },
       xAxis: { label: "5-Year Estimates", format: format.string.default },
       yAxis: { label: "Population", format: format.number.localeString },
       tables: {
@@ -335,7 +367,7 @@ export default {
             const years = await fetchLatestYear(queryString);
             return years;
           },
-          columns: ["acs_year", "emp", "unemp", "clf", "clf_me", "emp_me", "unemp_me"],
+          columns: ["acs_year", "emp", "emp_me","emp_p","emp_mep","unemp", "unemp_me", "unemp_p","unemp_mep","clf", "clf_me","clf_p","clf_mep"],
         },
       },
       labels: {
@@ -371,6 +403,8 @@ export default {
                 y: row[key],
                 z: chart.labels[key],
                 me: row[`${key}_me`],
+                pct: row[`${key}_p`],
+                pct_me: row[`${key}_mep`],
                 totpop: row.clf,
                 totpop_me: row.clf_me,
               })),
@@ -632,16 +666,29 @@ export default {
       },
     },
     edu_attainment_by_race: {
-      type: "stacked-bar",
+      type: "grouped-bar",
       title: "Educational Attainment by Race",
       xAxis: {
-        label: async () => {
-          let queryString = `SELECT acs_year as latest_year FROM tabular.c15002_educational_attainment_by_race_acs_m GROUP BY acs_year ORDER BY acs_year DESC LIMIT 1`;
-          const years = await fetchLatestYear(queryString);
-          return formatYearRange(years) + " 5-Year Estimates";
+        label: "Level of Education",
+        format: format.string.default,
+        sort: (a, b) => {
+          const order = [
+            "Less than high school diploma",
+            "High school diploma",
+            "Some college or associate degree",
+            "Bachelor degree or higher",
+          ];
+          return order.indexOf(a) - order.indexOf(b);
         },
       },
-      yAxis: { label: "Attainment", format: format.number.percentage }, // to do
+      yAxis: {
+        label: "Attainment (%)",
+        format: (d) => {
+          if (d == null || isNaN(d)) return "";
+          const num = Number(d);
+          return `${num.toFixed(1)}%`;
+        },
+      },
       tables: {
         "tabular.c15002_educational_attainment_by_race_acs_m": {
           yearCol: "acs_year",
@@ -649,69 +696,131 @@ export default {
             "acs_year",
             "nhwlh",
             "nhwlh_me",
+            "nhwlh_p",
+            "nhwlh_mep",
             "nhwhs",
             "nhwhs_me",
+            "nhwhs_p",
+            "nhwhs_mep",
             "nhwsc",
             "nhwsc_me",
+            "nhwsc_p",
+            "nhwsc_mep",
             "nhwbd",
             "nhwbd_me",
+            "nhwbd_p",
+            "nhwbd_mep",
             "aalh",
             "aalh_me",
+            "aalh_p",
+            "aalh_mep",
             "aahs",
             "aahs_me",
+            "aahs_p",
+            "aahs_mep",
             "aasc",
             "aasc_me",
+            "aasc_p",
+            "aasc_mep",
             "aabd",
             "aabd_me",
+            "aabd_p",
+            "aabd_mep",
             "nalh",
             "nalh_me",
+            "nalh_p",
+            "nalh_mep",
             "nahs",
             "nahs_me",
+            "nahs_p",
+            "nahs_mep",
             "nasc",
-            "nasc_me",
+            "nasc_me",  
+            "nasc_p",
+            "nasc_mep",
             "nabd",
-            "nabd_me",
+            "nabd_me",  
+            "nabd_p",
+            "nabd_mep",
             "aslh",
             "aslh_me",
+            "aslh_p",
+            "aslh_mep",
             "ashs",
-            "ashs_me",
-            "assc",
-            "assc_me",
+            "ashs_me",  
+            "ashs_p",
+            "ashs_mep",
+            "assc", 
+            "assc_me",    
+            "assc_p",
+            "assc_mep",
             "asbd",
             "asbd_me",
+            "asbd_p",
+            "asbd_mep",
             "pilh",
             "pilh_me",
             "pihs",
             "pihs_me",
+            "pihs_p",
+            "pihs_mep",
             "pisc",
             "pisc_me",
+            "pisc_p",
+            "pisc_mep",
             "pibd",
             "pibd_me",
+            "pibd_p",
+            "pibd_mep",
             "othlh",
             "othlh_me",
+            "othlh_p",
+            "othlh_mep",
             "othhs",
-            "othhs_me",
+            "othhs_me", 
+            "othhs_p",
+            "othhs_mep",
             "othsc",
             "othsc_me",
+            "othsc_p",
+            "othsc_mep",
             "othbd",
             "othbd_me",
+            "othbd_p",
+            "othbd_mep",
             "mltlh",
             "mltlh_me",
+            "mltlh_p",
+            "mltlh_mep",
             "mlths",
             "mlths_me",
+            "mlths_p",
+            "mlths_mep",
             "mltsc",
             "mltsc_me",
+            "mltsc_p",
+            "mltsc_mep",
             "mltbd",
             "mltbd_me",
+            "mltbd_p",
+            "mltbd_mep",
             "latlh",
             "latlh_me",
+            "latlh_p",
+            "latlh_mep",
             "laths",
             "laths_me",
+            "laths_p",
+            "laths_mep",
             "latsc",
             "latsc_me",
-            "latbd",
+            "latsc_p",
+            "latsc_mep",
+            "latbd",  
             "latbd_me",
-          ],
+            "latbd_p",
+            "latbd_mep",
+          ],  
         },
       },
       labels: {
@@ -747,52 +856,43 @@ export default {
       datasetLinks: { "Educational Attainment by Race (Municipal)": 202 },
       transformer: (tables, chart) => {
         const eduData = tables["tabular.c15002_educational_attainment_by_race_acs_m"];
-        if (eduData.length < 1) {
-          return [];
-        }
-        const row = eduData.find((entry) => entry.acs_year === "2019-23"); // to do
+        if (!eduData || eduData.length < 1) return [];
+  
+        const row = eduData[eduData.length - 1] 
         const raceKeys = ["nhw", "aa", "na", "as", "pi", "oth", "mlt", "lat"];
         const eduKeys = ["lh", "hs", "sc", "bd"];
-        const totals = eduKeys.reduce(
-          (obj, edu) =>
-            Object.assign(obj, {
-              [edu]: raceKeys.reduce((sum, k) => sum + row[`${k}${edu}`], 0),
-            }),
-          {},
-        );
-        const consolidatedRow = eduKeys.reduce(
-          (obj, edu) =>
-            Object.assign(obj, {
-              [`nhw${edu}`]: row[`nhw${edu}`] / totals[edu],
-              [`aa${edu}`]: row[`aa${edu}`] / totals[edu],
-              [`na${edu}`]: row[`na${edu}`] / totals[edu],
-              [`as${edu}`]: row[`as${edu}`] / totals[edu],
-              [`pi${edu}`]: row[`pi${edu}`] / totals[edu],
-              [`oth${edu}`]: row[`oth${edu}`] / totals[edu],
-              [`mlt${edu}`]: row[`mlt${edu}`] / totals[edu],
-              [`lat${edu}`]: row[`lat${edu}`] / totals[edu],
-            }),
-          {},
-        );
-        return raceKeys.reduce(
-          (raceAcc, race) =>
-            raceAcc.concat(
-              eduKeys.reduce(
-                (eduAcc, edu) =>
-                  eduAcc.concat([
-                    {
-                      x: chart.labels[edu],
-                      y: consolidatedRow[`${race}${edu}`],
-                      z: chart.labels[race],
-                      me: row[`${race}${edu}_me`],
-                      totpop: totals[edu],
-                    },
-                  ]),
-                [],
-              ),
-            ),
-          [],
-        );
+
+        const toNumber = (v) => {
+          if (v == null || v === "") return 0;
+          const n = Number(v);
+          return Number.isFinite(n) ? n : 0;
+        };
+
+        const toMeNumber = (v) => {
+          if (v == null || v === "") return undefined;
+          const n = Number(v);
+          return Number.isFinite(n) ? n : undefined;
+        };
+
+        // One bar per (education level, race). Bars are colored by race.
+        return raceKeys.reduce((raceAcc, race, raceIdx) => {
+          return raceAcc.concat(
+            eduKeys.reduce((eduAcc, edu) => {
+              return eduAcc.concat([
+                {
+                  x: chart.labels[edu],
+                  y: toNumber(row[`${race}${edu}_p`]), // attainment percent (0-100)
+                  z: chart.labels[race],
+                  me: toMeNumber(row[`${race}${edu}_mep`]), // percent margin of error
+                  count: toNumber(row[`${race}${edu}`]),
+                  countMarginOfError: toMeNumber(row[`${race}${edu}_me`]),
+                  color: chart.colors?.[race],
+                  order: raceIdx,
+                },
+              ]);
+            }, []),
+          );
+        }, []);
       },
       subregionDataQuery: (subregionId) => {
         const queryString = `
@@ -1216,10 +1316,11 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
     cost_burden: {
       type: "stacked-bar",
       title: "Housing Cost Burden",
+      tooltip: { type: "percentAndCount" },
       xAxis: { label: "Cost Burden Categories" },
       yAxis: {
         label: "Owner-Renter Ratio",
-        format: format.number.integerPercentage,
+        format: format.number.integerPercent,
       },
       tables: {
         "tabular.b25091_b25070_costburden_acs_m": {
@@ -1229,7 +1330,15 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
             const years = await fetchLatestYear(queryString);
             return years;
           },
-          columns: ["acs_year", "occv2", "cb", "o_notcb" ,"o_notcbmep", "r_notcb", "r_notcbme","ocb3050","ocb3050me", "rcb3050", "rcb3050me", "cb_3050", "cb_3050_me", "o_cb50", "o_cb50me", "r_cb50","r_cb50_mep", "cb_50","cb_50_me"],
+          columns: ["acs_year", "occv2", "cb", 
+            "o_notcb" ,"o_notcbme", "o_notcb_p","o_notcbmep",
+            "r_notcb", "r_notcbme", "r_notcb_p","r_notcbmep",
+            "ocb3050","ocb3050me", "ocb3050_p","ocb3050mep", 
+            "rcb3050", "rcb3050me", "rcb3050_p","rcb3050mep", 
+            "cb_3050", "cb_3050_me", "cb_3050_p","cb_3050mep", 
+            "o_cb50", "o_cb50me", "o_cb50_p","o_cb50_mep", 
+            "r_cb50","r_cb50me", "r_cb50_p","r_cb50_mep", 
+            "cb_50","cb_50_me","cb_50_p","cb_50_mep"],
         },
       },
       labels: {
@@ -1252,41 +1361,56 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
           return [];
         }
         const row = costData[0];
+        console.log("row", row);
         return [
-          {
+          { // % of Owner not cost burdened
             x: chart.labels.not_cb,
-            y: row.o_notcb / (row.occv2 - row.cb),
-            me: row.o_notcbmep ,
+            y: row.o_notcb_p,
+            // Percentage MOE
+            me: row.o_notcbmep,
+            count: row.o_notcb,
+            // Count MOE
+            countMarginOfError: row.o_notcbme,
             z: chart.labels.owner,
           },
-          {
+          { // % of Renter not cost burdened
             x: chart.labels.not_cb,
-            y: row.r_notcb / (row.occv2 - row.cb),
-            me: row.r_notcbme,
+            y: row.r_notcb_p,
+            me: row.r_notcbmep,
+            count: row.r_notcb,
+            countMarginOfError: row.r_notcbme,
             z: chart.labels.renter,
           },
-          {
+          { // %  of Owner paying 30-50% of income 
             x: chart.labels.p3050,
-            y: row.ocb3050 / row.cb_3050,
-            me: row.ocb3050me,
+            y: row.ocb3050_p,
+            me: row.ocb3050mep,
+            count: row.ocb3050,
+            countMarginOfError: row.ocb3050me,
             z: chart.labels.owner,
           },
-          {
+          { // % of Renter paying 30-50% of income 
             x: chart.labels.p3050,
-            y: row.rcb3050 / row.cb_3050,
-            me: row.rcb3050me,
+            y: row.rcb3050_p,
+            me: row.rcb3050mep,
+            count: row.rcb3050,
+            countMarginOfError: row.rcb3050me,
             z: chart.labels.renter,
           },
-          {
+          { // % of Owner paying 50%+ of income
             x: chart.labels["p50+"],
-            y: row.o_cb50 / row.cb_50,
-            me: row.o_cb50me,
+            y: row.o_cb50_p,
+            me: row.o_cb50_mep,
+            count: row.o_cb50,
+            countMarginOfError: row.o_cb50me,
             z: chart.labels.owner,
           },
-          {
+          { // % of Renter paying 50%+ of income
             x: chart.labels["p50+"],
-            y: row.r_cb50 / row.cb_50,
+            y: row.r_cb50_p,
             me: row.r_cb50_mep,
+            count: row.r_cb50,
+            countMarginOfError: row.r_cb50me,
             z: chart.labels.renter,
           },
         ];
@@ -1294,17 +1418,49 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
       subregionDataQuery: (subregionId) => {
         const queryString = `
              SELECT 
-            acs_year,
-             occv2,
-             cb,
-             o_notcb,
-             r_notcb,
-             ocb3050,
-             rcb3050,
-             cb_3050,
-             o_cb50,
-             r_cb50,
-            cb_50
+             acs_year,
+            occv2,
+            cb,
+
+            o_notcb,
+            o_notcbme,
+            o_notcb_p,
+            o_notcbmep,
+
+            r_notcb,
+            r_notcbme,
+            r_notcb_p,
+            r_notcbmep,
+
+            ocb3050,
+            ocb3050me,
+            ocb3050_p,
+            ocb3050mep,
+
+            rcb3050,
+            rcb3050me,
+            rcb3050_p,
+            rcb3050mep,
+
+            cb_3050,
+            cb_3050_me,
+            cb_3050_p,
+            cb_3050mep,
+
+            o_cb50,
+            o_cb50me,
+            o_cb50_p,
+            o_cb50_mep,
+
+            r_cb50,
+            r_cb50me,
+            r_cb50_p,
+            r_cb50_mep,
+
+            cb_50,
+            cb_50_me,
+            cb_50_p,
+            cb_50_mep
         FROM tabular.b25091_b25070_costburden_acs_m
         WHERE muni_id = '${subregionId}'
         AND acs_year = (
@@ -1825,10 +1981,13 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
           return [];
         }
         const row = commData[0];
+       
         return Object.keys(chart.labels).map((key) => ({
           value: row[key],
           label: chart.labels[key],
-          me: row[`${key}me`] !== undefined ? row[`${key}me`] : row[`${key}_me`]
+          count: row[key],
+          countMarginOfError: row[`${key}me`] !== undefined ? row[`${key}me`] : row[`${key}_me`]
+          
         }));
       },
       subregionDataQuery: (subregionId) => {
@@ -1913,7 +2072,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
                     FROM tabular.s2801_computer_internet_acs_m
                     WHERE acs_year = (SELECT MAX(acs_year) FROM tabular.s2801_computer_internet_acs_m)
                 )
-                SELECT acs_year, muni_id, municipal, nocmp_p, nocmp_mp
+                SELECT acs_year, muni_id, municipal, nocmp, nocmpm, nocmp_p, nocmp_mp
                 FROM latest_data t
                 WHERE t.muni_id IN (SELECT county_id FROM city_county_id)
                   OR t.municipal ILIKE '${municipalityFormatted}%'
@@ -1959,7 +2118,9 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         const noComputer = parseFloat(row.nocmp_p) || 0;
         const marginOfError = row.nocmp_mp !== null && row.nocmp_mp !== undefined ? parseFloat(row.nocmp_mp) : null;
         const value = Math.max(0, Math.min(100, noComputer));
-        return [{ value, marginOfError }];
+        const count = row.nocmp !== null && row.nocmp !== undefined ? parseFloat(row.nocmp) : null;
+        const countMarginOfError = row.nocmpm !== null && row.nocmpm !== undefined ? parseFloat(row.nocmpm) : null;
+        return [{ value, marginOfError, count, countMarginOfError }];
       },
       subregionDataQuery: (subregionId) => {
         const queryString = `
@@ -1967,6 +2128,8 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
             acs_year,
             muni_id,
             municipal,
+            nocmp,
+            nocmpm,
             nocmp_p,
             nocmp_mp
           FROM tabular.s2801_computer_internet_acs_m
@@ -2012,7 +2175,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
                   FROM tabular.s2801_computer_internet_acs_m
                   WHERE acs_year = (SELECT MAX(acs_year) FROM tabular.s2801_computer_internet_acs_m)
               )
-              SELECT acs_year, muni_id, municipal, noint_p, noint_mp
+              SELECT acs_year, muni_id, municipal,noint, nointm, noint_p, noint_mp
               FROM latest_data t
               WHERE t.muni_id IN (SELECT county_id FROM city_county_id)
                 OR t.municipal ILIKE '${municipalityFormatted}%'
@@ -2061,7 +2224,10 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
             ? parseFloat(row.noint_mp)
             : null;
         const value = isNaN(noInternet) ? 0 : Math.max(0, Math.min(100, noInternet));
-        return [{ value, marginOfError }];
+        const count = row.noint !== null && row.noint !== undefined ? parseFloat(row.noint) : null;
+        const countMarginOfError =
+          row.nointm !== null && row.nointm !== undefined ? parseFloat(row.nointm) : null;
+        return [{ value, marginOfError, count, countMarginOfError }];
       },
       subregionDataQuery: (subregionId) => {
         const queryString = `
@@ -2069,6 +2235,8 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
             acs_year,
             muni_id,
             municipal,
+            noint,
+            nointm,
             noint_p,
             noint_mp
           FROM tabular.s2801_computer_internet_acs_m
@@ -2115,7 +2283,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
                     FROM tabular.s2801_computer_internet_acs_m
                     WHERE acs_year = (SELECT MAX(acs_year) FROM tabular.s2801_computer_internet_acs_m)
                 )
-                SELECT acs_year, muni_id, municipal, moblo_p, moblo_mp
+                SELECT acs_year, muni_id, municipal, moblo, moblom, moblo_p, moblo_mp
                 FROM latest_data t
                 WHERE t.muni_id IN (SELECT county_id FROM city_county_id)
                   OR t.municipal ILIKE '${municipalityFormatted}%'
@@ -2158,7 +2326,11 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         const smartphoneOnly = row.moblo_p !== null && row.moblo_p !== undefined ? parseFloat(row.moblo_p) : 0;
         const marginOfError = row.moblo_mp !== null && row.moblo_mp !== undefined ? parseFloat(row.moblo_mp) : null;
         const value = isNaN(smartphoneOnly) ? 0 : Math.max(0, Math.min(100, smartphoneOnly));
-        return [{ value, marginOfError }];
+        const marginOfErrorSafe = isNaN(marginOfError) ? null : marginOfError;
+        const count = row.moblo !== null && row.moblo !== undefined ? parseFloat(row.moblo) : null;
+        const countMarginOfError =
+          row.moblom !== null && row.moblom !== undefined ? parseFloat(row.moblom) : null;
+        return [{ value, marginOfError: marginOfErrorSafe, count, countMarginOfError }];
       },
       subregionDataQuery: (subregionId) => {
         const queryString = `
@@ -2166,6 +2338,8 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
             acs_year,
             muni_id,
             municipal,
+            moblo,
+            moblom,
             moblo_p,
             moblo_mp
           FROM tabular.s2801_computer_internet_acs_m
@@ -2181,6 +2355,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
     internet_usage_by_income: {
       type: "stacked-bar",
       title: "Internet Usage by Income Level",
+      tooltip: { type: "percentAndCount" },
       xAxis: {
         label: "Household Income Level",
         format: format.string.default,
@@ -2205,23 +2380,66 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
           columns: [
             "acs_year",
             "municipal",
+            "lt20dia",
+            "lt20diam",
             "lt20dia_p",
-            "lt20nin_p",
             "lt20dia_mp",
+            "lt20nin",
+            "lt20ninm",
+            "lt20nin_p",
             "lt20nin_mp",
+            "i2074di",
+            "i2074dim",
             "i2074di_p",
-            "i2074ni_p",
             "i2074di_mp",
+            "i2074ni",
+            "i2074nim",
+            "i2074ni_p",
             "i2074ni_mp",
+            "mt74dia",
+            "mt74diam",
             "mt74dia_p",
-            "mt74nin_p",
             "mt74dia_mp",
+            "mt74nin",
+            "mt74ninm",
+            "mt74nin_p",
             "mt74nin_mp",
           ],
           specialFetch: async (municipality, dispatchUpdate) => {
             const tabular_api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
             const municipalityFormatted = municipality.replace("-", " ");
-            const queryString = `SELECT acs_year, municipal, lt20dia_p, lt20nin_p, lt20dia_mp, lt20nin_mp, i2074di_p, i2074ni_p, i2074di_mp, i2074ni_mp, mt74dia_p, mt74nin_p, mt74dia_mp, mt74nin_mp FROM tabular.s2801_computer_internet_acs_m WHERE municipal ilike '${municipalityFormatted}%' AND acs_year = (SELECT MAX(acs_year) FROM tabular.s2801_computer_internet_acs_m)`;
+            const queryString = `
+              SELECT 
+                acs_year,
+                municipal,
+                lt20dia,
+                lt20diam,
+                lt20dia_p,
+                lt20dia_mp,
+                lt20nin,
+                lt20ninm,
+                lt20nin_p,
+                lt20nin_mp,
+                i2074di,
+                i2074dim,
+                i2074di_p,
+                i2074di_mp,
+                i2074ni,
+                i2074nim,
+                i2074ni_p,
+                i2074ni_mp,
+                mt74dia,
+                mt74diam,
+                mt74dia_p,
+                mt74dia_mp,
+                mt74nin,
+                mt74ninm,
+                mt74nin_p,
+                mt74nin_mp
+              FROM tabular.s2801_computer_internet_acs_m
+              WHERE municipal ilike '${municipalityFormatted}%'
+                AND acs_year = (SELECT MAX(acs_year) FROM tabular.s2801_computer_internet_acs_m)
+            `;
             const response = await fetch(`${tabular_api}${encodeURIComponent(queryString)}`);
             if (!response.ok) {
               throw new Error(`HTTP error! status: ${response.status}`);
@@ -2259,16 +2477,67 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
           return isNaN(parsed) ? undefined : parsed;
         };
         const categories = [
-          { x: "Below $20000", dialUp: "lt20dia_p", noInternet: "lt20nin_p", dialUpMe: "lt20dia_mp", noInternetMe: "lt20nin_mp" },
-          { x: "$20000 - $74999", dialUp: "i2074di_p", noInternet: "i2074ni_p", dialUpMe: "i2074di_mp", noInternetMe: "i2074ni_mp" },
-          { x: "$75000+", dialUp: "mt74dia_p", noInternet: "mt74nin_p", dialUpMe: "mt74dia_mp", noInternetMe: "mt74nin_mp" },
+          {
+            x: "Below $20000",
+            dialUp: "lt20dia_p",
+            noInternet: "lt20nin_p",
+            dialUpMe: "lt20dia_mp",
+            noInternetMe: "lt20nin_mp",
+            dialUpCount: "lt20dia",
+            noInternetCount: "lt20nin",
+            dialUpCountMe: "lt20diam",
+            noInternetCountMe: "lt20ninm",
+          },
+          {
+            x: "$20000 - $74999",
+            dialUp: "i2074di_p",
+            noInternet: "i2074ni_p",
+            dialUpMe: "i2074di_mp",
+            noInternetMe: "i2074ni_mp",
+            dialUpCount: "i2074di",
+            noInternetCount: "i2074ni",
+            dialUpCountMe: "i2074dim",
+            noInternetCountMe: "i2074nim",
+          },
+          {
+            x: "$75000+",
+            dialUp: "mt74dia_p",
+            noInternet: "mt74nin_p",
+            dialUpMe: "mt74dia_mp",
+            noInternetMe: "mt74nin_mp",
+            dialUpCount: "mt74dia",
+            noInternetCount: "mt74nin",
+            dialUpCountMe: "mt74diam",
+            noInternetCountMe: "mt74ninm",
+          },
         ];
         const dialUpLabel = chart.labels && chart.labels["dial-up only"] ? chart.labels["dial-up only"] : "Dial-up only";
         const noInternetLabel = chart.labels && chart.labels["no internet"] ? chart.labels["no internet"] : "No internet";
         const zOrder = { [dialUpLabel]: 0, [noInternetLabel]: 1 };
+        const parseCount = (v) => {
+          if (v == null || v === "" || v === undefined) return undefined;
+          const parsed = parseFloat(v);
+          return isNaN(parsed) ? undefined : parsed;
+        };
         return categories.flatMap((cat) => [
-          { x: cat.x, y: parse(row[cat.dialUp]), z: dialUpLabel, order: zOrder[dialUpLabel], me: parseMe(row[cat.dialUpMe]) },
-          { x: cat.x, y: parse(row[cat.noInternet]), z: noInternetLabel, order: zOrder[noInternetLabel], me: parseMe(row[cat.noInternetMe]) },
+          {
+            x: cat.x,
+            y: parse(row[cat.dialUp]),
+            z: dialUpLabel,
+            order: zOrder[dialUpLabel],
+            me: parseMe(row[cat.dialUpMe]),
+            count: parseCount(row[cat.dialUpCount]),
+            countMarginOfError: parseCount(row[cat.dialUpCountMe]),
+          },
+          {
+            x: cat.x,
+            y: parse(row[cat.noInternet]),
+            z: noInternetLabel,
+            order: zOrder[noInternetLabel],
+            me: parseMe(row[cat.noInternetMe]),
+            count: parseCount(row[cat.noInternetCount]),
+            countMarginOfError: parseCount(row[cat.noInternetCountMe]),
+          },
         ]);
       },
       subregionDataQuery: (subregionId) => {
@@ -2276,17 +2545,29 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
           SELECT 
             acs_year,
             municipal,
+            lt20dia,
+            lt20diam,
             lt20dia_p,
-            lt20nin_p,
             lt20dia_mp,
+            lt20nin,
+            lt20ninm,
+            lt20nin_p,
             lt20nin_mp,
+            i2074di,
+            i2074dim,
             i2074di_p,
-            i2074ni_p,
             i2074di_mp,
+            i2074ni,
+            i2074nim,
+            i2074ni_p,
             i2074ni_mp,
+            mt74dia,
+            mt74diam,
             mt74dia_p,
-            mt74nin_p,
             mt74dia_mp,
+            mt74nin,
+            mt74ninm,
+            mt74nin_p,
             mt74nin_mp
           FROM tabular.s2801_computer_internet_acs_m
           WHERE muni_id = '${subregionId}'
@@ -2329,17 +2610,26 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
           columns: [
             "acs_year",
             "municipal",
+            "dialo",
+            "dialom",
             "dialo_p",
             "dialo_mp",
+            "cdpinto",
+            "cdpintom",
             "cdpinto_p",
             "cdpinto_mp",
+            "bbfib",
+            "bbfibm",
             "bbfib_p",
             "bbfib_mp",
           ],
           specialFetch: async (municipality, dispatchUpdate) => {
             const tabular_api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
             const municipalityFormatted = municipality.replace("-", " ");
-            const queryString = `SELECT acs_year, municipal, dialo_p, dialo_mp, cdpinto_p, cdpinto_mp, bbfib_p, bbfib_mp FROM tabular.s2801_computer_internet_acs_m WHERE municipal ilike '${municipalityFormatted}%' AND acs_year IN ('2020-24', '2015-19') ORDER BY acs_year DESC`;
+            const queryString = `SELECT 
+            acs_year, municipal, 
+            dialo, dialom, dialo_p, 
+            dialo_mp, cdpinto, cdpintom, cdpinto_p, cdpinto_mp, bbfib, bbfibm, bbfib_p, bbfib_mp FROM tabular.s2801_computer_internet_acs_m WHERE municipal ilike '${municipalityFormatted}%' AND acs_year IN ('2020-24', '2015-19') ORDER BY acs_year DESC`;
             const response = await fetch(`${tabular_api}${encodeURIComponent(queryString)}`);
             if (!response.ok) {
               throw new Error(`HTTP error! status: ${response.status}`);
@@ -2373,6 +2663,11 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
           const parsed = parseFloat(v);
           return isNaN(parsed) ? undefined : parsed;
         };
+        const parseCount = (v) => {
+          if (v == null || v === "" || v === undefined) return undefined;
+          const parsed = parseFloat(v);
+          return isNaN(parsed) ? undefined : parsed;
+        };
         const formatYearRange = (yearStr) => {
           if (yearStr === '2020-24') return '2020-2024';
           if (yearStr === '2015-19') return '2015-2019';
@@ -2380,9 +2675,27 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
           return `${start}-20${end}`;
         };
         const subscriptionTypes = [
-          { x: "Broadband (Cable, DSL)", column: "bbfib_p", meColumn: "bbfib_mp" },
-          { x: "Cellular Plan", column: "cdpinto_p", meColumn: "cdpinto_mp" },
-          { x: "dial-up", column: "dialo_p", meColumn: "dialo_mp" },
+          {
+            x: "Broadband (Cable, DSL)",
+            column: "bbfib_p",
+            meColumn: "bbfib_mp",
+            countColumn: "bbfib",
+            countMeColumn: "bbfibm",
+          },
+          {
+            x: "Cellular Plan",
+            column: "cdpinto_p",
+            meColumn: "cdpinto_mp",
+            countColumn: "cdpinto",
+            countMeColumn: "cdpintom",
+          },
+          {
+            x: "dial-up",
+            column: "dialo_p",
+            meColumn: "dialo_mp",
+            countColumn: "dialo",
+            countMeColumn: "dialom",
+          },
         ];
         return data.flatMap((row) => {
           const yearRange = formatYearRange(row.acs_year);
@@ -2391,6 +2704,8 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
             y: parse(row[type.column]),
             z: yearRange,
             me: parseMe(row[type.meColumn]),
+            count: parseCount(row[type.countColumn]),
+            countMarginOfError: parseCount(row[type.countMeColumn]),
             order: yearRange === "2020-2024" ? 0 : 1,
           }));
         });
@@ -2400,10 +2715,16 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
           SELECT 
             acs_year,
             municipal,
+            dialo,
+            dialom,
             dialo_p,
             dialo_mp,
+            cdpinto,
+            cdpintom,
             cdpinto_p,
             cdpinto_mp,
+            bbfib,
+            bbfibm,
             bbfib_p,
             bbfib_mp
           FROM tabular.s2801_computer_internet_acs_m

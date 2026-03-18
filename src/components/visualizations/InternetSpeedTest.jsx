@@ -122,7 +122,8 @@ const InternetSpeedTest = ({ municipalityName, onViewData }) => {
 
   const handleViewDataClick = () => {
     if (!onViewData || !rowsRef.current || rowsRef.current.length === 0) return;
-    onViewData(rowsRef.current, "Internet Speed Test (Municipal)");
+    // Pass the backing table so `DataTableModal` can fetch column aliases for header labels.
+    onViewData(rowsRef.current, "Internet Speed Test (Municipal)", "tabular.internet_speed_test_m");
   };
 
   const handleDownloadDataClick = () => {

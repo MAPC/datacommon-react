@@ -122,7 +122,7 @@ const TableWrapper = styled.div`
 
 const Table = styled.table`
   width: 100%;
-  border-collapse: separate;
+  border-collapse: collapse;
   border-spacing: 0;
   margin-bottom: 0;
   background: white;
@@ -132,12 +132,13 @@ const Table = styled.table`
     border: 1px solid #dee2e6;
     text-align: left;
     background: white;
+    width: 100px;
   }
 
   thead {
     position: sticky;
     top: 0;
-    z-index: 3;
+    z-index: 1;
     
     tr {
       background: white;
@@ -145,15 +146,13 @@ const Table = styled.table`
   }
 
   th {
-    background: #eef0f2;
-    font-weight: 800;
-    text-align: center !important;
+    background: #f8f9fa;
+    font-weight: 500;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    text-align: left;
     white-space: nowrap;
-    text-transform: uppercase;
-    font-size: 0.9rem;
-    letter-spacing: 0.02em;
-    border-bottom: 2px solid #dee2e6;
-    box-shadow: inset 0 1px 0 #dee2e6, inset 0 -2px 0 #dee2e6;
   }
 
   td {
@@ -165,11 +164,11 @@ const Table = styled.table`
 
   tbody tr {
     &:nth-child(odd) {
-      background-color: rgba(0, 0, 0, 0.02);
+      background-color: #f9f9f9;
     }
 
     &:hover {
-      background-color: rgba(0, 0, 0, 0.04);
+      background-color: #f5f5f5;
     }
   }
 `;
@@ -210,9 +209,10 @@ const ButtonGroup = styled.div`
   align-items: center;
 `;
 
-const DataTableModal = ({ show, handleClose, data, title, muni }) => {
+const DataTableModal = ({ show, handleClose, data, title, muni, tableKey }) => {
   const [copyStatus, setCopyStatus] = useState('Copy to Clipboard');
   const tableWrapperRef = useRef(null);
+  const [columnAliasByName, setColumnAliasByName] = useState({});
 
   useEffect(() => {
     const handleEscapeKey = (event) => {
@@ -259,9 +259,99 @@ const DataTableModal = ({ show, handleClose, data, title, muni }) => {
     };
   }, [show]);
 
+  // Fetch column aliases for the provided tableKey so we can display them as headers.
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchColumnAliases = async () => {
+      if (!show || !tableKey) {
+        setColumnAliasByName({});
+        return;
+      }
+
+      const tableKeyStr = String(tableKey);
+      const firstDot = tableKeyStr.indexOf(".");
+      if (firstDot === -1) {
+        setColumnAliasByName({});
+        return;
+      }
+
+      const schema = tableKeyStr.slice(0, firstDot);
+      const table = tableKeyStr.slice(firstDot + 1);
+
+      try {
+        const res = await fetch(
+          `/api/metadata?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=${encodeURIComponent(schema)}&table=${encodeURIComponent(
+            table,
+          )}`,
+        );
+        if (!res.ok) {
+          throw new Error(`Metadata HTTP error: ${res.status}`);
+        }
+
+        const json = await res.json();
+        const metadataContainer = json?.data ?? json;
+
+        let metadataArray = [];
+        if (Array.isArray(metadataContainer)) {
+          metadataArray = metadataContainer;
+        } else {
+          const maybeFirst = Object.values(metadataContainer || {})[0];
+          metadataArray = Array.isArray(maybeFirst) ? maybeFirst : [];
+        }
+
+        // Fallback for nested metadata shapes (defensive)
+        if ((!metadataArray || metadataArray.length === 0) && metadataContainer?.documentation?.metadata?.eainfo?.detailed?.attr) {
+          metadataArray = metadataContainer.documentation.metadata.eainfo.detailed.attr;
+        }
+
+        const next = {};
+        metadataArray.forEach((col) => {
+          const alias =
+            col?.alias ?? col?.attalias ?? col?.attralias ?? col?.attributeAlias ?? "";
+          const aliasTrimmed = typeof alias === "string" ? alias.trim() : "";
+          if (!aliasTrimmed) return;
+
+          // Depending on metadata shape, the "column key" might be in different fields.
+          // Store under all plausible keys so header lookup works reliably.
+          const possibleKeys = [
+            col?.name,
+            col?.attrlabl,
+            col?.column,
+            col?.attrlabl_key,
+          ].filter((k) => typeof k === "string" && k.trim() !== "");
+
+          possibleKeys.forEach((k) => {
+            next[String(k)] = aliasTrimmed;
+          });
+        });
+
+        if (!cancelled) setColumnAliasByName(next);
+      } catch (err) {
+        console.error("Failed to fetch column aliases for table:", tableKeyStr, err);
+        if (!cancelled) setColumnAliasByName({});
+      }
+    };
+
+    fetchColumnAliases();
+    return () => {
+      cancelled = true;
+    };
+  }, [show, tableKey]);
+
   if (!show || !data || data.length === 0) return null;
 
   const headers = Object.keys(data[0]);
+
+  const getHeaderLabel = (header) => {
+    const alias = columnAliasByName?.[header];
+    if (typeof alias === "string" && alias.trim() !== "") return alias.trim();
+    return header;
+  };
+
+  const formatCsvCell = (value) => {
+    return typeof value === "string" && value.includes(",") ? `"${value}"` : value;
+  };
 
   // Helper function to check if a value is numeric
   const isNumeric = (value) => {
@@ -277,7 +367,7 @@ const DataTableModal = ({ show, handleClose, data, title, muni }) => {
   const handleCopy = async () => {
     try {
       const csvContent = [
-        headers.join(','),
+        headers.map((h) => formatCsvCell(getHeaderLabel(h))).join(","),
         ...data.map(row => 
           headers.map(header => {
             const value = row[header];
@@ -302,7 +392,7 @@ const DataTableModal = ({ show, handleClose, data, title, muni }) => {
     try {
       const csvContent = [
         `Municipality: ${muni}`,
-        headers.join(','),
+        headers.map((h) => formatCsvCell(getHeaderLabel(h))).join(","),
         ...data.map(row => 
           headers.map(header => {
             const value = row[header];
@@ -362,7 +452,7 @@ const DataTableModal = ({ show, handleClose, data, title, muni }) => {
               <thead>
                 <tr>
                   {headers.map(header => (
-                    <th key={header}>{header}</th>
+                    <th key={header}>{getHeaderLabel(header)}</th>
                   ))}
                 </tr>
               </thead>
@@ -397,6 +487,7 @@ DataTableModal.propTypes = {
   data: PropTypes.arrayOf(PropTypes.object),
   title: PropTypes.string.isRequired,
   muni: PropTypes.string,
+  tableKey: PropTypes.string,
 };
 
 export default DataTableModal; 
