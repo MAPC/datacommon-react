@@ -2743,7 +2743,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         }
         const formatYearRange = (yearStr) => {
           if (yearStr === '2020-24') return '2020-2024';
-          if (yearStr === '2015-19') return '2015-2019';
+          if (yearStr === '2019-23') return '2019-2023';
           const [start, end] = yearStr.split("-");
           return `${start}-20${end}`;
         };

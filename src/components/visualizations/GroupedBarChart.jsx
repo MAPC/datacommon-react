@@ -123,10 +123,8 @@ const GroupedBarChart = (props) => {
       .scaleOrdinal()
       .range(Object.keys(colors).length ? zValues.map((key) => colors[key]) : zValues.length > primaryColors.length ? extendedColors : primaryColors)
       .domain(zValues);
-    console.log("prop.data", props.data);
     // Create nested data structure: group by x, then by z
     const nestedData = xValues.map((x) => {
-      console.log("x", x);
       const xData = props.data.filter((d) => d.x === x);
       const zData = zValues.map((z) => {
         const zItem = xData.find((d) => d.z === z);
@@ -174,7 +172,6 @@ const GroupedBarChart = (props) => {
 
     // Add bars
     nestedData.forEach((group) => {
-      console.log("group", group);
       group.values.forEach((d) => {
         const bar = g
           .append("rect")
@@ -184,7 +181,6 @@ const GroupedBarChart = (props) => {
           .attr("height", height - yScale(d.y))
           .attr("fill", colorRef.current(d.z))
           .on("mouseover", (event) => {
-            console.log(d);
             const value = d.y;
             const me = d.me;
             const totpop = d.totpop;
