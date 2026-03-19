@@ -194,6 +194,25 @@ const DatasetSearchBar = ({
         return false;
       });
 
+       // sort the results prioritizing dataset name match over table name match, then sort alphabetically
+      filtered.sort((ds1, ds2) => {
+        const ds1Menu3 = ds1.menu3 || '';
+        const ds2Menu3 = ds2.menu3 || '';
+        const ds1Menu3Match = searchRegex.test(ds1Menu3);
+        const ds2Menu3Match = searchRegex.test(ds2Menu3);
+
+        if (ds1Menu3Match && ds2Menu3Match) {
+          return ds1Menu3.localeCompare(ds2Menu3);
+        } else if (ds1Menu3Match) {
+          return -1;
+        } else if (ds2Menu3Match) {
+          return 1;
+        } else {
+          return ds1Menu3.localeCompare(ds2Menu3);
+        }
+      });
+    }
+
     // remove the duplicate datasets using table_name to identify duplicates
     // note: we're leaving duplicates in the db b/c they have different menu1 values and we want to keep that for filtering
     const dupesRemoved = [];
@@ -205,7 +224,6 @@ const DatasetSearchBar = ({
       }
     });
     filtered = dupesRemoved;
-    }
 
     setHighlightMatches(highlights);
     const limitedResults = maxResults ? filtered.slice(0, maxResults) : filtered;
