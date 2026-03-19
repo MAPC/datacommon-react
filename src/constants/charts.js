@@ -189,8 +189,6 @@ const eduAttainmentByRaceColumns = [
 
 const costBurdenColumns = [
   "acs_year",
-  "occv2",
-  "cb",
   "o_notcb",
   "o_notcbme",
   "o_notcb_p",
@@ -218,11 +216,7 @@ const costBurdenColumns = [
   "r_cb50",
   "r_cb50me",
   "r_cb50_p",
-  "r_cb50_mep",
-  "cb_50",
-  "cb_50_me",
-  "cb_50_p",
-  "cb_50_mep",
+  "r_cb50_mep"
 ];
 
 const commuteToWorkColumns = [
