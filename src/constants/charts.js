@@ -1672,7 +1672,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         let queryString = `WITH years AS (
             SELECT DISTINCT cal_year 
             FROM tabular.hous_building_permits_m 
-            WHERE cal_year >= 2001
+            WHERE cal_year >= 2001 
         )
         SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year
         FROM years;`;
@@ -1719,24 +1719,19 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         );
       },
       subregionDataQuery: (subregionId) => {
-        const queryString = `
-          SELECT
-            h.cal_year,
+        const queryString=`
+        SELECT
+            cal_year,
             12 as months_rep,
-            SUM(h.sf_units) as sf_units,
-            SUM(h.mf_units) as mf_units
-          FROM tabular.hous_building_permits_m h
-          JOIN tabular._datakeys_muni_all k ON h.muni_id = k.muni_id
-          WHERE k.subrg_id = '${subregionId}'
-            AND h.cal_year >= 2001 
-            AND h.cal_year <= 2023
-            AND h.months_rep = 12
-          GROUP BY h.cal_year
-          ORDER BY h.cal_year
-        `;
+            sf_units
+            mf_units
+          FROM tabular.hous_building_permits_m where muni_id ='${subregionId}'
+		  and cal_year >=2001 and cal_year <=2023 
+        `
         return queryString;
       },
       rparegionDataQuery: (rpaId) => {
+        //TODO: check the logic for rparegionDataQuery for the correct query string
         const queryString = `
           SELECT
             h.cal_year,
