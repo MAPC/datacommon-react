@@ -40,7 +40,6 @@ const ModalContainer = styled.div`
   background: white;
   border-radius: 8px;
   width: 90%;
-  max-width: 800px;
   max-height: 90vh;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   animation: ${slideIn} 0.3s ease-out;
@@ -124,6 +123,7 @@ const Table = styled.table`
   width: 100%;
   border-collapse: collapse;
   border-spacing: 0;
+  table-layout: fixed;
   margin-bottom: 0;
   background: white;
 
@@ -132,7 +132,10 @@ const Table = styled.table`
     border: 1px solid #dee2e6;
     text-align: left;
     background: white;
-    width: 100px;
+    width: 150px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   thead {
@@ -152,7 +155,7 @@ const Table = styled.table`
     top: 0;
     z-index: 1;
     text-align: left;
-    white-space: nowrap;
+    white-space: normal;
   }
 
   td {
@@ -306,24 +309,11 @@ const DataTableModal = ({ show, handleClose, data, title, muni, tableKey }) => {
         }
 
         const next = {};
+        console.log("metadataArray", metadataArray);
         metadataArray.forEach((col) => {
-          const alias =
-            col?.alias ?? col?.attalias ?? col?.attralias ?? col?.attributeAlias ?? "";
-          const aliasTrimmed = typeof alias === "string" ? alias.trim() : "";
-          if (!aliasTrimmed) return;
-
-          // Depending on metadata shape, the "column key" might be in different fields.
-          // Store under all plausible keys so header lookup works reliably.
-          const possibleKeys = [
-            col?.name,
-            col?.attrlabl,
-            col?.column,
-            col?.attrlabl_key,
-          ].filter((k) => typeof k === "string" && k.trim() !== "");
-
-          possibleKeys.forEach((k) => {
-            next[String(k)] = aliasTrimmed;
-          });
+          const alias = col?.alias ?? "";
+            
+          next[String(col?.name)] = alias;
         });
 
         if (!cancelled) setColumnAliasByName(next);
@@ -455,7 +445,7 @@ const DataTableModal = ({ show, handleClose, data, title, muni, tableKey }) => {
                     <th key={header}>{getHeaderLabel(header)}</th>
                   ))}
                 </tr>
-              </thead>
+              </thead> 
               <tbody>
                 {data.map((row, index) => (
                   <tr key={index}>
