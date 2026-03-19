@@ -189,8 +189,6 @@ const eduAttainmentByRaceColumns = [
 
 const costBurdenColumns = [
   "acs_year",
-  "occv2",
-  "cb",
   "o_notcb",
   "o_notcbme",
   "o_notcb_p",
@@ -218,11 +216,7 @@ const costBurdenColumns = [
   "r_cb50",
   "r_cb50me",
   "r_cb50_p",
-  "r_cb50_mep",
-  "cb_50",
-  "cb_50_me",
-  "cb_50_p",
-  "cb_50_mep",
+  "r_cb50_mep"
 ];
 
 const commuteToWorkColumns = [
@@ -289,6 +283,26 @@ const internetSubscriptionTypesColumns = [
   "bbfibm",
   "bbfib_p",
   "bbfib_mp",
+];
+
+const demoRaceByAgeGenderColumns = [
+  "years",
+  "race_eth",
+  "pop",
+  "pop_u18",
+  "pop18_24",
+  "pop25_34",
+  "pop35_39",
+  "pop40_44",
+  "pop45_49",
+  "pop50_54",
+  "pop55_59",
+  "pop60_64",
+  "pop65_69",
+  "pop70_74",
+  "pop75_79",
+  "pop80_84",
+  "pop85o",
 ];
 
 export default {
@@ -465,25 +479,7 @@ export default {
         "tabular.demo_race_by_age_gender_m": {
           yearCol: "years",
           latestYearOnly: true,
-          columns: [
-            "years",
-            "pop",
-            "pop_u18",
-            "pop18_24",
-            "pop25_34",
-            "pop35_39",
-            "pop40_44",
-            "pop45_49",
-            "pop50_54",
-            "pop55_59",
-            "pop60_64",
-            "pop65_69",
-            "pop70_74",
-            "pop75_79",
-            "pop80_84",
-            "pop85o",
-            "race_eth"
-          ],
+          columns: demoRaceByAgeGenderColumns,
         },
       },
       labels: {
@@ -508,6 +504,7 @@ export default {
         }
         // For aggregated data (subregion/RPA), race_eth is already filtered in query
         // For municipal data, filter for "All Race/Ethnicity"
+        console.log("popData", popData);
         const row = popData.filter((r) => r.race_eth === "All Race/Ethnicity")[0] || popData[0];
        
         const data = {
@@ -527,30 +524,14 @@ export default {
         }));
       },
       subregionDataQuery: (subregionId) => {
+        const selectList = demoRaceByAgeGenderColumns.join(",");
         const queryString = `
           SELECT
-            d.years,
-            SUM(d.pop) as pop,
-            SUM(d.pop_u18) as pop_u18,
-            SUM(d.pop18_24) as pop18_24,
-            SUM(d.pop25_34) as pop25_34,
-            SUM(d.pop35_39) as pop35_39,
-            SUM(d.pop40_44) as pop40_44,
-            SUM(d.pop45_49) as pop45_49,
-            SUM(d.pop50_54) as pop50_54,
-            SUM(d.pop55_59) as pop55_59,
-            SUM(d.pop60_64) as pop60_64,
-            SUM(d.pop65_69) as pop65_69,
-            SUM(d.pop70_74) as pop70_74,
-            SUM(d.pop75_79) as pop75_79,
-            SUM(d.pop80_84) as pop80_84,
-            SUM(d.pop85o) as pop85o
-          FROM tabular.demo_race_by_age_gender_m d
-          JOIN tabular._datakeys_muni_all k ON d.muni_id = k.muni_id
-          WHERE k.subrg_id = '${subregionId}'
-            AND d.race_eth = 'All Race/Ethnicity'
-          GROUP BY d.years
-          ORDER BY d.years DESC
+            ${selectList}
+          FROM tabular.demo_race_by_age_gender_m
+          WHERE muni_id = '${subregionId}'
+            AND race_eth = 'All Race/Ethnicity'
+          ORDER BY years DESC
           LIMIT 1
         `;
         return queryString;
@@ -1126,7 +1107,7 @@ export default {
         }, []);
       },
       subregionDataQuery: (subregionId) => {
-        const selectList = eduAttainmentByRaceColumns.join(",\n");
+        const selectList = eduAttainmentByRaceColumns.join(",");
         const queryString = `
           SELECT
             ${selectList}
@@ -1651,7 +1632,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         ];
       },
       subregionDataQuery: (subregionId) => {
-        const selectList = costBurdenColumns.join(",\n");
+        const selectList = costBurdenColumns.join(",");
         const queryString = `
         SELECT
             ${selectList}
