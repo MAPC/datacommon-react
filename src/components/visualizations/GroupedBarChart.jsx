@@ -123,7 +123,6 @@ const GroupedBarChart = (props) => {
       .scaleOrdinal()
       .range(Object.keys(colors).length ? zValues.map((key) => colors[key]) : zValues.length > primaryColors.length ? extendedColors : primaryColors)
       .domain(zValues);
-
     // Create nested data structure: group by x, then by z
     const nestedData = xValues.map((x) => {
       const xData = props.data.filter((d) => d.x === x);
@@ -137,6 +136,8 @@ const GroupedBarChart = (props) => {
               me: zItem.me,
               totpop: zItem.totpop,
               totpop_me: zItem.totpop_me,
+              count: zItem.count,
+              countMarginOfError: zItem.countMarginOfError,
             }
           : { x, z, y: 0 };
       });
@@ -184,27 +185,41 @@ const GroupedBarChart = (props) => {
             const me = d.me;
             const totpop = d.totpop;
             const totpop_me = d.totpop_me;
+            const count = d.count;
+            const countMe = d.countMarginOfError;
 
-            const isPercentChart = props.chart?.title === "Internet Subscription Types";
+            const isPercentChart =
+              props.chart?.title === "Internet Subscription Types" || props.chart?.title === "Educational Attainment by Race";
             
-            // For Internet Subscription Types, values are already percentages (0.2 = 0.2%), so don't multiply by 100
+            // For percent-based charts, values are already in percent units (with a percent sign added below).
             const formattedValue = typeof value === "number"
               ? (isPercentChart 
                   ? value.toFixed(1) + "%"  // Already a percentage, just format with 1 decimal
                   : value < 1 ? (value * 100).toFixed(1) + "%"
-                    : value % 1 === 0 ? value.toFixed(0) : value.toFixed(2))
+                    : value % 1 === 0 ? d3.format(",")(value) : d3.format(",.2f")(value))
               : value;
             
             const formattedME = typeof me === "number"
               ? (isPercentChart 
                   ? me.toFixed(1)  // Already a percentage, format with 1 decimal
-                  : me % 1 === 0 ? me.toFixed(0) : me.toFixed(2))
+                  : me % 1 === 0 ? d3.format(",")(me) : d3.format(",.2f")(me))
               : null;
             const formattedTotpop = typeof totpop === "number" ? d3.format(",")(totpop) : null;
             const formattedTotpopME = typeof totpop_me === "number" ? d3.format(",")(totpop_me) : null;
+            const formattedCount = typeof count === "number" ? d3.format(",")(count) : null;
+            const formattedCountME =
+              typeof countMe === "number"
+                ? countMe % 1 === 0
+                  ? d3.format(",")(countMe)
+                  : d3.format(",.1f")(countMe)
+                : null;
 
             const valueDisplay = formattedValue;
             const meDisplay = formattedME === null ? "Not Available" : (isPercentChart ? `±${formattedME}%` : `±${formattedME}`);
+
+            const valueIsPercent = typeof valueDisplay === "string" && valueDisplay.includes("%");
+            const valueLabel = valueIsPercent ? "Percent (%)" : "Count";
+            const meLabel = valueIsPercent ? "Margin of Error (Percent)" : "Margin of Error (Count)";
 
             tooltip
               .style("opacity", 1)
@@ -212,8 +227,20 @@ const GroupedBarChart = (props) => {
                 `
                 <div style="padding: 4px;">
                   <div style="font-weight: bold;">${d.z}</div>
-                  <div>Value: ${valueDisplay}</div>
-                  <div>Margin of Error: ${meDisplay}</div>
+                  <div>${valueLabel}: ${valueDisplay}</div>
+                  <div>${meLabel}: ${meDisplay}</div>
+                  ${
+                    formattedCount !== null
+                      ? `
+                    <div style="margin-top: 4px;">
+                      <div>Count: ${formattedCount}</div>
+                      <div>Margin of Error (Count): ${
+                        formattedCountME !== null ? `±${formattedCountME}` : "Not Available"
+                      }</div>
+                    </div>
+                  `
+                      : ""
+                  }
                   ${
                     formattedTotpop
                       ? `
@@ -245,15 +272,37 @@ const GroupedBarChart = (props) => {
 
     const xAxisG = g.append("g").attr("class", "axis axis-x").attr("transform", `translate(0,${height})`).call(xAxis.tickSize(0));
 
-    // Apply text rotation if needed
-    if (xValues.length > 4) {
-      xAxisG.selectAll("text").attr("transform", "translate(7, 0) rotate(45)").style("text-anchor", "start");
+
+    // Wrap tick labels into multiple lines when labels are long enough to overlap.
+    const maxTickLabelLength = xValues.reduce((acc, x) => Math.max(acc, String(x).length), 0);
+    const charPerLine = 18;
+    const shouldWrapTickLabels = maxTickLabelLength > charPerLine;
+
+    if (shouldWrapTickLabels) {
+      // Move down slightly to avoid colliding with the x-axis line/ticks.
+      xAxisG.selectAll("text").attr("transform", "translate(0, 8)");
+
+      xAxisG.selectAll("text").each(function () {
+        const tickText = d3.select(this).text();
+        const lines = splitPhrase(tickText, charPerLine);
+        if (!lines || lines.length <= 1) return;
+
+        d3.select(this).text(null);
+        lines.forEach((line, i) => {
+          d3.select(this)
+            .append("tspan")
+            .text(line)
+            .attr("x", 0)
+            .attr("dy", i === 0 ? 0 : "1.2em");
+        });
+      });
     }
 
     const yAxisG = g.append("g").attr("class", "axis axis-y").call(yAxis.tickSize(0));
 
     // Add axis labels
     const svg = d3.select(chartRef.current).select("svg");
+    const svgHeight = props.height || container.height;
 
     svg
       .append("text")
@@ -270,7 +319,13 @@ const GroupedBarChart = (props) => {
       .append("text")
       .attr("class", "axis-label x-axis-label")
       .attr("x", width / 2 + margin.left)
-      .attr("y", height + margin.top + 45)
+      .attr(
+        "y",
+        Math.min(
+          svgHeight - 5,
+          height + margin.top + (xValues.length > 4 || shouldWrapTickLabels ? 50 : 45),
+        )
+      )
       .attr("font-size", "12px")
       .style("text-anchor", "middle")
       .text(xAxisLabel);
@@ -287,6 +342,12 @@ const GroupedBarChart = (props) => {
     const height = container.height - defaultMargin.top - defaultMargin.bottom;
 
     chart.selectAll("*").remove();
+
+    // If the chart previously rendered axes, remove the SVG axis label text too.
+    // Otherwise "x-axis label" / "y-axis label" can remain visible during empty states.
+    d3.select(chartRef.current)
+      .selectAll(".axis-label")
+      .remove();
 
     chart
       .append("text")

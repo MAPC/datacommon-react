@@ -14,6 +14,7 @@ import PieChart from "../containers/visualizations/PieChart";
 import LineChart from "../containers/visualizations/LineChart";
 import DownloadAllChartsButton from './field/DownloadAllChartsButton';
 import DataTableModal from './field/DataTableModal';
+import GroupedBarChart from "../containers/visualizations/GroupedBarChart";
 
 // Styled Components
 const MunicipalitiesList = styled.div`
@@ -122,7 +123,8 @@ const RPAregionProfilesView = () => {
   const [modalConfig, setModalConfig] = useState({
     show: false,
     data: null,
-    title: ''
+    title: '',
+    tableKey: ''
   });
 
   const rparegionData = useSelector(selectRPAregionData);
@@ -140,11 +142,12 @@ const RPAregionProfilesView = () => {
     } 
   }, [activeTab, rpaId, dispatch]);
 
-  const handleShowModal = (data, title) => {
+  const handleShowModal = (data, title, tableKey = '') => {
     setModalConfig({
       show: true,
       data: data,
-      title: `${title} (Aggregated)`
+      title: `${title} (Aggregated)`,
+      tableKey,
     });
   }
 
@@ -152,7 +155,8 @@ const RPAregionProfilesView = () => {
     setModalConfig({
       show: false,
       data: null,
-      title: ''
+      title: '',
+      tableKey: ''
     });
   };
 
@@ -316,11 +320,9 @@ const RPAregionProfilesView = () => {
                   onViewData={handleShowModal}
                   isRPAregion={true}
                 >
-                  <StackedBarChart
+                  <GroupedBarChart
                     chart={charts.education.edu_attainment_by_race}
                     muni={rpaId}
-                    horizontal={true}
-                    wrapLeftLabel={true}
                     isRPAregion={true}
                   />
                 </ChartDetails>
@@ -498,6 +500,7 @@ const RPAregionProfilesView = () => {
         data={modalConfig.data}
         title={modalConfig.title}
         muni={rpaId}
+        tableKey={modalConfig.tableKey}
         isRPAregion={true}
       />
     </article>

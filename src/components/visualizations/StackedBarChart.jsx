@@ -32,6 +32,44 @@ const StackedBarChart = (props) => {
   const colorRef = useRef(null);
   const [xAxisLabel, setXAxisLabel] = useState(typeof props.xAxis.label === "string" ? props.xAxis.label : "");
 
+  const showPercentTooltip = ({
+    event,
+    tooltip,
+    seriesLabel,
+    valueLabel,
+    valueDisplay,
+    meLabel,
+    meDisplay,
+    pctLabel,
+    pctMeLabel,
+    pctRaw,
+    pctMeRaw,
+    extraHtml = "",
+  }) => {
+    const pct = pctRaw == null || pctRaw === "" ? NaN : Number(pctRaw);
+    const pctMe = pctMeRaw == null || pctMeRaw === "" ? NaN : Number(pctMeRaw);
+
+    const pctDisplay = Number.isFinite(pct) ? `${pct.toFixed(1)}%` : "Not Available";
+    const pctMeDisplay = Number.isFinite(pctMe) ? `±${pctMe.toFixed(1)}%` : "Not Available";
+
+    tooltip
+      .style("opacity", 1)
+      .html(
+        `
+        <div style="padding: 4px;">
+          <div style="font-weight: bold;">${seriesLabel}</div>
+          <div>${valueLabel}: ${valueDisplay}</div>
+          <div>${meLabel}: ${meDisplay}</div>
+          <div>${pctLabel}: ${pctDisplay}</div>
+          <div>${pctMeLabel}: ${pctMeDisplay}</div>
+          ${extraHtml}
+        </div>
+      `,
+      )
+      .style("left", `${event.pageX + 10}px`)
+      .style("top", `${event.pageY - 10}px`);
+  };
+
   useEffect(() => {
     const loadXAxisLabel = async () => {
       if (typeof props.xAxis.label === "function") {
@@ -131,6 +169,20 @@ const StackedBarChart = (props) => {
       if (row.me !== undefined) {
         acc[row.x][`${row.z}_me`] = row.me;
       }
+      // Store percentage and its margin of error if present (for charts that provide them)
+      if (row.pct !== undefined) {
+        acc[row.x][`${row.z}_pct`] = row.pct;
+      }
+      if (row.pct_me !== undefined) {
+        acc[row.x][`${row.z}_pct_me`] = row.pct_me;
+      }
+       // Store count and its margin of error per series when provided (e.g. Internet Usage by Income Level)
+      if (row.count !== undefined) {
+        acc[row.x][`${row.z}_count`] = row.count;
+      }
+      if (row.countMarginOfError !== undefined) {
+        acc[row.x][`${row.z}_count_me`] = row.countMarginOfError;
+      }
       return acc;
     }, {});
 
@@ -228,13 +280,13 @@ const StackedBarChart = (props) => {
           (isPercentChart 
             ? value.toFixed(1) + "%"  // Already a percentage, format with 1 decimal
             : value < 1 ? (value * 100).toFixed(1) + "%" 
-              : value % 1 === 0 ? value.toFixed(0) : value.toFixed(2)) 
+              : value % 1 === 0 ? d3.format(",")(value) : d3.format(",.2f")(value)) 
           : value;
         
         const formattedME = typeof me === "number" ? 
           (isPercentChart 
             ? me.toFixed(1)  // Already a percentage, format with 1 decimal
-            : me % 1 === 0 ? me.toFixed(0) : me.toFixed(2)) 
+            : me % 1 === 0 ? d3.format(",")(me) : d3.format(",.2f")(me)) 
           : null;
         const formattedTotpop = typeof totpop === "number" ? d3.format(",")(totpop) : null;
         const formattedTotpopME = typeof totpop_me === "number" ? d3.format(",")(totpop_me) : null;
@@ -242,29 +294,112 @@ const StackedBarChart = (props) => {
         const valueDisplay = formattedValue;
         const meDisplay = formattedME === null ? "Not Available" : (isPercentChart ? `±${formattedME}%` : `±${formattedME}`);
 
-        if(props.chart.title === "Educational Attainment by Race"){
+        const tooltipType = props.chart?.tooltip?.type;
+        const showTotalsInTooltip = !!props.chart?.tooltip?.showTotals;
+        const resolvedTooltipType =
+          tooltipType ||
+          (props.chart.title === "Educational Attainment by Race" || props.chart.title === "Race and Ethnicity"
+            ? "countAndPercent"
+            : props.chart.title === "Employment of Residents"
+              ? "countAndPercent"
+              : props.chart.title === "Housing Cost Burden" || props.chart.title === "Internet Usage by Income Level"
+                ? "percentAndCount"
+                : "default");
+
+        if (resolvedTooltipType === "countAndPercent") {
+          const extraHtml =
+            (showTotalsInTooltip || props.chart.title === "Employment of Residents") && formattedTotpop
+              ? `
+                <div style="margin-top: 8px; border-top: 1px solid #ccc; padding-top: 8px;">
+                  <div>Total Population: ${formattedTotpop}</div>
+                  <div>Total Margin of Error: ${formattedTotpopME === null ? "Not Available" : "±" + formattedTotpopME}</div>
+                </div>
+              `
+              : "";
+
+          // Match Race and Ethnicity tooltip style: count + MOE and percent + percent MOE
+          showPercentTooltip({
+            event,
+            tooltip,
+            seriesLabel: d.series,
+            valueLabel: "Count",
+            valueDisplay,
+            meLabel: "Margin of Error (Count)",
+            meDisplay,
+            pctLabel: "Percent (%)",
+            pctMeLabel: "Margin of Error (Percent)",
+            pctRaw: d.data[`${d.series}_pct`] ?? d.data.pct,
+            pctMeRaw: d.data[`${d.series}_pct_me`] ?? d.data.pct_me,
+            extraHtml,
+          });
+        } else if (resolvedTooltipType === "percentAndCount") {
+          // Percent + percent MOE primary value and count + count MOE secondary metrics.
+          const pct = typeof value === "number" ? value : parseFloat(value);
+          const pctMe = typeof me === "number" ? me : NaN;
+          const pctDisplay = !isNaN(pct) ? `${pct.toFixed(1)}%` : "Not Available";
+          const pctMeDisplay = !isNaN(pctMe) ? `±${pctMe.toFixed(1)}%` : "Not Available";
+
+          const seriesCount = d.data[`${d.series}_count`];
+          const seriesCountMe = d.data[`${d.series}_count_me`];
+          const formattedCount = typeof seriesCount === "number" ? d3.format(",")(seriesCount) : null;
+          const formattedCountME =
+            typeof seriesCountMe === "number"
+              ? seriesCountMe % 1 === 0
+                ? d3.format(",")(seriesCountMe)
+                : d3.format(",.1f")(seriesCountMe)
+              : null;
+
           tooltip
-          .style("opacity", 1)
-          .html(
-            `
+            .style("opacity", 1)
+            .html(
+              `
             <div style="padding: 4px;">
               <div style="font-weight: bold;">${d.series}</div>
-              <div>Value: ${formattedValue}</div>
-              <div>Margin of Error: ${formattedME === null ? "Not Available" : "±" + formattedME}</div>
+              <div>Percent (%): ${pctDisplay}</div>
+              <div>Margin of Error (Percent): ${pctMeDisplay}</div>
+              ${
+                formattedCount !== null
+                  ? `<div style="margin-top: 4px;">Count: ${formattedCount}</div>
+                     <div>Margin of Error (Count): ${
+                       formattedCountME !== null ? `±${formattedCountME}` : "Not Available"
+                     }</div>`
+                  : ""
+              }
             </div>
           `,
-          )
-          .style("left", `${event.pageX + 10}px`)
-          .style("top", `${event.pageY - 10}px`);
+            )
+            .style("left", `${event.pageX + 10}px`)
+            .style("top", `${event.pageY - 10}px`);
         } else {
+          const count = d.data.count;
+          const countMe = d.data.countMarginOfError;
+          const formattedCount = typeof count === "number" ? d3.format(",")(count) : null;
+          const formattedCountME =
+            typeof countMe === "number"
+              ? countMe % 1 === 0
+                ? d3.format(",")(countMe)
+                : d3.format(",.1f")(countMe)
+              : null;
+          const valueIsPercent = typeof valueDisplay === "string" && valueDisplay.includes("%");
+          const valueLabel = valueIsPercent ? "Percent (%)" : "Count";
+          const meLabel = valueIsPercent ? "Margin of Error (Percent)" : "Margin of Error (Count)";
+
           tooltip
-          .style("opacity", 1)
-          .html(
-            `
+            .style("opacity", 1)
+            .html(
+              `
             <div style="padding: 4px;">
               <div style="font-weight: bold;">${d.series}</div>
-              <div>Value: ${valueDisplay}</div>
-              <div>Margin of Error: ${meDisplay}</div>
+              <div>${valueLabel}: ${valueDisplay}</div>
+              <div>${meLabel}: ${meDisplay}</div>
+              ${
+                formattedCount !== null
+                  ? `<div style="margin-top: 4px;">Count: ${formattedCount}</div>
+                     <div>Margin of Error (Count): ${
+                       formattedCountME !== null ? `±${formattedCountME}` : "Not Available"
+                     }</div>`
+                  : ""
+              }
               ${
                 formattedTotpop
                   ? `
@@ -277,9 +412,9 @@ const StackedBarChart = (props) => {
               }
             </div>
           `,
-          )
-          .style("left", `${event.pageX + 10}px`)
-          .style("top", `${event.pageY - 10}px`);
+            )
+            .style("left", `${event.pageX + 10}px`)
+            .style("top", `${event.pageY - 10}px`);
         }
 
        

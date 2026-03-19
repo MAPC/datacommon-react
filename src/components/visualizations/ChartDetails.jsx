@@ -65,9 +65,31 @@ const makeSelectChartData = (tables, muni) =>
     ),
   );
 
+// Some Digital Equity charts back their views with table variants like:
+// `tabular.s2801_computer_internet_acs_m_noint`, but the column alias metadata
+// we want to display lives under the base table `tabular.s2801_computer_internet_acs_m`.
+const normalizeDigitalEquityTableKeyForMetadata = (tableKey) => {
+  if (!tableKey || typeof tableKey !== "string") return tableKey;
+
+  // Capture `schema` and the base `s2801_computer_internet_acs_m`, then drop any `_*` suffix.
+  // Example:
+  //   tabular.s2801_computer_internet_acs_m_no_internet -> tabular.s2801_computer_internet_acs_m
+  const m = tableKey.match(/^([^.\s]+)\.(s2801_computer_internet_acs_m)(?:_.+)?$/);
+  if (!m) return tableKey;
+
+  const schema = m[1];
+  const baseTable = m[2];
+  return `${schema}.${baseTable}`;
+};
+
 const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAregion, displayName, hideButtons }) => {
   const [timeframe, setTimeframe] = useState(typeof chart.timeframe === 'string' ? chart.timeframe : 'Unknown');
   const chartWrapperRef = useRef(null);
+
+  // Used by the "View data table" modal to fetch column alias metadata.
+  // If the chart has multiple backing tables, we use the first one.
+  const primaryTableKey = Object.keys(chart.tables || {})[0];
+  const primaryTableKeyForMetadata = normalizeDigitalEquityTableKeyForMetadata(primaryTableKey);
 
   const selectChartData = React.useMemo(
     () => makeSelectChartData(Object.keys(chart.tables), muni),
@@ -113,12 +135,12 @@ const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAreg
   const handleViewData = () => {
     if (isSubregion) {
       // Use the cached aggregated data from subregion state
-      onViewData(subregionCache, chart.title);
+      onViewData(subregionCache, chart.title, primaryTableKeyForMetadata);
     } else if (isRPAregion) {
-      onViewData(rpaCache, chart.title);
+      onViewData(rpaCache, chart.title, primaryTableKeyForMetadata);
     } else {
       console.log(data);
-      onViewData(data, chart.title);
+      onViewData(data, chart.title, primaryTableKeyForMetadata);
     }
   };
 

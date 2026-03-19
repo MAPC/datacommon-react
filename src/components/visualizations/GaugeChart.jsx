@@ -66,6 +66,11 @@ const GaugeChart = (props) => {
     const dataItem = props.data && props.data.length > 0 ? props.data[0] : { value: 0, marginOfError: null };
     const dataValue = dataItem.value || 0;
     const marginOfError = dataItem.marginOfError !== null && dataItem.marginOfError !== undefined ? dataItem.marginOfError : null;
+    const count = dataItem.count !== null && dataItem.count !== undefined ? dataItem.count : null;
+    const countMarginOfError =
+      dataItem.countMarginOfError !== null && dataItem.countMarginOfError !== undefined
+        ? dataItem.countMarginOfError
+        : null;
     const minValue = props.minValue || 0;
     const maxValue = props.maxValue || 100;
     const value = Math.max(minValue, Math.min(maxValue, dataValue));
@@ -130,6 +135,13 @@ const GaugeChart = (props) => {
       .on("mouseover", (event) => {
         const formattedPercentage = props.valueFormat ? `${props.valueFormat(value)}%` : `${value.toFixed(1)}%`;
         const formattedME = marginOfError !== null ? (marginOfError % 1 === 0 ? marginOfError.toFixed(0) : marginOfError.toFixed(1)) : null;
+        const formattedCount = count !== null ? d3.format(",")(count) : null;
+        const formattedCountME =
+          countMarginOfError !== null
+            ? countMarginOfError % 1 === 0
+              ? countMarginOfError.toFixed(0)
+              : countMarginOfError.toFixed(1)
+            : null;
         tooltip
           .style("opacity", 1)
           .html(
@@ -138,6 +150,14 @@ const GaugeChart = (props) => {
               <div style="font-weight: bold;">${props.title || "Value"}</div>
               <div>Value: ${formattedPercentage}</div>
               ${formattedME !== null ? `<div>Margin of Error: ±${formattedME}%</div>` : '<div>Margin of Error: Not Available</div>'}
+              ${
+                formattedCount !== null
+                  ? `<div style="margin-top: 4px;">Count: ${formattedCount}</div>
+                     <div>Margin of Error (Count): ${
+                       formattedCountME !== null ? `±${formattedCountME}` : "Not Available"
+                     }</div>`
+                  : ""
+              }
             </div>
           `,
           )

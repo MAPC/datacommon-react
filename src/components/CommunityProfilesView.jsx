@@ -30,13 +30,16 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
     show: false,
     data: null,
     title: "",
+    tableKey: "",
   });
 
-  const handleShowModal = (data, title) => {
+  const handleShowModal = (data, title, tableKey = "") => {
+    console.log("tableKey", tableKey);
     setModalConfig({
       show: true,
       data,
       title,
+      tableKey,
     });
   };
 
@@ -45,6 +48,7 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
       show: false,
       data: null,
       title: "",
+      tableKey: "",
     });
   };
 
@@ -250,7 +254,7 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                   <StackedBarChart chart={charts.education.school_enrollment} muni={muni} horizontal />
                 </ChartDetails>
                 <ChartDetails chart={charts.education.edu_attainment_by_race} muni={muni} onViewData={handleShowModal}>
-                  <StackedBarChart chart={charts.education.edu_attainment_by_race} muni={muni} horizontal wrapLeftLabel />
+                  <GroupedBarChart chart={charts.education.edu_attainment_by_race} muni={muni} />
                 </ChartDetails>
               </div>
             </Tab>
@@ -409,7 +413,14 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
         </div>
       </div>
 
-      <DataTableModal show={modalConfig.show} handleClose={handleCloseModal} data={modalConfig.data} title={modalConfig.title} muni={muni} />
+      <DataTableModal
+        show={modalConfig.show}
+        handleClose={handleCloseModal}
+        data={modalConfig.data}
+        title={modalConfig.title}
+        muni={muni}
+        tableKey={modalConfig.tableKey}
+      />
     </article>
   );
 };
