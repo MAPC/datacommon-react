@@ -150,9 +150,8 @@ const ContentHeader = styled.div`
 
 const HeaderControls = styled.div`
   display: flex;
-  flex-direction: column;
   align-items: flex-end;
-  gap: 0.35rem;
+  gap: 2rem;
 `;
 
 const SortContainer = styled.div`
@@ -382,6 +381,9 @@ const DatasetCount = styled.div`
 `;
 
 const SearchInputContainer = styled.div`
+  display: flex;
+  align-items: space-between;
+  gap: 2rem;
   margin-bottom: 1.5rem;
   position: relative;
 `;
@@ -402,6 +404,31 @@ const SearchInput = styled.input`
   
   &::placeholder {
     color: #999;
+  }
+`;
+const SearchMatchContainer = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+`;
+
+const SearchMatchLabel = styled.label`
+  font-size: 0.9375rem;
+  color: #555;
+  width: 7rem;
+`;
+
+const SearchMatchSelect = styled.select`
+  padding: 0.25rem 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.9375rem;
+  background: white;
+  cursor: pointer;
+
+  &:focus {
+    outline: none;
+    border-color: #6fc68e;
   }
 `;
 
@@ -431,6 +458,7 @@ const BrowserPage = () => {
     const params = new URLSearchParams(window.location.search);
     return params.get("q") || "";
   });
+  const [searchMatch, setSearchMatch] = useState('name-and-table');
   const [displayDatasets, setDisplayDatasets] = useState([]);
   const [highlightMatches, setHighlightMatches] = useState({});
   const [shareCopied, setShareCopied] = useState(false);
@@ -489,6 +517,19 @@ const BrowserPage = () => {
       // Use substring matching for all queries (no minimum character requirement)
       const searchRegex = new RegExp(escapedQuery, 'i');
       
+      // determine what we should be matching against with the search query
+      let shouldMatchName, shouldMatchTable;
+      if (searchMatch === 'name-and-table') {
+        shouldMatchName = true;
+        shouldMatchTable = true;
+      } else if (searchMatch === 'name-only') {
+        shouldMatchName = true;
+        shouldMatchTable = false;
+      } else if (searchMatch === 'table-only') {
+        shouldMatchName = false;
+        shouldMatchTable = true;
+      }
+
       filtered = filtered.filter((dataset) => {
         const tableName = dataset.table_name || '';
         const menu3 = dataset.menu3 || '';
@@ -496,11 +537,12 @@ const BrowserPage = () => {
         const tableNameMatch = searchRegex.test(tableName);
         const menu3Match = searchRegex.test(menu3);
         
+        // manage the highlights
         if (tableNameMatch || menu3Match) {
           const datasetId = dataset.seq_id || dataset.id;
           highlights[datasetId] = [];
           
-          if (tableNameMatch) {
+          if (tableNameMatch && shouldMatchTable) {
             const highlightRegex = new RegExp(escapedQuery, 'gi');
             tableName.replace(highlightRegex, (matched, offset) => {
               highlights[datasetId].push({
@@ -510,7 +552,7 @@ const BrowserPage = () => {
             });
           }
           
-          if (menu3Match) {
+          if (menu3Match && shouldMatchName) {
             const highlightRegex = new RegExp(escapedQuery, 'gi');
             menu3.replace(highlightRegex, (matched, offset) => {
               highlights[datasetId].push({
@@ -519,11 +561,14 @@ const BrowserPage = () => {
               });
             });
           }
-          
-          return true;
         }
-        
-        return false;
+
+        // return for the filter function
+        if ((tableNameMatch && shouldMatchTable) || (menu3Match && shouldMatchName)) {
+          return true
+        } else {
+          return false;
+        }
       });
     }
 
@@ -541,7 +586,7 @@ const BrowserPage = () => {
 
     setHighlightMatches(highlights);
     setDisplayDatasets(filtered);
-  }, [datasets, selectedSources, selectedMenu1s, searchQuery]);
+  }, [datasets, selectedSources, selectedMenu1s, searchQuery, searchMatch]);
 
   // Keep URL query parameters in sync with search and filters so users can share links
   useEffect(() => {
@@ -812,6 +857,18 @@ const BrowserPage = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
+            <SearchMatchContainer>
+              <SearchMatchLabel htmlFor="search-match-select">Search matching:</SearchMatchLabel>
+              <SearchMatchSelect
+                id="search-match-select"
+                value={searchMatch}
+                onChange={e => setSearchMatch(e.target.value)}
+              >
+                <option value="name-and-table">Name and Table</option>
+                <option value="name-only">Name Only</option>
+                <option value="table-only">Table Only</option>
+              </SearchMatchSelect>
+            </SearchMatchContainer>
           </SearchInputContainer>
           
           <ContentHeader>
