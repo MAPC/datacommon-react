@@ -32,8 +32,21 @@ const datasetSlice = createSlice({
         state.status = "loading";
       })
       .addCase(fetchDatasets.fulfilled, (state, action) => {
+        // remove the duplicate datasets using table_name to identify duplicates
+        // note: we're leaving duplicates in the db b/c they have different menu1 values and we want to keep that for filtering
+        //       we should still use the full list of all datasets with duplicates when doing category filtering
+        const dupesRemoved = [];
+        const seenDatasets = new Set();
+        action.payload.forEach(dataset => {
+          if (!seenDatasets.has(dataset.table_name)) {
+            dupesRemoved.push(dataset);
+            seenDatasets.add(dataset.table_name);
+          }
+        });
+
         state.status = "succeeded";
         state.cache = action.payload;
+        state.noDupesDatasets = dupesRemoved;
         state.categories = [...new Set(action.payload.map((dataset) => dataset.menu1))].sort();
         state.searchable = action.payload.map((row) => ({
           id: row.seq_id,

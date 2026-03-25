@@ -434,7 +434,7 @@ const SearchMatchSelect = styled.select`
 
 const BrowserPage = () => {
   const dispatch = useDispatch();
-  const datasets = useSelector(state => state.dataset.cache);
+  const { cache: datasets, noDupesDatasets } = useSelector(state => state.dataset);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -580,7 +580,9 @@ const BrowserPage = () => {
     }
 
     // remove the duplicate datasets using table_name to identify duplicates
-    // note: we're leaving duplicates in the db b/c they have different menu1 values and we want to keep that for filtering
+    // note: don't use the noDupesDatasets here b/c we do care about having multiple category values
+    //       we want the user to be able to find the same dataset under multiple different categories which is
+    //       why we keep the dupes in the first place
     const dupesRemoved = [];
     const seenDatasets = new Set();
     filtered.forEach(dataset => {
@@ -791,7 +793,7 @@ const BrowserPage = () => {
           Browse datasets by category, source, or search for specific topics.
         </HeaderDescription>
         <DatasetCount>
-          <strong>{datasets?.length || 0}</strong> {datasets?.length === 1 ? 'dataset' : 'datasets'} available
+          <strong>{noDupesDatasets?.length || 0}</strong> {noDupesDatasets?.length === 1 ? 'dataset' : 'datasets'} available
         </DatasetCount>
       </PageHeader>
       <MainContent>

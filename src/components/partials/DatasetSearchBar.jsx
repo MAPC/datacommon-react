@@ -213,18 +213,6 @@ const DatasetSearchBar = ({
       });
     }
 
-    // remove the duplicate datasets using table_name to identify duplicates
-    // note: we're leaving duplicates in the db b/c they have different menu1 values and we want to keep that for filtering
-    const dupesRemoved = [];
-    const seenDatasets = new Set();
-    filtered.forEach(dataset => {
-      if (!seenDatasets.has(dataset.table_name)) {
-        dupesRemoved.push(dataset);
-        seenDatasets.add(dataset.table_name);
-      }
-    });
-    filtered = dupesRemoved;
-
     setHighlightMatches(highlights);
     const limitedResults = maxResults ? filtered.slice(0, maxResults) : filtered;
     setFilteredDatasets(limitedResults);
