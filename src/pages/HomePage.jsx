@@ -10,7 +10,7 @@ import Image from "react-bootstrap/Image";
 
 const Home = () => {
   const dispatch = useDispatch();
-  const { cache: datasets, status } = useSelector((state) => state.dataset);
+  const { noDupesDatasets, status } = useSelector((state) => state.dataset);
 
   useEffect(() => {
     if (status === "idle") {
@@ -28,8 +28,8 @@ const Home = () => {
         <Particles />
         <div className="container tight">
           <DatasetSearchBar
-            datasets={datasets || []}
-            placeholder={`Search ${datasets?.length || 0} datasets ...`}
+            datasets={noDupesDatasets || []} // use no-dupes list here b/c we don't care about categories
+            placeholder={`Search ${noDupesDatasets?.length || 0} datasets ...`}
             onSelect={toDataset}
             maxResults={10}
           />
