@@ -496,7 +496,7 @@ const SubregionProfilesView = () => {
                   onViewData={handleShowModal}
                   isSubregion={true}
                 >
-                  <StackedBarChart
+                  <GroupedBarChart
                     chart={charts.housing.cost_burden}
                     muni={subregionId}
                     isSubregion={true}

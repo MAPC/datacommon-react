@@ -406,7 +406,7 @@ const RPAregionProfilesView = () => {
                   onViewData={handleShowModal}
                   isRPAregion={true}
                 >
-                  <StackedBarChart
+                  <GroupedBarChart
                     chart={charts.housing.cost_burden}
                     muni={rpaId}
                     isRPAregion={true}

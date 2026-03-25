@@ -292,7 +292,7 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
               </header>
               <div className="tab__row">
                 <ChartDetails chart={charts.housing.cost_burden} muni={muni} onViewData={handleShowModal}>
-                  <StackedBarChart chart={charts.housing.cost_burden} muni={muni} />
+                  <GroupedBarChart chart={charts.housing.cost_burden} muni={muni} />
                 </ChartDetails>
                 <ChartDetails chart={charts.housing.units_permitted} muni={muni} onViewData={handleShowModal}>
                   <StackedBarChart chart={charts.housing.units_permitted} muni={muni} />
