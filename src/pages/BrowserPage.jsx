@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import { useDispatch, useSelector } from 'react-redux';
 import { useLocation, useNavigate } from "react-router-dom";
 import { fetchDatasets } from '../reducers/datasetSlice';
@@ -438,6 +438,8 @@ const BrowserPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
+  const datasetGridRef = useRef(null);
+
   const [selectedSources, setSelectedSources] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     const sourcesParam = params.get("source");
@@ -494,6 +496,11 @@ const BrowserPage = () => {
 
   useEffect(() => {
     let filtered = datasets || [];
+
+    // reset the scroll height whenever the user changes the search or filter
+    if (datasetGridRef.current) {
+      datasetGridRef.current.scrollTop = 0;
+    }
 
     if (selectedSources.length > 0) {
       filtered = filtered.filter(d => {
@@ -900,7 +907,7 @@ const BrowserPage = () => {
             </HeaderControls>
           </ContentHeader>
 
-          <DatasetGrid>
+          <DatasetGrid ref={datasetGridRef}>
             {sortedDatasets.map((dataset) => {
               const datasetId = dataset.seq_id || dataset.id;
               return (
