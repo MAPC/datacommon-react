@@ -188,8 +188,7 @@ const GroupedBarChart = (props) => {
             const count = d.count;
             const countMe = d.countMarginOfError;
 
-            const isPercentChart =
-              props.chart?.title === "Internet Subscription Types" || props.chart?.title === "Educational Attainment by Race";
+            const isPercentChart = props.chart?.tooltip?.type === "percentAndCount";
             
             // For percent-based charts, values are already in percent units (with a percent sign added below).
             const formattedValue = typeof value === "number"

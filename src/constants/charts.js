@@ -880,6 +880,7 @@ export default {
     edu_attainment_by_race: {
       type: "grouped-bar",
       title: "Educational Attainment by Race",
+      tooltip: { type: "percentAndCount" },
       xAxis: {
         label: "Level of Education",
         format: format.string.default,
@@ -1539,7 +1540,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
   },
   housing: {
     cost_burden: {
-      type: "stacked-bar",
+      type: "grouped-bar",
       title: "Housing Cost Burden",
       tooltip: { type: "percentAndCount" },
       xAxis: { label: "Cost Burden Categories" },
@@ -2656,6 +2657,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
     internet_subscription_types: {
       type: "grouped-bar",
       title: "Internet Subscription Types",
+      tooltip: { type: "percentAndCount" }, // Used by GroupedBarChart to format percent + margin-of-error + counts
       xAxis: {
         label: "Subscription Type",
         format: format.string.default,
