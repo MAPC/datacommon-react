@@ -145,7 +145,9 @@ const setSelectYears = (availableYears, updateSelectedYears, selectedYears) => {
 
 const GeographyFilter = ({ availableGeographies = [], selectedGeographies = [], updateSelectedGeographies }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const dropdownRef = useRef(null);
+  const [showAllSelectedTags, setShowAllSelectedTags] = useState(false);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -163,12 +165,21 @@ const GeographyFilter = ({ availableGeographies = [], selectedGeographies = [], 
     };
   }, [isOpen]);
 
+  useEffect(() => {
+    // Reset search when the dropdown closes
+    if (!isOpen) setSearchQuery("");
+    if (!isOpen) setShowAllSelectedTags(false);
+  }, [isOpen]);
+
   if (!availableGeographies.length || !updateSelectedGeographies) {
     return null;
   }
 
   const totalCount = availableGeographies.length;
   const selectedCount = selectedGeographies.length || 0;
+  const filteredGeographies = !searchQuery.trim()
+    ? availableGeographies
+    : availableGeographies.filter((geo) => String(geo).toLowerCase().includes(searchQuery.trim().toLowerCase()));
   const displayText =
     selectedCount === 0
       ? "No geographies selected"
@@ -217,8 +228,157 @@ const GeographyFilter = ({ availableGeographies = [], selectedGeographies = [], 
               {selectedCount === totalCount ? "Deselect All" : "Select All"}
             </button>
           </div>
+
+          {selectedCount > 0 && (
+            <div style={{ padding: "8px 12px", borderBottom: "1px solid rgba(0, 0, 0, 0.08)" }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 6,
+                  alignItems: "flex-start",
+                  maxHeight: showAllSelectedTags ? 120 : undefined,
+                  overflowY: showAllSelectedTags ? "auto" : undefined,
+                  paddingRight: showAllSelectedTags ? 6 : undefined,
+                }}
+              >
+                {(() => {
+                  const MAX_TAGS = 5;
+                  const tagsToShow = showAllSelectedTags ? selectedGeographies : selectedGeographies.slice(0, MAX_TAGS);
+                  const extraCount = selectedGeographies.length - tagsToShow.length;
+
+                  return (
+                    <>
+                      {tagsToShow.map((geo) => (
+                        <span
+                          key={String(geo)}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
+                            padding: "4px 8px",
+                            borderRadius: 999,
+                            background: "rgba(111, 198, 142, 0.18)",
+                            border: "1px solid rgba(111, 198, 142, 0.55)",
+                            fontSize: 11,
+                            color: "#2f6b44",
+                            maxWidth: 160,
+                          }}
+                        >
+                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {geo}
+                          </span>
+                          <button
+                            type="button"
+                            aria-label={`Deselect ${geo}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              updateSelectedGeographies(geo);
+                            }}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            style={{
+                              width: 16,
+                              height: 16,
+                              borderRadius: 999,
+                              border: "1px solid rgba(47, 107, 68, 0.35)",
+                              background: "rgba(47, 107, 68, 0.06)",
+                              color: "#2f6b44",
+                              cursor: "pointer",
+                              lineHeight: "14px",
+                              padding: 0,
+                              fontSize: 12,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+
+                      {extraCount > 0 && (
+                        <span style={{ fontSize: 11, color: "#666" }}>
+                          +{extraCount} more
+                          {"  "}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowAllSelectedTags(true);
+                            }}
+                            style={{
+                              marginLeft: 6,
+                              border: "none",
+                              background: "transparent",
+                              padding: 0,
+                              color: "#357ABD",
+                              cursor: "pointer",
+                              fontSize: 11,
+                              textDecoration: "underline",
+                            }}
+                          >
+                            Show all
+                          </button>
+                        </span>
+                      )}
+                      {showAllSelectedTags && selectedCount > 12 && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowAllSelectedTags(false);
+                          }}
+                          style={{
+                            marginLeft: 8,
+                            border: "none",
+                            background: "transparent",
+                            padding: 0,
+                            color: "#357ABD",
+                            cursor: "pointer",
+                            fontSize: 11,
+                            textDecoration: "underline",
+                          }}
+                        >
+                          Collapse
+                        </button>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+
+              {selectedCount > 40 && (
+                <div style={{ marginTop: 6, fontSize: 11, color: "#777" }}>
+                  Many geographies selected. Use search or the list to deselect.
+                </div>
+              )}
+            </div>
+          )}
+
+          <div style={{ padding: "8px 12px", borderBottom: "1px solid rgba(0, 0, 0, 0.08)" }}>
+            <input
+              type="text"
+              value={searchQuery}
+              placeholder="Search geography..."
+              aria-label="Search geographies"
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              style={{
+                width: "100%",
+                padding: "8px 10px",
+                border: "1px solid #ccc",
+                borderRadius: 4,
+                fontSize: "12px",
+              }}
+            />
+          </div>
           <div className="column-checkboxes">
-            {availableGeographies.map((geo) => (
+            {filteredGeographies.length === 0 ? (
+              <div style={{ padding: "8px 0", fontSize: "12px", color: "#777" }}>No matches</div>
+            ) : (
+              filteredGeographies.map((geo) => (
               <label key={String(geo)} className="column-checkbox-label">
                 <input
                   type="checkbox"
@@ -231,7 +391,8 @@ const GeographyFilter = ({ availableGeographies = [], selectedGeographies = [], 
                 />
                 <span>{geo}</span>
               </label>
-            ))}
+              ))
+            )}
           </div>
         </div>
       )}
