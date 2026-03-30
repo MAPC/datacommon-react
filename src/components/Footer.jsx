@@ -37,7 +37,7 @@ function Footer() {
             </a>
           </li>
           <li>
-            <a href="https://airtable.com/appvsTkjC3FUe4yZ1/pagrTq8UqNU1zcrCL/form" target="_blank" rel="noopener noreferrer">
+            <a href="https://airtable.com/app3LpG05CtIRpj7q/pagutpBlODNBc2Lwr/form" target="_blank" rel="noopener noreferrer">
               Website Feedback
             </a>
           </li>
@@ -48,11 +48,6 @@ function Footer() {
         <div className="social">
           Follow MAPC:
           <ul className="social-list">
-            <li>
-              <a href="https://twitter.com/MAPCMetroBoston" target="_blank">
-                <img src={twitterImg} alt="MAPC on Twitter" />
-              </a>
-            </li>
             <li>
               <a href="https://instagram.com/mapcmetroboston" target="_blank">
                 <img src={instagramImg} alt="MAPC on Instagram" />
