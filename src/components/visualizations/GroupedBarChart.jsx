@@ -3,7 +3,8 @@ import PropTypes from "prop-types";
 import * as d3 from "d3";
 
 import colors from "../../constants/colors";
-import { drawLegend, maxTextToMargin, sortKeys, splitPhrase } from "../../utils/charts";
+import { chartSourceIsAcs } from "../../constants/charts";
+import { drawLegend, maxTextToMargin, MIN_BAR_POINTER_TARGET, sortKeys, splitPhrase } from "../../utils/charts";
 
 const primaryColors = Array.from(colors.CHART.PRIMARY.values());
 const extendedColors = Array.from(colors.CHART.EXTENDED.values());
@@ -170,23 +171,24 @@ const GroupedBarChart = (props) => {
     // Create chart group
     const g = chart.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
 
-    // Add bars
+    // Add bars (visible + transparent hit target so tiny bars stay easy to hover)
     nestedData.forEach((group) => {
       group.values.forEach((d) => {
-        const bar = g
-          .append("rect")
-          .attr("x", xScale(d.x) + zScale(d.z))
-          .attr("y", yScale(d.y))
-          .attr("width", zScale.bandwidth())
-          .attr("height", height - yScale(d.y))
-          .attr("fill", colorRef.current(d.z))
-          .on("mouseover", (event) => {
+        const bx = xScale(d.x) + zScale(d.z);
+        const bw = zScale.bandwidth();
+        const barTop = yScale(d.y);
+        const visualH = height - barTop;
+        const hitH = Math.max(visualH, MIN_BAR_POINTER_TARGET);
+        const hitY = height - hitH;
+
+        const showTooltip = (event) => {
             const value = d.y;
             const me = d.me;
             const totpop = d.totpop;
             const totpop_me = d.totpop_me;
             const count = d.count;
             const countMe = d.countMarginOfError;
+            const isAcs = chartSourceIsAcs(props.chart);
 
             const isPercentChart = props.chart?.tooltip?.type === "percentAndCount";
             
@@ -214,11 +216,41 @@ const GroupedBarChart = (props) => {
                 : null;
 
             const valueDisplay = formattedValue;
-            const meDisplay = formattedME === null ? "Not Available" : (isPercentChart ? `±${formattedME}%` : `±${formattedME}`);
-
             const valueIsPercent = typeof valueDisplay === "string" && valueDisplay.includes("%");
-            const valueLabel = valueIsPercent ? "Percent (%)" : "Count";
-            const meLabel = valueIsPercent ? "Margin of Error (Percent)" : "Margin of Error (Count)";
+            const countOrEstimate = isAcs ? "Estimate" : "Count";
+            const valueLabel = valueIsPercent ? "Percent (%)" : countOrEstimate;
+            const meLabel = valueIsPercent
+              ? "Margin of Error (Percent)"
+              : isAcs
+                ? "Margin of Error (Estimate)"
+                : "Margin of Error (Count)";
+            const primaryMeDisplay =
+              formattedME === null
+                ? null
+                : isPercentChart
+                  ? `±${formattedME}%`
+                  : `±${formattedME}`;
+            const primaryMeLine =
+              primaryMeDisplay !== null
+                ? `<div>${meLabel}: ${primaryMeDisplay}</div>`
+                : isAcs
+                  ? `<div>${meLabel}: Not Available</div>`
+                  : "";
+            const countBlockLabel = countOrEstimate;
+            const countMeBlockLabel = isAcs ? "Margin of Error (Estimate)" : "Margin of Error (Count)";
+            const countMeLine =
+              formattedCountME !== null
+                ? `<div>${countMeBlockLabel}: ±${formattedCountME}</div>`
+                : isAcs
+                  ? `<div>${countMeBlockLabel}: Not Available</div>`
+                  : "";
+            const totalPopulationLabel = isAcs ? "Total Population (estimate)" : "Total Population";
+            const totalMeLine =
+              formattedTotpopME != null
+                ? `<div>Total Margin of Error: ±${formattedTotpopME}</div>`
+                : isAcs
+                  ? `<div>Total Margin of Error: Not Available</div>`
+                  : "";
 
             tooltip
               .style("opacity", 1)
@@ -227,15 +259,13 @@ const GroupedBarChart = (props) => {
                 <div style="padding: 4px;">
                   <div style="font-weight: bold;">${d.z}</div>
                   <div>${valueLabel}: ${valueDisplay}</div>
-                  <div>${meLabel}: ${meDisplay}</div>
+                  ${primaryMeLine}
                   ${
                     formattedCount !== null
                       ? `
                     <div style="margin-top: 4px;">
-                      <div>Count: ${formattedCount}</div>
-                      <div>Margin of Error (Count): ${
-                        formattedCountME !== null ? `±${formattedCountME}` : "Not Available"
-                      }</div>
+                      <div>${countBlockLabel}: ${formattedCount}</div>
+                      ${countMeLine}
                     </div>
                   `
                       : ""
@@ -244,8 +274,8 @@ const GroupedBarChart = (props) => {
                     formattedTotpop
                       ? `
                     <div style="margin-top: 8px; border-top: 1px solid #ccc; padding-top: 8px;">
-                      <div>Total Population: ${formattedTotpop}</div>
-                      <div>Total Margin of Error: ${formattedTotpopME === null ? "Not Available" : "±" + formattedTotpopME}</div>
+                      <div>${totalPopulationLabel}: ${formattedTotpop}</div>
+                      ${totalMeLine}
                     </div>
                   `
                       : ""
@@ -255,7 +285,26 @@ const GroupedBarChart = (props) => {
               )
               .style("left", `${event.pageX + 10}px`)
               .style("top", `${event.pageY - 10}px`);
-          })
+        };
+
+        g.append("rect")
+          .attr("x", bx)
+          .attr("y", barTop)
+          .attr("width", bw)
+          .attr("height", visualH)
+          .attr("fill", colorRef.current(d.z))
+          .attr("pointer-events", "none");
+
+        g.append("rect")
+          .attr("class", "bar-hit-area")
+          .attr("x", bx)
+          .attr("y", hitY)
+          .attr("width", bw)
+          .attr("height", hitH)
+          .attr("fill", "transparent")
+          .attr("pointer-events", "all")
+          .style("cursor", "default")
+          .on("mouseover", showTooltip)
           .on("mousemove", (event) => {
             tooltip.style("left", `${event.pageX + 10}px`).style("top", `${event.pageY - 10}px`);
           })

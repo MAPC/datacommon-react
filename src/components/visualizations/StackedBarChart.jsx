@@ -3,7 +3,8 @@ import PropTypes from "prop-types";
 import * as d3 from "d3";
 
 import colors from "../../constants/colors";
-import { drawLegend, maxTextToMargin, sortKeys, splitPhrase } from "../../utils/charts";
+import { chartSourceIsAcs } from "../../constants/charts";
+import { drawLegend, maxTextToMargin, MIN_BAR_POINTER_TARGET, sortKeys, splitPhrase } from "../../utils/charts";
 
 const primaryColors = Array.from(colors.CHART.PRIMARY.values());
 const extendedColors = Array.from(colors.CHART.EXTENDED.values());
@@ -45,12 +46,22 @@ const StackedBarChart = (props) => {
     pctRaw,
     pctMeRaw,
     extraHtml = "",
+    isAcs,
   }) => {
     const pct = pctRaw == null || pctRaw === "" ? NaN : Number(pctRaw);
     const pctMe = pctMeRaw == null || pctMeRaw === "" ? NaN : Number(pctMeRaw);
 
-    const pctDisplay = Number.isFinite(pct) ? `${pct.toFixed(1)}%` : "Not Available";
-    const pctMeDisplay = Number.isFinite(pctMe) ? `±${pctMe.toFixed(1)}%` : "Not Available";
+    const pctLine = Number.isFinite(pct)
+      ? `<div>${pctLabel}: ${pct.toFixed(1)}%</div>`
+      : isAcs
+        ? `<div>${pctLabel}: Not Available</div>`
+        : "";
+    const pctMeLine = Number.isFinite(pctMe)
+      ? `<div>${pctMeLabel}: ±${pctMe.toFixed(1)}%</div>`
+      : isAcs
+        ? `<div>${pctMeLabel}: Not Available</div>`
+        : "";
+    const primaryMeLine = meDisplay != null ? `<div>${meLabel}: ${meDisplay}</div>` : "";
 
     tooltip
       .style("opacity", 1)
@@ -59,9 +70,9 @@ const StackedBarChart = (props) => {
         <div style="padding: 4px;">
           <div style="font-weight: bold;">${seriesLabel}</div>
           <div>${valueLabel}: ${valueDisplay}</div>
-          <div>${meLabel}: ${meDisplay}</div>
-          <div>${pctLabel}: ${pctDisplay}</div>
-          <div>${pctMeLabel}: ${pctMeDisplay}</div>
+          ${primaryMeLine}
+          ${pctLine}
+          ${pctMeLine}
           ${extraHtml}
         </div>
       `,
@@ -241,37 +252,12 @@ const StackedBarChart = (props) => {
     // Create chart group
     const g = chart.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
 
-    // Add bars
-    const layers = g
-      .selectAll("g.layer")
-      .data(stack(data))
-      .join("g")
-      .attr("class", "layer")
-      .attr("fill", (d) => colorRef.current(d.key));
-
-    layers
-      .selectAll("rect")
-      .data((d) => d.map((item) => ({ ...item, series: d.key })))
-      .join("rect")
-      .attr("x", (d) => {
-        if (props.horizontal) {
-          return xScale(d[0]);
-        }
-        return xScale(d.data.x) + realignment;
-      })
-      .attr("y", (d) => (props.horizontal ? yScale(d.data.x) : isNaN(yScale(d[1])) ? yScale(0) : yScale(d[1])))
-      .attr("height", (d) => (props.horizontal ? yScale.bandwidth() : isNaN(yScale(d[0]) - yScale(d[1])) ? 0 : Math.max(0, yScale(d[0]) - yScale(d[1]))))
-      .attr("width", (d) => {
-        if (props.horizontal) {
-          return Math.max(0, xScale(d[1]) - xScale(d[0]));
-        }
-        return columnWidth;
-      })
-      .on("mouseover", (event, d) => {
+    const stackedBarPointer = (event, d) => {
         const value = d.data[d.series];
         const me = d.data[`${d.series}_me`];
         const totpop = d.data.totpop;
         const totpop_me = d.data.totpop_me;
+        const isAcs = chartSourceIsAcs(props.chart);
 
         const isPercentChart = props.chart?.title === "Internet Usage by Income Level";
         
@@ -292,7 +278,14 @@ const StackedBarChart = (props) => {
         const formattedTotpopME = typeof totpop_me === "number" ? d3.format(",")(totpop_me) : null;
         
         const valueDisplay = formattedValue;
-        const meDisplay = formattedME === null ? "Not Available" : (isPercentChart ? `±${formattedME}%` : `±${formattedME}`);
+        const meDisplay =
+          formattedME === null
+            ? isAcs
+              ? "Not Available"
+              : null
+            : isPercentChart
+              ? `±${formattedME}%`
+              : `±${formattedME}`;
 
         const tooltipType = props.chart?.tooltip?.type;
         const showTotalsInTooltip = !!props.chart?.tooltip?.showTotals;
@@ -307,12 +300,19 @@ const StackedBarChart = (props) => {
                 : "default");
 
         if (resolvedTooltipType === "countAndPercent") {
+          const totalPopulationLabel = isAcs ? "Total Population (estimate)" : "Total Population";
+          const totalMeHtml =
+            formattedTotpopME != null
+              ? `<div>Margin of Error: ±${formattedTotpopME}</div>`
+              : isAcs
+                ? `<div>Margin of Error: Not Available</div>`
+                : "";
           const extraHtml =
             (showTotalsInTooltip || props.chart.title === "Employment of Residents") && formattedTotpop
               ? `
                 <div style="margin-top: 8px; border-top: 1px solid #ccc; padding-top: 8px;">
-                  <div>Total Population: ${formattedTotpop}</div>
-                  <div>Total Margin of Error: ${formattedTotpopME === null ? "Not Available" : "±" + formattedTotpopME}</div>
+                  <div>${totalPopulationLabel}: ${formattedTotpop}</div>
+                  ${totalMeHtml}
                 </div>
               `
               : "";
@@ -322,22 +322,27 @@ const StackedBarChart = (props) => {
             event,
             tooltip,
             seriesLabel: d.series,
-            valueLabel: "Count",
+            valueLabel: isAcs ? "Estimate" : "Count",
             valueDisplay,
-            meLabel: "Margin of Error (Count)",
+            meLabel: isAcs ? "Margin of Error (Estimate)" : "Margin of Error (Count)",
             meDisplay,
             pctLabel: "Percent (%)",
             pctMeLabel: "Margin of Error (Percent)",
             pctRaw: d.data[`${d.series}_pct`] ?? d.data.pct,
             pctMeRaw: d.data[`${d.series}_pct_me`] ?? d.data.pct_me,
             extraHtml,
+            isAcs,
           });
         } else if (resolvedTooltipType === "percentAndCount") {
           // Percent + percent MOE primary value and count + count MOE secondary metrics.
           const pct = typeof value === "number" ? value : parseFloat(value);
           const pctMe = typeof me === "number" ? me : NaN;
-          const pctDisplay = !isNaN(pct) ? `${pct.toFixed(1)}%` : "Not Available";
-          const pctMeDisplay = !isNaN(pctMe) ? `±${pctMe.toFixed(1)}%` : "Not Available";
+          const pctDisplay = !isNaN(pct) ? `${pct.toFixed(1)}%` : isAcs ? "Not Available" : null;
+          const pctMeLine = !isNaN(pctMe)
+            ? `<div>Margin of Error (Percent): ±${pctMe.toFixed(1)}%</div>`
+            : isAcs
+              ? `<div>Margin of Error (Percent): Not Available</div>`
+              : "";
 
           const seriesCount = d.data[`${d.series}_count`];
           const seriesCountMe = d.data[`${d.series}_count_me`];
@@ -348,6 +353,14 @@ const StackedBarChart = (props) => {
                 ? d3.format(",")(seriesCountMe)
                 : d3.format(",.1f")(seriesCountMe)
               : null;
+          const countLabel = isAcs ? "Estimate" : "Count";
+          const countMeLabel = isAcs ? "Margin of Error (Estimate)" : "Margin of Error (Count)";
+          const countMeLine =
+            formattedCountME !== null
+              ? `<div>${countMeLabel}: ±${formattedCountME}</div>`
+              : isAcs
+                ? `<div>${countMeLabel}: Not Available</div>`
+                : "";
 
           tooltip
             .style("opacity", 1)
@@ -355,14 +368,12 @@ const StackedBarChart = (props) => {
               `
             <div style="padding: 4px;">
               <div style="font-weight: bold;">${d.series}</div>
-              <div>Percent (%): ${pctDisplay}</div>
-              <div>Margin of Error (Percent): ${pctMeDisplay}</div>
+              ${pctDisplay != null ? `<div>Percent (%): ${pctDisplay}</div>` : ""}
+              ${pctMeLine}
               ${
                 formattedCount !== null
-                  ? `<div style="margin-top: 4px;">Count: ${formattedCount}</div>
-                     <div>Margin of Error (Count): ${
-                       formattedCountME !== null ? `±${formattedCountME}` : "Not Available"
-                     }</div>`
+                  ? `<div style="margin-top: 4px;"><div>${countLabel}: ${formattedCount}</div>
+                     ${countMeLine}</div>`
                   : ""
               }
             </div>
@@ -381,8 +392,28 @@ const StackedBarChart = (props) => {
                 : d3.format(",.1f")(countMe)
               : null;
           const valueIsPercent = typeof valueDisplay === "string" && valueDisplay.includes("%");
-          const valueLabel = valueIsPercent ? "Percent (%)" : "Count";
-          const meLabel = valueIsPercent ? "Margin of Error (Percent)" : "Margin of Error (Count)";
+          const countOrEstimate = isAcs ? "Estimate" : "Count";
+          const valueLabel = valueIsPercent ? "Percent (%)" : countOrEstimate;
+          const meLabel = valueIsPercent
+            ? "Margin of Error (Percent)"
+            : isAcs
+              ? "Margin of Error (Estimate)"
+              : "Margin of Error (Count)";
+          const primaryMeLine = meDisplay != null ? `<div>${meLabel}: ${meDisplay}</div>` : "";
+          const countMeLabel = isAcs ? "Margin of Error (Estimate)" : "Margin of Error (Count)";
+          const countMeLine =
+            formattedCountME !== null
+              ? `<div>${countMeLabel}: ±${formattedCountME}</div>`
+              : isAcs
+                ? `<div>${countMeLabel}: Not Available</div>`
+                : "";
+          const totalPopulationLabel = isAcs ? "Total Population (estimate)" : "Total Population";
+          const totalMeLine =
+            formattedTotpopME != null
+              ? `<div>Total Margin of Error: ±${formattedTotpopME}</div>`
+              : isAcs
+                ? `<div>Total Margin of Error: Not Available</div>`
+                : "";
 
           tooltip
             .style("opacity", 1)
@@ -391,21 +422,19 @@ const StackedBarChart = (props) => {
             <div style="padding: 4px;">
               <div style="font-weight: bold;">${d.series}</div>
               <div>${valueLabel}: ${valueDisplay}</div>
-              <div>${meLabel}: ${meDisplay}</div>
+              ${primaryMeLine}
               ${
                 formattedCount !== null
-                  ? `<div style="margin-top: 4px;">Count: ${formattedCount}</div>
-                     <div>Margin of Error (Count): ${
-                       formattedCountME !== null ? `±${formattedCountME}` : "Not Available"
-                     }</div>`
+                  ? `<div style="margin-top: 4px;"><div>${countOrEstimate}: ${formattedCount}</div>
+                     ${countMeLine}</div>`
                   : ""
               }
               ${
                 formattedTotpop
                   ? `
                 <div style="margin-top: 8px; border-top: 1px solid #ccc; padding-top: 8px;">
-                  <div>Total Population: ${formattedTotpop}</div>
-                  <div>Total Margin of Error: ${formattedTotpopME === null ? "Not Available" : "±" + formattedTotpopME}</div>
+                  <div>${totalPopulationLabel}: ${formattedTotpop}</div>
+                  ${totalMeLine}
                 </div>
               `
                   : ""
@@ -416,15 +445,104 @@ const StackedBarChart = (props) => {
             .style("left", `${event.pageX + 10}px`)
             .style("top", `${event.pageY - 10}px`);
         }
+    };
 
-       
-      })
-      .on("mousemove", (event) => {
-        tooltip.style("left", `${event.pageX + 10}px`).style("top", `${event.pageY - 10}px`);
-      })
-      .on("mouseout", () => {
-        tooltip.style("opacity", 0);
-      });
+    const stackedBarMove = (event) => {
+      tooltip.style("left", `${event.pageX + 10}px`).style("top", `${event.pageY - 10}px`);
+    };
+
+    const stackedBarLeave = () => {
+      tooltip.style("opacity", 0);
+    };
+
+    // Add bars (visible + transparent hit target so tiny segments stay easy to hover)
+    const layers = g
+      .selectAll("g.layer")
+      .data(stack(data))
+      .join("g")
+      .attr("class", "layer")
+      .attr("fill", (d) => colorRef.current(d.key));
+
+    layers.each(function (layerRows) {
+      const layerG = d3.select(this);
+      const cells = layerRows.map((item) => ({ ...item, series: layerRows.key }));
+
+      layerG
+        .selectAll("rect.bar-visible")
+        .data(cells)
+        .join("rect")
+        .attr("class", "bar-visible")
+        .attr("pointer-events", "none")
+        .attr("x", (d) => {
+          if (props.horizontal) {
+            return xScale(d[0]);
+          }
+          return xScale(d.data.x) + realignment;
+        })
+        .attr("y", (d) => (props.horizontal ? yScale(d.data.x) : isNaN(yScale(d[1])) ? yScale(0) : yScale(d[1])))
+        .attr("height", (d) =>
+          props.horizontal ? yScale.bandwidth() : isNaN(yScale(d[0]) - yScale(d[1])) ? 0 : Math.max(0, yScale(d[0]) - yScale(d[1])),
+        )
+        .attr("width", (d) => {
+          if (props.horizontal) {
+            return Math.max(0, xScale(d[1]) - xScale(d[0]));
+          }
+          return columnWidth;
+        });
+
+      layerG
+        .selectAll("rect.bar-hit")
+        .data(cells)
+        .join("rect")
+        .attr("class", "bar-hit")
+        .attr("fill", "transparent")
+        .attr("pointer-events", "all")
+        .style("cursor", "default")
+        .attr("x", (d) => {
+          if (props.horizontal) {
+            const xL = xScale(d[0]);
+            const xR = xScale(d[1]);
+            const visualW = Math.max(0, xR - xL);
+            const hitW = Math.max(visualW, MIN_BAR_POINTER_TARGET);
+            return xR - hitW;
+          }
+          return xScale(d.data.x) + realignment;
+        })
+        .attr("y", (d) => {
+          if (props.horizontal) {
+            const band = yScale.bandwidth();
+            const hitBand = Math.max(band, MIN_BAR_POINTER_TARGET);
+            const y0 = yScale(d.data.x);
+            return y0 + (band - hitBand) / 2;
+          }
+          const yTop = isNaN(yScale(d[1])) ? yScale(0) : yScale(d[1]);
+          const yBottom = isNaN(yScale(d[0])) ? yScale(0) : yScale(d[0]);
+          const visualH = Math.max(0, yBottom - yTop);
+          const hitH = Math.max(visualH, MIN_BAR_POINTER_TARGET);
+          return yBottom - hitH;
+        })
+        .attr("height", (d) => {
+          if (props.horizontal) {
+            return Math.max(yScale.bandwidth(), MIN_BAR_POINTER_TARGET);
+          }
+          const yTop = isNaN(yScale(d[1])) ? yScale(0) : yScale(d[1]);
+          const yBottom = isNaN(yScale(d[0])) ? yScale(0) : yScale(d[0]);
+          const visualH = Math.max(0, yBottom - yTop);
+          return Math.max(visualH, MIN_BAR_POINTER_TARGET);
+        })
+        .attr("width", (d) => {
+          if (props.horizontal) {
+            const xL = xScale(d[0]);
+            const xR = xScale(d[1]);
+            const visualW = Math.max(0, xR - xL);
+            return Math.max(visualW, MIN_BAR_POINTER_TARGET);
+          }
+          return columnWidth;
+        })
+        .on("mouseover", stackedBarPointer)
+        .on("mousemove", stackedBarMove)
+        .on("mouseout", stackedBarLeave);
+    });
 
     // Add axes with proper formatting
     const xAxis = props.horizontal

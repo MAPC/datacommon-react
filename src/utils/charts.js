@@ -1,3 +1,6 @@
+/** Minimum bar thickness in SVG user units for pointer targets (invisible overlay). */
+export const MIN_BAR_POINTER_TARGET = 14;
+
 export function maxToMargin(maxValue) {
   if (!maxValue) { return 0; }
   const zeros = Math.floor(Math.log10(maxValue)) + 1;
