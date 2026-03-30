@@ -134,6 +134,8 @@ class DatasetTable extends React.Component {
     );
 
     const renderedRows = dataRows.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+    const firstRecordOnPage = (currentPage - 1) * rowsPerPage + 1;
+    const lastRecordOnPage = (currentPage - 1) * rowsPerPage + renderedRows.length;
     const numOfPages = Math.ceil(dataRows.length / rowsPerPage);
     const backButtonClasses = currentPage === 1 ? "button-wrapper lift disabled" : "button-wrapper lift";
     const forwardButtonClasses = currentPage === numOfPages ? "button-wrapper list disabled" : "button-wrapper lift";
@@ -172,51 +174,57 @@ class DatasetTable extends React.Component {
             </div>
           </div>
           <div className="pagination">
-            <div className={backButtonClasses}>
-              <button
-                onClick={(e) => {
-                  currentPage !== 1 ? updatePage(e, "Beginning") : null;
-                }}
-                className="datatable__button"
-              >
-                &lt;&lt;
-              </button>
-              <span className="separator" />
-              <button
-                onClick={(e) => {
-                  currentPage !== 1 ? updatePage(e, "Backward") : null;
-                }}
-                className="datatable__button"
-              >
-                &lt;
-              </button>
+            <div className="pagination-count-text">
+              Displaying {firstRecordOnPage} to {lastRecordOnPage} of {dataRows.length} records
             </div>
+            <div className="pagination-nav-container">
+              <div className={backButtonClasses}>
+                <button
+                  onClick={(e) => {
+                    currentPage !== 1 ? updatePage(e, "Beginning") : null;
+                  }}
+                  className="datatable__button"
+                >
+                  &lt;&lt;
+                </button>
+                <span className="separator" />
+                <button
+                  onClick={(e) => {
+                    currentPage !== 1 ? updatePage(e, "Backward") : null;
+                  }}
+                  className="datatable__button"
+                >
+                  &lt;
+                </button>
+              </div>
 
-            <div className="page-counter">
-              {currentPage}
-              <span className="separator" />
-              {numOfPages}
-            </div>
+              <div className="page-counter">
+                {currentPage}
+                <span className="separator" />
+                {numOfPages}
+              </div>
 
-            <div className={forwardButtonClasses}>
-              <button
-                onClick={(e) => {
-                  currentPage !== numOfPages ? updatePage(e, "Forward") : null;
-                }}
-                className="datatable__button"
-              >
-                &gt;
-              </button>
-              <span className="separator" />
-              <button
-                onClick={(e) => {
-                  currentPage !== numOfPages ? updatePage(e, "End", numOfPages) : null;
-                }}
-                className="datatable__button"
-              >
-                &gt;&gt;
-              </button>
+              <div className={forwardButtonClasses}>
+                <button
+                  onClick={(e) => {
+                    currentPage !== numOfPages ? updatePage(e, "Forward") : null;
+                  }}
+                  className="datatable__button"
+                >
+                  &gt;
+                </button>
+                <span className="separator" />
+                <button
+                  onClick={(e) => {
+                    currentPage !== numOfPages ? updatePage(e, "End", numOfPages) : null;
+                  }}
+                  className="datatable__button"
+                >
+                  &gt;&gt;
+                </button>
+              </div>
             </div>
+            
           </div>
         </div>
       </div>

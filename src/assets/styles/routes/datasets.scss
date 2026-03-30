@@ -406,9 +406,19 @@
   .pagination {
     padding-top: 2rem;
 
-    text-align: right;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 
     & > div { display: inline-block; }
+
+    .pagination-count-text {
+      font-size: $font_size-xsmall;
+    }
+
+    .pagination-nav-container {
+      display: flex;
+    }
 
     .separator {
       display: inline-block;
