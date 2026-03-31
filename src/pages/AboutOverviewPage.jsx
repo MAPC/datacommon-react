@@ -6,6 +6,7 @@ import { faSpinner } from "@fortawesome/free-solid-svg-icons";
 const AboutOverviewPage = () => {
   const updateLogsResponse = useAirtableCMS({
     tableName: "Feature Update Logs",
+    viewName: "All",
     fieldMapping: {
       description: "Description",
       updateDate: "Update Date"
@@ -28,6 +29,7 @@ const AboutOverviewPage = () => {
 
   const majorReleaseResponse = useAirtableCMS({
     tableName: "Major Release",
+    viewName: "All",
     fieldMapping: {
       title:"Title",
       showTitle:"Show Title",
