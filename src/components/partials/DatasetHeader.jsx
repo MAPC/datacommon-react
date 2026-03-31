@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Link } from "react-router-dom";
 import PropTypes from "prop-types";
 import { formatUpdated } from "../../utils/formatUpdated";
 
@@ -79,7 +78,7 @@ const downloadMetadata = (e, database, metadata, title, table = "", description 
   link.click();
 };
 
-const urlForDownload = (schema, table, database, selectedYears, queryYearColumn, format) => {
+const urlForDownload = (schema, table, database, selectedYears, queryYearColumn, selectedColumns, columnKeys, format) => {
   let url = "#";
 
   // Handle zoning atlas special case
@@ -93,10 +92,15 @@ const urlForDownload = (schema, table, database, selectedYears, queryYearColumn,
     url = `${url}&years=${selectedYears.join(",")}`;
   }
 
+  // Include all columns by default if the users hasn't de-selected any
+  if (selectedColumns.length && selectedColumns.length < columnKeys.length) {
+    url = `${url}&columns=${selectedColumns.join(',')}`
+  }
+
   return url;
 };
 
-const setDownloadButton = (metadata, schema, table, title, description, selectedYears, queryYearColumn, database) => {
+const setDownloadButton = (metadata, schema, table, title, description, selectedYears, queryYearColumn, selectedColumns, columnKeys, database) => {
   const tableIsGeospatial = database === "towndata" || database === "gisdata";
   return (
     <div className="details-content-column download-links">
@@ -115,7 +119,9 @@ const setDownloadButton = (metadata, schema, table, title, description, selected
               title={`Download data as ${config.displayName}`}
               download
               className="button file-button"
-              href={urlForDownload(schema, table, database, selectedYears, queryYearColumn, format)}
+              href={
+                urlForDownload(schema, table, database, selectedYears, queryYearColumn, selectedColumns, columnKeys, format)
+              }
             >
               {config.extension}
             </a>
@@ -584,7 +590,7 @@ function DatasetHeader({
             </div>
           </div>
           <div className="details-content-column download-section">
-            {setDownloadButton(metadata, schema, table, title, description, selectedYears, queryYearColumn, database)}
+            {setDownloadButton(metadata, schema, table, title, description, selectedYears, queryYearColumn, selectedColumns, columnKeys, database)}
             <div style={{ marginTop: "10px", textAlign: "right" }}>
               <a
                 href="https://airtable.com/appqSr3MqAkN1GCfb/pagdcSeY2bc4rblam/form"
