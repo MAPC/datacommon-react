@@ -88,6 +88,60 @@
       font-size: $p_size;
       font-weight: lighter;
       line-height: 1.5rem;
+      margin: 0 0 0.75rem 0;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+
+    .about-overview__major-release-markdown {
+      ul,
+      ol {
+        margin: 0.35rem 0 0.75rem 1.25rem;
+        padding: 0;
+        font-size: $p_size;
+        font-weight: lighter;
+        line-height: 1.5rem;
+      }
+
+      li {
+        margin-bottom: 0.35rem;
+      }
+
+      a {
+        color: $color_brand-primary;
+        text-decoration: underline;
+
+        &:hover {
+          opacity: 0.9;
+        }
+      }
+
+      code {
+        font-size: 0.9em;
+        padding: 0.1em 0.35em;
+        background: rgba($color_bg-medium, 0.5);
+        border-radius: 3px;
+      }
+
+      pre {
+        margin: 0.5rem 0;
+        padding: 0.75rem;
+        overflow-x: auto;
+        font-size: 0.85rem;
+        background: $color_bg-light;
+        border-radius: 4px;
+      }
+
+      pre code {
+        padding: 0;
+        background: none;
+      }
+
+      strong {
+        font-weight: 600;
+      }
     }
 
     > div {
@@ -186,9 +240,9 @@
     }
   }
 
-  .about-overview__log-date {
+  .about-overview__log-title {
     font-weight: 600;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.35rem;
     font-size: 0.9rem;
     color: $color_brand-secondary;
     text-transform: uppercase;
@@ -208,12 +262,73 @@
     }
   }
 
+  .about-overview__log-meta {
+    font-weight: 400;
+    margin-bottom: 0.5rem;
+    font-size: 0.8rem;
+    color: $color_font-medium;
+    font-family: $font_family-primary;
+  }
+
   .about-overview__log-description {
     margin-left: 0;
     color: $color_font-dark;
     line-height: 1.6;
     font-size: 0.95rem;
     font-family: $font_family-primary;
+
+    p {
+      margin: 0 0 0.5rem 0;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+
+    ul,
+    ol {
+      margin: 0.35rem 0 0.5rem 1rem;
+      padding: 0;
+      line-height: 1.6;
+    }
+
+    li {
+      margin-bottom: 0.25rem;
+    }
+
+    a {
+      color: $color_brand-primary;
+      text-decoration: underline;
+
+      &:hover {
+        opacity: 0.9;
+      }
+    }
+
+    code {
+      font-size: 0.9em;
+      padding: 0.1em 0.35em;
+      background: rgba($color_bg-medium, 0.5);
+      border-radius: 3px;
+    }
+
+    pre {
+      margin: 0.5rem 0;
+      padding: 0.65rem;
+      overflow-x: auto;
+      font-size: 0.85rem;
+      background: $color_bg-light;
+      border-radius: 4px;
+    }
+
+    pre code {
+      padding: 0;
+      background: none;
+    }
+
+    strong {
+      font-weight: 600;
+    }
   }
 
   .about-overview__loading {
