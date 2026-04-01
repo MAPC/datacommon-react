@@ -1,7 +1,18 @@
 import React from "react";
+import ReactMarkdown from "react-markdown";
 import { useAirtableCMS } from "@mapc/airtable-cms";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSpinner } from "@fortawesome/free-solid-svg-icons";
+
+/** Valid numeric Order from Airtable, or null when missing / not a number */
+const parseMajorReleaseOrder = (order) => {
+  if (order === null || order === undefined || order === "") return null;
+  const n = Number(order);
+  return Number.isFinite(n) ? n : null;
+};
+
+
+const majorReleaseCreatedTimeMs = (release) => new Date(release.createdTime).getTime();
 
 const AboutOverviewPage = () => {
   const updateLogsResponse = useAirtableCMS({
@@ -9,6 +20,7 @@ const AboutOverviewPage = () => {
     viewName: "All",
     fieldMapping: {
       description: "Description",
+      title: "Title",
       updateDate: "Update Date"
     },
     sortBy: (a, b) => {
@@ -34,12 +46,16 @@ const AboutOverviewPage = () => {
       title:"Title",
       showTitle:"Show Title",
       content: "Content",
-      order: "Order"
+      order: "Order",
+      createdTime: "Created time"
     },
     sortBy: (a, b) => {
-      const orderA = a.order !== undefined && a.order !== null ? Number(a.order) : 999;
-      const orderB = b.order !== undefined && b.order !== null ? Number(b.order) : 999;
-      return orderA - orderB;
+      const oa = parseMajorReleaseOrder(a.order);
+      const ob = parseMajorReleaseOrder(b.order);
+      if (oa != null && ob != null) return oa - ob;
+      if (oa != null && ob == null) return -1;
+      if (oa == null && ob != null) return 1;
+      return majorReleaseCreatedTimeMs(b) - majorReleaseCreatedTimeMs(a);
     },
     asList: true,
   });
@@ -188,7 +204,7 @@ const AboutOverviewPage = () => {
                 </a>
                 . If you encounter any issues with the website or want to recommend a new feature that would make the site better for you to use, please let us know
                 through{" "}
-                <a href="https://airtable.com/appvsTkjC3FUe4yZ1/pagrTq8UqNU1zcrCL/form" target="_blank" rel="noopener noreferrer">
+                <a href="https://airtable.com/app3LpG05CtIRpj7q/pagutpBlODNBc2Lwr/form" target="_blank" rel="noopener noreferrer">
                   this form
                 </a>
                 . To contact someone on the team about DataCommon email <a href="mailto:datacommon@mapc.org">datacommon@mapc.org</a>.
@@ -228,7 +244,9 @@ const AboutOverviewPage = () => {
                       {release.showTitle && release.title && (
                         <h3>{release.title}</h3>
                       )}
-                      <p>{release.content}</p>
+                      <div className="about-overview__major-release-markdown">
+                        <ReactMarkdown>{release.content}</ReactMarkdown>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -251,12 +269,25 @@ const AboutOverviewPage = () => {
               )}
               {!loading && !error && logs.length > 0 && (
                 <div className="about-overview__logs">
-                  {logs.slice(0, 10).map((log) => (
-                    <div key={log.id} className="about-overview__log-item">
-                      <div className="about-overview__log-date">{formatDate(log.updateDate)}</div>
-                      <div className="about-overview__log-description">{log.description}</div>
-                    </div>
-                  ))}
+                  {logs.slice(0, 10).map((log) => {
+                    const titleText = (log.title ?? "").trim();
+                    const hasDate = Boolean(log.updateDate);
+                    return (
+                      <div key={log.id} className="about-overview__log-item">
+                        {titleText ? (
+                          <div className="about-overview__log-title">{titleText}</div>
+                        ) : hasDate ? (
+                          <div className="about-overview__log-title">{formatDate(log.updateDate)}</div>
+                        ) : null}
+                        {titleText && hasDate ? (
+                          <div className="about-overview__log-meta">Updated {formatDate(log.updateDate)}</div>
+                        ) : null}
+                        <div className="about-overview__log-description">
+                          <ReactMarkdown>{log.description}</ReactMarkdown>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
               {!loading && !error && logs.length === 0 && (

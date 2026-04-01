@@ -29,10 +29,17 @@ const LogItem = styled.div`
   margin-bottom: 1.5rem;
 `;
 
-const LogDate = styled.div`
+const LogTitle = styled.div`
   font-weight: bold;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.35rem;
   font-size: 1rem;
+`;
+
+const LogDate = styled.div`
+  font-weight: 400;
+  margin-bottom: 0.5rem;
+  font-size: 0.8rem;
+  color: #666;
 `;
 
 const LogDescription = styled.div`
@@ -67,6 +74,7 @@ const AboutUpdatePage = () => {
     tableName: "Feature Update Logs",
     fieldMapping: {
       description: "Description",
+      title: "Title",
       updateDate: "Update Date"
     },
     sortBy: (a, b) => {
@@ -90,7 +98,6 @@ const AboutUpdatePage = () => {
   const logsData = response.data;
   const loading = !response.metadata.done;
   const error = response.metadata.error;
-
   /**
    * Transform logs to include dateObj for sorting and ensure we have an array
    * @returns {Array} logs with dateObj
@@ -105,11 +112,12 @@ const AboutUpdatePage = () => {
       const dateObj = updateDate ? new Date(updateDate) : null;
       
       return {
+        ...log,
         id: log.recordId || log.description || `log-${Math.random()}`, // Use recordId from Airtable, fallback to description
+        title: (log.title ?? "").trim(),
         description: log.description || "",
         updateDate: updateDate,
         dateObj: dateObj,
-        ...log,
       };
     });
     // Note: sorting is already done by the hook's sortBy function
@@ -175,12 +183,23 @@ const AboutUpdatePage = () => {
         )}
         {!loading && !errorMessage && logs.length > 0 && (
           <LogsContainer className="update-logs-container">
-            {logs.map((log) => (
-              <LogItem key={log.id}>
-                <LogDate>{formatDate(log.updateDate)}</LogDate>
-                <LogDescription>{log.description}</LogDescription>
-              </LogItem>
-            ))}
+            {logs.map((log) => {
+              const titleText = (log.title ?? "").trim();
+              const hasDate = Boolean(log.updateDate);
+              return (
+                <LogItem key={log.id}>
+                  {titleText ? (
+                    <LogTitle>{titleText}</LogTitle>
+                  ) : hasDate ? (
+                    <LogTitle>{formatDate(log.updateDate)}</LogTitle>
+                  ) : null}
+                  {titleText && hasDate ? (
+                    <LogDate>Updated {formatDate(log.updateDate)}</LogDate>
+                  ) : null}
+                  <LogDescription>{log.description}</LogDescription>
+                </LogItem>
+              );
+            })}
           </LogsContainer>
         )}
         {!loading && !errorMessage && logs.length === 0 && (
