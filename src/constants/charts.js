@@ -305,6 +305,16 @@ const demoRaceByAgeGenderColumns = [
   "pop85o",
 ];
 
+/**
+ * True when chart metadata indicates American Community Survey (ACS) data.
+ * Used for tooltips: "Estimate" / survey MOE wording instead of "Count" for tallies.
+ */
+export const chartSourceIsAcs = (chart) => {
+  const s = chart?.source;
+  if (typeof s !== "string" || !s.trim()) return false;
+  return /american community survey/i.test(s) || /\bACS\b/i.test(s);
+};
+
 export default {
   demographics: {
     race_ethnicity: {

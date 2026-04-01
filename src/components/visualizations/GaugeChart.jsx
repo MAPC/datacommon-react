@@ -4,6 +4,7 @@ import * as d3 from "d3";
 import MoonLoader from "react-spinners/MoonLoader";
 
 import colors from "../../constants/colors";
+import { chartSourceIsAcs } from "../../constants/charts";
 
 const primaryColors = Array.from(colors.CHART.PRIMARY.values());
 
@@ -133,6 +134,10 @@ const GaugeChart = (props) => {
       .attr("stroke-dasharray", `0 ${fullCirc}`)
       .attr("stroke-dashoffset", -halfCirc)
       .on("mouseover", (event) => {
+        const isAcs = chartSourceIsAcs(props.chart);
+        const countLabel = isAcs ? "Estimate" : "Count";
+        const countMeLabel = isAcs ? "Margin of Error (Estimate)" : "Margin of Error (Count)";
+
         const formattedPercentage = props.valueFormat ? `${props.valueFormat(value)}%` : `${value.toFixed(1)}%`;
         const formattedME = marginOfError !== null ? (marginOfError % 1 === 0 ? marginOfError.toFixed(0) : marginOfError.toFixed(1)) : null;
         const formattedCount = count !== null ? d3.format(",")(count) : null;
@@ -142,6 +147,24 @@ const GaugeChart = (props) => {
               ? countMarginOfError.toFixed(0)
               : countMarginOfError.toFixed(1)
             : null;
+
+        const valueMeLine =
+          formattedME !== null
+            ? `<div>Margin of Error (Percent): ±${formattedME}%</div>`
+            : isAcs
+              ? `<div>Margin of Error (Percent): Not Available</div>`
+              : "";
+        const countMeLine =
+          formattedCountME !== null
+            ? `<div>${countMeLabel}: ±${formattedCountME}</div>`
+            : isAcs && formattedCount !== null
+              ? `<div>${countMeLabel}: Not Available</div>`
+              : "";
+        const countBlock =
+          formattedCount !== null
+            ? `<div style="margin-top: 4px;"><div>${countLabel}: ${formattedCount}</div>${countMeLine}</div>`
+            : "";
+
         tooltip
           .style("opacity", 1)
           .html(
@@ -149,15 +172,8 @@ const GaugeChart = (props) => {
             <div style="padding: 4px;">
               <div style="font-weight: bold;">${props.title || "Value"}</div>
               <div>Value: ${formattedPercentage}</div>
-              ${formattedME !== null ? `<div>Margin of Error: ±${formattedME}%</div>` : '<div>Margin of Error: Not Available</div>'}
-              ${
-                formattedCount !== null
-                  ? `<div style="margin-top: 4px;">Count: ${formattedCount}</div>
-                     <div>Margin of Error (Count): ${
-                       formattedCountME !== null ? `±${formattedCountME}` : "Not Available"
-                     }</div>`
-                  : ""
-              }
+              ${valueMeLine}
+              ${countBlock}
             </div>
           `,
           )
@@ -184,8 +200,9 @@ const GaugeChart = (props) => {
         };
       });
 
-    // Value text near bottom center — count up and fade in
-    const formattedValue = props.valueFormat ? props.valueFormat(value) : value.toFixed(1);
+    // Center label: final value set immediately so print / PDF never snapshots a counting "0%" mid-animation.
+    // (Arc uses a static print layer; text must match.)
+    const displayLabel = props.valueFormat ? `${props.valueFormat(value)}%` : `${value.toFixed(1)}%`;
     const valueText = chart
       .append("text")
       .attr("x", cx)
@@ -196,21 +213,9 @@ const GaugeChart = (props) => {
       .attr("font-weight", "400")
       .attr("fill", valueColor)
       .attr("opacity", 0)
-      .text("0%");
+      .text(displayLabel);
 
-    valueText
-      .transition()
-      .delay(400)
-      .duration(800)
-      .ease(d3.easeCubicOut)
-      .attr("opacity", 1)
-      .textTween(function () {
-        const interp = d3.interpolateNumber(0, value);
-        const format = props.valueFormat || ((n) => n.toFixed(1));
-        return function (t) {
-          return `${format(interp(t))}%`;
-        };
-      });
+    valueText.transition().delay(200).duration(400).ease(d3.easeCubicOut).attr("opacity", 1);
   };
 
   const renderBlankChart = () => {
@@ -274,6 +279,7 @@ const GaugeChart = (props) => {
 };
 
 GaugeChart.propTypes = {
+  chart: PropTypes.object,
   data: PropTypes.arrayOf(
     PropTypes.shape({
       value: PropTypes.number.isRequired,

@@ -25,6 +25,10 @@
       .donut-segment--print {
         display: block;
       }
+      // Ensure label is visible and final if print runs before the fade-in transition finishes
+      .gauge-text {
+        opacity: 1 !important;
+      }
     }
     
     .svg-wrapper {

@@ -3,6 +3,7 @@ import PropTypes from "prop-types";
 import * as d3 from "d3";
 
 import colors from "../../constants/colors";
+import { chartSourceIsAcs } from "../../constants/charts";
 import { maxTextToMargin, drawLegend } from "../../utils/charts";
 
 const primaryColors = Array.from(colors.CHART.PRIMARY.values());
@@ -129,12 +130,16 @@ class PieChart extends React.Component {
       .attr("stroke", "white")
       .attr("stroke-width", "1")
       .on("mouseover", (event, d) => {
+        const isAcs = chartSourceIsAcs(this.props.chart);
+        const countLabel = isAcs ? "Estimate" : "Count";
+        const meLabel = isAcs ? "Margin of Error (Estimate)" : "Margin of Error (Count)";
+
         const percentage = ((d.data.value * 100) / sum).toFixed(1);
         const count = d.data.count ?? d.data.value;
         const countME = d.data.countMarginOfError ?? d.data.me;
         const formattedCount = typeof count === "number" ? d3.format(",")(count) : null;
         const formattedME = typeof countME === "number" ? d3.format(",")(countME) : null;
-        
+
         let tooltipContent = `
           <div style="padding: 4px;">
             <div style="font-weight: bold;">${d.data.label}</div>
@@ -142,15 +147,15 @@ class PieChart extends React.Component {
         `;
 
         if (formattedCount !== null) {
-          tooltipContent += `<div>Count: ${formattedCount}</div>`;
+          tooltipContent += `<div>${countLabel}: ${formattedCount}</div>`;
         }
-        
+
         if (formattedME !== null) {
-          tooltipContent += `<div>Margin of Error (Count): ±${formattedME}</div>`;
-        } else {
-          tooltipContent += `<div>Margin of Error (Count): Not Available</div>`;
+          tooltipContent += `<div>${meLabel}: ±${formattedME}</div>`;
+        } else if (isAcs && formattedCount !== null) {
+          tooltipContent += `<div>${meLabel}: Not Available</div>`;
         }
-        
+
         tooltipContent += `</div>`;
         
         this.tooltip
@@ -208,7 +213,7 @@ class PieChart extends React.Component {
 }
 
 PieChart.propTypes = {
-  colors: PropTypes.arrayOf(PropTypes.string),
+  chart: PropTypes.object,
   title: PropTypes.string,
   data: PropTypes.arrayOf(
     PropTypes.shape({
