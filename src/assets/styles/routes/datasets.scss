@@ -273,6 +273,23 @@
     align-items: flex-start;
   }
 
+  .download-should-filter-checkbox-container {
+    display: flex;
+    flex-direction: row;
+    gap: 4px;
+    justify-content: end;
+    align-items: center;
+
+    font-size: $font_size-xsmall;
+    padding-top: 8px;
+  }
+
+  .download-should-filter-checkbox {
+    cursor: pointer;
+    accent-color: $color_brand-secondary;
+    margin-top: 4px;
+  }
+
   .table-wrapper { 
     @extend ._partial-bg;
     
