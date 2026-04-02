@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import PropTypes from "prop-types";
 import { formatUpdated } from "../../utils/formatUpdated";
 
@@ -78,7 +78,7 @@ const downloadMetadata = (e, database, metadata, title, table = "", description 
   link.click();
 };
 
-const urlForDownload = (schema, table, database, selectedYears, queryYearColumn, selectedColumns, columnKeys, format) => {
+const urlForDownload = (schema, table, database, selectedYears, queryYearColumn, selectedColumns, filterExportData, format) => {
   let url = "#";
 
   // Handle zoning atlas special case
@@ -93,14 +93,15 @@ const urlForDownload = (schema, table, database, selectedYears, queryYearColumn,
   }
 
   // Include all columns by default if the users hasn't de-selected any
-  if (selectedColumns.length && selectedColumns.length < columnKeys.length) {
+  // Respect the checkbox for if data should be filtered
+  if (selectedColumns.length && filterExportData) {
     url = `${url}&columns=${selectedColumns.join(',')}`
   }
 
   return url;
 };
 
-const setDownloadButton = (metadata, schema, table, title, description, selectedYears, queryYearColumn, selectedColumns, columnKeys, database) => {
+const setDownloadButton = (metadata, schema, table, title, description, selectedYears, queryYearColumn, selectedColumns, filterExportData, database) => {
   const tableIsGeospatial = database === "towndata" || database === "gisdata";
   return (
     <div className="details-content-column download-links">
@@ -120,7 +121,7 @@ const setDownloadButton = (metadata, schema, table, title, description, selected
               download
               className="button file-button"
               href={
-                urlForDownload(schema, table, database, selectedYears, queryYearColumn, selectedColumns, columnKeys, format)
+                urlForDownload(schema, table, database, selectedYears, queryYearColumn, selectedColumns, filterExportData, format)
               }
             >
               {config.extension}
@@ -553,6 +554,12 @@ function DatasetHeader({
   selectedGeographies = [],
   updateSelectedGeographies,
 }) {
+  const [filterExportData, setFilterExportData] = useState(true);
+
+  const showFilterExportCheckbox = useMemo(() => {
+    return columnKeys.length !== selectedColumns.length || availableGeographies.length !== selectedGeographies.length;
+  }, [columnKeys, selectedColumns, selectedColumns.length, availableGeographies, selectedGeographies, selectedGeographies.length]);
+
   return (
     <div className="page-header">
       <div className="container tight">
@@ -590,7 +597,23 @@ function DatasetHeader({
             </div>
           </div>
           <div className="details-content-column download-section">
-            {setDownloadButton(metadata, schema, table, title, description, selectedYears, queryYearColumn, selectedColumns, columnKeys, database)}
+            {setDownloadButton(
+              metadata, schema, table, title, description, selectedYears, queryYearColumn, selectedColumns, filterExportData, database
+            )}
+            {showFilterExportCheckbox && <div className="download-should-filter-checkbox-container">
+              <label title="Should the exported data be filtered using the current selections?">
+                Filter export data
+              </label>
+              <input
+                className="download-should-filter-checkbox"
+                type="checkbox"
+                checked={filterExportData}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  setFilterExportData(e.target.checked);
+                }}
+              />
+            </div>}
             <div style={{ marginTop: "10px", textAlign: "right" }}>
               <a
                 href="https://airtable.com/appqSr3MqAkN1GCfb/pagdcSeY2bc4rblam/form"
