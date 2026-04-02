@@ -78,7 +78,9 @@ const downloadMetadata = (e, database, metadata, title, table = "", description 
   link.click();
 };
 
-const urlForDownload = (schema, table, database, selectedYears, queryYearColumn, selectedColumns, filterExportData, format) => {
+const urlForDownload = (
+  schema, table, database, selectedYears, queryYearColumn, selectedColumns, columnKeys, selectedGeographies, availableGeographies, geographyColumn, filterExportData, format
+) => {
   let url = "#";
 
   // Handle zoning atlas special case
@@ -88,20 +90,29 @@ const urlForDownload = (schema, table, database, selectedYears, queryYearColumn,
 
   // Build query and fetch data based on whether years are selected
   url = `/api/export?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=${database}&schema=${schema}&table=${table}&format=${format}`;
+  // TODO: Should the filter export checkbox apply to years too?
   if (selectedYears.length > 0 && queryYearColumn !== "") {
     url = `${url}&years=${selectedYears.join(",")}`;
   }
 
   // Include all columns by default if the users hasn't de-selected any
   // Respect the checkbox for if data should be filtered
-  if (selectedColumns.length && filterExportData) {
+  if (selectedColumns.length && selectedColumns.length !== columnKeys.length && filterExportData) {
     url = `${url}&columns=${selectedColumns.join(',')}`
+  }
+
+  // Include all geographies by default if the users hasn't de-selected any
+  // Respect the checkbox for if data should be filtered
+  if (selectedGeographies.length && selectedGeographies.length !== availableGeographies.length && geographyColumn && filterExportData) {
+    url = `${url}&geographies=${selectedGeographies.join(',')}&geoColumn=${geographyColumn}`
   }
 
   return url;
 };
 
-const setDownloadButton = (metadata, schema, table, title, description, selectedYears, queryYearColumn, selectedColumns, filterExportData, database) => {
+const setDownloadButton = (
+  metadata, schema, table, title, description, selectedYears, queryYearColumn, selectedColumns, columnKeys, selectedGeographies, availableGeographies, geographyColumn, filterExportData, database
+) => {
   const tableIsGeospatial = database === "towndata" || database === "gisdata";
   return (
     <div className="details-content-column download-links">
@@ -121,7 +132,9 @@ const setDownloadButton = (metadata, schema, table, title, description, selected
               download
               className="button file-button"
               href={
-                urlForDownload(schema, table, database, selectedYears, queryYearColumn, selectedColumns, filterExportData, format)
+                urlForDownload(
+                  schema, table, database, selectedYears, queryYearColumn, selectedColumns, columnKeys, selectedGeographies, availableGeographies, geographyColumn, filterExportData, format
+                )
               }
             >
               {config.extension}
@@ -553,6 +566,7 @@ function DatasetHeader({
   availableGeographies = [],
   selectedGeographies = [],
   updateSelectedGeographies,
+  geographyColumn,
 }) {
   const [filterExportData, setFilterExportData] = useState(true);
 
@@ -598,7 +612,7 @@ function DatasetHeader({
           </div>
           <div className="details-content-column download-section">
             {setDownloadButton(
-              metadata, schema, table, title, description, selectedYears, queryYearColumn, selectedColumns, filterExportData, database
+              metadata, schema, table, title, description, selectedYears, queryYearColumn, selectedColumns, columnKeys, selectedGeographies, availableGeographies, geographyColumn, filterExportData, database
             )}
             {showFilterExportCheckbox && <div className="download-should-filter-checkbox-container">
               <label title="Should the exported data be filtered using the current selections?">
@@ -650,6 +664,7 @@ DatasetHeader.propTypes = {
   availableGeographies: PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.string, PropTypes.number])),
   selectedGeographies: PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.string, PropTypes.number])),
   updateSelectedGeographies: PropTypes.func,
+  geographyColumn: PropTypes.string,
   universe: PropTypes.string,
   updatedAt: PropTypes.string,
 };

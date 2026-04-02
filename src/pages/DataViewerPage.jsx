@@ -360,6 +360,7 @@ class DataViewerClass extends React.Component {
             availableGeographies={this.state.availableGeographies}
             selectedGeographies={this.state.selectedGeographies}
             updateSelectedGeographies={this.updateSelectedGeographies}
+            geographyColumn={this.state.geographyColumn}
             source={this.state.source}
             table={this.state.table}
             title={this.state.title}
