@@ -104,7 +104,9 @@ const urlForDownload = (
   // Include all geographies by default if the users hasn't de-selected any
   // Respect the checkbox for if data should be filtered
   if (selectedGeographies.length && selectedGeographies.length !== availableGeographies.length && geographyColumn && filterExportData) {
-    url = `${url}&geographies=${selectedGeographies.join(',')}&geoColumn=${geographyColumn}`
+    // Some geographies have the "&" character, need to be encoded
+    const mappedGeos = selectedGeographies.map(col => encodeURIComponent(col));
+    url = `${url}&geographies=${mappedGeos.join(',')}&geoColumn=${geographyColumn}`
   }
 
   return url;
