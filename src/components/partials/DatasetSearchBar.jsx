@@ -152,7 +152,8 @@ const DatasetSearchBar = ({
     if (searchQuery.trim()) {
       // break query into individual tokens, filter empty tokens, escape special characters
       const query = searchQuery.trim();
-      const searchTokens = query.split(" ").filter(st => !!st).map(st => st.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+      let searchTokens = query.split(" ").filter(st => !!st).map(st => st.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+      searchTokens = [...new Set(searchTokens)];
 
       filtered = filtered.filter((dataset) => {
         const tableName = dataset.table_name || '';
@@ -177,10 +178,13 @@ const DatasetSearchBar = ({
             searchTokens.forEach(searchTerm => {
               const highlightRegex = new RegExp(searchTerm, 'gi');
               tableName.replace(highlightRegex, (matched, offset) => {
-                highlights[datasetId].push({
-                  key: 'table_name',
-                  indices: [[offset, offset + matched.length - 1]]
-                });
+                const alreadyMatched = highlights[datasetId].find(hl => hl.key == 'table_name' && hl.indices.find(i => i[0] == offset));
+                if (!alreadyMatched) {
+                  highlights[datasetId].push({
+                    key: 'table_name',
+                    indices: [[offset, offset + matched.length - 1]]
+                  });
+                }
               });
             });
           }
@@ -189,10 +193,13 @@ const DatasetSearchBar = ({
             searchTokens.forEach(searchTerm => {
               const highlightRegex = new RegExp(searchTerm, 'gi');
               datasetName.replace(highlightRegex, (matched, offset) => {
-                highlights[datasetId].push({
-                  key: 'menu3',
-                  indices: [[offset, offset + matched.length - 1]]
-                });
+                const alreadyMatched = highlights[datasetId].find(hl => hl.key == 'menu3' && hl.indices.find(i => i[0] == offset));
+                if (!alreadyMatched) {
+                  highlights[datasetId].push({
+                    key: 'menu3',
+                    indices: [[offset, offset + matched.length - 1]]
+                  });
+                }
               });
             });
           }

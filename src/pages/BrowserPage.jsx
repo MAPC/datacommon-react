@@ -514,14 +514,17 @@ const BrowserPage = () => {
           const datasetId = dataset.seq_id || dataset.id;
           highlights[datasetId] = [];
           
-          if (tableNameMatch) {
+           if (tableNameMatch) {
             searchTokens.forEach(searchTerm => {
               const highlightRegex = new RegExp(searchTerm, 'gi');
               tableName.replace(highlightRegex, (matched, offset) => {
-                highlights[datasetId].push({
-                  key: 'table_name',
-                  indices: [[offset, offset + matched.length - 1]]
-                });
+                const alreadyMatched = highlights[datasetId].find(hl => hl.key == 'table_name' && hl.indices.find(i => i[0] == offset));
+                if (!alreadyMatched) {
+                  highlights[datasetId].push({
+                    key: 'table_name',
+                    indices: [[offset, offset + matched.length - 1]]
+                  });
+                }
               });
             });
           }
@@ -530,10 +533,13 @@ const BrowserPage = () => {
             searchTokens.forEach(searchTerm => {
               const highlightRegex = new RegExp(searchTerm, 'gi');
               datasetName.replace(highlightRegex, (matched, offset) => {
-                highlights[datasetId].push({
-                  key: 'menu3',
-                  indices: [[offset, offset + matched.length - 1]]
-                });
+                const alreadyMatched = highlights[datasetId].find(hl => hl.key == 'menu3' && hl.indices.find(i => i[0] == offset));
+                if (!alreadyMatched) {
+                  highlights[datasetId].push({
+                    key: 'menu3',
+                    indices: [[offset, offset + matched.length - 1]]
+                  });
+                }
               });
             });
           }
