@@ -494,7 +494,6 @@ const BrowserPage = () => {
       // break query into individual tokens, filter empty tokens, escape special characters
       const query = searchQuery.trim();
       const searchTokens = query.split(" ").filter(st => !!st).map(st => st.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-      console.log(searchTokens);
 
       filtered = filtered.filter((dataset) => {
         const tableName = dataset.table_name || '';

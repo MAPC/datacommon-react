@@ -150,65 +150,103 @@ const DatasetSearchBar = ({
     let highlights = {};
 
     if (searchQuery.trim()) {
+      // break query into individual tokens, filter empty tokens, escape special characters
       const query = searchQuery.trim();
-      // Escape special regex characters in the query
-      const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      
-      // Use substring matching for all queries (no minimum character requirement)
-      const searchRegex = new RegExp(escapedQuery, 'i');
-      
+      const searchTokens = query.split(" ").filter(st => !!st).map(st => st.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+
       filtered = filtered.filter((dataset) => {
         const tableName = dataset.table_name || '';
-        const menu3 = dataset.menu3 || '';
-        
-        const tableNameMatch = searchRegex.test(tableName);
-        const menu3Match = searchRegex.test(menu3);
-        
-        if (tableNameMatch || menu3Match) {
+        const datasetName = dataset.menu3 || '';
+
+        const tableNameMatch = searchTokens.some(searchTerm => {
+          const searchRegex = new RegExp(searchTerm, 'i');
+          return searchRegex.test(tableName);
+        });
+
+        const datasetNameMatch = searchTokens.some(searchTerm => {
+          const searchRegex = new RegExp(searchTerm, 'i');
+          return searchRegex.test(datasetName);
+        });
+
+        // manage the highlights
+        if (tableNameMatch || datasetNameMatch) {
           const datasetId = dataset.seq_id || dataset.id;
           highlights[datasetId] = [];
           
           if (tableNameMatch) {
-            const highlightRegex = new RegExp(escapedQuery, 'gi');
-            tableName.replace(highlightRegex, (matched, offset) => {
-              highlights[datasetId].push({
-                key: 'table_name',
-                indices: [[offset, offset + matched.length - 1]]
+            searchTokens.forEach(searchTerm => {
+              const highlightRegex = new RegExp(searchTerm, 'gi');
+              tableName.replace(highlightRegex, (matched, offset) => {
+                highlights[datasetId].push({
+                  key: 'table_name',
+                  indices: [[offset, offset + matched.length - 1]]
+                });
               });
             });
           }
           
-          if (menu3Match) {
-            const highlightRegex = new RegExp(escapedQuery, 'gi');
-            menu3.replace(highlightRegex, (matched, offset) => {
-              highlights[datasetId].push({
-                key: 'menu3',
-                indices: [[offset, offset + matched.length - 1]]
+          if (datasetNameMatch) {
+            searchTokens.forEach(searchTerm => {
+              const highlightRegex = new RegExp(searchTerm, 'gi');
+              datasetName.replace(highlightRegex, (matched, offset) => {
+                highlights[datasetId].push({
+                  key: 'menu3',
+                  indices: [[offset, offset + matched.length - 1]]
+                });
               });
             });
           }
-          
-          return true;
         }
         
-        return false;
+        // return for the filter function
+        return tableNameMatch || datasetNameMatch;
       });
 
        // sort the results prioritizing dataset name match over table name match, then sort alphabetically
-      filtered.sort((ds1, ds2) => {
-        const ds1Menu3 = ds1.menu3 || '';
-        const ds2Menu3 = ds2.menu3 || '';
-        const ds1Menu3Match = searchRegex.test(ds1Menu3);
-        const ds2Menu3Match = searchRegex.test(ds2Menu3);
+      // Count number to tablename and datasetname matches
+      // prioritize higher number of matches and earlier avg index of terms
+      filtered.sort((a, b) => {
+        const datasetNameA = a.menu3 || '';
+        const tableNameA = a.table_name || '';
+        let nameMatchesA = 0;
+        let totalNameIdxA = 0;
+        let tableMatchesA = 0;
 
-        if (ds1Menu3Match && ds2Menu3Match) {
-          return ds1Menu3.localeCompare(ds2Menu3);
-        } else if (ds1Menu3Match) {
-          return -1;
-        } else if (ds2Menu3Match) {
-          return 1;
+        const datasetNameB = b.menu3 || '';
+        const tableNameB = b.table_name || '';
+        let nameMatchesB = 0;
+        let totalNameIdxB = 0;
+        let tableMatchesB = 0;
+        searchTokens.forEach(searchTerm => {
+          const searchRegex = new RegExp(searchTerm, 'i');
+          const nameMatchA = searchRegex.exec(datasetNameA);
+          if (nameMatchA) {
+            nameMatchesA++;
+            totalNameIdxA += nameMatchA.index;
+          }
+          const tableMatchA = searchRegex.exec(tableNameA);
+          if (tableMatchA) {
+            tableMatchesA++;
+          }
+          const nameMatchB = searchRegex.exec(datasetNameB);
+          if (nameMatchB) {
+            nameMatchesB++;
+            totalNameIdxB += nameMatchB.index;
+          }
+          const tableMatchB = searchRegex.exec(tableNameB);
+          if (tableMatchB) {
+            tableMatchesB++;
+          }
+        });
+        const avgNameIdxA = nameMatchesA ? (totalNameIdxA / nameMatchesA) : datasetNameA.length;
+        const avgNameIdxB = nameMatchesB ? (totalNameIdxB / nameMatchesB) : datasetNameB.length;
+
+        if (nameMatchesA != nameMatchesB) {
+          return nameMatchesB - nameMatchesA;
+        } else if (tableMatchesA != tableMatchesB) {
+          return tableMatchesB - tableMatchesA;
         } else {
-          return ds1Menu3.localeCompare(ds2Menu3);
+          return avgNameIdxA - avgNameIdxB; // earlier avg index is better
         }
       });
     }
