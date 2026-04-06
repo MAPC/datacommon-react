@@ -427,7 +427,7 @@ const BrowserPage = () => {
     return categoriesParam ? categoriesParam.split(",").filter(Boolean) : [];
   });
 
-  const [sortBy, setSortBy] = useState('A to Z');
+  const [sortBy, setSortBy] = useState('Relevance');
   const [selectedDataset, setSelectedDataset] = useState(null);
   const [showMetadataModal, setShowMetadataModal] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState(true);
@@ -610,8 +610,63 @@ const BrowserPage = () => {
   // Sort datasets
   const sortedDatasets = useMemo(() => {
     const sorted = [...displayDatasets];
+
+    let sortType = sortBy;
+    // default to A -> Z if no search
+    const trimmedSearch = searchQuery.trim();
+    if (!trimmedSearch) {
+      sortType = "A to Z";
+    }
     
-    switch (sortBy) {
+    switch (sortType) {
+      case 'Relevance':
+        const searchTokens = trimmedSearch.split(" ").filter(st => !!st).map(st => st.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+        // Count number to tablename and datasetname matches
+        // prioritize higher number of matches and earlier avg index of terms
+        return sorted.sort((a, b) => {
+          const datasetNameA = a.menu3 || '';
+          const tableNameA = a.table_name || '';
+          let nameMatchesA = 0;
+          let totalNameIdxA = 0;
+          let tableMatchesA = 0;
+
+          const datasetNameB = b.menu3 || '';
+          const tableNameB = b.table_name || '';
+          let nameMatchesB = 0;
+          let totalNameIdxB = 0;
+          let tableMatchesB = 0;
+          searchTokens.forEach(searchTerm => {
+            const searchRegex = new RegExp(searchTerm, 'i');
+            const nameMatchA = searchRegex.exec(datasetNameA);
+            if (nameMatchA) {
+              nameMatchesA++;
+              totalNameIdxA += nameMatchA.index;
+            }
+            const tableMatchA = searchRegex.exec(tableNameA);
+            if (tableMatchA) {
+              tableMatchesA++;
+            }
+            const nameMatchB = searchRegex.exec(datasetNameB);
+            if (nameMatchB) {
+              nameMatchesB++;
+              totalNameIdxB += nameMatchB.index;
+            }
+            const tableMatchB = searchRegex.exec(tableNameB);
+            if (tableMatchB) {
+              tableMatchesB++;
+            }
+          });
+          const avgNameIdxA = nameMatchesA ? (totalNameIdxA / nameMatchesA) : datasetNameA.length;
+          const avgNameIdxB = nameMatchesB ? (totalNameIdxB / nameMatchesB) : datasetNameB.length;
+
+          if (nameMatchesA != nameMatchesB) {
+            return nameMatchesB - nameMatchesA;
+          } else if (tableMatchesA != tableMatchesB) {
+            return tableMatchesB - tableMatchesA;
+          } else {
+            return avgNameIdxA - avgNameIdxB; // earlier avg index is better
+          }
+        });
       case 'A to Z':
         return sorted.sort((a, b) => (a.menu3 || '').localeCompare(b.menu3 || ''));
       case 'Z to A':
@@ -631,7 +686,7 @@ const BrowserPage = () => {
       default:
         return sorted;
     }
-  }, [displayDatasets, sortBy]);
+  }, [displayDatasets, sortBy, searchQuery]);
 
   const renderHighlightedText = (text, datasetId, key) => {
     if (!text) {
@@ -846,6 +901,7 @@ const BrowserPage = () => {
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
                 >
+                  <option value="Relevance">Relevance</option>
                   <option value="A to Z">A to Z</option>
                   <option value="Z to A">Z to A</option>
                   <option value="Newest First">Newest First</option>
