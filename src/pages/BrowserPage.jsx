@@ -406,31 +406,6 @@ const SearchInput = styled.input`
     color: #999;
   }
 `;
-const SearchMatchContainer = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-`;
-
-const SearchMatchLabel = styled.label`
-  font-size: 0.9375rem;
-  color: #555;
-  width: 7rem;
-`;
-
-const SearchMatchSelect = styled.select`
-  padding: 0.25rem 0.75rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 0.9375rem;
-  background: white;
-  cursor: pointer;
-
-  &:focus {
-    outline: none;
-    border-color: #6fc68e;
-  }
-`;
 
 const BrowserPage = () => {
   const dispatch = useDispatch();
@@ -452,7 +427,7 @@ const BrowserPage = () => {
     return categoriesParam ? categoriesParam.split(",").filter(Boolean) : [];
   });
 
-  const [sortBy, setSortBy] = useState('A to Z');
+  const [sortBy, setSortBy] = useState('Relevance');
   const [selectedDataset, setSelectedDataset] = useState(null);
   const [showMetadataModal, setShowMetadataModal] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState(true);
@@ -460,7 +435,6 @@ const BrowserPage = () => {
     const params = new URLSearchParams(window.location.search);
     return params.get("q") || "";
   });
-  const [searchMatch, setSearchMatch] = useState('name-and-table');
   const [displayDatasets, setDisplayDatasets] = useState([]);
   const [highlightMatches, setHighlightMatches] = useState({});
   const [shareCopied, setShareCopied] = useState(false);
@@ -517,65 +491,62 @@ const BrowserPage = () => {
     let highlights = {};
 
     if (searchQuery.trim()) {
+      // break query into individual tokens, filter empty tokens, escape special characters
       const query = searchQuery.trim();
-      // Escape special regex characters in the query
-      const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      
-      // Use substring matching for all queries (no minimum character requirement)
-      const searchRegex = new RegExp(escapedQuery, 'i');
-      
-      // determine what we should be matching against with the search query
-      let shouldMatchName, shouldMatchTable;
-      if (searchMatch === 'name-and-table') {
-        shouldMatchName = true;
-        shouldMatchTable = true;
-      } else if (searchMatch === 'name-only') {
-        shouldMatchName = true;
-        shouldMatchTable = false;
-      } else if (searchMatch === 'table-only') {
-        shouldMatchName = false;
-        shouldMatchTable = true;
-      }
+      const searchTokens = query.split(" ").filter(st => !!st).map(st => st.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
 
       filtered = filtered.filter((dataset) => {
         const tableName = dataset.table_name || '';
-        const menu3 = dataset.menu3 || '';
-        
-        const tableNameMatch = searchRegex.test(tableName);
-        const menu3Match = searchRegex.test(menu3);
-        
+        const datasetName = dataset.menu3 || '';
+
+        const tableNameMatch = searchTokens.some(searchTerm => {
+          const searchRegex = new RegExp(searchTerm, 'i');
+          return searchRegex.test(tableName);
+        });
+
+        const datasetNameMatch = searchTokens.some(searchTerm => {
+          const searchRegex = new RegExp(searchTerm, 'i');
+          return searchRegex.test(datasetName);
+        });
+
         // manage the highlights
-        if (tableNameMatch || menu3Match) {
+        if (tableNameMatch || datasetNameMatch) {
           const datasetId = dataset.seq_id || dataset.id;
           highlights[datasetId] = [];
           
-          if (tableNameMatch && shouldMatchTable) {
-            const highlightRegex = new RegExp(escapedQuery, 'gi');
-            tableName.replace(highlightRegex, (matched, offset) => {
-              highlights[datasetId].push({
-                key: 'table_name',
-                indices: [[offset, offset + matched.length - 1]]
+           if (tableNameMatch) {
+            searchTokens.forEach(searchTerm => {
+              const highlightRegex = new RegExp(searchTerm, 'gi');
+              tableName.replace(highlightRegex, (matched, offset) => {
+                const alreadyMatched = highlights[datasetId].find(hl => hl.key == 'table_name' && hl.indices.find(i => i[0] == offset));
+                if (!alreadyMatched) {
+                  highlights[datasetId].push({
+                    key: 'table_name',
+                    indices: [[offset, offset + matched.length - 1]]
+                  });
+                }
               });
             });
           }
           
-          if (menu3Match && shouldMatchName) {
-            const highlightRegex = new RegExp(escapedQuery, 'gi');
-            menu3.replace(highlightRegex, (matched, offset) => {
-              highlights[datasetId].push({
-                key: 'menu3',
-                indices: [[offset, offset + matched.length - 1]]
+          if (datasetNameMatch) {
+            searchTokens.forEach(searchTerm => {
+              const highlightRegex = new RegExp(searchTerm, 'gi');
+              datasetName.replace(highlightRegex, (matched, offset) => {
+                const alreadyMatched = highlights[datasetId].find(hl => hl.key == 'menu3' && hl.indices.find(i => i[0] == offset));
+                if (!alreadyMatched) {
+                  highlights[datasetId].push({
+                    key: 'menu3',
+                    indices: [[offset, offset + matched.length - 1]]
+                  });
+                }
               });
             });
           }
         }
 
         // return for the filter function
-        if ((tableNameMatch && shouldMatchTable) || (menu3Match && shouldMatchName)) {
-          return true
-        } else {
-          return false;
-        }
+        return tableNameMatch || datasetNameMatch;
       });
     }
 
@@ -595,7 +566,7 @@ const BrowserPage = () => {
 
     setHighlightMatches(highlights);
     setDisplayDatasets(filtered);
-  }, [datasets, selectedSources, selectedMenu1s, searchQuery, searchMatch]);
+  }, [datasets, selectedSources, selectedMenu1s, searchQuery]);
 
   // Keep URL query parameters in sync with search and filters so users can share links
   useEffect(() => {
@@ -644,8 +615,63 @@ const BrowserPage = () => {
   // Sort datasets
   const sortedDatasets = useMemo(() => {
     const sorted = [...displayDatasets];
+
+    let sortType = sortBy;
+    // default to A -> Z if no search
+    const trimmedSearch = searchQuery.trim();
+    if (!trimmedSearch) {
+      sortType = "A to Z";
+    }
     
-    switch (sortBy) {
+    switch (sortType) {
+      case 'Relevance':
+        const searchTokens = trimmedSearch.split(" ").filter(st => !!st).map(st => st.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+        // Count number to tablename and datasetname matches
+        // prioritize higher number of matches and earlier avg index of terms
+        return sorted.sort((a, b) => {
+          const datasetNameA = a.menu3 || '';
+          const tableNameA = a.table_name || '';
+          let nameMatchesA = 0;
+          let totalNameIdxA = 0;
+          let tableMatchesA = 0;
+
+          const datasetNameB = b.menu3 || '';
+          const tableNameB = b.table_name || '';
+          let nameMatchesB = 0;
+          let totalNameIdxB = 0;
+          let tableMatchesB = 0;
+          searchTokens.forEach(searchTerm => {
+            const searchRegex = new RegExp(searchTerm, 'i');
+            const nameMatchA = searchRegex.exec(datasetNameA);
+            if (nameMatchA) {
+              nameMatchesA++;
+              totalNameIdxA += nameMatchA.index;
+            }
+            const tableMatchA = searchRegex.exec(tableNameA);
+            if (tableMatchA) {
+              tableMatchesA++;
+            }
+            const nameMatchB = searchRegex.exec(datasetNameB);
+            if (nameMatchB) {
+              nameMatchesB++;
+              totalNameIdxB += nameMatchB.index;
+            }
+            const tableMatchB = searchRegex.exec(tableNameB);
+            if (tableMatchB) {
+              tableMatchesB++;
+            }
+          });
+          const avgNameIdxA = nameMatchesA ? (totalNameIdxA / nameMatchesA) : datasetNameA.length;
+          const avgNameIdxB = nameMatchesB ? (totalNameIdxB / nameMatchesB) : datasetNameB.length;
+
+          if (nameMatchesA != nameMatchesB) {
+            return nameMatchesB - nameMatchesA;
+          } else if (tableMatchesA != tableMatchesB) {
+            return tableMatchesB - tableMatchesA;
+          } else {
+            return avgNameIdxA - avgNameIdxB; // earlier avg index is better
+          }
+        });
       case 'A to Z':
         return sorted.sort((a, b) => (a.menu3 || '').localeCompare(b.menu3 || ''));
       case 'Z to A':
@@ -665,7 +691,7 @@ const BrowserPage = () => {
       default:
         return sorted;
     }
-  }, [displayDatasets, sortBy]);
+  }, [displayDatasets, sortBy, searchQuery]);
 
   const renderHighlightedText = (text, datasetId, key) => {
     if (!text) {
@@ -866,18 +892,6 @@ const BrowserPage = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
-            <SearchMatchContainer>
-              <SearchMatchLabel htmlFor="search-match-select">Search matching:</SearchMatchLabel>
-              <SearchMatchSelect
-                id="search-match-select"
-                value={searchMatch}
-                onChange={e => setSearchMatch(e.target.value)}
-              >
-                <option value="name-and-table">Name and Table</option>
-                <option value="name-only">Name Only</option>
-                <option value="table-only">Table Only</option>
-              </SearchMatchSelect>
-            </SearchMatchContainer>
           </SearchInputContainer>
           
           <ContentHeader>
@@ -892,6 +906,7 @@ const BrowserPage = () => {
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
                 >
+                  <option value="Relevance">Relevance</option>
                   <option value="A to Z">A to Z</option>
                   <option value="Z to A">Z to A</option>
                   <option value="Newest First">Newest First</option>
