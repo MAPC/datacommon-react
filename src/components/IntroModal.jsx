@@ -132,31 +132,24 @@ const IntroModal = () => {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    // Check if user has explicitly chosen not to see the intro again
+    const params = new URLSearchParams(window.location.search);
+    const forceShow = params.get('showIntro') === '1' || params.get('welcome') === '1';
     const dontShowIntro = localStorage.getItem('dontShowIntro');
-    // Check if user has seen the intro in this session
-    const hasSeenIntroThisSession = sessionStorage.getItem('hasSeenIntro');
-    
-    if (!dontShowIntro && !hasSeenIntroThisSession) {
-      // Show modal after a short delay to ensure page is loaded
+
+    if (forceShow || !dontShowIntro) {
       const timer = setTimeout(() => {
         setIsVisible(true);
       }, 500);
-      
       return () => clearTimeout(timer);
     }
   }, []);
 
   const handleClose = () => {
     setIsVisible(false);
-    // Mark that user has seen the intro in this session
-    sessionStorage.setItem('hasSeenIntro', 'true');
   };
 
   const handleDontShowAgain = () => {
     setIsVisible(false);
-    // Mark that user has seen the intro and doesn't want to see it again
-    localStorage.setItem('hasSeenIntro', 'true');
     localStorage.setItem('dontShowIntro', 'true');
   };
 
