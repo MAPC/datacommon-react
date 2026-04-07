@@ -104,6 +104,17 @@ const FilterItem = styled.li`
   align-items: center;
 `;
 
+const FilterTreeChevron = styled.div`
+  font-size: 0.75rem;
+  padding-right: 8px;
+  padding-left: 8px;
+  cursor: pointer;
+`;
+
+const FilterItemChildren = styled.div`
+  padding-left: 8px;
+`;
+
 const CheckboxInput = styled.input`
   margin-right: 0.75rem;
   cursor: pointer;
@@ -121,18 +132,6 @@ const CheckboxLabel = styled.label`
   
   &:hover {
     color: #333;
-  }
-`;
-
-const SeeMoreLink = styled.a`
-  color: #6fc68e;
-  font-size: 0.875rem;
-  text-decoration: none;
-  cursor: pointer;
-  
-  &:hover {
-    text-decoration: underline;
-    color: #5db37a;
   }
 `;
 
@@ -427,10 +426,16 @@ const BrowserPage = () => {
     return categoriesParam ? categoriesParam.split(",").filter(Boolean) : [];
   });
 
+  const [selectedMenu2s, setSelectedMenu2s] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const subcategoriesParam = params.get("subcategory");
+    return subcategoriesParam ? subcategoriesParam.split(",").filter(Boolean) : [];
+  });
+
+  const [categoryOptionTree, setCategoryOptionTree] = useState({});
   const [sortBy, setSortBy] = useState('Relevance');
   const [selectedDataset, setSelectedDataset] = useState(null);
   const [showMetadataModal, setShowMetadataModal] = useState(false);
-  const [expandedCategories, setExpandedCategories] = useState(true);
   const [searchQuery, setSearchQuery] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get("q") || "";
@@ -463,10 +468,33 @@ const BrowserPage = () => {
     return [...uniqueSources].sort();
   }, [datasets]);
 
-  // Get unique Menu1 values
-  const menu1Options = useMemo(() => {
-    return [...new Set(datasets.map(d => d.menu1).filter(Boolean))].sort();
+  // Get unique Menu1/Menu2 values, form a tree structure
+  useEffect(() => {
+    const categoryTree = {};
+    const params = new URLSearchParams(location.search);
+    const currentSubcategories = (params.get("subcategory") || "").split(",").filter(Boolean);
+    datasets.forEach(dataset => {
+      if (!categoryTree[dataset.menu1]) {
+        categoryTree[dataset.menu1] = { open: false, children: new Set()};
+      }
+      categoryTree[dataset.menu1].children.add(dataset.menu2);
+
+      // if the sub-category is selected, ensure the menu is open (for initial load)
+      if (currentSubcategories.includes(dataset.menu2)) {
+        categoryTree[dataset.menu1].open = true;
+      }
+    });
+
+    Object.values(categoryTree).forEach(treeData => {
+      treeData.children = [...treeData.children].sort();
+    });
+
+    setCategoryOptionTree(categoryTree);
   }, [datasets]);
+
+  const menu1OptionList = useMemo(() => {
+    return Object.keys(categoryOptionTree).sort();
+  }, [categoryOptionTree]);
 
   useEffect(() => {
     let filtered = datasets || [];
@@ -486,6 +514,10 @@ const BrowserPage = () => {
 
     if (selectedMenu1s.length > 0) {
       filtered = filtered.filter(d => selectedMenu1s.includes(d.menu1));
+    }
+
+    if (selectedMenu2s.length > 0) {
+      filtered = filtered.filter(d => selectedMenu2s.includes(d.menu2));
     }
 
     let highlights = {};
@@ -566,7 +598,7 @@ const BrowserPage = () => {
 
     setHighlightMatches(highlights);
     setDisplayDatasets(filtered);
-  }, [datasets, selectedSources, selectedMenu1s, searchQuery]);
+  }, [datasets, selectedSources, selectedMenu1s, selectedMenu2s, searchQuery]);
 
   // Keep URL query parameters in sync with search and filters so users can share links
   useEffect(() => {
@@ -575,11 +607,13 @@ const BrowserPage = () => {
     const currentQ = params.get("q") || "";
     const currentSources = (params.get("source") || "").split(",").filter(Boolean);
     const currentCategories = (params.get("category") || "").split(",").filter(Boolean);
+    const currentSubcategories = (params.get("subcategory") || "").split(",").filter(Boolean);
 
     const shouldUpdate =
       currentQ !== searchQuery ||
       !arraysEqual(currentSources, selectedSources) ||
-      !arraysEqual(currentCategories, selectedMenu1s);
+      !arraysEqual(currentCategories, selectedMenu1s) ||
+      !arraysEqual(currentSubcategories, selectedMenu2s);
 
     if (!shouldUpdate) {
       return;
@@ -603,6 +637,13 @@ const BrowserPage = () => {
       params.delete("category");
     }
 
+    if (selectedMenu2s.length > 0) {
+      params.set("subcategory", selectedMenu2s.join(","));
+    } else {
+      params.delete("subcategory");
+    }
+
+
     const newSearch = params.toString();
     const newUrl = `${location.pathname}${newSearch ? `?${newSearch}` : ""}`;
     const currentUrl = `${location.pathname}${location.search}`;
@@ -610,7 +651,7 @@ const BrowserPage = () => {
     if (newUrl !== currentUrl) {
       navigate(newUrl, { replace: true });
     }
-  }, [searchQuery, selectedSources, selectedMenu1s, location.pathname, location.search, navigate]);
+  }, [searchQuery, selectedSources, selectedMenu1s, selectedMenu2s, location.pathname, location.search, navigate]);
 
   // Sort datasets
   const sortedDatasets = useMemo(() => {
@@ -773,14 +814,47 @@ const BrowserPage = () => {
     });
   };
 
-  const handleMenu1Change = (menu1) => {
-    setSelectedMenu1s(prev => {
-      if (prev.includes(menu1)) {
-        return prev.filter(m => m !== menu1);
+  const handleMenu1Change = (menu1, menu1Children, selectedMenu1s, selectedMenu2s) => {
+    let newMenu1s = [...selectedMenu1s];
+    let newMenu2s = [...selectedMenu2s];
+
+    if (!selectedMenu1s.includes(menu1)) {
+      newMenu1s = [...selectedMenu1s, menu1];
+      // top level category selected, clear all sub-category filtering
+      newMenu2s = newMenu2s.filter(m => !menu1Children.includes(m));
+    } else {
+      newMenu1s = newMenu1s.filter(m => m !== menu1);
+    }
+    setSelectedMenu1s(newMenu1s);
+    setSelectedMenu2s(newMenu2s);
+  };
+
+  const handleMenu2Change = (menu1, menu2, menu1Children, selectedMenu1s, selectedMenu2s) => {
+    let newMenu1s = [...selectedMenu1s];
+    let newMenu2s = [...selectedMenu2s];
+
+    // top level is checked, a sub-category was clicked
+    if (selectedMenu1s.includes(menu1)) {
+      // un-check the top level category
+      newMenu1s = newMenu1s.filter(m => m !== menu1);
+      // check all the sub-categories besides the one clicked
+      newMenu2s = [...newMenu2s, ...menu1Children.filter(m => m !== menu2)];
+    } else {
+      // top level was not checked, add or remove menu2
+      if (newMenu2s.includes(menu2)) {
+        newMenu2s = newMenu2s.filter(m => m !== menu2);
       } else {
-        return [...prev, menu1];
+        newMenu2s = [...newMenu2s, menu2];
       }
-    });
+    }
+    setSelectedMenu1s(newMenu1s);
+    setSelectedMenu2s(newMenu2s);
+  };
+
+  const onCategoryFilterOpenClose = (menu1) => {
+    const newTree = {...categoryOptionTree};
+    newTree[menu1].open = !categoryOptionTree[menu1].open;
+    setCategoryOptionTree(newTree);
   };
 
   const clearSourceFilter = () => {
@@ -858,28 +932,43 @@ const BrowserPage = () => {
               )}
             </FilterHeader>
             <FilterList>
-              {menu1Options.slice(0, expandedCategories ? menu1Options.length : 5).map((menu1) => (
-                <FilterItem key={menu1}>
-                  <CheckboxInput
-                    type="checkbox"
-                    id={`menu1-${menu1}`}
-                    checked={selectedMenu1s.includes(menu1)}
-                    onChange={() => handleMenu1Change(menu1)}
-                  />
-                  <CheckboxLabel htmlFor={`menu1-${menu1}`}>
-                    {menu1}
-                  </CheckboxLabel>
-                </FilterItem>
+              {menu1OptionList.map(menu1 => (
+                <div key={menu1}>
+                  <FilterItem>
+                    <CheckboxInput
+                      type="checkbox"
+                      id={`menu1-${menu1}`}
+                      checked={selectedMenu1s.includes(menu1)}
+                      onChange={() => handleMenu1Change(
+                        menu1, categoryOptionTree[menu1].children, selectedMenu1s, selectedMenu2s
+                      )}
+                    />
+                    <CheckboxLabel htmlFor={`menu1-${menu1}`}>
+                      {menu1}
+                    </CheckboxLabel>
+                    <FilterTreeChevron onClick={() => onCategoryFilterOpenClose(menu1)}>
+                      {categoryOptionTree[menu1].open ? "▲" : "▼"}
+                    </FilterTreeChevron>
+                  </FilterItem>
+                  {categoryOptionTree[menu1].open && <FilterItemChildren>
+                    {categoryOptionTree[menu1].children.map(menu2 => (
+                      <FilterItem key={menu2}>
+                        <CheckboxInput
+                          type="checkbox"
+                          id={`menu2-${menu2}`}
+                          checked={selectedMenu1s.includes(menu1) || selectedMenu2s.includes(menu2)}
+                          onChange={() => handleMenu2Change(
+                            menu1, menu2, categoryOptionTree[menu1].children, selectedMenu1s, selectedMenu2s
+                          )}
+                        />
+                        <CheckboxLabel htmlFor={`menu1-${menu2}`}>
+                          {menu2}
+                        </CheckboxLabel>
+                      </FilterItem>
+                    ))}
+                  </FilterItemChildren>}
+                </div>
               ))}
-              {menu1Options.length > 5 && (
-                <FilterItem>
-                  <SeeMoreLink 
-                    onClick={() => setExpandedCategories(!expandedCategories)}
-                  >
-                    {expandedCategories ? 'See less' : 'See more'}
-                  </SeeMoreLink>
-                </FilterItem>
-              )}
             </FilterList>
           </FilterSection>
         </Sidebar>
@@ -913,7 +1002,7 @@ const BrowserPage = () => {
                   <option value="Oldest First">Oldest First</option>
                 </SortSelect>
               </SortContainer>
-              {(searchQuery.trim() || selectedSources.length > 0 || selectedMenu1s.length > 0) && (
+              {(searchQuery.trim() || selectedSources.length > 0 || selectedMenu1s.length > 0 || selectedMenu2s.length > 0) && (
                 <ShareLinkContainer>
                   <ShareLinkButton type="button" onClick={handleCopyShareLink}>
                     Share Search Result
