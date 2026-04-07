@@ -231,7 +231,7 @@ const MetadataModal = ({ show, handleClose, dataset }) => {
             <MetadataTable>
               <TableHeader>
                 <TableHeaderRow>
-                  <TableHeaderCell>Name</TableHeaderCell>
+                  <TableHeaderCell>Table Column Name</TableHeaderCell>
                   <TableHeaderCell>Alias</TableHeaderCell>
                   <TableHeaderCell>Details</TableHeaderCell>
                 </TableHeaderRow>

@@ -554,6 +554,7 @@ function DatasetHeader({
   source = "",
   universe = "",
   description = "",
+  datasetId,
   availableYears = [],
   columnKeys = [],
   metadata = [],
@@ -630,6 +631,17 @@ function DatasetHeader({
                 }}
               />
             </div>}
+            {!!datasetId && (
+              <div style={{ marginTop: "10px", textAlign: "right" }}>
+                <a
+                  href={`/api?datasetId=${encodeURIComponent(String(datasetId))}`}
+                  className="button feedback-button"
+                  style={{ fontSize: "12px" }}
+                >
+                  Generate API
+                </a>
+              </div>
+            )}
             <div style={{ marginTop: "10px", textAlign: "right" }}>
               <a
                 href="https://airtable.com/appqSr3MqAkN1GCfb/pagdcSeY2bc4rblam/form"
@@ -652,6 +664,7 @@ DatasetHeader.propTypes = {
   availableYears: PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.string, PropTypes.number])),
   columnKeys: PropTypes.arrayOf(PropTypes.object),
   database: PropTypes.string,
+  datasetId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   description: PropTypes.string,
   metadata: PropTypes.oneOfType([PropTypes.arrayOf(PropTypes.object), PropTypes.objectOf(PropTypes.object)]),
   queryYearColumn: PropTypes.string,
