@@ -1,28 +1,16 @@
 import React from "react";
 
+/** GET URLs with a very long `query=` string may hit browser or proxy limits. */
+const LONG_GET_URL_CHARS = 2048;
+const VERY_LONG_GET_URL_CHARS = 8192;
+
 const QueryApiSection = ({
   ui,
   DATACOMMON_API_TOKEN,
   DATACOMMON_BASE_URL,
   queryDatabase,
-  queryMode,
-  handleSwitchQueryMode,
-  selectedColumnsLabel,
-  columnMenuRef,
-  isColumnMenuOpen,
-  setIsColumnMenuOpen,
-  selectAllQueryColumns,
-  clearQuerySelectedColumns,
-  columnSearchQuery,
-  setColumnSearchQuery,
-  filteredQueryColumns,
-  querySelectColumn,
-  toggleQuerySelectColumn,
   selectedDataset,
   setIsMetadataPopupOpen,
-  queryLimit,
-  setQueryLimit,
-  basicQuerySql,
   querySql,
   setQuerySql,
   handleGenerateQueryUrl,
@@ -40,19 +28,8 @@ const QueryApiSection = ({
     Label,
     FieldValue,
     Mono,
-    QueryModeRow,
-    QueryModeButton,
-    BasicBuilderGrid,
-    ColumnDropdownWrap,
-    ColumnDropdownButton,
-    ColumnDropdownMenu,
-    ColumnDropdownHeader,
     Small,
     SecondaryButton,
-    Search,
-    ColumnDropdownList,
-    ColumnOption,
-    BasicLimitHint,
     QueryInput,
     QueryActionRow,
     GenerateButton,
@@ -85,118 +62,51 @@ const QueryApiSection = ({
           </div>
         </QueryTopRow>
 
-        <Label style={{ marginTop: "0.7rem", marginBottom: "0.15rem" }}>Query Mode</Label>
-        <QueryModeRow>
-          <QueryModeButton type="button" $active={queryMode === "basic"} onClick={() => handleSwitchQueryMode("basic")}>
-            Basic builder
-          </QueryModeButton>
-          <QueryModeButton type="button" $active={queryMode === "advanced"} onClick={() => handleSwitchQueryMode("advanced")}>
-            Advanced SQL
-          </QueryModeButton>
-        </QueryModeRow>
-
-        {queryMode === "basic" ? (
-          <>
-            <BasicBuilderGrid>
-              <div>
-                <Label style={{ marginBottom: "0.2rem" }}>Select columns</Label>
-                <ColumnDropdownWrap ref={columnMenuRef}>
-                  <ColumnDropdownButton type="button" onClick={() => setIsColumnMenuOpen((prev) => !prev)}>
-                    <span>{selectedColumnsLabel}</span>
-                    <span>{isColumnMenuOpen ? "▲" : "▼"}</span>
-                  </ColumnDropdownButton>
-                  {isColumnMenuOpen && (
-                    <ColumnDropdownMenu>
-                      <ColumnDropdownHeader>
-                        <Small style={{ margin: 0, fontWeight: 600 }}>{selectedColumnsLabel}</Small>
-                        <div style={{ display: "flex", gap: "0.35rem" }}>
-                          <SecondaryButton type="button" onClick={selectAllQueryColumns}>
-                            Select all
-                          </SecondaryButton>
-                          <SecondaryButton type="button" onClick={clearQuerySelectedColumns}>
-                            Clear
-                          </SecondaryButton>
-                        </div>
-                      </ColumnDropdownHeader>
-                      <Search
-                        as="input"
-                        value={columnSearchQuery}
-                        onChange={(e) => setColumnSearchQuery(e.target.value)}
-                        placeholder="Search columns..."
-                        style={{ marginBottom: "0.45rem" }}
-                      />
-                      <ColumnDropdownList>
-                        {filteredQueryColumns.map((col) => (
-                          <ColumnOption key={col}>
-                            <input type="checkbox" checked={querySelectColumn.includes(col)} onChange={() => toggleQuerySelectColumn(col)} />
-                            <span>{col}</span>
-                          </ColumnOption>
-                        ))}
-                        {filteredQueryColumns.length === 0 && <Small style={{ margin: 0, color: "#777" }}>No matching columns.</Small>}
-                      </ColumnDropdownList>
-                    </ColumnDropdownMenu>
-                  )}
-                </ColumnDropdownWrap>
-                <Small style={{ marginTop: "0.28rem", marginBottom: 0 }}>Leave empty to select all columns.</Small>
-                {selectedDataset && (
-                  <div style={{ marginTop: "0.35rem" }}>
-                    <SecondaryButton type="button" onClick={() => setIsMetadataPopupOpen(true)}>
-                      View metadata (column reference)
-                    </SecondaryButton>
-                  </div>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="basic-limit" style={{ marginBottom: "0.2rem" }}>
-                  Limit
-                </Label>
-                <Search
-                  as="input"
-                  id="basic-limit"
-                  type="number"
-                  value={queryLimit}
-                  onChange={(e) => setQueryLimit(e.target.value)}
-                  placeholder="Leave blank for all rows"
-                />
-                <BasicLimitHint>
-                  Optional. If specified, applies a SQL LIMIT to restrict the number of rows returned by the API. Leave blank to return
-                  all rows (no limit). Invalid or non-positive values will default to LIMIT 100. Use a smaller value during testing for
-                  faster results.
-                </BasicLimitHint>
-              </div>
-            </BasicBuilderGrid>
-
-            <Label style={{ marginTop: "0.75rem", marginBottom: "0.2rem" }}>Generated SQL preview</Label>
-            <QueryInput as="pre" readOnly aria-live="polite">
-              {basicQuerySql}
-            </QueryInput>
-          </>
-        ) : (
-          <>
-            <Label htmlFor="query-sql" style={{ marginTop: "0.7rem", marginBottom: "0.15rem" }}>
-              SQL Query
-            </Label>
-            <QueryInput
-              id="query-sql"
-              value={querySql}
-              onChange={(e) => setQuerySql(e.target.value)}
-              placeholder="SELECT * FROM tabular.some_table LIMIT 100"
-            />
-          </>
+        <Label htmlFor="query-sql" style={{ marginTop: "0.7rem", marginBottom: "0.15rem" }}>
+          SQL query
+        </Label>
+        <QueryInput
+          id="query-sql"
+          value={querySql}
+          onChange={(e) => setQuerySql(e.target.value)}
+          placeholder="SELECT * FROM tabular.some_table LIMIT 100"
+        />
+        {selectedDataset && (
+          <div style={{ marginTop: "0.35rem" }}>
+            <SecondaryButton type="button" onClick={() => setIsMetadataPopupOpen(true)}>
+              View metadata (column reference)
+            </SecondaryButton>
+          </div>
         )}
+
         <QueryActionRow>
           <GenerateButton type="button" onClick={handleGenerateQueryUrl} $generated={queryJustGenerated}>
-            {queryJustGenerated ? "Generated!" : "Generate URL"}
+            {queryJustGenerated ? "Ready!" : "Get API endpoint"}
           </GenerateButton>
         </QueryActionRow>
       </QueryBuilderSection>
 
       {queryUrl ? (
         <>
-          <Small style={{ marginTop: "1rem" }}>
-            <strong>Query URL</strong>
-          </Small>
-          <CodeBlock>{queryUrl}</CodeBlock>
+          <Label style={{ marginTop: "1rem", marginBottom: "0.25rem" }}>API endpoint</Label>
+          <CodeBlock role="region" aria-label="Query API endpoint URL">
+            {queryUrl}
+          </CodeBlock>
+          {queryUrl.length >= LONG_GET_URL_CHARS && (
+            <Small
+              style={{
+                marginTop: "0.45rem",
+                marginBottom: 0,
+                color: queryUrl.length >= VERY_LONG_GET_URL_CHARS ? "#9a3412" : "#92400e",
+                fontSize: "0.9rem",
+                lineHeight: 1.45,
+              }}
+            >
+              <strong>Long URL ({queryUrl.length.toLocaleString()} characters).</strong> The <Mono>query</Mono> value is
+              URL-encoded, so many columns greatly increase length. If the request fails in the browser, shorten the SQL
+              (fewer columns or <Mono>SELECT *</Mono>), or call the same URL with <Mono>curl</Mono>.
+            </Small>
+          )}
           <CopyRow>
             {copyStatus && <CopyStatus>{copyStatus}</CopyStatus>}
             <SecondaryButton type="button" onClick={() => handleCopy(curlFor(queryUrl), "curl")}>
@@ -209,7 +119,7 @@ const QueryApiSection = ({
         </>
       ) : (
         <Small style={{ marginTop: "0.8rem", marginBottom: "0.2rem" }}>
-          Click <strong>Generate URL</strong> to create the query URL.
+          Click <strong>Get API endpoint</strong> to build the request URL.
         </Small>
       )}
 
@@ -251,7 +161,8 @@ const QueryApiSection = ({
                 <Mono>query</Mono>
               </td>
               <td>
-                Required. SQL query string. Include schema in table names, e.g. <Mono>SELECT * FROM tabular.hous_building_permits_m LIMIT 100</Mono>.
+                Required. SQL query string. Include schema in table names, e.g.{" "}
+                <Mono>SELECT * FROM tabular.hous_building_permits_m LIMIT 100</Mono>.
               </td>
             </tr>
           </tbody>

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useSearchParams } from "react-router-dom";
 import styled from "styled-components";
@@ -533,6 +533,7 @@ const CodeBlock = styled.pre`
   border-radius: 8px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
   overflow: auto;
+  max-height: min(280px, 42vh);
   font-size: 0.85rem;
   line-height: 1.55;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
@@ -725,112 +726,6 @@ const QueryActionRow = styled.div`
   flex-wrap: wrap;
 `;
 
-const QueryHintList = styled.ul`
-  margin: 0.65rem 0 0;
-  padding-left: 1rem;
-  color: #5f5f5f;
-  font-size: 0.84rem;
-  line-height: 1.5;
-`;
-
-const QueryModeRow = styled.div`
-  display: flex;
-  gap: 0.45rem;
-  margin-top: 0.7rem;
-  flex-wrap: wrap;
-`;
-
-const QueryModeButton = styled.button`
-  border: 1px solid rgba(0, 0, 0, 0.16);
-  background: ${(p) => (p.$active ? "rgba(111, 198, 142, 0.18)" : "#fff")};
-  color: ${(p) => (p.$active ? "#1f4e46" : "#333")};
-  padding: 0.36rem 0.7rem;
-  border-radius: 7px;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 0.82rem;
-`;
-
-const BasicLimitHint = styled.p`
-  margin: 0.22rem 0 0;
-  color: #777;
-  font-size: 0.78rem;
-  line-height: 1.45;
-`;
-
-const BasicBuilderGrid = styled.div`
-  margin-top: 0.6rem;
-  display: grid;
-  grid-template-columns: 1.2fr 0.8fr;
-  gap: 0.7rem;
-
-  @media (max-width: 980px) {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  @media (max-width: 640px) {
-    grid-template-columns: 1fr;
-  }
-`;
-
-const ColumnDropdownWrap = styled.div`
-  position: relative;
-`;
-
-const ColumnDropdownButton = styled.button`
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.6rem;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  background: #fff;
-  color: #333;
-  font-size: 0.88rem;
-  padding: 0.45rem 0.6rem;
-  cursor: pointer;
-`;
-
-const ColumnDropdownMenu = styled.div`
-  position: absolute;
-  top: calc(100% + 0.35rem);
-  left: 0;
-  width: min(420px, 90vw);
-  z-index: 30;
-  border: 1px solid rgba(0, 0, 0, 0.18);
-  border-radius: 8px;
-  background: #fff;
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.14);
-  padding: 0.6rem;
-`;
-
-const ColumnDropdownHeader = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.45rem;
-`;
-
-const ColumnDropdownList = styled.div`
-  max-height: 180px;
-  overflow-y: auto;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 6px;
-  padding: 0.35rem;
-`;
-
-const ColumnOption = styled.label`
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.2rem 0.25rem;
-  font-size: 0.84rem;
-  color: #333;
-  cursor: pointer;
-`;
-
 const SecondaryButton = styled.button`
   background: #fff;
   color: #333;
@@ -850,8 +745,8 @@ const Mono = styled.code`
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 `;
 
-/** Public DataCommon API token (required by the backend). */
-const DATACOMMON_API_TOKEN = "datacommon";
+
+const DATACOMMON_API_TOKEN = import.meta.env.VITE_MAPC_API_TOKEN ?? "";
 const DATACOMMON_BASE_URL = "https://datacommon.mapc.org";
 
 const EXPORT_FORMATS = {
@@ -918,49 +813,6 @@ function buildQueryUrl({ database, query }) {
   return `${DATACOMMON_BASE_URL}/api?${params.toString()}`;
 }
 
-function extractMetadataColumnsFromResponse(responseData) {
-  const byName = new Map();
-
-  const upsert = (nameValue, descriptionValue) => {
-    const name = String(nameValue || "").trim();
-    if (!name) return;
-    const description = String(descriptionValue || "").trim();
-    const prev = byName.get(name);
-    if (!prev) {
-      byName.set(name, { name, description });
-      return;
-    }
-    if (!prev.description && description) {
-      byName.set(name, { name, description });
-    }
-  };
-
-  const collectFromRows = (rows) => {
-    if (!Array.isArray(rows)) return;
-    rows.forEach((row) => {
-      const name =
-        row?.column_name || row?.column || row?.field || row?.name || row?.attname || row?.Field || row?.COLUMN_NAME || row?.attrlabl;
-      const description = row?.description || row?.desc || row?.column_description || row?.comment || row?.attrdef;
-      upsert(name, description);
-    });
-  };
-
-  // Format 1: { rows: [...] }
-  collectFromRows(responseData?.rows);
-
-  // Format 2: { someKey: [ ... ] } (tabular metadata)
-  Object.values(responseData || {}).forEach((value) => {
-    collectFromRows(value);
-  });
-
-  // Format 3: gisdata/towndata nested docs
-  const firstMeta = Object.values(responseData || {})[0];
-  const attrs = firstMeta?.documentation?.metadata?.eainfo?.detailed?.attr;
-  collectFromRows(attrs);
-
-  return Array.from(byName.values());
-}
-
 async function copyText(text) {
   if (!text) return;
   try {
@@ -1000,16 +852,9 @@ const ApiPage = () => {
   const [exportExampleLang, setExportExampleLang] = useState("python");
   const [exportExamplesExpanded, setExportExamplesExpanded] = useState(false);
   const [queryJustGenerated, setQueryJustGenerated] = useState(false);
-  const [queryMode, setQueryMode] = useState("basic");
-  const [queryColumns, setQueryColumns] = useState([]);
-  const [querySelectColumn, setQuerySelectColumn] = useState([]);
-  const [isColumnMenuOpen, setIsColumnMenuOpen] = useState(false);
-  const [columnSearchQuery, setColumnSearchQuery] = useState("");
-  const [queryLimit, setQueryLimit] = useState("100");
   const [querySql, setQuerySql] = useState("");
   const [queryUrl, setQueryUrl] = useState("");
   const [isMetadataPopupOpen, setIsMetadataPopupOpen] = useState(false);
-  const columnMenuRef = useRef(null);
 
   useEffect(() => {
     if (!datasets || datasets.length === 0) {
@@ -1024,7 +869,6 @@ const ApiPage = () => {
     const onEscape = (event) => {
       if (event.key === "Escape") {
         setIsPickerOpen(false);
-        setIsColumnMenuOpen(false);
         setIsMetadataPopupOpen(false);
       }
     };
@@ -1033,18 +877,6 @@ const ApiPage = () => {
     }
     return () => window.removeEventListener("keydown", onEscape);
   }, [isPickerOpen, isMetadataPopupOpen]);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (columnMenuRef.current && !columnMenuRef.current.contains(event.target)) {
-        setIsColumnMenuOpen(false);
-      }
-    };
-    if (isColumnMenuOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isColumnMenuOpen]);
 
   // If a user navigates directly with ?datasetId=... update local state
   useEffect(() => {
@@ -1055,16 +887,104 @@ const ApiPage = () => {
   }, [initialDatasetId]);
 
   const filteredDatasets = useMemo(() => {
-    const query = pickerQuery.trim().toLowerCase();
-    const list = inventoryDatasets;
+    const query = pickerQuery.trim();
+    const list = [...inventoryDatasets];
     if (!query) return list;
-    return list.filter((d) => {
-      const name = String(d.menu3 || "").toLowerCase();
-      const table = String(d.table_name || "").toLowerCase();
-      const source = String(d.source || "").toLowerCase();
-      return name.includes(query) || table.includes(query) || source.includes(query);
+
+    const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const searchRegex = new RegExp(escapedQuery, "i");
+
+    const filtered = list.filter((d) => {
+      const name = String(d.menu3 || "");
+      const table = String(d.table_name || "");
+      return searchRegex.test(name) || searchRegex.test(table);
     });
+
+    // Match dataset-page behavior: prioritize title matches, then alphabetical by title.
+    filtered.sort((a, b) => {
+      const aName = String(a.menu3 || "");
+      const bName = String(b.menu3 || "");
+      const aNameMatch = searchRegex.test(aName);
+      const bNameMatch = searchRegex.test(bName);
+
+      if (aNameMatch && bNameMatch) return aName.localeCompare(bName);
+      if (aNameMatch) return -1;
+      if (bNameMatch) return 1;
+      return aName.localeCompare(bName);
+    });
+
+    return filtered;
   }, [inventoryDatasets, pickerQuery]);
+
+  const inventoryHighlightMatches = useMemo(() => {
+    const query = pickerQuery.trim();
+    if (!query) return {};
+
+    const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const searchRegex = new RegExp(escapedQuery, "i");
+    const highlights = {};
+
+    filteredDatasets.forEach((d) => {
+      const tableName = String(d.table_name || "");
+      const menu3 = String(d.menu3 || "");
+      if (!searchRegex.test(menu3) && !searchRegex.test(tableName)) return;
+
+      const datasetId = d.seq_id || d.id;
+      highlights[datasetId] = [];
+
+      if (searchRegex.test(menu3)) {
+        const highlightRegex = new RegExp(escapedQuery, "gi");
+        menu3.replace(highlightRegex, (matched, offset) => {
+          highlights[datasetId].push({
+            key: "menu3",
+            indices: [[offset, offset + matched.length - 1]],
+          });
+          return matched;
+        });
+      }
+
+      if (searchRegex.test(tableName)) {
+        const highlightRegex = new RegExp(escapedQuery, "gi");
+        tableName.replace(highlightRegex, (matched, offset) => {
+          highlights[datasetId].push({
+            key: "table_name",
+            indices: [[offset, offset + matched.length - 1]],
+          });
+          return matched;
+        });
+      }
+    });
+
+    return highlights;
+  }, [filteredDatasets, pickerQuery]);
+
+  const renderInventoryHighlightedText = (text, datasetId, key) => {
+    if (!text) return null;
+    const matches = inventoryHighlightMatches[datasetId]?.filter((m) => m.key === key);
+    if (!matches?.length) return text;
+
+    const allIndices = matches
+      .flatMap((m) => m.indices || [])
+      .sort((a, b) => a[0] - b[0]);
+
+    const segments = [];
+    let lastIndex = 0;
+    allIndices.forEach(([start, end], idx) => {
+      if (start > lastIndex) {
+        segments.push(<span key={`inv-plain-${datasetId}-${key}-${idx}`}>{text.slice(lastIndex, start)}</span>);
+      }
+      segments.push(
+        <mark key={`inv-hi-${datasetId}-${key}-${idx}`} style={{ backgroundColor: "#ffec99", padding: 0 }}>
+          {text.slice(start, end + 1)}
+        </mark>,
+      );
+      lastIndex = end + 1;
+    });
+    if (lastIndex < text.length) {
+      segments.push(<span key={`inv-plain-${datasetId}-${key}-end`}>{text.slice(lastIndex)}</span>);
+    }
+    return <>{segments}</>;
+  };
 
   const selectedDataset = useMemo(() => {
     if (!selectedDatasetId) return null;
@@ -1136,6 +1056,12 @@ const ApiPage = () => {
     }
   }, [availableExportFormats, exportFormat]);
 
+  useEffect(() => {
+    if (exportFormat !== "csv" && exportFormat !== "json") {
+      setExportExamplesExpanded(false);
+    }
+  }, [exportFormat]);
+
   const exportUrl = useMemo(() => {
     if (!datasetBasics) return "";
     return buildExportUrl({
@@ -1148,20 +1074,10 @@ const ApiPage = () => {
     });
   }, [datasetBasics, exportFormat, selectedYears, availableYears]);
 
-  const suggestedExportFilename = useMemo(() => {
-    const ext = exportFormat === "shapefile" ? "zip" : exportFormat;
-    return `datacommon_export.${ext}`;
-  }, [exportFormat]);
-
   const pythonExportExample = useMemo(() => {
-    if (!exportUrl) return "";
+    if (!exportUrl || (exportFormat !== "csv" && exportFormat !== "json")) return "";
     const urlLit = JSON.stringify(exportUrl);
-    const readDataLine =
-      exportFormat === "json"
-        ? "data = pd.read_json(url)"
-        : exportFormat === "csv"
-          ? "data = pd.read_csv(url)"
-          : `data = pd.read_csv(url)  # tabular only; for ${exportFormat} try geopandas.read_file(url)`;
+    const readDataLine = exportFormat === "json" ? "data = pd.read_json(url)" : "data = pd.read_csv(url)";
     return `# Install required packages (run once)
 # pip install pandas requests matplotlib seaborn
 
@@ -1197,14 +1113,51 @@ print(data.describe())
   }, [exportUrl, exportFormat]);
 
   const rExportExample = useMemo(() => {
-    if (!exportUrl) return "";
+    if (!exportUrl || (exportFormat !== "csv" && exportFormat !== "json")) return "";
     const urlLit = JSON.stringify(exportUrl);
-    const pathLit = JSON.stringify(suggestedExportFilename);
-    return `export_url <- ${urlLit}
-dest <- file.path(getwd(), ${pathLit})
-download.file(export_url, dest, mode = "wb", quiet = TRUE)
-message("Saved to ", normalizePath(dest, winslash = "/"))`;
-  }, [exportUrl, suggestedExportFilename]);
+
+    if (exportFormat === "json") {
+      return `# Install required packages (run once)
+install.packages(c("jsonlite", "dplyr"))
+
+# Load libraries
+library(jsonlite)
+library(dplyr)
+
+# Read data from DataCommon API (tabular JSON)
+data <- fromJSON(${urlLit}, simplifyDataFrame = TRUE)
+
+# If the response is nested, inspect and extract rows, e.g. data <- as.data.frame(data$rows)
+
+# View data structure and first few rows
+str(data)
+head(data)
+
+# Example analysis: Summary statistics
+summary(data)`;
+    }
+
+    return `# Install required packages (run once)
+install.packages(c("readr", "dplyr", "ggplot2"))
+
+# Load libraries
+library(readr)
+library(dplyr)
+library(ggplot2)
+
+# Read data from DataCommon API
+data <- read_csv(${urlLit})
+
+# View data structure and first few rows
+str(data)
+head(data)
+
+# Example analysis: Summary statistics
+summary(data)
+
+# Example visualization (if applicable)
+# ggplot(data, aes(x = column_name)) + geom_histogram()`;
+  }, [exportUrl, exportFormat]);
 
   const queryDatabase = useMemo(() => datasetBasics?.database || "ds", [datasetBasics]);
 
@@ -1218,99 +1171,12 @@ message("Saved to ", normalizePath(dest, winslash = "/"))`;
   }, [datasetBasics]);
 
   useEffect(() => {
-    if (!datasetBasics?.database || !datasetBasics?.schema || !datasetBasics?.table) {
-      setQueryColumns([]);
-      return;
-    }
-
-    const loadColumns = async () => {
-      try {
-        const response = await axios.get("/api/metadata", {
-          params: {
-            token: DATACOMMON_API_TOKEN,
-            database: datasetBasics.database,
-            schema: datasetBasics.schema,
-            table: datasetBasics.table,
-          },
-        });
-        const details = extractMetadataColumnsFromResponse(response?.data);
-        setQueryColumns(details.map((d) => d.name));
-      } catch (error) {
-        setQueryColumns([]);
-      }
-    };
-
-    loadColumns();
-  }, [datasetBasics]);
-
-  const basicQuerySql = useMemo(() => {
-    if (!datasetBasics?.schema || !datasetBasics?.table) return "SELECT * FROM tabular.some_table";
-    const fqTable = `${datasetBasics.schema}.${datasetBasics.table}`;
-    const selectExpr = Array.isArray(querySelectColumn) && querySelectColumn.length > 0 ? querySelectColumn.join(", ") : "*";
-    let sql = `SELECT ${selectExpr}\nFROM ${fqTable}`;
-    const limitTrim = String(queryLimit ?? "").trim();
-    if (limitTrim === "") {
-      return sql;
-    }
-    if (!/^\d+$/.test(limitTrim)) {
-      sql += `\nLIMIT 100`;
-      return sql;
-    }
-    const limitNum = Number.parseInt(limitTrim, 10);
-    const safeLimit = limitNum > 0 ? limitNum : 100;
-    sql += `\nLIMIT ${safeLimit}`;
-    return sql;
-  }, [
-    datasetBasics,
-    querySelectColumn,
-    queryLimit,
-  ]);
-
-  useEffect(() => {
     const nextSql = starterQuerySql;
-    setQueryMode("basic");
-    setQuerySelectColumn([]);
-    setIsColumnMenuOpen(false);
-    setColumnSearchQuery("");
-    setQueryLimit("100");
     setQuerySql(nextSql);
     setQueryUrl("");
     setQueryJustGenerated(false);
     setIsMetadataPopupOpen(false);
   }, [datasetBasics, starterQuerySql, queryDatabase]);
-
-  const handleSwitchQueryMode = (mode) => {
-    setQueryMode(mode);
-    if (mode === "advanced") {
-      setQuerySql((prev) => (String(prev || "").trim() ? prev : basicQuerySql));
-    }
-  };
-
-  const filteredQueryColumns = useMemo(() => {
-    const q = columnSearchQuery.trim().toLowerCase();
-    if (!q) return queryColumns;
-    return queryColumns.filter((col) => col.toLowerCase().includes(q));
-  }, [queryColumns, columnSearchQuery]);
-
-  const selectedColumnsLabel = useMemo(() => {
-    if (querySelectColumn.length === 0) return "All columns";
-    if (querySelectColumn.length === 1) return querySelectColumn[0];
-    return `${querySelectColumn.length} columns selected`;
-  }, [querySelectColumn]);
-
-  const toggleQuerySelectColumn = (column) => {
-    setQuerySelectColumn((prev) =>
-      prev.includes(column) ? prev.filter((c) => c !== column) : [...prev, column],
-    );
-  };
-
-  const selectAllQueryColumns = () => {
-    setQuerySelectColumn(queryColumns);
-  };
-
-  const clearQuerySelectedColumns = () => {
-    setQuerySelectColumn([]);
-  };
 
   const curlFor = (url) => {
     if (!url) return "";
@@ -1333,6 +1199,10 @@ message("Saved to ", normalizePath(dest, winslash = "/"))`;
     setIsPickerOpen(false);
   };
 
+  const handleDatasetSearchChange = useCallback(({ query }) => {
+    setPickerQuery(query || "");
+  }, []);
+
   const toggleYear = (yearValue) => {
     setSelectedYears((prev) => {
       const yearKey = String(yearValue);
@@ -1352,14 +1222,10 @@ message("Saved to ", normalizePath(dest, winslash = "/"))`;
   };
 
   const handleGenerateQueryUrl = () => {
-    const sqlForUrl = queryMode === "basic" ? basicQuerySql : querySql;
     const next = buildQueryUrl({
       database: queryDatabase,
-      query: sqlForUrl,
+      query: querySql,
     });
-    if (queryMode === "basic") {
-      setQuerySql(sqlForUrl);
-    }
     setQueryUrl(next);
     setQueryJustGenerated(true);
     window.setTimeout(() => {
@@ -1422,17 +1288,7 @@ message("Saved to ", normalizePath(dest, winslash = "/"))`;
     QueryBuilderSection,
     QueryTopRow,
     FieldValue,
-    QueryModeRow,
-    QueryModeButton,
-    BasicBuilderGrid,
-    ColumnDropdownWrap,
-    ColumnDropdownButton,
-    ColumnDropdownMenu,
-    ColumnDropdownHeader,
     Search,
-    ColumnDropdownList,
-    ColumnOption,
-    BasicLimitHint,
     QueryInput,
     QueryActionRow,
     GenerateButton,
@@ -1444,7 +1300,7 @@ message("Saved to ", normalizePath(dest, winslash = "/"))`;
         <Title>API</Title>
         <SubTitle>
           Choose a dataset to build export and query URLs you can paste into a browser, curl, or your own code.
-          Adjust format and years and copy examples when you need them.
+         
         </SubTitle>
 
         <ControlsRow>
@@ -1456,7 +1312,7 @@ message("Saved to ", normalizePath(dest, winslash = "/"))`;
               onSelect={(dataset) => {
                 handleDatasetChange(String(dataset.seq_id || dataset.id));
               }}
-              onSearchChange={({ query }) => setPickerQuery(query || "")}
+              onSearchChange={handleDatasetSearchChange}
               maxResults={10}
               maxWidth="min(680px, 100%)"
               maxHeight="38vh"
@@ -1485,11 +1341,13 @@ message("Saved to ", normalizePath(dest, winslash = "/"))`;
 
         {isPickerOpen && (
           <PickerOverlay
+            data-prevent-dataset-search-clear
             onClick={() => {
               setIsPickerOpen(false);
             }}
           >
             <PickerDialog
+              data-prevent-dataset-search-clear
               onClick={(e) => {
                 e.stopPropagation();
               }}
@@ -1506,18 +1364,24 @@ message("Saved to ", normalizePath(dest, winslash = "/"))`;
                   id="dataset-picker-search"
                   value={pickerQuery}
                   onChange={(e) => setPickerQuery(e.target.value)}
-                  placeholder="Search by title, table name, or source..."
+                  placeholder="Search by dataset title or table name..."
                 />
                 <Small style={{ marginTop: "0.6rem" }}>
                   {filteredDatasets.length} dataset{filteredDatasets.length === 1 ? "" : "s"} found
                 </Small>
                 <PickerDatasetList>
-                  {filteredDatasets.slice(0, 120).map((d) => (
+                  {filteredDatasets.slice(0, 120).map((d) => {
+                    const datasetId = d.seq_id || d.id;
+                    return (
                     <PickerDatasetCard key={String(d.seq_id)}>
                       <PickerDatasetMeta>
-                        <PickerDatasetName>{d.menu3}</PickerDatasetName>
+                        <PickerDatasetName>
+                          {renderInventoryHighlightedText(d.menu3 || "", datasetId, "menu3") || "Untitled"}
+                        </PickerDatasetName>
                         <PickerDatasetDetails>
-                          <Mono>{d.table_name}</Mono>
+                          <Mono>
+                            {renderInventoryHighlightedText(d.table_name || "", datasetId, "table_name")}
+                          </Mono>
                           <br />
                           Source: {d.source || "N/A"}
                         </PickerDatasetDetails>
@@ -1529,7 +1393,8 @@ message("Saved to ", normalizePath(dest, winslash = "/"))`;
                         Select
                       </PickerSelectButton>
                     </PickerDatasetCard>
-                  ))}
+                  );
+                  })}
                 </PickerDatasetList>
                 {filteredDatasets.length > 120 && (
                   <Small style={{ marginTop: "0.75rem" }}>
@@ -1574,7 +1439,6 @@ message("Saved to ", normalizePath(dest, winslash = "/"))`;
             setExportExamplesExpanded={setExportExamplesExpanded}
             exportExampleLang={exportExampleLang}
             setExportExampleLang={setExportExampleLang}
-            suggestedExportFilename={suggestedExportFilename}
             pythonExportExample={pythonExportExample}
             rExportExample={rExportExample}
             DATACOMMON_BASE_URL={DATACOMMON_BASE_URL}
@@ -1586,24 +1450,8 @@ message("Saved to ", normalizePath(dest, winslash = "/"))`;
             DATACOMMON_API_TOKEN={DATACOMMON_API_TOKEN}
             DATACOMMON_BASE_URL={DATACOMMON_BASE_URL}
             queryDatabase={queryDatabase}
-            queryMode={queryMode}
-            handleSwitchQueryMode={handleSwitchQueryMode}
-            selectedColumnsLabel={selectedColumnsLabel}
-            columnMenuRef={columnMenuRef}
-            isColumnMenuOpen={isColumnMenuOpen}
-            setIsColumnMenuOpen={setIsColumnMenuOpen}
-            selectAllQueryColumns={selectAllQueryColumns}
-            clearQuerySelectedColumns={clearQuerySelectedColumns}
-            columnSearchQuery={columnSearchQuery}
-            setColumnSearchQuery={setColumnSearchQuery}
-            filteredQueryColumns={filteredQueryColumns}
-            querySelectColumn={querySelectColumn}
-            toggleQuerySelectColumn={toggleQuerySelectColumn}
             selectedDataset={selectedDataset}
             setIsMetadataPopupOpen={setIsMetadataPopupOpen}
-            queryLimit={queryLimit}
-            setQueryLimit={setQueryLimit}
-            basicQuerySql={basicQuerySql}
             querySql={querySql}
             setQuerySql={setQuerySql}
             handleGenerateQueryUrl={handleGenerateQueryUrl}

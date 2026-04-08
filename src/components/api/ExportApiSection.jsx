@@ -1,5 +1,9 @@
 import React from "react";
 
+/** GET URLs with a very long `query=` string may hit browser or proxy limits. */
+const LONG_GET_URL_CHARS = 2048;
+const VERY_LONG_GET_URL_CHARS = 8192;
+
 const ExportApiSection = ({
   ui,
   datasetBasics,
@@ -19,7 +23,6 @@ const ExportApiSection = ({
   setExportExamplesExpanded,
   exportExampleLang,
   setExportExampleLang,
-  suggestedExportFilename,
   pythonExportExample,
   rExportExample,
   DATACOMMON_BASE_URL,
@@ -138,7 +141,25 @@ const ExportApiSection = ({
         )}
       </YearSection>
 
-      <CodeBlock>{exportUrl}</CodeBlock>
+      <Label style={{ marginTop: "0.85rem", marginBottom: "0.25rem" }}>API endpoint</Label>
+      <CodeBlock role="region" aria-label="Export API endpoint URL">
+        {exportUrl}
+      </CodeBlock>
+      {exportUrl.length >= LONG_GET_URL_CHARS && (
+        <Small
+          style={{
+            marginTop: "0.45rem",
+            marginBottom: 0,
+            color: exportUrl.length >= VERY_LONG_URL_CHARS ? "#9a3412" : "#92400e",
+            fontSize: "0.9rem",
+            lineHeight: 1.45,
+          }}
+        >
+          <strong>Long URL ({exportUrl.length.toLocaleString()} characters).</strong> Some browsers, proxies, or servers
+          limit long GET requests. If the link fails, try fewer values in <Mono>columns=</Mono> (if you use it), omit
+          optional parameters, or run the same URL with <Mono>curl</Mono> where limits are looser.
+        </Small>
+      )}
       <CopyRow>
         {copyStatus && <CopyStatus>{copyStatus}</CopyStatus>}
         <SecondaryButton type="button" onClick={() => handleCopy(curlFor(exportUrl), "curl")}>
@@ -149,68 +170,70 @@ const ExportApiSection = ({
         </CopyButton>
       </CopyRow>
 
-      <CodeExamplesSection>
-        <CodeExamplesDisclosure
-          type="button"
-          $expanded={exportExamplesExpanded}
-          aria-expanded={exportExamplesExpanded}
-          aria-controls="export-code-examples-panel"
-          id="export-code-examples-disclosure"
-          onClick={() => setExportExamplesExpanded((open) => !open)}
-        >
-          <CodeExamplesDisclosureText>
-            <CodeExamplesDisclosureTitle>Code examples</CodeExamplesDisclosureTitle>
-            <CodeExamplesDisclosureHint>
-              Python loads the export URL with pandas; R saves to <Mono>{suggestedExportFilename}</Mono>.
-            </CodeExamplesDisclosureHint>
-          </CodeExamplesDisclosureText>
-          <CodeExamplesChevron $expanded={exportExamplesExpanded} aria-hidden>
-            ▼
-          </CodeExamplesChevron>
-        </CodeExamplesDisclosure>
-        {exportExamplesExpanded && (
-          <CodeExamplePanel id="export-code-examples-panel" role="region" aria-labelledby="export-code-examples-disclosure">
-            <CodeExampleToolbar>
-              <CodeExampleTabGroup role="tablist" aria-label="Example language">
-                <CodeExampleTab
-                  type="button"
-                  role="tab"
-                  aria-selected={exportExampleLang === "python"}
-                  id="export-ex-tab-python"
-                  $active={exportExampleLang === "python"}
-                  onClick={() => setExportExampleLang("python")}
-                >
-                  Python
-                </CodeExampleTab>
-                <CodeExampleTab
-                  type="button"
-                  role="tab"
-                  aria-selected={exportExampleLang === "r"}
-                  id="export-ex-tab-r"
-                  $active={exportExampleLang === "r"}
-                  onClick={() => setExportExampleLang("r")}
-                >
-                  R
-                </CodeExampleTab>
-              </CodeExampleTabGroup>
-              <CodeExampleToolbarRight>
-                {copyStatus && (copyStatus === "Python copied!" || copyStatus === "R copied!") && (
-                  <CopyStatus>{copyStatus}</CopyStatus>
-                )}
-                <ExampleCopyButton
-                  type="button"
-                  onClick={() => handleCopy(exportExampleLang === "python" ? pythonExportExample : rExportExample, exportExampleLang)}
-                >
-                  Copy code
-                </ExampleCopyButton>
-              </CodeExampleToolbarRight>
-            </CodeExampleToolbar>
-            <ExampleCodeBody role="tabpanel" aria-labelledby={exportExampleLang === "python" ? "export-ex-tab-python" : "export-ex-tab-r"}>
-              {exportExampleLang === "python" ? pythonExportExample : rExportExample}
-            </ExampleCodeBody>
-          </CodeExamplePanel>
-        )}
-      </CodeExamplesSection>
+      {(exportFormat === "csv" || exportFormat === "json") && (
+        <CodeExamplesSection>
+          <CodeExamplesDisclosure
+            type="button"
+            $expanded={exportExamplesExpanded}
+            aria-expanded={exportExamplesExpanded}
+            aria-controls="export-code-examples-panel"
+            id="export-code-examples-disclosure"
+            onClick={() => setExportExamplesExpanded((open) => !open)}
+          >
+            <CodeExamplesDisclosureText>
+              <CodeExamplesDisclosureTitle>Code examples</CodeExamplesDisclosureTitle>
+              <CodeExamplesDisclosureHint>
+                Python and R examples for tabular exports only. Choose CSV or JSON above;
+              </CodeExamplesDisclosureHint>
+            </CodeExamplesDisclosureText>
+            <CodeExamplesChevron $expanded={exportExamplesExpanded} aria-hidden>
+              ▼
+            </CodeExamplesChevron>
+          </CodeExamplesDisclosure>
+          {exportExamplesExpanded && (
+            <CodeExamplePanel id="export-code-examples-panel" role="region" aria-labelledby="export-code-examples-disclosure">
+              <CodeExampleToolbar>
+                <CodeExampleTabGroup role="tablist" aria-label="Example language">
+                  <CodeExampleTab
+                    type="button"
+                    role="tab"
+                    aria-selected={exportExampleLang === "python"}
+                    id="export-ex-tab-python"
+                    $active={exportExampleLang === "python"}
+                    onClick={() => setExportExampleLang("python")}
+                  >
+                    Python
+                  </CodeExampleTab>
+                  <CodeExampleTab
+                    type="button"
+                    role="tab"
+                    aria-selected={exportExampleLang === "r"}
+                    id="export-ex-tab-r"
+                    $active={exportExampleLang === "r"}
+                    onClick={() => setExportExampleLang("r")}
+                  >
+                    R
+                  </CodeExampleTab>
+                </CodeExampleTabGroup>
+                <CodeExampleToolbarRight>
+                  {copyStatus && (copyStatus === "Python copied!" || copyStatus === "R copied!") && (
+                    <CopyStatus>{copyStatus}</CopyStatus>
+                  )}
+                  <ExampleCopyButton
+                    type="button"
+                    onClick={() => handleCopy(exportExampleLang === "python" ? pythonExportExample : rExportExample, exportExampleLang)}
+                  >
+                    Copy code
+                  </ExampleCopyButton>
+                </CodeExampleToolbarRight>
+              </CodeExampleToolbar>
+              <ExampleCodeBody role="tabpanel" aria-labelledby={exportExampleLang === "python" ? "export-ex-tab-python" : "export-ex-tab-r"}>
+                {exportExampleLang === "python" ? pythonExportExample : rExportExample}
+              </ExampleCodeBody>
+            </CodeExamplePanel>
+          )}
+        </CodeExamplesSection>
+      )}
 
       <DocSection>
         <DocSubTitle>Documentation</DocSubTitle>
