@@ -516,9 +516,7 @@ const BrowserPage = () => {
       filtered = filtered.filter(d => selectedMenu1s.includes(d.menu1));
     }
 
-    if (selectedMenu2s.length > 0) {
-      filtered = filtered.filter(d => selectedMenu2s.includes(d.menu2));
-    }
+    // Subcategory filter is disabled.
 
     let highlights = {};
 
@@ -607,13 +605,10 @@ const BrowserPage = () => {
     const currentQ = params.get("q") || "";
     const currentSources = (params.get("source") || "").split(",").filter(Boolean);
     const currentCategories = (params.get("category") || "").split(",").filter(Boolean);
-    const currentSubcategories = (params.get("subcategory") || "").split(",").filter(Boolean);
-
     const shouldUpdate =
       currentQ !== searchQuery ||
       !arraysEqual(currentSources, selectedSources) ||
-      !arraysEqual(currentCategories, selectedMenu1s) ||
-      !arraysEqual(currentSubcategories, selectedMenu2s);
+      !arraysEqual(currentCategories, selectedMenu1s);
 
     if (!shouldUpdate) {
       return;
@@ -637,11 +632,8 @@ const BrowserPage = () => {
       params.delete("category");
     }
 
-    if (selectedMenu2s.length > 0) {
-      params.set("subcategory", selectedMenu2s.join(","));
-    } else {
-      params.delete("subcategory");
-    }
+    // Subcategory filter is disabled.
+    params.delete("subcategory");
 
 
     const newSearch = params.toString();
@@ -651,7 +643,7 @@ const BrowserPage = () => {
     if (newUrl !== currentUrl) {
       navigate(newUrl, { replace: true });
     }
-  }, [searchQuery, selectedSources, selectedMenu1s, selectedMenu2s, location.pathname, location.search, navigate]);
+  }, [searchQuery, selectedSources, selectedMenu1s, location.pathname, location.search, navigate]);
 
   // Sort datasets
   const sortedDatasets = useMemo(() => {
@@ -946,10 +938,9 @@ const BrowserPage = () => {
                     <CheckboxLabel htmlFor={`menu1-${menu1}`}>
                       {menu1}
                     </CheckboxLabel>
-                    <FilterTreeChevron onClick={() => onCategoryFilterOpenClose(menu1)}>
-                      {categoryOptionTree[menu1].open ? "▲" : "▼"}
-                    </FilterTreeChevron>
+                    {/* Subcategory expand/collapse is disabled while subcategory filter is hidden. */}
                   </FilterItem>
+                  {/* Subcategory filter is currently disabled.
                   {categoryOptionTree[menu1].open && <FilterItemChildren>
                     {categoryOptionTree[menu1].children.map(menu2 => (
                       <FilterItem key={menu2}>
@@ -967,6 +958,7 @@ const BrowserPage = () => {
                       </FilterItem>
                     ))}
                   </FilterItemChildren>}
+                  */}
                 </div>
               ))}
             </FilterList>
@@ -1002,7 +994,7 @@ const BrowserPage = () => {
                   <option value="Oldest First">Oldest First</option>
                 </SortSelect>
               </SortContainer>
-              {(searchQuery.trim() || selectedSources.length > 0 || selectedMenu1s.length > 0 || selectedMenu2s.length > 0) && (
+              {(searchQuery.trim() || selectedSources.length > 0 || selectedMenu1s.length > 0) && (
                 <ShareLinkContainer>
                   <ShareLinkButton type="button" onClick={handleCopyShareLink}>
                     Share Search Result
