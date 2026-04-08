@@ -658,9 +658,9 @@ const BrowserPage = () => {
     const sorted = [...displayDatasets];
 
     let sortType = sortBy;
-    // default to A -> Z if no search
+    // default from relevance to A -> Z if no search
     const trimmedSearch = searchQuery.trim();
-    if (!trimmedSearch) {
+    if (!trimmedSearch && sortType === "Relevance") {
       sortType = "A to Z";
     }
     
