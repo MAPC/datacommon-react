@@ -287,20 +287,8 @@ class DataViewerClass extends React.Component {
     });
   }
 
-  updatePage(e, action, numOfPages = 1) {
-    this.setState((prevState) => {
-      let updatedPage;
-      if (action === "Forward") {
-        updatedPage = prevState.currentPage + 1;
-      } else if (action === "Backward") {
-        updatedPage = prevState.currentPage - 1;
-      } else if (action === "Beginning") {
-        updatedPage = 1;
-      } else if (action === "End") {
-        updatedPage = numOfPages;
-      }
-      return { currentPage: updatedPage };
-    });
+  updatePage(newPage) {
+    this.setState({ currentPage: newPage });
   }
 
   updateRowsPerPage(rowsPerPage) {
