@@ -7,9 +7,18 @@ class DatasetTable extends React.Component {
     super(props);
     this.state = {
       sortColumn: null,
-      sortDirection: 'asc'
+      sortDirection: 'asc',
+      inputPageNum: props.currentPage
     };
     this.handleSort = this.handleSort.bind(this);
+    this.onPageNumberUpdate = this.onPageNumberUpdate.bind(this);
+    this.onPageNumberBlur = this.onPageNumberBlur.bind(this);
+  }
+
+  componentDidUpdate(prevProps) {
+    if (this.props.currentPage !== prevProps.currentPage) {
+      this.setState({ inputPageNum: this.props.currentPage });
+    }
   }
 
   handleSort(columnName) {
@@ -84,22 +93,46 @@ class DatasetTable extends React.Component {
     });
   }
 
+  onPageNumberUpdate(newPage, numberOfPages) {
+    const asInt = parseInt(newPage);
+    this.setState({ inputPageNum: asInt !== NaN ? asInt : "" });
+    if (this.isValidPageNumber(asInt, numberOfPages)) {
+      this.props.updatePage(asInt);
+    }
+  }
+
+  onPageNumberBlur(numberOfPages) {
+    if (!this.state.inputPageNum) {
+      this.setState({ inputPageNum: this.props.currentPage });
+    } else if (this.state.inputPageNum < 1) {
+      this.props.updatePage(1);
+      this.setState({ inputPageNum: 1 });
+    } else if (this.state.inputPageNum > numberOfPages) {
+      this.props.updatePage(numberOfPages);
+      this.setState({ inputPageNum: numberOfPages });
+    }
+  }
+
+  isValidPageNumber(page, numberOfPages) {
+    return page && page > 0 && page <= numberOfPages;
+  }
+
   render() {
     const { 
-      columnKeys = [], 
-      currentPage = 1, 
-      metadata = [], 
-      queryYearColumn = "", 
-      rows = [], 
-      rowsPerPage = 25, 
-      selectedColumns = [], 
-      selectedYears = [], 
-      selectedGeographies = [], 
+      columnKeys = [],
+      currentPage = 1,
+      metadata = [],
+      queryYearColumn = "",
+      rows = [],
+      rowsPerPage = 25,
+      selectedColumns = [],
+      selectedYears = [],
+      selectedGeographies = [],
       geographyColumn = null,
-      updatePage, 
-      updateRowsPerPage 
+      updatePage,
+      updateRowsPerPage
     } = this.props;
-    const { sortColumn, sortDirection } = this.state;
+    const { sortColumn, sortDirection, inputPageNum } = this.state;
     
     // Filter columnKeys based on selectedColumns
     const filteredColumnKeys = columnKeys.filter((col) => selectedColumns.includes(col.name));
@@ -180,8 +213,9 @@ class DatasetTable extends React.Component {
             <div className="pagination-nav-container">
               <div className={backButtonClasses}>
                 <button
-                  onClick={(e) => {
-                    currentPage !== 1 ? updatePage(e, "Beginning") : null;
+                  title="First"
+                  onClick={() => {
+                    currentPage !== 1 && updatePage(1);
                   }}
                   className="datatable__button"
                 >
@@ -189,9 +223,10 @@ class DatasetTable extends React.Component {
                 </button>
                 <span className="separator" />
                 <button
-                  onClick={(e) => {
-                    currentPage !== 1 ? updatePage(e, "Backward") : null;
+                  onClick={() => {
+                    currentPage !== 1 && updatePage(currentPage - 1);
                   }}
+                  title="Previous"
                   className="datatable__button"
                 >
                   &lt;
@@ -199,25 +234,35 @@ class DatasetTable extends React.Component {
               </div>
 
               <div className="page-counter">
-                {currentPage}
+                <input
+                  className="page-number-input"
+                  type="number"
+                  title="Enter a number to jump to that page"
+                  step={1}
+                  value={inputPageNum}
+                  onChange={(e) => this.onPageNumberUpdate(e.target.value, numOfPages)}
+                  onBlur={() => this.onPageNumberBlur(numOfPages)}
+                />
                 <span className="separator" />
                 {numOfPages}
               </div>
 
               <div className={forwardButtonClasses}>
                 <button
-                  onClick={(e) => {
-                    currentPage !== numOfPages ? updatePage(e, "Forward") : null;
+                  onClick={() => {
+                    currentPage !== numOfPages && updatePage(currentPage + 1);
                   }}
+                  title="Next"
                   className="datatable__button"
                 >
                   &gt;
                 </button>
                 <span className="separator" />
                 <button
-                  onClick={(e) => {
-                    currentPage !== numOfPages ? updatePage(e, "End", numOfPages) : null;
+                  onClick={() => {
+                    currentPage !== numOfPages && updatePage(numOfPages);
                   }}
+                  title="Last"
                   className="datatable__button"
                 >
                   &gt;&gt;
