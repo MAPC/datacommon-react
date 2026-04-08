@@ -21,11 +21,12 @@ const AboutOverviewPage = () => {
     fieldMapping: {
       description: "Description",
       title: "Title",
-      updateDate: "Update Date"
+      createdTime: "Created",
+      publishedDate: "Production Date"
     },
     sortBy: (a, b) => {
-      const dateA = a.updateDate ? new Date(a.updateDate) : null;
-      const dateB = b.updateDate ? new Date(b.updateDate) : null;
+      const dateA = a.createdTime ? new Date(a.createdTime) : null;
+      const dateB = b.createdTime ? new Date(b.createdTime) : null;
       
       if (dateA && dateB) {
         return dateB - dateA;
@@ -75,14 +76,11 @@ const AboutOverviewPage = () => {
     }
     
     return logsData.map((log) => {
-      const updateDate = log.updateDate || "";
-      const dateObj = updateDate ? new Date(updateDate) : null;
-      
       return {
         id: log.recordId || log.description || `log-${Math.random()}`,
         description: log.description || "",
-        updateDate: updateDate,
-        dateObj: dateObj,
+        publishedDate: log.publishedDate || "",
+        createdTime: log.createdTime || "",
         ...log,
       };
     });
@@ -153,13 +151,18 @@ const AboutOverviewPage = () => {
     return "Something went wrong while loading major releases. Please try again later.";
   })();
 
-  const formatDate = (dateString) => {
+   /**
+   * string to date
+   * @param {*} dateString 
+   * @returns {string} date string in M/D/YYYY format
+   */
+   const formatDate = (dateString) => {
     if (!dateString) return "";
     const date = new Date(dateString);
-    if (isNaN(date.getTime())) return dateString;
+    if (isNaN(date.getTime())) return dateString; // Return original if invalid date
     
-    const month = date.getMonth() + 1;
-    const day = date.getDate();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
     const year = date.getFullYear();
     return `${month}/${day}/${year}`;
   };
@@ -271,16 +274,16 @@ const AboutOverviewPage = () => {
                 <div className="about-overview__logs">
                   {logs.slice(0, 10).map((log) => {
                     const titleText = (log.title ?? "").trim();
-                    const hasDate = Boolean(log.updateDate);
+                    const hasDate = Boolean(log.publishedDate);
                     return (
                       <div key={log.id} className="about-overview__log-item">
                         {titleText ? (
                           <div className="about-overview__log-title">{titleText}</div>
                         ) : hasDate ? (
-                          <div className="about-overview__log-title">{formatDate(log.updateDate)}</div>
+                          <div className="about-overview__log-title">{formatDate(log.publishedDate)}</div>
                         ) : null}
                         {titleText && hasDate ? (
-                          <div className="about-overview__log-meta">Updated {formatDate(log.updateDate)}</div>
+                          <div className="about-overview__log-meta">Published {formatDate(log.publishedDate)}</div>
                         ) : null}
                         <div className="about-overview__log-description">
                           <ReactMarkdown>{log.description}</ReactMarkdown>
