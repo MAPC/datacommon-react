@@ -20,11 +20,25 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      // Proxy requests starting with /api to your local server
+      // Proxy data requests to the backend. Let the SPA own GET /api when there is no token
+      // (e.g. /api or /api?datasetId=… for the API documentation page).
       '/api': {
         target: 'http://localhost:3000',
         changeOrigin: true,
         rewrite: (p) => p.replace(/^\/api/, ''),
+        bypass(req) {
+          const url = req.url || ''
+          const q = url.indexOf('?')
+          const pathOnly = q === -1 ? url : url.slice(0, q)
+          const query = q === -1 ? '' : url.slice(q + 1)
+          if (pathOnly === '/api' || pathOnly === '/api/') {
+            const params = new URLSearchParams(query)
+            if (!params.has('token')) {
+              return '/index.html'
+            }
+          }
+          return undefined
+        },
       },
     },
   },

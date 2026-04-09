@@ -272,10 +272,13 @@ const DatasetSearchBar = ({
     }
   }, [datasets, searchQuery, maxResults, onSearchChange]);
 
-  // Close dropdown when clicking outside
+  // Close dropdown when clicking outside (but not when interacting with layered UI like modals)
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (searchContainerRef.current && !searchContainerRef.current.contains(event.target)) {
+        if (typeof event.target.closest === 'function' && event.target.closest('[data-prevent-dataset-search-clear]')) {
+          return;
+        }
         setSearchQuery('');
       }
     };

@@ -338,6 +338,7 @@ class DataViewerClass extends React.Component {
           <DatasetHeader
             availableYears={this.state.availableYears}
             columnKeys={this.state.columnKeys}
+            datasetId={this.props.params.id}
             database={this.state.database}
             description={this.state.description}
             metadata={this.state.metadata}

@@ -212,8 +212,8 @@ const MetadataModal = ({ show, handleClose, dataset }) => {
   };
 
   return (
-    <ModalOverlay onClick={handleOverlayClick}>
-      <ModalContainer onClick={(e) => e.stopPropagation()}>
+    <ModalOverlay data-prevent-dataset-search-clear onClick={handleOverlayClick}>
+      <ModalContainer data-prevent-dataset-search-clear onClick={(e) => e.stopPropagation()}>
         <ModalHeader>
           <ModalTitle>Metadata: {dataset?.menu3 || 'Dataset Metadata'}</ModalTitle>
           <CloseButton onClick={handleClose} aria-label="Close">
@@ -231,7 +231,7 @@ const MetadataModal = ({ show, handleClose, dataset }) => {
             <MetadataTable>
               <TableHeader>
                 <TableHeaderRow>
-                  <TableHeaderCell>Name</TableHeaderCell>
+                  <TableHeaderCell>Table Column Name</TableHeaderCell>
                   <TableHeaderCell>Alias</TableHeaderCell>
                   <TableHeaderCell>Details</TableHeaderCell>
                 </TableHeaderRow>
