@@ -634,7 +634,7 @@ function DatasetHeader({
             {!!datasetId && (
               <div style={{ marginTop: "10px", textAlign: "right" }}>
                 <a
-                  href={`/api?datasetId=${encodeURIComponent(String(datasetId))}`}
+                  href={`/developers?datasetId=${encodeURIComponent(String(datasetId))}`}
                   className="button feedback-button"
                   style={{ fontSize: "12px" }}
                 >
