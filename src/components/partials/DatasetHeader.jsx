@@ -481,10 +481,8 @@ const ColumnSelectorDropdown = ({ columnKeys, updateSelectedColumns, selectedCol
               onClick={(e) => {
                 e.stopPropagation();
                 if (selectedCount === totalCount) {
-                  // Deselect all except first (keep at least one selected)
-                  const firstColumn = sortedColumnKeys[0].name;
                   sortedColumnKeys.forEach((col) => {
-                    if (col.name !== firstColumn && selectedColumns.includes(col.name)) {
+                    if (selectedColumns.includes(col.name)) {
                       updateSelectedColumns(col.name);
                     }
                   });

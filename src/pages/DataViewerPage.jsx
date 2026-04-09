@@ -272,10 +272,6 @@ class DataViewerClass extends React.Component {
   updateSelectedColumns(columnName) {
     this.setState((prevState) => {
       if (prevState.selectedColumns.includes(columnName)) {
-        // Don't allow deselecting all columns - at least one must be selected
-        if (prevState.selectedColumns.length === 1) {
-          return prevState;
-        }
         const index = prevState.selectedColumns.indexOf(columnName);
         const front = prevState.selectedColumns.slice(0, index);
         const back = prevState.selectedColumns.slice(index + 1);
