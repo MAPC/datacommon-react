@@ -512,16 +512,11 @@ const BrowserPage = () => {
       });
     }
 
-    if (selectedMenu1s.length > 0) {
-      filtered = filtered.filter(d => selectedMenu1s.includes(d.menu1));
+    if (selectedMenu1s.length > 0 || selectedMenu2s.length > 0) {
+      filtered = filtered.filter(d => selectedMenu1s.includes(d.menu1) || selectedMenu2s.includes(d.menu2));
     }
 
-    if (selectedMenu2s.length > 0) {
-      filtered = filtered.filter(d => selectedMenu2s.includes(d.menu2));
-    }
-
-    let highlights = {};
-
+    const highlights = {};
     if (searchQuery.trim()) {
       // break query into individual tokens, filter empty tokens, escape special characters
       const query = searchQuery.trim();
