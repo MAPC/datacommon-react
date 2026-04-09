@@ -839,11 +839,12 @@ const ApiPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { cache: datasets, noDupesDatasets } = useSelector((state) => state.dataset);
 
-  const initialDatasetId = searchParams.get("datasetId");
+
+  const datasetId = searchParams.get("datasetId");
 
   const [pickerQuery, setPickerQuery] = useState("");
   const [isPickerOpen, setIsPickerOpen] = useState(false);
-  const [selectedDatasetId, setSelectedDatasetId] = useState(initialDatasetId || "");
+  const [selectedDatasetId, setSelectedDatasetId] = useState(datasetId || "");
   const [activeTab, setActiveTab] = useState("export");
   const [exportFormat, setExportFormat] = useState("csv");
   const [availableYears, setAvailableYears] = useState([]);
@@ -878,13 +879,13 @@ const ApiPage = () => {
     return () => window.removeEventListener("keydown", onEscape);
   }, [isPickerOpen, isMetadataPopupOpen]);
 
-  // If a user navigates directly with ?datasetId=... update local state
+  // If a user navigates directly with ?datasetid=... update local state
   useEffect(() => {
-    if (initialDatasetId && initialDatasetId !== selectedDatasetId) {
-      setSelectedDatasetId(initialDatasetId);
+    if (datasetId && datasetId !== selectedDatasetId) {
+      setSelectedDatasetId(datasetId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialDatasetId]);
+  }, [datasetId]);
 
   const filteredDatasets = useMemo(() => {
     const query = pickerQuery.trim();
@@ -1187,8 +1188,10 @@ summary(data)
     setSelectedDatasetId(nextId);
     const next = new URLSearchParams(searchParams);
     if (nextId) {
-      next.set("datasetId", nextId);
+      next.set("datasetid", nextId);
+      next.delete("datasetId");
     } else {
+      next.delete("datasetid");
       next.delete("datasetId");
     }
     setSearchParams(next, { replace: true });

@@ -157,9 +157,9 @@ const router = createBrowserRouter([
         element: <AboutOverviewPage />,
       },
       {
-        path: "api",
+        path: "developers",
         element: <ApiPage />,
-      },
+      }
     ],
   },
 ]);

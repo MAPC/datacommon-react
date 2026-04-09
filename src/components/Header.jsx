@@ -61,8 +61,8 @@ const Header = () => {
             </li>
             <li>
               <a
-                className={handleActivePage(location.pathname, "/api")}
-                href="/api"
+                className={handleActivePage(location.pathname, "/developers")}
+                href="/developers"
               >
                 API
               </a>

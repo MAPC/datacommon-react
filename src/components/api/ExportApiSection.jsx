@@ -261,9 +261,21 @@ const ExportApiSection = ({
             </tr>
             <tr>
               <td>
-                <Mono>database</Mono>, <Mono>schema</Mono>, <Mono>table</Mono>
+                <Mono>database</Mono>
               </td>
-              <td>Required. Identify the dataset (see values above).</td>
+              <td>Required. Dataset database name (see value above).</td>
+            </tr>
+            <tr>
+              <td>
+                <Mono>schema</Mono>
+              </td>
+              <td>Required. Dataset schema name (see value above).</td>
+            </tr>
+            <tr>
+              <td>
+                <Mono>table</Mono>
+              </td>
+              <td>Required. Dataset table name (see value above).</td>
             </tr>
             <tr>
               <td>
