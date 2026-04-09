@@ -619,7 +619,7 @@ function DatasetHeader({
             )}
             {showFilterExportCheckbox && <div className="download-should-filter-checkbox-container">
               <label title="Should the exported data be filtered using the current selections?">
-                Filter export data
+                Export filtered data only
               </label>
               <input
                 className="download-should-filter-checkbox"
