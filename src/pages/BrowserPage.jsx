@@ -39,7 +39,7 @@ const SidebarTitle = styled.h3`
 `;
 
 const FilterSection = styled.div`
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
 `;
 
 const FilterHeader = styled.div`
@@ -77,21 +77,49 @@ const FilterList = styled.ul`
   max-height: 200px;
   overflow-y: auto;
   overflow-x: hidden;
-  
+
   /* Custom scrollbar styling */
   &::-webkit-scrollbar {
     width: 6px;
   }
-  
+
   &::-webkit-scrollbar-track {
     background: #f1f1f1;
     border-radius: 3px;
   }
-  
+
   &::-webkit-scrollbar-thumb {
     background: #c1c1c1;
     border-radius: 3px;
-    
+
+    &:hover {
+      background: #a8a8a8;
+    }
+  }
+`;
+
+const FilterListCategories = styled.ul`
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 400px;
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  /* Custom scrollbar styling */
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+
     &:hover {
       background: #a8a8a8;
     }
@@ -217,7 +245,7 @@ const DatasetGrid = styled.div`
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
-  max-height: 31.5em;
+  max-height: 42.5em;
   overflow-y: auto;
   overflow-x: hidden;
   
@@ -253,6 +281,12 @@ const DatasetBox = styled.div`
   &:hover {
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   }
+`;
+
+const DatasetHeaderContainer = styled.div`
+  display: flex;
+  align-items: space-between;
+  justify-content: space-between;
 `;
 
 const DatasetHeader = styled.h3`
@@ -314,6 +348,7 @@ const DatasetActions = styled.div`
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+  justify-content: end;
   gap: 1rem;
   min-width: 200px;
 `;
@@ -894,30 +929,6 @@ const BrowserPage = () => {
       <MainContent>
         <Sidebar>
           <SidebarTitle>Filters</SidebarTitle>
-          
-          <FilterSection>
-            <FilterHeader>
-              <FilterTitle>Data Source</FilterTitle>
-              {selectedSources.length > 0 && (
-                <ClearButton onClick={clearSourceFilter}>Clear</ClearButton>
-              )}
-            </FilterHeader>
-            <FilterList>
-              {sources.map((source) => (
-                <FilterItem key={source}>
-                  <CheckboxInput
-                    type="checkbox"
-                    id={`source-${source}`}
-                    checked={selectedSources.includes(source)}
-                    onChange={() => handleSourceChange(source)}
-                  />
-                  <CheckboxLabel htmlFor={`source-${source}`}>
-                    {source}
-                  </CheckboxLabel>
-                </FilterItem>
-              ))}
-            </FilterList>
-          </FilterSection>
 
           <FilterSection>
             <FilterHeader>
@@ -926,7 +937,7 @@ const BrowserPage = () => {
                 <ClearButton onClick={clearMenu1Filter}>Clear</ClearButton>
               )}
             </FilterHeader>
-            <FilterList>
+            <FilterListCategories>
               {menu1OptionList.map(menu1 => (
                 <div key={menu1}>
                   <FilterItem>
@@ -964,8 +975,33 @@ const BrowserPage = () => {
                   </FilterItemChildren>}
                 </div>
               ))}
+            </FilterListCategories>
+          </FilterSection>
+
+          <FilterSection>
+            <FilterHeader>
+              <FilterTitle>Data Source</FilterTitle>
+              {selectedSources.length > 0 && (
+                <ClearButton onClick={clearSourceFilter}>Clear</ClearButton>
+              )}
+            </FilterHeader>
+            <FilterList>
+              {sources.map((source) => (
+                <FilterItem key={source}>
+                  <CheckboxInput
+                    type="checkbox"
+                    id={`source-${source}`}
+                    checked={selectedSources.includes(source)}
+                    onChange={() => handleSourceChange(source)}
+                  />
+                  <CheckboxLabel htmlFor={`source-${source}`}>
+                    {source}
+                  </CheckboxLabel>
+                </FilterItem>
+              ))}
             </FilterList>
           </FilterSection>
+
         </Sidebar>
 
         <ContentArea>
@@ -1016,9 +1052,19 @@ const BrowserPage = () => {
                   key={datasetId}
                   onClick={() => handleDatasetClick(dataset)}
                 >
-                  <DatasetHeader>
-                    {renderHighlightedText(dataset.menu3, datasetId, 'menu3')}
-                  </DatasetHeader>
+                  <DatasetHeaderContainer>
+                    <DatasetHeader>
+                      {renderHighlightedText(dataset.menu3, datasetId, 'menu3')}
+                    </DatasetHeader>
+                    <ViewMetadataButton
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleViewMetadata(dataset);
+                      }}
+                    >
+                      View Metadata
+                    </ViewMetadataButton>
+                  </DatasetHeaderContainer>
                   <DatasetBody>
                     <DatasetInfo>
                       <InfoRow>
@@ -1041,14 +1087,6 @@ const BrowserPage = () => {
                       )}
                     </DatasetInfo>
                     <DatasetActions>
-                      <ViewMetadataButton
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleViewMetadata(dataset);
-                        }}
-                      >
-                        View Metadata
-                      </ViewMetadataButton>
                       <LastUpdated>
                         <LastUpdatedLabel>Last updated:</LastUpdatedLabel>
                         {formatUpdated(dataset.updated)}
