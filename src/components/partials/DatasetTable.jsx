@@ -93,6 +93,15 @@ class DatasetTable extends React.Component {
     });
   }
 
+  getDefaultMunicipalitySortColumn(rows, geographyColumn) {
+    if (!geographyColumn || !rows || rows.length === 0) return null;
+
+    const candidateColumns = ["muni_id"];
+    return candidateColumns.find((columnName) =>
+      rows.some((row) => row && row[columnName] !== undefined && row[columnName] !== null),
+    ) || null;
+  }
+
   onPageNumberUpdate(newPage, numberOfPages) {
     const asInt = parseInt(newPage);
     this.setState({ inputPageNum: asInt !== NaN ? asInt : "" });
@@ -133,7 +142,6 @@ class DatasetTable extends React.Component {
       updateRowsPerPage
     } = this.props;
     const { sortColumn, sortDirection, inputPageNum } = this.state;
-    
     // Filter columnKeys based on selectedColumns
     const filteredColumnKeys = columnKeys.filter((col) => selectedColumns.includes(col.name));
     
@@ -158,8 +166,11 @@ class DatasetTable extends React.Component {
       }
     }
     
-    // Apply sorting
-    const sortedRows = this.sortData(allRows, sortColumn, sortDirection);
+    // Apply sorting (default municipal datasets to municipality ID)
+    const defaultMunicipalitySortColumn = this.getDefaultMunicipalitySortColumn(allRows, geographyColumn);
+    const effectiveSortColumn = sortColumn || defaultMunicipalitySortColumn;
+    const effectiveSortDirection = sortColumn ? sortDirection : "asc";
+    const sortedRows = this.sortData(allRows, effectiveSortColumn, effectiveSortDirection);
     
     // Convert to DataRow components
     const dataRows = sortedRows.map((row, i) => 
@@ -175,25 +186,6 @@ class DatasetTable extends React.Component {
     return (
       <div className="table-wrapper">
         <div className="container tight">
-          {/* Rows per page functionality commented out
-          <div className="table-controls-top">
-            <div className="rows-per-page-selector">
-              <label htmlFor="rows-per-page" className="rows-per-page-label">
-                Rows per page:
-              </label>
-              <select
-                id="rows-per-page"
-                className="rows-per-page-dropdown"
-                value={rowsPerPage}
-                onChange={(e) => updateRowsPerPage(Number(e.target.value))}
-              >
-                <option value={10}>10</option>
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-              </select>
-            </div>
-          </div>
-          */}
           <div className="scroll-horizontal-rotated ui lift">
             <div className="cancel-rotate">
               <div className="table-container">
