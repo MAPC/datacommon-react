@@ -1,6 +1,7 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from 'react';
 import PropTypes from 'prop-types';
 import styled from 'styled-components';
+import { filterDatasets, highlightDatasets, sortDatasets } from '../../utils/manageDatasets';
 
 const SearchContainer = styled.div`
   position: relative;
@@ -146,127 +147,19 @@ const DatasetSearchBar = ({
 
   // Filter datasets based on search query
   useEffect(() => {
-    let filtered = datasets || [];
-    let highlights = {};
+    const filtered = filterDatasets({ datasets, searchQuery }); // also removes duplicates by table_name
+    const highlights = highlightDatasets({ searchQuery, datasets: filtered });
+    const sorted = sortDatasets({ searchQuery, datasets: filtered }); // use the default 'Relevance' sort order
 
-    if (searchQuery.trim()) {
-      // break query into individual tokens, filter empty tokens, escape special characters
-      const query = searchQuery.trim();
-      let searchTokens = query.split(" ").filter(st => !!st).map(st => st.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-      searchTokens = [...new Set(searchTokens)];
-
-      filtered = filtered.filter((dataset) => {
-        const tableName = dataset.table_name || '';
-        const datasetName = dataset.menu3 || '';
-
-        const tableNameMatch = searchTokens.some(searchTerm => {
-          const searchRegex = new RegExp(searchTerm, 'i');
-          return searchRegex.test(tableName);
-        });
-
-        const datasetNameMatch = searchTokens.some(searchTerm => {
-          const searchRegex = new RegExp(searchTerm, 'i');
-          return searchRegex.test(datasetName);
-        });
-
-        // manage the highlights
-        if (tableNameMatch || datasetNameMatch) {
-          const datasetId = dataset.seq_id || dataset.id;
-          highlights[datasetId] = [];
-          
-          if (tableNameMatch) {
-            searchTokens.forEach(searchTerm => {
-              const highlightRegex = new RegExp(searchTerm, 'gi');
-              tableName.replace(highlightRegex, (matched, offset) => {
-                const alreadyMatched = highlights[datasetId].find(hl => hl.key == 'table_name' && hl.indices.find(i => i[0] == offset));
-                if (!alreadyMatched) {
-                  highlights[datasetId].push({
-                    key: 'table_name',
-                    indices: [[offset, offset + matched.length - 1]]
-                  });
-                }
-              });
-            });
-          }
-          
-          if (datasetNameMatch) {
-            searchTokens.forEach(searchTerm => {
-              const highlightRegex = new RegExp(searchTerm, 'gi');
-              datasetName.replace(highlightRegex, (matched, offset) => {
-                const alreadyMatched = highlights[datasetId].find(hl => hl.key == 'menu3' && hl.indices.find(i => i[0] == offset));
-                if (!alreadyMatched) {
-                  highlights[datasetId].push({
-                    key: 'menu3',
-                    indices: [[offset, offset + matched.length - 1]]
-                  });
-                }
-              });
-            });
-          }
-        }
-        
-        // return for the filter function
-        return tableNameMatch || datasetNameMatch;
-      });
-
-       // sort the results prioritizing dataset name match over table name match, then sort alphabetically
-      // Count number to tablename and datasetname matches
-      // prioritize higher number of matches and earlier avg index of terms
-      filtered.sort((a, b) => {
-        const datasetNameA = a.menu3 || '';
-        const tableNameA = a.table_name || '';
-        let nameMatchesA = 0;
-        let totalNameIdxA = 0;
-        let tableMatchesA = 0;
-
-        const datasetNameB = b.menu3 || '';
-        const tableNameB = b.table_name || '';
-        let nameMatchesB = 0;
-        let totalNameIdxB = 0;
-        let tableMatchesB = 0;
-        searchTokens.forEach(searchTerm => {
-          const searchRegex = new RegExp(searchTerm, 'i');
-          const nameMatchA = searchRegex.exec(datasetNameA);
-          if (nameMatchA) {
-            nameMatchesA++;
-            totalNameIdxA += nameMatchA.index;
-          }
-          const tableMatchA = searchRegex.exec(tableNameA);
-          if (tableMatchA) {
-            tableMatchesA++;
-          }
-          const nameMatchB = searchRegex.exec(datasetNameB);
-          if (nameMatchB) {
-            nameMatchesB++;
-            totalNameIdxB += nameMatchB.index;
-          }
-          const tableMatchB = searchRegex.exec(tableNameB);
-          if (tableMatchB) {
-            tableMatchesB++;
-          }
-        });
-        const avgNameIdxA = nameMatchesA ? (totalNameIdxA / nameMatchesA) : datasetNameA.length;
-        const avgNameIdxB = nameMatchesB ? (totalNameIdxB / nameMatchesB) : datasetNameB.length;
-
-        if (nameMatchesA != nameMatchesB) {
-          return nameMatchesB - nameMatchesA;
-        } else if (tableMatchesA != tableMatchesB) {
-          return tableMatchesB - tableMatchesA;
-        } else {
-          return avgNameIdxA - avgNameIdxB; // earlier avg index is better
-        }
-      });
-    }
-
-    setHighlightMatches(highlights);
-    const limitedResults = maxResults ? filtered.slice(0, maxResults) : filtered;
+    const limitedResults = maxResults ? sorted.slice(0, maxResults) : sorted;
     setFilteredDatasets(limitedResults);
+    setHighlightMatches(highlights);
     
     // Notify parent component of search results
     if (onSearchChange) {
       onSearchChange({
         query: searchQuery,
-        results: filtered,
+        results: sorted,
         highlights
       });
     }
