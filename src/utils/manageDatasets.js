@@ -173,15 +173,18 @@ export function sortDatasets({ datasets = [], sortOrder = 'Relevance', searchQue
       const searchTokens = trimmedSearch.split(" ").filter(st => !!st).map(st => st.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
       // Count number to table_name and dataset name (menu3) matches
       // prioritize higher number of matches and earlier avg index of terms
+      // deprioritize datasets containing the word 'by'
       return sorted.sort((a, b) => {
         const datasetNameA = a.menu3 || '';
         const tableNameA = a.table_name || '';
+        const datasetContainsByA = a.menu3.toLowerCase().includes(' by ');
         let nameMatchesA = 0;
         let totalNameIdxA = 0;
         let tableMatchesA = 0;
 
         const datasetNameB = b.menu3 || '';
         const tableNameB = b.table_name || '';
+        const datasetContainsByB = b.menu3.toLowerCase().includes(' by ');
         let nameMatchesB = 0;
         let totalNameIdxB = 0;
         let tableMatchesB = 0;
@@ -213,6 +216,9 @@ export function sortDatasets({ datasets = [], sortOrder = 'Relevance', searchQue
           return nameMatchesB - nameMatchesA;
         } else if (tableMatchesA != tableMatchesB) {
           return tableMatchesB - tableMatchesA;
+        } else if (datasetContainsByA || datasetContainsByB) {
+          if (datasetContainsByA && datasetContainsByB) return 0;
+          return datasetContainsByA ? 1 : -1;
         } else {
           return avgNameIdxA - avgNameIdxB; // earlier avg index is better
         }
