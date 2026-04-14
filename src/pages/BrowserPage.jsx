@@ -811,7 +811,7 @@ const BrowserPage = () => {
                             menu1, menu2, categoryOptionTree[menu1].children, selectedMenu1s, selectedMenu2s
                           )}
                         />
-                        <CheckboxLabel htmlFor={`menu1-${menu2}`}>
+                        <CheckboxLabel htmlFor={`menu2-${menu2}`}>
                           {menu2}
                         </CheckboxLabel>
                       </FilterItem>
