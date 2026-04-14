@@ -1,10 +1,11 @@
-import React, { useEffect, useState, useMemo, useRef } from "react";
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useLocation, useNavigate } from "react-router-dom";
+import styled from 'styled-components';
 import { fetchDatasets } from '../reducers/datasetSlice';
 import MetadataModal from "../components/partials/MetadataModal";
 import { formatUpdated, parseUpdatedForSort } from '../utils/formatUpdated';
-import styled from 'styled-components';
+import { filterDatasets, highlightDatasets, sortDatasets } from "../utils/manageDatasets";
 
 const PageContainer = styled.section`
   &.route.categories {
@@ -531,100 +532,19 @@ const BrowserPage = () => {
     return Object.keys(categoryOptionTree).sort();
   }, [categoryOptionTree]);
 
+  // filter datasets and set highlights whenever the filter criteria change
   useEffect(() => {
-    let filtered = datasets || [];
-
-    // reset the scroll height whenever the user changes the search or filter
-    if (datasetGridRef.current) {
-      datasetGridRef.current.scrollTop = 0;
-    }
-
-    if (selectedSources.length > 0) {
-      filtered = filtered.filter(d => {
-        // check if any source in the dataset is a selected source
-        // datasets with multiple sources are separated with '; '
-        return d.source && d.source.split('; ').some(source => selectedSources.includes(source));
-      });
-    }
-
-    if (selectedMenu1s.length > 0 || selectedMenu2s.length > 0) {
-      filtered = filtered.filter(d => selectedMenu1s.includes(d.menu1) || selectedMenu2s.includes(d.menu2));
-    }
-
-    const highlights = {};
-    if (searchQuery.trim()) {
-      // break query into individual tokens, filter empty tokens, escape special characters
-      const query = searchQuery.trim();
-      const searchTokens = query.split(" ").filter(st => !!st).map(st => st.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-
-      filtered = filtered.filter((dataset) => {
-        const tableName = dataset.table_name || '';
-        const datasetName = dataset.menu3 || '';
-
-        const tableNameMatch = searchTokens.some(searchTerm => {
-          const searchRegex = new RegExp(searchTerm, 'i');
-          return searchRegex.test(tableName);
-        });
-
-        const datasetNameMatch = searchTokens.some(searchTerm => {
-          const searchRegex = new RegExp(searchTerm, 'i');
-          return searchRegex.test(datasetName);
-        });
-
-        // manage the highlights
-        if (tableNameMatch || datasetNameMatch) {
-          const datasetId = dataset.seq_id || dataset.id;
-          highlights[datasetId] = [];
-          
-           if (tableNameMatch) {
-            searchTokens.forEach(searchTerm => {
-              const highlightRegex = new RegExp(searchTerm, 'gi');
-              tableName.replace(highlightRegex, (matched, offset) => {
-                const alreadyMatched = highlights[datasetId].find(hl => hl.key == 'table_name' && hl.indices.find(i => i[0] == offset));
-                if (!alreadyMatched) {
-                  highlights[datasetId].push({
-                    key: 'table_name',
-                    indices: [[offset, offset + matched.length - 1]]
-                  });
-                }
-              });
-            });
-          }
-          
-          if (datasetNameMatch) {
-            searchTokens.forEach(searchTerm => {
-              const highlightRegex = new RegExp(searchTerm, 'gi');
-              datasetName.replace(highlightRegex, (matched, offset) => {
-                const alreadyMatched = highlights[datasetId].find(hl => hl.key == 'menu3' && hl.indices.find(i => i[0] == offset));
-                if (!alreadyMatched) {
-                  highlights[datasetId].push({
-                    key: 'menu3',
-                    indices: [[offset, offset + matched.length - 1]]
-                  });
-                }
-              });
-            });
-          }
-        }
-
-        // return for the filter function
-        return tableNameMatch || datasetNameMatch;
-      });
-    }
-
-    // remove the duplicate datasets using table_name to identify duplicates
-    // note: don't use the noDupesDatasets here b/c we do care about having multiple category values
-    //       we want the user to be able to find the same dataset under multiple different categories which is
-    //       why we keep the dupes in the first place
-    const dupesRemoved = [];
-    const seenDatasets = new Set();
-    filtered.forEach(dataset => {
-      if (!seenDatasets.has(dataset.table_name)) {
-        dupesRemoved.push(dataset);
-        seenDatasets.add(dataset.table_name);
-      }
+    // filter based on category, subcategory, sources, and search terms. Also remove duplicates by table_name
+    const filtered = filterDatasets({
+      datasets,
+      searchQuery,
+      sources: selectedSources,
+      categories: selectedMenu1s,
+      subcategories: selectedMenu2s,
     });
-    filtered = dupesRemoved;
+
+    // set the matched search terms to be highlighted
+    const highlights = highlightDatasets({ searchQuery, datasets: filtered });
 
     setHighlightMatches(highlights);
     setDisplayDatasets(filtered);
@@ -685,83 +605,7 @@ const BrowserPage = () => {
 
   // Sort datasets
   const sortedDatasets = useMemo(() => {
-    const sorted = [...displayDatasets];
-
-    let sortType = sortBy;
-    // default from relevance to A -> Z if no search
-    const trimmedSearch = searchQuery.trim();
-    if (!trimmedSearch && sortType === "Relevance") {
-      sortType = "A to Z";
-    }
-    
-    switch (sortType) {
-      case 'Relevance':
-        const searchTokens = trimmedSearch.split(" ").filter(st => !!st).map(st => st.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-        // Count number to tablename and datasetname matches
-        // prioritize higher number of matches and earlier avg index of terms
-        return sorted.sort((a, b) => {
-          const datasetNameA = a.menu3 || '';
-          const tableNameA = a.table_name || '';
-          let nameMatchesA = 0;
-          let totalNameIdxA = 0;
-          let tableMatchesA = 0;
-
-          const datasetNameB = b.menu3 || '';
-          const tableNameB = b.table_name || '';
-          let nameMatchesB = 0;
-          let totalNameIdxB = 0;
-          let tableMatchesB = 0;
-          searchTokens.forEach(searchTerm => {
-            const searchRegex = new RegExp(searchTerm, 'i');
-            const nameMatchA = searchRegex.exec(datasetNameA);
-            if (nameMatchA) {
-              nameMatchesA++;
-              totalNameIdxA += nameMatchA.index;
-            }
-            const tableMatchA = searchRegex.exec(tableNameA);
-            if (tableMatchA) {
-              tableMatchesA++;
-            }
-            const nameMatchB = searchRegex.exec(datasetNameB);
-            if (nameMatchB) {
-              nameMatchesB++;
-              totalNameIdxB += nameMatchB.index;
-            }
-            const tableMatchB = searchRegex.exec(tableNameB);
-            if (tableMatchB) {
-              tableMatchesB++;
-            }
-          });
-          const avgNameIdxA = nameMatchesA ? (totalNameIdxA / nameMatchesA) : datasetNameA.length;
-          const avgNameIdxB = nameMatchesB ? (totalNameIdxB / nameMatchesB) : datasetNameB.length;
-
-          if (nameMatchesA != nameMatchesB) {
-            return nameMatchesB - nameMatchesA;
-          } else if (tableMatchesA != tableMatchesB) {
-            return tableMatchesB - tableMatchesA;
-          } else {
-            return avgNameIdxA - avgNameIdxB; // earlier avg index is better
-          }
-        });
-      case 'A to Z':
-        return sorted.sort((a, b) => (a.menu3 || '').localeCompare(b.menu3 || ''));
-      case 'Z to A':
-        return sorted.sort((a, b) => (b.menu3 || '').localeCompare(a.menu3 || ''));
-      case 'Newest First':
-        return sorted.sort((a, b) => {
-          const keyA = parseUpdatedForSort(a.updated);
-          const keyB = parseUpdatedForSort(b.updated);
-          return keyB.localeCompare(keyA);
-        });
-      case 'Oldest First':
-        return sorted.sort((a, b) => {
-          const keyA = parseUpdatedForSort(a.updated);
-          const keyB = parseUpdatedForSort(b.updated);
-          return keyA.localeCompare(keyB);
-        });
-      default:
-        return sorted;
-    }
+    return sortDatasets({searchQuery, datasets: displayDatasets, sortOrder: sortBy });
   }, [displayDatasets, sortBy, searchQuery]);
 
   const renderHighlightedText = (text, datasetId, key) => {
