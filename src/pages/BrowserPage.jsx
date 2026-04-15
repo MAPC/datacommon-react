@@ -534,6 +534,11 @@ const BrowserPage = () => {
 
   // filter datasets and set highlights whenever the filter criteria change
   useEffect(() => {
+    // reset the scroll height whenever the user changes the search or filter
+    if (datasetGridRef.current) {
+      datasetGridRef.current.scrollTop = 0;
+    }
+
     // filter based on category, subcategory, sources, and search terms. Also remove duplicates by table_name
     const filtered = filterDatasets({
       datasets,
