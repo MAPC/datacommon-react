@@ -747,7 +747,7 @@ const Mono = styled.code`
 
 
 const DATACOMMON_API_TOKEN = import.meta.env.VITE_MAPC_API_TOKEN ?? "";
-const DATACOMMON_BASE_URL = "https://datacommon.mapc.org";
+const DATACOMMON_BASE_URL = "https://staging.datacommon-react.mapc.org";
 
 const EXPORT_FORMATS = {
   csv: {
@@ -788,7 +788,7 @@ function shouldOmitYearsFromExportUrl(selectedYears, allAvailableYears) {
   return true;
 }
 
-function buildExportUrl({ database, schema, table, format, years, allAvailableYears, columns }) {
+function buildExportUrl({ database, schema, table, format, years, allAvailableYears, columns, useMetadataColumns }) {
   const params = new URLSearchParams();
   params.set("token", DATACOMMON_API_TOKEN);
   params.set("database", database || "");
@@ -800,6 +800,9 @@ function buildExportUrl({ database, schema, table, format, years, allAvailableYe
     params.set("years", (years || []).map((y) => String(y)).join(","));
   }
   if (columns?.length) params.set("columns", columns.join(","));
+  if (["csv", "json", "geojson"].includes(format || "csv")) {
+    params.set("useMetadataColumns", String(Boolean(useMetadataColumns)));
+  }
 
   return `${DATACOMMON_BASE_URL}/api/export?${params.toString()}`;
 }
@@ -847,6 +850,7 @@ const ApiPage = () => {
   const [selectedDatasetId, setSelectedDatasetId] = useState(datasetId || "");
   const [activeTab, setActiveTab] = useState("export");
   const [exportFormat, setExportFormat] = useState("csv");
+  const [useMetadataColumns, setUseMetadataColumns] = useState(false);
   const [availableYears, setAvailableYears] = useState([]);
   const [selectedYears, setSelectedYears] = useState([]);
   const [copyStatus, setCopyStatus] = useState("");
@@ -1072,8 +1076,9 @@ const ApiPage = () => {
       format: exportFormat,
       years: selectedYears,
       allAvailableYears: availableYears,
+      useMetadataColumns,
     });
-  }, [datasetBasics, exportFormat, selectedYears, availableYears]);
+  }, [datasetBasics, exportFormat, selectedYears, availableYears, useMetadataColumns]);
 
   const pythonExportExample = useMemo(() => {
     if (!exportUrl || (exportFormat !== "csv" && exportFormat !== "json")) return "";
@@ -1428,6 +1433,8 @@ summary(data)
             datasetBasics={datasetBasics}
             exportFormat={exportFormat}
             setExportFormat={setExportFormat}
+            useMetadataColumns={useMetadataColumns}
+            setUseMetadataColumns={setUseMetadataColumns}
             availableExportFormats={availableExportFormats}
             availableYears={availableYears}
             selectedYears={selectedYears}
