@@ -42,12 +42,12 @@ export function filterDatasets({
       const tableName = dataset.table_name || '';
       const datasetName = dataset.menu3 || '';
 
-      const tableNameMatch = searchTokens.some(searchTerm => {
+      const tableNameMatch = searchTokens.every(searchTerm => {
         const searchRegex = new RegExp(searchTerm, 'i');
         return searchRegex.test(tableName);
       });
 
-      const datasetNameMatch = searchTokens.some(searchTerm => {
+      const datasetNameMatch = searchTokens.every(searchTerm => {
         const searchRegex = new RegExp(searchTerm, 'i');
         return searchRegex.test(datasetName);
       });
@@ -212,12 +212,9 @@ export function sortDatasets({ datasets = [], sortOrder = 'Relevance', searchQue
         const avgNameIdxA = nameMatchesA ? (totalNameIdxA / nameMatchesA) : datasetNameA.length;
         const avgNameIdxB = nameMatchesB ? (totalNameIdxB / nameMatchesB) : datasetNameB.length;
 
-        if (nameMatchesA != nameMatchesB) {
-          return nameMatchesB - nameMatchesA;
-        } else if (tableMatchesA != tableMatchesB) {
+        if (tableMatchesA != tableMatchesB) {
           return tableMatchesB - tableMatchesA;
-        } else if (datasetContainsByA || datasetContainsByB) {
-          if (datasetContainsByA && datasetContainsByB) return 0;
+        } else if (datasetContainsByA !== datasetContainsByB) {
           return datasetContainsByA ? 1 : -1;
         } else {
           return avgNameIdxA - avgNameIdxB; // earlier avg index is better
