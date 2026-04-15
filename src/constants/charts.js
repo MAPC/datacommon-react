@@ -2515,7 +2515,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
     },
     internet_usage_by_income: {
       type: "stacked-bar",
-      title: "Internet Usage by Income Level",
+      title: "Lack of Access to Internet by Income Level",
       tooltip: { type: "percentAndCount" },
       xAxis: {
         label: "Household Income Level",
