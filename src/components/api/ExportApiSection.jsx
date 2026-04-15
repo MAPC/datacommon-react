@@ -9,6 +9,8 @@ const ExportApiSection = ({
   datasetBasics,
   exportFormat,
   setExportFormat,
+  useMetadataColumns,
+  setUseMetadataColumns,
   availableExportFormats,
   availableYears,
   selectedYears,
@@ -96,6 +98,27 @@ const ExportApiSection = ({
           </div>
         </div>
       </InlineRow>
+      {["csv", "json", "geojson"].includes(exportFormat) && (
+        <InlineRow>
+          <div>
+            <Label htmlFor="api-export-use-metadata-columns">useMetadataColumns</Label>
+            <FormatSelect
+              id="api-export-use-metadata-columns"
+              value={String(useMetadataColumns)}
+              onChange={(e) => setUseMetadataColumns(e.target.value === "true")}
+            >
+              <option value="false">false (use table columns)</option>
+              <option value="true">true (use metadata header)</option>
+            </FormatSelect>
+          </div>
+          <div>
+            <Label>Behavior</Label>
+            <div style={{ color: "#555", lineHeight: 1.45 }}>
+              Choose whether headers come from dataset metadata or from raw table column names.
+            </div>
+          </div>
+        </InlineRow>
+      )}
 
       <YearSection>
         {!datasetBasics?.yearcolumn ? (
@@ -293,6 +316,15 @@ const ExportApiSection = ({
               <td>
                 Optional when the dataset has a year column. Omit the parameter for a full export (no years selected, or every
                 catalogued year selected). Pass a comma-separated subset to limit rows.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <Mono>useMetadataColumns</Mono>
+              </td>
+              <td>
+                Optional for <Mono>csv</Mono>, <Mono>json</Mono>, and <Mono>geojson</Mono>. Boolean parameter that controls
+                header naming. Use <Mono>true</Mono> for metadata headers, or <Mono>false</Mono> for raw table column names.
               </td>
             </tr>
           </tbody>
