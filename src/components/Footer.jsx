@@ -41,6 +41,11 @@ function Footer() {
               Website Feedback
             </a>
           </li>
+          <li>
+            <a href="https://share-open-data-metroboston.hub.arcgis.com/" target="_blank" rel="noopener noreferrer">
+              MAPC Open Data Hub
+            </a>
+          </li>
         </ul>
 
         <div className="blank-grid-cell" />
