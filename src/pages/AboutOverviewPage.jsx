@@ -11,6 +11,12 @@ const parseMajorReleaseOrder = (order) => {
   return Number.isFinite(n) ? n : null;
 };
 
+const parseAboutSectionOrder = (order) => {
+  if (order === null || order === undefined || order === "") return null;
+  const n = Number(order);
+  return Number.isFinite(n) ? n : null;
+};
+
 
 const majorReleaseCreatedTimeMs = (release) => new Date(release.createdTime).getTime();
 
@@ -167,6 +173,37 @@ const AboutOverviewPage = () => {
     return `${month}/${day}/${year}`;
   };
 
+  const aboutPageLeftContent = useAirtableCMS({
+    tableName: "Page - About",
+    viewName: "Grid view",
+    fieldMapping: {
+      title: "Title",
+      content: "Content",
+      order: "Order",
+    },
+    sortBy: (a, b) => {
+      const oa = parseAboutSectionOrder(a.order);
+      const ob = parseAboutSectionOrder(b.order);
+      if (oa != null && ob != null) return oa - ob;
+      if (oa != null && ob == null) return -1;
+      if (oa == null && ob != null) return 1;
+      return 0;
+    },
+    asList: true,
+  });
+
+  const aboutPageLeftLoading = !aboutPageLeftContent.metadata.done;
+  const aboutPageLeftError = aboutPageLeftContent.metadata.error;
+  const aboutLeftSections = Array.isArray(aboutPageLeftContent.data)
+    ? aboutPageLeftContent.data
+        .map((section, index) => ({
+          id: section.recordId || `about-left-${index}`,
+          title: (section.title || "").trim(),
+          content: section.content || "",
+        }))
+        .filter((section) => section.title || section.content.trim())
+    : [];
+
   return (
     <section className="page page--about-overview">
       <div className="page-header">
@@ -178,41 +215,34 @@ const AboutOverviewPage = () => {
         <div className="columns two about-overview__columns">
           {/* Left Column */}
           <div className="about-overview__left">
-            <div className="about-overview__section">
-              <h2>About DataCommon</h2>
-              <p>
-                DataCommon is the Open Data portal that brings together data from the Census Bureau, state agencies, municipalities, and MAPC's work and reformats it
-                in a way that makes it easy to see and download town-by-town and regional statistics. The datasets pages allow users to explore data on a specific
-                topic for a range of geographies including census tracts, municipalities, counties, regions, and the state. The Community Profile pages provide a
-                central location where users can see data describing the population, housing characteristics, economy, transportation patterns, and more for each of
-                the 351 cities and towns in Massachusetts. The Gallery section of DataCommon has maps and charts that tell different stories about our region.
-              </p>
-            </div>
-
-            <div className="about-overview__section">
-              <h2>Who we are</h2>
-              <p>
-                MAPC is the regional planning agency serving the people who live and work in the 101 cities and towns of Greater Boston. MAPC is governed by
-                representatives from each city and town in our region, as well as gubernatorial appointees and designees of major public agencies. Through our work on
-                regional planning and research, we seek to build a more equitable, sustainable, collaborative, and climate-resilient future for all.
-              </p>
-              <p>
-                This tool and the data published to it are created, cleaned, and maintained by{" "}
-                <a href="https://www.mapc.org/our-work/expertise/data-services/" target="_blank" rel="noopener noreferrer">
-                  MAPC's Data Services
-                </a>{" "}
-                team. If you encounter any issues with a dataset or want to see us publish a dataset that is not currently available, please let us know through{" "}
-                <a href="https://airtable.com/appqSr3MqAkN1GCfb/pagdcSeY2bc4rblam/form" target="_blank" rel="noopener noreferrer">
-                  this form
-                </a>
-                . If you encounter any issues with the website or want to recommend a new feature that would make the site better for you to use, please let us know
-                through{" "}
-                <a href="https://airtable.com/app3LpG05CtIRpj7q/pagutpBlODNBc2Lwr/form" target="_blank" rel="noopener noreferrer">
-                  this form
-                </a>
-                . To contact someone on the team about DataCommon email <a href="mailto:datacommon@mapc.org">datacommon@mapc.org</a>.
-              </p>
-            </div>
+            {aboutPageLeftLoading && (
+              <div className="about-overview__section">
+                <div className="about-overview__loading">
+                  <FontAwesomeIcon icon={faSpinner} className="about-overview__spinner" />
+                  <span>Loading about content...</span>
+                </div>
+              </div>
+            )}
+            {aboutPageLeftError && (
+              <div className="about-overview__section">
+                <div className="about-overview__error">
+                  <p><strong>Unable to Load About Content</strong></p>
+                  <p>Something went wrong while loading this content. Please try again later.</p>
+                </div>
+              </div>
+            )}
+            {!aboutPageLeftLoading && !aboutPageLeftError && aboutLeftSections.length > 0 && (
+              <>
+                {aboutLeftSections.map((section) => (
+                  <div key={section.id} className="about-overview__section">
+                    {section.title && <h2>{section.title}</h2>}
+                    <div className="about-overview__major-release-markdown">
+                      <ReactMarkdown>{section.content}</ReactMarkdown>
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
           </div>
 
           {/* Right Column */}
