@@ -6,6 +6,7 @@
  * @param {list[string]} options.sources The list of sources. Datasets containing any source from the list will be included
  * @param {list[string]} options.categories The list of categories (menu1s). Datasets with any of the categories will be included
  * @param {list[string]} options.subcategories The list of subcategories (menu2s). Datasets with any of the sub-cats will be included
+ * @param {list[string]} options.geographies A list of geographies corresponding to the end of table names (e.g. _m for municipal, _ct for census tracts)
  * @param {string} options.searchQuery The search query the user searched for. Will be broken into individual terms. matches table_name and dataset name
  * @param {boolean} options.shouldRemoveDupes Whether to remove datasets that share the same table_name from the return list
  * @returns A filtered list of dataset using all the filtering criteria provided
@@ -15,6 +16,7 @@ export function filterDatasets({
   sources = [],
   categories = [],
   subcategories = [],
+  geographies = [],
   searchQuery = '',
   shouldRemoveDupes = true,
 }) {
@@ -31,6 +33,29 @@ export function filterDatasets({
   // check if the category or subcategory match for each dataset
   if (categories.length > 0 || subcategories.length > 0) {
     filtered = filtered.filter(d => categories.includes(d.menu1) || subcategories.includes(d.menu2));
+  }
+
+  // check if the table name matches the selected geographies, don't do anything if 'all' selected
+  if (!geographies.includes('all')) {
+    const allGeos = ['_m', '_muni', '_ct', '_bg', '_b', '_blk'];
+
+    const geos = [...geographies]; // don't mutate
+    if (geos.includes('_b')) geos.push('_blk'); // some "(block)" tables end in _b, some end in _blk
+    if (geos.includes('_m')) geos.push('_muni'); // some "(municipal)" tables end in _m, a few end in _muni
+
+    filtered = filtered.filter(d => {
+      // If the table name ends with a selected geo include it.
+      if (geos.some(g => d.table_name.endsWith(g))) {
+        return true;
+      }
+
+      // If other is selected, return it if the table name doesn't match any of the available geos
+      if (geos.includes('other')) {
+        return !allGeos.some(g => d.table_name.endsWith(g));
+      }
+
+      return false;
+    });
   }
 
   if (searchQuery.trim()) {

@@ -246,7 +246,7 @@ const DatasetGrid = styled.div`
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
-  max-height: 42.5em;
+  max-height: 40em;
   overflow-y: auto;
   overflow-x: hidden;
   
@@ -417,10 +417,45 @@ const DatasetCount = styled.div`
 
 const SearchInputContainer = styled.div`
   display: flex;
-  align-items: space-between;
-  gap: 2rem;
+  flex-direction: column;
+  gap: 1rem;
   margin-bottom: 1.5rem;
   position: relative;
+`;
+
+const GeographyBarContainer = styled.div`
+  display: flex;
+  justify-content: space-between;
+`;
+
+const GeographyFilterContainer = styled.div`
+  display: flex;
+  gap: 0.5rem;
+`;
+
+const GeographyFilterPill = styled.div`
+  display: flex;
+  gap: 10px;
+  color: #867676;
+  border: 1px solid #867676;
+  border-radius: 12px;
+  padding: 4px 8px 6px;
+  line-height: 14px;
+  cursor: pointer;
+
+  &:hover {
+    color: #463e3e;
+    border: 1px solid #463e3e;
+  }
+
+  &.selected {
+    color: #6fc68e;
+    border: 1px solid #6fc68e;
+    &:hover {
+      color: #3d965c;
+      border: 1px solid #3d965c;
+    }
+  }
 `;
 
 const SearchInput = styled.input`
@@ -466,6 +501,12 @@ const BrowserPage = () => {
     const params = new URLSearchParams(window.location.search);
     const subcategoriesParam = params.get("subcategory");
     return subcategoriesParam ? subcategoriesParam.split(",").filter(Boolean) : [];
+  });
+
+  const [selectedGeoFilters, setSelectedGeoFilters] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const geoFilterParams = params.get("geos");
+    return geoFilterParams ? geoFilterParams.split(",").filter(Boolean) : ['all'];
   });
 
   const [categoryOptionTree, setCategoryOptionTree] = useState({});
@@ -546,6 +587,7 @@ const BrowserPage = () => {
       sources: selectedSources,
       categories: selectedMenu1s,
       subcategories: selectedMenu2s,
+      geographies: selectedGeoFilters,
     });
 
     // set the matched search terms to be highlighted
@@ -553,7 +595,7 @@ const BrowserPage = () => {
 
     setHighlightMatches(highlights);
     setDisplayDatasets(filtered);
-  }, [datasets, selectedSources, selectedMenu1s, selectedMenu2s, searchQuery]);
+  }, [datasets, selectedSources, selectedMenu1s, selectedMenu2s, selectedGeoFilters, searchQuery]);
 
   // Keep URL query parameters in sync with search and filters so users can share links
   useEffect(() => {
@@ -563,12 +605,14 @@ const BrowserPage = () => {
     const currentSources = (params.get("source") || "").split(",").filter(Boolean);
     const currentCategories = (params.get("category") || "").split(",").filter(Boolean);
     const currentSubcategories = (params.get("subcategory") || "").split(",").filter(Boolean);
+    const currentGeoFilters = (params.get("geos") || "").split(",").filter(Boolean);
 
     const shouldUpdate =
       currentQ !== searchQuery ||
       !arraysEqual(currentSources, selectedSources) ||
       !arraysEqual(currentCategories, selectedMenu1s) ||
-      !arraysEqual(currentSubcategories, selectedMenu2s);
+      !arraysEqual(currentSubcategories, selectedMenu2s) ||
+      !arraysEqual(currentGeoFilters, selectedGeoFilters);
 
     if (!shouldUpdate) {
       return;
@@ -598,6 +642,11 @@ const BrowserPage = () => {
       params.delete("subcategory");
     }
 
+    if (selectedGeoFilters.length > 0) {
+      params.set("geos", selectedGeoFilters.join(","));
+    } else {
+      params.delete("geos");
+    }
 
     const newSearch = params.toString();
     const newUrl = `${location.pathname}${newSearch ? `?${newSearch}` : ""}`;
@@ -606,7 +655,7 @@ const BrowserPage = () => {
     if (newUrl !== currentUrl) {
       navigate(newUrl, { replace: true });
     }
-  }, [searchQuery, selectedSources, selectedMenu1s, selectedMenu2s, location.pathname, location.search, navigate]);
+  }, [searchQuery, selectedSources, selectedMenu1s, selectedMenu2s, selectedGeoFilters, location.pathname, location.search, navigate]);
 
   // Sort datasets
   const sortedDatasets = useMemo(() => {
@@ -728,6 +777,29 @@ const BrowserPage = () => {
     }
     setSelectedMenu1s(newMenu1s);
     setSelectedMenu2s(newMenu2s);
+  };
+
+  const onGeoFilterClick = (geoVal, selectedGeoFilters) => {
+    let newGeoFilters = [...selectedGeoFilters];
+    const allGeos = ['_m', '_ct', '_bg', '_b', 'other']
+
+    // if all was selected, break up into individual
+    if (newGeoFilters.includes('all')) {
+      newGeoFilters = allGeos;
+    }
+
+    if (!newGeoFilters.includes(geoVal)) {
+      newGeoFilters = [...newGeoFilters, geoVal];
+    } else {
+      newGeoFilters = newGeoFilters.filter(gf => gf !== geoVal);
+    }
+
+    // if all are now selected, replace with all
+    if (allGeos.every(geo => newGeoFilters.includes(geo))) {
+      newGeoFilters = ['all'];
+    }
+
+    setSelectedGeoFilters(newGeoFilters);
   };
 
   const onCategoryFilterOpenClose = (menu1) => {
@@ -861,6 +933,49 @@ const BrowserPage = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
+            <GeographyBarContainer>
+              <GeographyFilterContainer>
+                <GeographyFilterPill
+                  onClick={() => onGeoFilterClick('_m', selectedGeoFilters)}
+                  className={(selectedGeoFilters.includes('_m') || selectedGeoFilters.includes('all')) ? 'selected' : ''}
+                >
+                  Municipalities
+                  {(selectedGeoFilters.includes('_m') || selectedGeoFilters.includes('all')) && <span>✓</span>}
+                </GeographyFilterPill>
+                <GeographyFilterPill
+                  onClick={() => onGeoFilterClick('_ct', selectedGeoFilters)}
+                  className={(selectedGeoFilters.includes('_ct') || selectedGeoFilters.includes('all')) ? 'selected' : ''}
+                >
+                  Census Tracts
+                  {(selectedGeoFilters.includes('_ct') || selectedGeoFilters.includes('all')) && <span>✓</span>}
+                </GeographyFilterPill>
+                <GeographyFilterPill
+                  onClick={() => onGeoFilterClick('_bg', selectedGeoFilters)}
+                  className={(selectedGeoFilters.includes('_bg') || selectedGeoFilters.includes('all')) ? 'selected' : ''}
+                >
+                  Block Groups
+                  {(selectedGeoFilters.includes('_bg') || selectedGeoFilters.includes('all')) && <span>✓</span>}
+                </GeographyFilterPill>
+                <GeographyFilterPill
+                  onClick={() => onGeoFilterClick('_b', selectedGeoFilters)}
+                  className={(selectedGeoFilters.includes('_b') || selectedGeoFilters.includes('all')) ? 'selected' : ''}
+                >
+                  Blocks
+                  {(selectedGeoFilters.includes('_b') || selectedGeoFilters.includes('all')) && <span>✓</span>}
+                </GeographyFilterPill>
+                <GeographyFilterPill
+                  onClick={() => onGeoFilterClick('other', selectedGeoFilters)}
+                  className={(selectedGeoFilters.includes('other') || selectedGeoFilters.includes('all')) ? 'selected' : ''}
+                >
+                  Other
+                  {(selectedGeoFilters.includes('other') || selectedGeoFilters.includes('all')) && <span>✓</span>}
+                </GeographyFilterPill>
+              </GeographyFilterContainer>
+              <GeographyFilterPill onClick={() => setSelectedGeoFilters([])}>
+                <>Clear all geographies</>
+                <span>X</span>
+              </GeographyFilterPill>
+            </GeographyBarContainer>
           </SearchInputContainer>
           
           <ContentHeader>
@@ -882,7 +997,7 @@ const BrowserPage = () => {
                   <option value="Oldest First">Oldest First</option>
                 </SortSelect>
               </SortContainer>
-              {(searchQuery.trim() || selectedSources.length > 0 || selectedMenu1s.length > 0 || selectedMenu2s.length > 0) && (
+              {(searchQuery.trim() || selectedSources.length > 0 || selectedMenu1s.length > 0 || selectedMenu2s.length > 0 || (selectedGeoFilters.length > 0 && !selectedGeoFilters.includes('all'))) && (
                 <ShareLinkContainer>
                   <ShareLinkButton type="button" onClick={handleCopyShareLink}>
                     Share Search Result
