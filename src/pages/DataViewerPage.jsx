@@ -76,144 +76,90 @@ class DataViewerClass extends React.Component {
     }
     const tableQuery = axios.get(tableQueryUrl);
 
-    const headerQuery = axios.get(
+    const metadataQuery = axios.get(
       `/api/metadata?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=${dataset.db_name}&schema=${dataset.schemaname}&table=${dataset.table_name}`,
     );
 
+    const queries = [tableQuery, metadataQuery];
+    if (dataset.yearcolumn) {
+      const yearQuery = axios.get(
+        `/api/?token=${import.meta.env.VITE_MAPC_API_TOKEN}&distinctColumn=${dataset.yearcolumn}&database=${dataset.db_name}&schema=${dataset.schemaname}&table=${dataset.table_name}&limit=50`,
+      );
+      queries.push(yearQuery);
+    }
+
     if (dataset.schemaname === "tabular") {
-      if (dataset.yearcolumn) {
-        const yearQuery = axios.get(
-          `/api/?token=${import.meta.env.VITE_MAPC_API_TOKEN}&distinctColumn=${dataset.yearcolumn}&database=${dataset.db_name}&schema=${dataset.schemaname}&table=${dataset.table_name}&limit=50`,
-        );
-        axios
-          .all([yearQuery, tableQuery, headerQuery])
-          .then((response) => {
-            const yearResults = response[0];
-            const tableResults = response[1];
-            const metadata = Object.values(response[2].data)[0];
-            // Validate metadata structure
-            const universeData = metadata.find((row) => row.name === "universe");
-            const descriptionData = metadata.find((row) => row.name === "descriptn");
-            const columnKeys = metadata
-              .filter((object) => tableResults.data.rows[0] && Object.keys(tableResults.data.rows[0]).includes(object.name))
-              .filter((header) => header.name !== "seq_id");
+      axios
+        .all(queries)
+        .then((response) => {
+          const tableResults = response[0].data.rows;
+          const metadata = Object.values(response[1].data)[0];
+          const yearResults = queries.length === 3 ? response[2].data.rows : [];
 
-            // Initialize geography filter for municipal (_m) tables
-            let geographyColumn = null;
-            let availableGeographies = [];
-            if (dataset.table_name && dataset.table_name.endsWith("_m")) {
-              const candidateColumns = ["muni_name", "municipal", "muni"];
-              geographyColumn = candidateColumns.find((col) => tableResults.data.rows[0] && col in tableResults.data.rows[0]) || null;
-              if (geographyColumn) {
-                const geoSet = new Set();
-                tableResults.data.rows.forEach((row) => {
-                  if (row[geographyColumn]) {
-                    geoSet.add(row[geographyColumn]);
-                  }
-                });
-                availableGeographies = Array.from(geoSet).sort((a, b) => String(a).localeCompare(String(b)));
-              }
+          // Validate metadata structure
+          const universeData = metadata.find((row) => row.name === "universe");
+          const descriptionData = metadata.find((row) => row.name === "descriptn");
+          const columnKeys = metadata
+            .filter((object) => tableResults[0] && Object.keys(tableResults[0]).includes(object.name))
+            .filter((header) => header.name !== "seq_id");
+
+          // Initialize geography filter for municipal (_m) tables
+          let geographyColumn = null;
+          let availableGeographies = [];
+          if (dataset.table_name && dataset.table_name.endsWith("_m")) {
+            const candidateColumns = ["muni_name", "municipal", "muni"];
+            geographyColumn = candidateColumns.find((col) => tableResults[0] && col in tableResults[0]) || null;
+            if (geographyColumn) {
+              const geoSet = new Set();
+              tableResults.forEach((row) => {
+                if (row[geographyColumn]) {
+                  geoSet.add(row[geographyColumn]);
+                }
+              });
+              availableGeographies = Array.from(geoSet).sort((a, b) => String(a).localeCompare(String(b)));
             }
+          }
 
-            this.setState({
-              availableYears: yearResults.data.rows
-                .map((year) => Object.values(year)[0])
-                .sort()
-                .reverse(),
-              rows: tableResults.data.rows,
-              universe: universeData ? universeData.details : "",
-              description: descriptionData ? descriptionData.details : "",
-              columnKeys: columnKeys,
-              selectedColumns: columnKeys.map((col) => col.name), // Initialize with all columns
-              metadata,
-              selectedYears: [
-                yearResults.data.rows
-                  .map((year) => Object.values(year)[0])
-                  .sort()
-                  .reverse()[0],
-              ],
-              table: dataset.table_name,
-              schema: dataset.schemaname,
-              database: dataset.db_name,
-              title: dataset.menu3,
-              source: dataset.source,
-              queryYearColumn: dataset.yearcolumn,
-              updatedAt: dataset.updated,
-              geographyColumn,
-              availableGeographies,
-              selectedGeographies: availableGeographies, // default: show all
-              loading: false,
-            });
-          })
-          .catch((error) => {
-            this.setState({ loading: false, error: "Please try again later" });
-            console.error("Error:", error);
+          // Process the distinct year data
+          const distinctYears = yearResults.map((year) => Object.values(year)[0]).sort().reverse();
+
+          this.setState({
+            availableYears: distinctYears,
+            rows: tableResults,
+            universe: universeData ? universeData.details : "",
+            description: descriptionData ? descriptionData.details : "",
+            columnKeys: columnKeys,
+            selectedColumns: columnKeys.map((col) => col.name), // Initialize with all columns
+            metadata,
+            selectedYears: distinctYears.length ? [distinctYears[0]] : [],
+            table: dataset.table_name,
+            schema: dataset.schemaname,
+            database: dataset.db_name,
+            title: dataset.menu3,
+            source: dataset.source,
+            queryYearColumn: dataset.yearcolumn,
+            updatedAt: dataset.updated,
+            geographyColumn,
+            availableGeographies,
+            selectedGeographies: availableGeographies, // default: show all
+            loading: false,
           });
-      } else {
-        axios
-          .all([tableQuery, headerQuery])
-          .then((response) => {
-            const tableResults = response[0];
-            const metadata = Object.values(response[1].data)[0];
-            // Validate metadata structure
-            const universeData = metadata.find((row) => row.name === "universe");
-            const descriptionData = metadata.find((row) => row.name === "descriptn");
-
-            const columnKeys = metadata
-              .filter((object) => tableResults.data.rows[0] && Object.keys(tableResults.data.rows[0]).includes(object.name))
-              .filter((header) => header.name !== "seq_id");
-            
-            // Initialize geography filter for municipal (_m) tables
-            let geographyColumn = null;
-            let availableGeographies = [];
-            if (dataset.table_name && dataset.table_name.endsWith("_m")) {
-              const candidateColumns = ["muni_name", "municipal", "muni"];
-              geographyColumn = candidateColumns.find((col) => tableResults.data.rows[0] && col in tableResults.data.rows[0]) || null;
-              if (geographyColumn) {
-                const geoSet = new Set();
-                tableResults.data.rows.forEach((row) => {
-                  if (row[geographyColumn]) {
-                    geoSet.add(row[geographyColumn]);
-                  }
-                });
-                availableGeographies = Array.from(geoSet).sort((a, b) => String(a).localeCompare(String(b)));
-              }
-            }
-
-            this.setState({
-              rows: tableResults.data.rows,
-              universe: universeData ? universeData.details : "",
-              description: descriptionData ? descriptionData.details : "",
-              columnKeys: columnKeys,
-              selectedColumns: columnKeys.map((col) => col.name), // Initialize with all columns
-              metadata,
-              table: dataset.table_name,
-              schema: dataset.schemaname,
-              database: dataset.db_name,
-              title: dataset.menu3,
-              source: dataset.source,
-              queryYearColumn: dataset.yearcolumn,
-              updatedAt: dataset.updated,
-              geographyColumn,
-              availableGeographies,
-              selectedGeographies: availableGeographies, // default: show all
-              loading: false,
-            });
-          })
-          .catch((error) => {
-            this.setState({ loading: false, error: "Please try again later" });
-            console.error("Error:", error);
-          });
-      }
+        })
+        .catch((error) => {
+          this.setState({ loading: false, error: "Please try again later" });
+          console.error("Error:", error);
+        });
     } else {
       axios
-        .all([tableQuery, headerQuery])
+        .all(queries)
         .then(async (response) => {
-          const tableResults = response[0];
+          const tableResults = response[0].data.rows;
           const metadata = Object.values(response[1].data)[0];
+          const yearResults = queries.length === 3 ? response[2].data.rows : [];
 
           try {
-            const columns = Object.keys(tableResults.data.rows[0] || {});
+            // process the metadata
+            const columns = Object.keys(tableResults[0] || {});
             const sortedMetadata = metadata.documentation.metadata.eainfo.detailed.attr
               .map((attribute) => ({
                 name: attribute.attrlabl,
@@ -222,14 +168,20 @@ class DataViewerClass extends React.Component {
               .filter((header) => columns.includes(header.name))
               .filter((header) => header.name !== "shape");
 
+            // Process the distinct year data
+            const distinctYears = yearResults.map((year) => Object.values(year)[0]).sort().reverse();
+
             this.setState({
-              rows: tableResults.data.rows,
+              availableYears: distinctYears,
+              rows: tableResults,
               columnKeys: sortedMetadata,
               selectedColumns: sortedMetadata.map((col) => col.name), // Initialize with all columns
               metadata,
+              selectedYears: distinctYears.length ? [distinctYears[0]] : [],
               description: metadata.documentation.metadata.dataIdInfo.idPurp || "",
               schema: dataset.schemaname,
               source: dataset.source,
+              queryYearColumn: dataset.yearcolumn,
               database: dataset.db_name,
               table: dataset.table_name,
               title: dataset.menu3,
