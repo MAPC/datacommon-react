@@ -147,7 +147,7 @@ const DatasetSearchBar = ({
 
   // Filter datasets based on search query
   useEffect(() => {
-    const filtered = filterDatasets({ datasets, searchQuery }); // also removes duplicates by table_name
+    const filtered = filterDatasets({ datasets, searchQuery, geographies: ['all'] }); // also removes duplicates by table_name
     const highlights = highlightDatasets({ searchQuery, datasets: filtered });
     const sorted = sortDatasets({ searchQuery, datasets: filtered }); // use the default 'Relevance' sort order
 
