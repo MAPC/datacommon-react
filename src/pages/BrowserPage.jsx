@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import styled from 'styled-components';
 import { fetchDatasets } from '../reducers/datasetSlice';
 import MetadataModal from "../components/partials/MetadataModal";
-import { formatUpdated, parseUpdatedForSort } from '../utils/formatUpdated';
+import { formatUpdated } from '../utils/formatUpdated';
 import { filterDatasets, highlightDatasets, sortDatasets } from "../utils/manageDatasets";
 
 const PageContainer = styled.section`
@@ -326,23 +326,18 @@ const InfoValue = styled.span`
   color: #555;
 `;
 
-const DescriptionRow = styled.div`
-  margin-top: 0.5rem;
-  font-size: 0.9375rem;
-  line-height: 1.5;
-  color: #555;
-`;
+const InfoGeographyValue = styled.div`
+  color: #4ea56c;
+  border: 1px solid #4ea56c;
+  border-radius: 12px;
+  padding: 4px 8px 6px;
+  line-height: 14px;
+  cursor: pointer;
 
-const DescriptionLabel = styled.span`
-  font-weight: 600;
-  color: #333;
-  display: block;
-  margin-bottom: 0.25rem;
-`;
-
-const DescriptionText = styled.span`
-  color: #555;
-  display: block;
+  &:hover {
+    color: #367a4e;
+    border: 1px solid #367a4e;
+  }
 `;
 
 const DatasetActions = styled.div`
@@ -355,21 +350,53 @@ const DatasetActions = styled.div`
 `;
 
 const ViewMetadataButton = styled.button`
+  width: 10rem;
+  display: inline;
+  text-align: center;
   background: linear-gradient(90deg, #64c08d, #5aba8c);
   color: white;
   border: none;
-  padding: 0.625rem 1.25rem;
+  padding: 0.5rem 1rem;
   border-radius: 5px;
   font-size: 0.9375rem;
   font-weight: 500;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
   transition: opacity 0.2s ease;
   
   &:hover {
     opacity: 0.9;
+  }
+`;
+
+const ViewMetadataDropdownContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+`;
+
+const ViewMetadataDropdownOptionsContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  position: absolute;
+  top: 2.5rem;
+  z-index: 999;
+  border-radius: 5px;
+`;
+
+const ViewMetadataDropdownOption = styled.button`
+  width: 10rem;
+  background-color: #64c08d;
+  color: white;
+  border: none;
+  padding: 0.3rem 1rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: background-color 0.2s ease;
+
+  &:hover {
+    background-color: #7bc69d;
   }
 `;
 
@@ -449,11 +476,11 @@ const GeographyFilterPill = styled.div`
   }
 
   &.selected {
-    color: #6fc68e;
-    border: 1px solid #6fc68e;
+    color: #4ea56c;
+    border: 1px solid #4ea56c;
     &:hover {
-      color: #3d965c;
-      border: 1px solid #3d965c;
+      color: #367a4e;
+      border: 1px solid #367a4e;
     }
   }
 `;
@@ -520,6 +547,7 @@ const BrowserPage = () => {
   const [displayDatasets, setDisplayDatasets] = useState([]);
   const [highlightMatches, setHighlightMatches] = useState({});
   const [shareCopied, setShareCopied] = useState(false);
+  const [viewingMetadataDropdownId, setViewingMetadataDropdownId] = useState(null);
 
   const arraysEqual = (a, b) => {
     if (a.length !== b.length) return false;
@@ -590,11 +618,71 @@ const BrowserPage = () => {
       geographies: selectedGeoFilters,
     });
 
+    // "Compress" the datasets into fewer cards, datasets with the same base table but different geographies
+    // should be displayed on the same card in the search results
+    const datasetBaseTableMap = {};
+    filtered.forEach(dataset => {
+      const tableName = dataset.table_name;
+      const datasetName = dataset.menu3;
+
+      let trimmedTable = tableName;
+      let trimmedName = datasetName;
+      let datasetGeography = null;
+      if (tableName.endsWith("_m")) {
+        trimmedTable = tableName.slice(0, -2);
+        if (datasetName.endsWith(" (Municipal)")) trimmedName = datasetName.slice(0, -12);
+        if (datasetName.endsWith(" (Municipality)")) trimmedName = datasetName.slice(0, -15);
+        datasetGeography = "Municipalities";
+      } else if (tableName.endsWith("_ct")) {
+        trimmedTable = tableName.slice(0, -3);
+        if (datasetName.endsWith(" (Census Tracts)")) trimmedName = datasetName.slice(0, -16);
+        if (datasetName.endsWith(" (Census Tract)")) trimmedName = datasetName.slice(0, -15);
+        datasetGeography = "Census Tracts";
+      } else if (tableName.endsWith("_bg")) {
+        trimmedTable = tableName.slice(0, -3);
+        if (datasetName.endsWith(" (Block Groups)")) trimmedName = datasetName.slice(0, -15);
+        if (datasetName.endsWith(" (Block Group)")) trimmedName = datasetName.slice(0, -14);
+        datasetGeography = "Block Groups";
+      } else if (tableName.endsWith("_b")) {
+        trimmedTable = tableName.slice(0, -2);
+        trimmedName = datasetName.endsWith(" (Blocks)") ? datasetName.slice(0, -9) : datasetName;
+        datasetGeography = "Blocks";
+      } else if (tableName.endsWith("_blk")) {
+        trimmedTable = tableName.slice(0, -4);
+        trimmedName = datasetName.endsWith(" (Blocks)") ? datasetName.slice(0, -9) : datasetName;
+        datasetGeography = "Blocks";
+      }
+      if (!datasetBaseTableMap[trimmedTable]) {
+        datasetBaseTableMap[trimmedTable] = {
+          baseName: trimmedName,
+          datasets: [],
+          geoIdPairs: [],
+        };
+      }
+      datasetBaseTableMap[trimmedTable].datasets.push(dataset);
+      datasetBaseTableMap[trimmedTable].geoIdPairs.push({ geography: datasetGeography, id: dataset.seq_id });
+    });
+
+    const compressedDatasets = Object.entries(datasetBaseTableMap).map(([baseTable, cdsInfo]) => {
+      const geoOrder = ["Municipal", "Census Tracts", "Block Groups", "Blocks"];
+      const sortedGeoIdParis = cdsInfo.geoIdPairs.sort((pair1, pair2) => geoOrder.indexOf(pair1.geography) - geoOrder.indexOf(pair2.geography));
+
+      return {
+        table_name: baseTable,
+        menu3: cdsInfo.baseName,
+        seq_id: cdsInfo.datasets.map(ds => ds.seq_id || ds.id).join(','), // TODO: Is this right?
+        updated: cdsInfo.datasets.map(ds => ds.updated).sort()[0],
+        source: cdsInfo.datasets.map(ds => ds.source)[0],
+        geoIdPairs: sortedGeoIdParis,
+        ...cdsInfo,
+      }
+    });
+
     // set the matched search terms to be highlighted
-    const highlights = highlightDatasets({ searchQuery, datasets: filtered });
+    const highlights = highlightDatasets({ searchQuery, datasets: compressedDatasets });
 
     setHighlightMatches(highlights);
-    setDisplayDatasets(filtered);
+    setDisplayDatasets(compressedDatasets);
   }, [datasets, selectedSources, selectedMenu1s, selectedMenu2s, selectedGeoFilters, searchQuery]);
 
   // Keep URL query parameters in sync with search and filters so users can share links
@@ -661,6 +749,15 @@ const BrowserPage = () => {
   const sortedDatasets = useMemo(() => {
     return sortDatasets({searchQuery, datasets: displayDatasets, sortOrder: sortBy });
   }, [displayDatasets, sortBy, searchQuery]);
+
+  // Get the count of found datasets by looking into the nested datasets under the compressed datasets
+  const foundDatasetCount = useMemo(() => {
+    let count = 0;
+    displayDatasets.forEach(compressedDataset => {
+      count += compressedDataset.datasets.length;
+    });
+    return count;
+  }, [displayDatasets]);
 
   const renderHighlightedText = (text, datasetId, key) => {
     if (!text) {
@@ -826,13 +923,19 @@ const BrowserPage = () => {
     setSelectedDataset(null);
   };
 
-  const toDataset = (dataset) => {
+  const toDataset = (datasetId) => {
     // open in new tab to preserve user's search & filters from the datasets landing page
-    window.open(`/browser/datasets/${dataset.seq_id}`, '_blank', 'noreferrer');
+    window.open(`/browser/datasets/${datasetId}`, '_blank', 'noreferrer');
   };
 
-  const handleDatasetClick = (dataset) => {
-    toDataset(dataset);
+  const handleDatasetClick = (compressedDataset) => {
+    // handle case of one dataset
+    if (compressedDataset.datasets.length === 1) {
+      toDataset(compressedDataset.datasets[0].seq_id);
+    } else {
+      // otherwise use the first one in the order the geos were sorted in
+      toDataset(compressedDataset.geoIdPairs[0].id);
+    }
   };
 
   return (
@@ -980,7 +1083,7 @@ const BrowserPage = () => {
           
           <ContentHeader>
             <div>
-              <strong>{sortedDatasets.length}</strong> {sortedDatasets.length === 1 ? 'dataset' : 'datasets'} found
+              <strong>{foundDatasetCount}</strong> {foundDatasetCount === 1 ? 'dataset' : 'datasets'} found
             </div>
             <HeaderControls>
               <SortContainer>
@@ -1009,51 +1112,85 @@ const BrowserPage = () => {
           </ContentHeader>
 
           <DatasetGrid ref={datasetGridRef}>
-            {sortedDatasets.map((dataset) => {
-              const datasetId = dataset.seq_id || dataset.id;
+            {sortedDatasets.map((compressedDataset) => {
+              const compressedDatasetId = compressedDataset.seq_id || compressedDataset.id;
               return (
                 <DatasetBox 
-                  key={datasetId}
-                  onClick={() => handleDatasetClick(dataset)}
+                  key={compressedDatasetId}
+                  onClick={() => handleDatasetClick(compressedDataset)}
                 >
                   <DatasetHeaderContainer>
                     <DatasetHeader>
-                      {renderHighlightedText(dataset.menu3, datasetId, 'menu3')}
+                      {renderHighlightedText(compressedDataset.menu3, compressedDatasetId, 'menu3')}
                     </DatasetHeader>
-                    <ViewMetadataButton
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleViewMetadata(dataset);
-                      }}
-                    >
-                      View Metadata
-                    </ViewMetadataButton>
+                    {compressedDataset.datasets.length === 1 && 
+                      <ViewMetadataButton
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleViewMetadata(compressedDataset.datasets[0]);
+                        }}
+                      >
+                        View Metadata
+                      </ViewMetadataButton>
+                    }
+                    {compressedDataset.datasets.length !== 1 && 
+                    <ViewMetadataDropdownContainer>
+                      <ViewMetadataButton
+                        onClick={e => {
+                          e.stopPropagation();
+                          viewingMetadataDropdownId === compressedDatasetId ? setViewingMetadataDropdownId(null) : setViewingMetadataDropdownId(compressedDatasetId);
+                        }}
+                      >
+                        View Metadata <span style={{ float: 'right' }}>▼</span>
+                      </ViewMetadataButton>
+                      <ViewMetadataDropdownOptionsContainer>
+                        {viewingMetadataDropdownId === compressedDatasetId && compressedDataset.geoIdPairs.map(geoIdPair => 
+                          <ViewMetadataDropdownOption 
+                            key={geoIdPair.id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setViewingMetadataDropdownId(null);
+                              handleViewMetadata(compressedDataset.datasets.filter(d => d.seq_id === geoIdPair.id)[0]);
+                            }}
+                          >
+                            {geoIdPair.geography}
+                          </ViewMetadataDropdownOption>
+                        )}
+                      </ViewMetadataDropdownOptionsContainer>
+                    </ViewMetadataDropdownContainer>
+                    }
                   </DatasetHeaderContainer>
                   <DatasetBody>
                     <DatasetInfo>
                       <InfoRow>
                         <InfoLabel>Table:</InfoLabel>
                         <InfoValue>
-                          {renderHighlightedText(dataset.table_name, datasetId, 'table_name')}
+                          {renderHighlightedText(compressedDataset.table_name, compressedDatasetId, 'table_name')}
                         </InfoValue>
                       </InfoRow>
                       <InfoRow>
                         <InfoLabel>Source:</InfoLabel>
-                        <InfoValue>{dataset.source}</InfoValue>
+                        <InfoValue>{compressedDataset.source}</InfoValue>
                       </InfoRow>
-                      {dataset.descriptn && (
-                        <DescriptionRow>
-                          <DescriptionLabel>Description:</DescriptionLabel>
-                          <DescriptionText>
-                            {renderHighlightedText(dataset.descriptn, datasetId, 'descriptn')}
-                          </DescriptionText>
-                        </DescriptionRow>
-                      )}
+                      {compressedDataset.geoIdPairs.filter(pair => !!pair.geography).length > 0 && <InfoRow>
+                        <InfoLabel>Geographies:</InfoLabel>
+                        {compressedDataset.geoIdPairs.map(geoIdPair => 
+                          <InfoGeographyValue
+                            key={geoIdPair.id}
+                            onClick={e => {
+                              e.stopPropagation();
+                              toDataset(geoIdPair.id);
+                            }}
+                          >
+                            {geoIdPair.geography}
+                          </InfoGeographyValue>
+                        )}
+                      </InfoRow>}
                     </DatasetInfo>
                     <DatasetActions>
                       <LastUpdated>
                         <LastUpdatedLabel>Last updated:</LastUpdatedLabel>
-                        {formatUpdated(dataset.updated)}
+                        {formatUpdated(compressedDataset.updated)}
                       </LastUpdated>
                     </DatasetActions>
                   </DatasetBody>

@@ -1,3 +1,5 @@
+import { parseUpdatedForSort } from './formatUpdated';
+
 /**
  * Filters the given list of datasets based on the filtering criteria provided. Returns a new list of filtered data
  * 
@@ -237,7 +239,9 @@ export function sortDatasets({ datasets = [], sortOrder = 'Relevance', searchQue
         const avgNameIdxA = nameMatchesA ? (totalNameIdxA / nameMatchesA) : datasetNameA.length;
         const avgNameIdxB = nameMatchesB ? (totalNameIdxB / nameMatchesB) : datasetNameB.length;
 
-        if (tableMatchesA != tableMatchesB) {
+        if (nameMatchesA != nameMatchesB) {
+          return nameMatchesB - nameMatchesA;
+        } else if (tableMatchesA != tableMatchesB) {
           return tableMatchesB - tableMatchesA;
         } else if (datasetContainsByA !== datasetContainsByB) {
           return datasetContainsByA ? 1 : -1;
