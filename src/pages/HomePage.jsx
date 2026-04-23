@@ -80,6 +80,7 @@ const Home = () => {
 
       <section className="page-section container">
         <div className="gallery-spotlight__info container">
+        <div><iframe title="Crime Data from 2020 to 2024" width="500" height="425" src="https://data.lacity.org/w/2nrs-mtv8" frameborder="0" tabindex="0" scrolling="no"></iframe><p><a href="https://tylertech.com" target="_blank">Powered by Tyler Technologies.</a></p></div>
           <p>
             Find and explore data visualizations about the region. Check back
             monthly or sign up for our newsletter to receive maps and data

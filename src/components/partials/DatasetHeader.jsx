@@ -1,7 +1,12 @@
 import React, { useState, useRef, useEffect } from "react";
 import PropTypes from "prop-types";
+import { useLocation } from "react-router-dom";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faShareNodes } from "@fortawesome/free-solid-svg-icons";
+import { faMessage } from "@fortawesome/free-regular-svg-icons";
 import { formatUpdated } from "../../utils/formatUpdated";
 import ExportDataModal from "./ExportDataModal";
+import EmbedTableModal from "./EmbedTableModal";
 
 const setSelectYears = (availableYears, updateSelectedYears, selectedYears) => {
   if (availableYears.length > 0) {
@@ -425,7 +430,27 @@ function DatasetHeader({
   updateSelectedGeographies,
   geographyColumn,
 }) {
+  const location = useLocation();
+  const isEmbedView = new URLSearchParams(location.search).get("embed") === "1";
   const [downloadModalOpen, setDownloadModalOpen] = useState(false);
+  const [embedModalOpen, setEmbedModalOpen] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const actionsDropdownRef = useRef(null);
+
+  useEffect(() => {
+    if (!actionsOpen) {
+      return undefined;
+    }
+
+    const handleClickOutside = (event) => {
+      if (actionsDropdownRef.current && !actionsDropdownRef.current.contains(event.target)) {
+        setActionsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [actionsOpen]);
 
   return (
     <div className="page-header">
@@ -464,22 +489,66 @@ function DatasetHeader({
             </div>
           </div>
           <div className="details-content-column download-section">
-            <div className="details-content-column download-links">
-              <button type="button" className="button file-button" onClick={() => setDownloadModalOpen(true)}>
-                Export data
-              </button>
-            </div>
-            <div style={{ marginTop: "10px", textAlign: "right" }}>
-              <a
-                href="https://airtable.com/appqSr3MqAkN1GCfb/pagdcSeY2bc4rblam/form"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="button feedback-button"
-                style={{ fontSize: "12px" }}
-              >
-                Submit Data Feedback
-              </a>
-            </div>
+            {isEmbedView ? (
+              <div style={{ marginTop: "10px", textAlign: "right" }}>
+                <a href={`/browser/datasets/${datasetId}`} className="button feedback-button" style={{ fontSize: "12px" }}>
+                  View source data
+                </a>
+              </div>
+            ) : (
+              <>
+                <div className="details-content-column download-links">
+                  <div className="dataset-actions-dropdown" ref={actionsDropdownRef}>
+                    <button
+                      type="button"
+                      className="button file-button dataset-actions-trigger"
+                      onClick={() => setActionsOpen((open) => !open)}
+                      aria-expanded={actionsOpen}
+                      aria-haspopup="menu"
+                    >
+                      Actions <span className="dropdown-arrow">{actionsOpen ? "▲" : "▼"}</span>
+                    </button>
+                    {actionsOpen && (
+                      <div className="dataset-actions-menu" role="menu" aria-label="Dataset actions">
+                        <button
+                          type="button"
+                          className="dataset-actions-item"
+                          onClick={() => {
+                            setEmbedModalOpen(true);
+                            setActionsOpen(false);
+                          }}
+                        >
+                          <span className="dataset-actions-item-icon" aria-hidden="true">
+                            <FontAwesomeIcon icon={faShareNodes} size="sm" />
+                          </span>
+                          Share and embed
+                        </button>
+                        <button
+                          type="button"
+                          className="dataset-actions-item"
+                          onClick={() => {
+                            window.open(
+                              "https://airtable.com/appqSr3MqAkN1GCfb/pagdcSeY2bc4rblam/form",
+                              "_blank",
+                              "noopener,noreferrer",
+                            );
+                            setActionsOpen(false);
+                          }}
+                        >
+                          <span className="dataset-actions-item-icon" aria-hidden="true">
+                            <FontAwesomeIcon icon={faMessage} size="sm" />
+                          </span>
+                          Submit data feedback
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <button type="button" className="button file-button" onClick={() => setDownloadModalOpen(true)}>
+                    Export
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -501,6 +570,12 @@ function DatasetHeader({
         availableGeographies={availableGeographies}
         geographyColumn={geographyColumn}
         availableYears={availableYears}
+      />
+      <EmbedTableModal
+        isOpen={embedModalOpen}
+        onClose={() => setEmbedModalOpen(false)}
+        datasetId={datasetId}
+        title={title}
       />
     </div>
   );
