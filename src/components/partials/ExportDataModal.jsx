@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import PropTypes from "prop-types";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faXmark } from "@fortawesome/free-solid-svg-icons";
+import { faClone } from "@fortawesome/free-regular-svg-icons";
 
 const formats = {
   csv: {
@@ -329,7 +332,7 @@ function ExportDataModal({
         <div className="download-modal-header">
           <h3>Export data</h3>
           <button type="button" className="close-button" onClick={onClose} aria-label="Close export dialog">
-            ×
+            <FontAwesomeIcon icon={faXmark} aria-hidden />
           </button>
         </div>
         <div className="download-modal-body">
@@ -440,21 +443,7 @@ function ExportDataModal({
                         aria-label="Copy API endpoint URL"
                         title="Copy URL"
                       >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="20"
-                          height="20"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          aria-hidden
-                        >
-                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                        </svg>
+                        <FontAwesomeIcon icon={faClone} aria-hidden />
                       </button>
                     </div>
                     {apiCopyStatus && (
@@ -511,7 +500,7 @@ function ExportDataModal({
         </div>
         <div className="download-modal-footer">
           <button type="button" className="button" onClick={onClose}>
-            Cancel
+            Close
           </button>
           <button
             type="button"
