@@ -239,6 +239,53 @@
     }
   }
 
+  // Embed (`?embed=1`): one row above the title, kebab right-aligned; h2 and details unchanged below.
+  .page-header-embed-top-row {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    width: 100%;
+  }
+
+  /* Embed view: one column, right-aligned */
+  .dataset-details-content.dataset-details-content--embed > .details-content-column:last-of-type {
+    top: 0;
+    flex: 1 1 100%;
+    min-width: 0;
+    text-align: left;
+  }
+
+  .page-header-embed .container.tight {
+    text-align: left;
+  }
+
+  .embed-view-source-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: linear-gradient(90deg, #64c08d, #5aba8c);
+    color: #fff;
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    flex-shrink: 0;
+    transition: filter 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+
+    &:hover {
+      filter: brightness(0.95);
+    }
+
+    &:focus-visible {
+      outline: 2px solid $color_brand-secondary;
+      outline-offset: 2px;
+    }
+  }
+
   .download-buttons {
     display: flex;
     gap: 8px;

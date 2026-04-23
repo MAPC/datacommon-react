@@ -4,13 +4,14 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faXmark } from "@fortawesome/free-solid-svg-icons";
 import { faClone } from "@fortawesome/free-regular-svg-icons";
 
-const IFRAME_WIDTH_DEFAULT = 1024;
-const IFRAME_HEIGHT_DEFAULT = 760;
 const SIZE_PRESETS = {
   small: { label: "Small", width: 500, height: 425 },
   medium: { label: "Medium", width: 760, height: 646 },
   large: { label: "Large", width: 950, height: 808 },
 };
+
+const IFRAME_WIDTH_DEFAULT = SIZE_PRESETS.large.width;
+const IFRAME_HEIGHT_DEFAULT = SIZE_PRESETS.large.height;
 
 const makeIframeSnippet = (embedUrl, title, w, h) =>
   `<iframe src="${embedUrl}" title="${title || "Embedded dataset table"}" width="${w}" height="${h}" frameborder="0" loading="lazy"></iframe>`;
@@ -37,7 +38,7 @@ const EmbedTableModal = ({ isOpen, onClose, datasetId, title }) => {
   /** Used in generated iframe after blur validation. */
   const [widthCommitted, setWidthCommitted] = useState(IFRAME_WIDTH_DEFAULT);
   const [heightCommitted, setHeightCommitted] = useState(IFRAME_HEIGHT_DEFAULT);
-  const [sizePreset, setSizePreset] = useState("custom");
+  const [sizePreset, setSizePreset] = useState("large");
   const [copyStatus, setCopyStatus] = useState("");
 
   useEffect(() => {
