@@ -174,17 +174,18 @@ class DataViewerClass extends React.Component {
             this.setState({
               availableYears: distinctYears,
               rows: tableResults,
+              description: metadata.documentation.metadata.dataIdInfo.idPurp || "",
               columnKeys: sortedMetadata,
               selectedColumns: sortedMetadata.map((col) => col.name), // Initialize with all columns
               metadata,
               selectedYears: distinctYears.length ? [distinctYears[0]] : [],
-              description: metadata.documentation.metadata.dataIdInfo.idPurp || "",
+              table: dataset.table_name,
               schema: dataset.schemaname,
+              database: dataset.db_name,
+              title: dataset.menu3,
               source: dataset.source,
               queryYearColumn: dataset.yearcolumn,
-              database: dataset.db_name,
-              table: dataset.table_name,
-              title: dataset.menu3,
+              updatedAt: dataset.updated,
               loading: false,
             });
           } catch (error) {
