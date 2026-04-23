@@ -9,7 +9,7 @@ const CategoryGrid = () => {
     const prioritizedCategories = [...prioritized.keys()];
     const categoryPool = [...state.dataset.categories];
     const selectedCategories = [];
-    const maxCategories = 10;
+    const maxCategories = 13;
 
     const categoriesRemainIn = pool => pool.length !== 0 && selectedCategories.length < maxCategories;
 
@@ -33,20 +33,27 @@ const CategoryGrid = () => {
   });
 
   const renderCategories = useMemo(() => {
-    return categories.map((category) => (
-      <li key={category} className="lift">
-        <a href={`/browser?category=${category}`} className="category-link">
-          <div className="category-image">
-            <img
-              src={icons[category] || icons["default"]}
-              alt={`Icon for ${category}`}
-              className="category-icon"
-            />
-          </div>
-          <span className="category-title">{category}</span>
-        </a>
-      </li>
-    ));
+    return categories.map((category) => {
+      const query = new URLSearchParams({
+        geos: "all",
+        category,
+      }).toString();
+
+      return (
+        <li key={category} className="lift">
+          <a href={`/browser?${query}`} className="category-link">
+            <div className="category-image">
+              <img
+                src={icons[category] || icons["default"]}
+                alt={`Icon for ${category}`}
+                className="category-icon"
+              />
+            </div>
+            <span className="category-title">{category}</span>
+          </a>
+        </li>
+      );
+    });
   }, [categories]);
 
   return (
