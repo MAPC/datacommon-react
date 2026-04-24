@@ -7,6 +7,7 @@ import MoonLoader from "react-spinners/MoonLoader";
 import { fetchDatasets } from "../reducers/datasetSlice";
 import DatasetHeader from "../components/partials/DatasetHeader";
 import DatasetTable from "../components/partials/DatasetTable";
+import { isDatasetInventoryCatalog } from "../utils/datasetInventoryRow";
 
 const override = css`
   height: 3.5rem;
@@ -25,6 +26,7 @@ class DataViewerClass extends React.Component {
       availableGeographies: [],
       selectedGeographies: [],
       geographyColumn: null,
+      linkInventoryRows: false,
     };
     this.updateSelectedYears = this.updateSelectedYears.bind(this);
     this.updateSelectedColumns = this.updateSelectedColumns.bind(this);
@@ -142,6 +144,7 @@ class DataViewerClass extends React.Component {
             geographyColumn,
             availableGeographies,
             selectedGeographies: availableGeographies, // default: show all
+            linkInventoryRows: isDatasetInventoryCatalog(dataset),
             loading: false,
           });
         })
@@ -186,6 +189,7 @@ class DataViewerClass extends React.Component {
               source: dataset.source,
               queryYearColumn: dataset.yearcolumn,
               updatedAt: dataset.updated,
+              linkInventoryRows: isDatasetInventoryCatalog(dataset),
               loading: false,
             });
           } catch (error) {
@@ -317,6 +321,7 @@ class DataViewerClass extends React.Component {
             selectedYears={this.state.selectedYears}
             selectedGeographies={this.state.selectedGeographies}
             geographyColumn={this.state.geographyColumn}
+            linkRowsToDatasetView={this.state.linkInventoryRows}
             updatePage={this.updatePage}
             updateRowsPerPage={this.updateRowsPerPage}
             metadata={this.state.metadata}

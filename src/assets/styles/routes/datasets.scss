@@ -1068,6 +1068,21 @@
         }
       }
     }
+
+    // Data browser inventory: each row opens that dataset in the data viewer
+    .ui.table tbody tr.data-row--dataset-link {
+      cursor: pointer;
+      transition: background-color 0.15s ease;
+
+      &:hover {
+        background-color: rgba($color_brand-secondary, 0.14) !important;
+      }
+
+      &:focus-visible {
+        outline: 2px solid $color_brand-secondary;
+        outline-offset: -2px;
+      }
+    }
   }
 
   .pagination {
