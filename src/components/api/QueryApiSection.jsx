@@ -18,7 +18,6 @@ const QueryApiSection = ({
   queryUrl,
   copyStatus,
   handleCopy,
-  curlFor,
 }) => {
   const {
     Card,
@@ -104,14 +103,11 @@ const QueryApiSection = ({
             >
               <strong>Long URL ({queryUrl.length.toLocaleString()} characters).</strong> The <Mono>query</Mono> value is
               URL-encoded, so many columns greatly increase length. If the request fails in the browser, shorten the SQL
-              (fewer columns or <Mono>SELECT *</Mono>), or call the same URL with <Mono>curl</Mono>.
+              (fewer columns or <Mono>SELECT *</Mono>).
             </Small>
           )}
           <CopyRow>
             {copyStatus && <CopyStatus>{copyStatus}</CopyStatus>}
-            <SecondaryButton type="button" onClick={() => handleCopy(curlFor(queryUrl), "curl")}>
-              Copy curl
-            </SecondaryButton>
             <CopyButton type="button" onClick={() => handleCopy(queryUrl, "url")}>
               Copy URL
             </CopyButton>
