@@ -206,6 +206,7 @@ export function sortDatasets({ datasets = [], sortOrder = 'Relevance', searchQue
         const tableNameA = a.table_name || '';
         const datasetContainsByA = a.menu3.toLowerCase().includes(' by ');
         let nameMatchesA = 0;
+        let wholeWordMatchesA = 0;
         let totalNameIdxA = 0;
         let tableMatchesA = 0;
 
@@ -213,10 +214,16 @@ export function sortDatasets({ datasets = [], sortOrder = 'Relevance', searchQue
         const tableNameB = b.table_name || '';
         const datasetContainsByB = b.menu3.toLowerCase().includes(' by ');
         let nameMatchesB = 0;
+        let wholeWordMatchesB = 0;
         let totalNameIdxB = 0;
         let tableMatchesB = 0;
         searchTokens.forEach(searchTerm => {
           const searchRegex = new RegExp(searchTerm, 'i');
+          const wholeWordRegex = new RegExp(`\\b${searchTerm}\\b`, 'i');
+          const wholeWordMatchA = wholeWordRegex.exec(datasetNameA);
+          if (wholeWordMatchA) {
+            wholeWordMatchesA++;
+          }
           const nameMatchA = searchRegex.exec(datasetNameA);
           if (nameMatchA) {
             nameMatchesA++;
@@ -225,6 +232,10 @@ export function sortDatasets({ datasets = [], sortOrder = 'Relevance', searchQue
           const tableMatchA = searchRegex.exec(tableNameA);
           if (tableMatchA) {
             tableMatchesA++;
+          }
+          const wholeWordMatchB = wholeWordRegex.exec(datasetNameB);
+          if (wholeWordMatchB) {
+            wholeWordMatchesB++;
           }
           const nameMatchB = searchRegex.exec(datasetNameB);
           if (nameMatchB) {
@@ -239,7 +250,9 @@ export function sortDatasets({ datasets = [], sortOrder = 'Relevance', searchQue
         const avgNameIdxA = nameMatchesA ? (totalNameIdxA / nameMatchesA) : datasetNameA.length;
         const avgNameIdxB = nameMatchesB ? (totalNameIdxB / nameMatchesB) : datasetNameB.length;
 
-        if (nameMatchesA != nameMatchesB) {
+        if (wholeWordMatchesA != wholeWordMatchesB) {
+          return wholeWordMatchesB - wholeWordMatchesA
+        } else if (nameMatchesA != nameMatchesB) {
           return nameMatchesB - nameMatchesA;
         } else if (tableMatchesA != tableMatchesB) {
           return tableMatchesB - tableMatchesA;
