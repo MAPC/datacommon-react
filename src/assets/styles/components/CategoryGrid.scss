@@ -1,7 +1,7 @@
 .component.CategoryGrid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  grid-template-rows: 1fr 1fr;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
 
   /* Microsoft should be illegal */
   display: -ms-grid;
@@ -10,6 +10,7 @@
 
   li {
     margin: 20px;
+    width: calc(20% - 40px);
 
     &:nth-of-type(1) {
       -ms-grid-column: 1;
@@ -54,13 +55,12 @@
   }
 
   @include media(medium) {
-    grid-template-columns: repeat(4, 1fr);
-    grid-template-rows: repeat(3, 1fr);
     -ms-grid-columns: 1fr 1fr 1fr 1fr;
     -ms-grid-rows: 1fr 1fr 1fr;
 
     li {
       margin: 12px;
+      width: calc(25% - 24px);
 
       &:nth-of-type(1) {
         -ms-grid-column: 1;
@@ -106,13 +106,12 @@
   }
 
   @include media(small) {
-    grid-template-columns: repeat(3, 1fr);
-    grid-template-rows: repeat(4, 1fr);
     -ms-grid-columns: 1fr 1fr 1fr;
     -ms-grid-rows: 1fr 1fr 1fr 1fr;
 
     li {
       margin: 10px;
+      width: calc(33.3333% - 20px);
 
       &:nth-of-type(1) {
         -ms-grid-column: 1;
@@ -160,12 +159,11 @@
   @include media(x-small) {
     padding: 12px;
 
-    grid-template-columns: repeat(2, 1fr);
-    grid-template-rows: repeat(5, 1fr);
     -ms-grid-columns: 1fr 1fr;
     -ms-grid-rows: 1fr 1fr 1fr 1fr 1fr;
 
     li {
+      width: calc(50% - 20px);
       &:nth-of-type(1) {
         -ms-grid-column: 1;
         -ms-grid-row: 1;
