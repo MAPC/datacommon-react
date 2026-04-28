@@ -2,12 +2,16 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useSearchParams } from "react-router-dom";
 import styled from "styled-components";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faXmark } from "@fortawesome/free-solid-svg-icons";
 import { fetchDatasets } from "../reducers/datasetSlice";
 import DatasetSearchBar from "../components/partials/DatasetSearchBar";
 import MetadataModal from "../components/partials/MetadataModal";
 import ExportApiSection from "../components/api/ExportApiSection";
 import QueryApiSection from "../components/api/QueryApiSection";
 import axios from "axios";
+import { compressDatasetsByGeography } from "../utils/manageDatasets";
+import { formatUpdated } from "../utils/formatUpdated";
 
 const PageContainer = styled.section`
   background: #fff;
@@ -223,12 +227,22 @@ const PickerTitle = styled.h3`
 `;
 
 const CloseButton = styled.button`
-  border: 1px solid rgba(0, 0, 0, 0.2);
-  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
   border-radius: 8px;
-  padding: 0.35rem 0.65rem;
+  padding: 0;
   cursor: pointer;
-  font-weight: 600;
+  color: #333;
+
+  &:hover {
+    background: #f5f5f5;
+  }
 `;
 
 const PickerBody = styled.div`
@@ -236,48 +250,255 @@ const PickerBody = styled.div`
   overflow-y: auto;
 `;
 
+const PickerCountBar = styled.div`
+  margin-top: 0.5rem;
+  margin-bottom: 0.1rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.75rem;
+  padding: 0.5rem 0.7rem;
+  background: linear-gradient(180deg, #f8faf8 0%, #f0f4f1 100%);
+  border: 1px solid rgba(47, 107, 68, 0.12);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: #2c2c2c;
+`;
+
+const PickerCountNum = styled.span`
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #1b5c36;
+  letter-spacing: -0.01em;
+`;
+
+const PickerCountMeta = styled.span`
+  display: inline-block;
+  font-size: 0.86rem;
+  color: #5c6560;
+  font-weight: 500;
+
+  ${PickerCountNum} {
+    color: #2a6b45;
+  }
+`;
+
+const PickerCountSep = styled.span`
+  color: #b8c0bb;
+  font-weight: 500;
+  user-select: none;
+`;
+
 const PickerDatasetList = styled.div`
   margin-top: 0.75rem;
-  display: grid;
-  grid-template-columns: 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 0.75rem;
 `;
 
-const PickerDatasetCard = styled.div`
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  border-radius: 10px;
-  padding: 0.85rem;
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  align-items: center;
+/** Grouped cards (same base table + geographies) — layout aligned with the Data Browser grid. */
+const PickerInventoryCard = styled.div`
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1.25rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 `;
 
-const PickerDatasetMeta = styled.div`
+const PickerCardHeader = styled.div`
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.9rem;
+`;
+
+const PickerCardTitle = styled.h3`
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #333;
+  line-height: 1.35;
+  min-width: 0;
+  flex: 1;
+`;
+
+const PickerCardBody = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 1rem 1.5rem;
+`;
+
+const PickerCardInfo = styled.div`
+  flex: 1 1 12rem;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+`;
+
+const PickerInfoRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.35rem 0.5rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+`;
+
+const PickerInfoLabel = styled.span`
+  font-weight: 600;
+  color: #333;
+  flex-shrink: 0;
+`;
+
+const PickerGeographies = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  flex: 1 1 0;
   min-width: 0;
 `;
 
-const PickerDatasetName = styled.div`
-  color: #222;
-  font-weight: 700;
-  margin-bottom: 0.3rem;
+const PickerGeographyPill = styled.button`
+  color: #4ea56c;
+  border: 1px solid #4ea56c;
+  background: #fff;
+  border-radius: 12px;
+  padding: 4px 10px 6px;
+  line-height: 1.1;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+
+  &:hover {
+    color: #367a4e;
+    border-color: #367a4e;
+  }
 `;
 
-const PickerDatasetDetails = styled.div`
-  color: #555;
-  font-size: 0.9rem;
+const PickerCardMeta = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  min-width: min(15rem, 100%);
+  text-align: right;
+`;
+
+const PickerLastUpdatedLabel = styled.span`
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 0.1rem;
+`;
+
+const PickerLastUpdatedList = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.25rem;
+  width: 100%;
+  min-width: 0;
+  max-width: 15rem;
+`;
+
+const PickerLastUpdatedRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem 0.75rem;
+  font-size: 0.8rem;
   line-height: 1.4;
 `;
 
+const PickerLastUpdatedGeo = styled.span`
+  color: #888;
+  text-align: left;
+  flex: 1 1 auto;
+  min-width: 0;
+`;
+
+const PickerLastUpdatedDate = styled.span`
+  color: #555;
+  font-weight: 500;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  flex: 0 0 auto;
+`;
+
+const PickerLastUpdatedValue = styled.span`
+  display: block;
+  text-align: right;
+  color: #555;
+  font-size: 0.88rem;
+`;
+
 const PickerSelectButton = styled.button`
+  box-sizing: border-box;
+  width: 6.25rem;
+  max-width: 100%;
+  min-height: 2rem;
   border: none;
   background: rgba(111, 198, 142, 0.2);
   color: #2f6b44;
   border-radius: 8px;
-  padding: 0.45rem 0.8rem;
+  padding: 0.35rem 0.5rem;
   font-weight: 700;
   cursor: pointer;
   flex-shrink: 0;
+  font-family: inherit;
+  font-size: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+`;
+
+const PickerSelectControl = styled.div`
+  position: relative;
+  flex-shrink: 0;
+`;
+
+const PickerSelectMenu = styled.ul`
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 30;
+  margin: 0;
+  padding: 0.3rem 0;
+  list-style: none;
+  min-width: 11rem;
+  max-width: min(16rem, 70vw);
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+`;
+
+const PickerSelectMenuButton = styled.button`
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: #fff;
+  padding: 0.5rem 0.9rem;
+  font: inherit;
+  font-size: 0.9rem;
+  color: #333;
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(111, 198, 142, 0.12);
+  }
 `;
 
 const Tabs = styled.div`
@@ -837,6 +1058,23 @@ async function copyText(text) {
   document.body.removeChild(textArea);
 }
 
+/** Inventory picker: one line for a single geography; list every geography’s date when multiple. */
+function getPickerLastUpdatedView(compressed) {
+  const pairs = compressed?.geoIdPairs;
+  if (!Array.isArray(pairs) || pairs.length === 0) {
+    return { kind: "single", text: formatUpdated(compressed?.updated) };
+  }
+  const rows = pairs.map((p) => ({
+    key: String(p.id),
+    label: p.geography || "Dataset",
+    display: formatUpdated(p.updated),
+  }));
+  if (rows.length > 1) {
+    return { kind: "list", rows };
+  }
+  return { kind: "single", text: rows[0].display };
+}
+
 const ApiPage = () => {
   const dispatch = useDispatch();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -847,6 +1085,8 @@ const ApiPage = () => {
 
   const [pickerQuery, setPickerQuery] = useState("");
   const [isPickerOpen, setIsPickerOpen] = useState(false);
+  /** Which inventory card’s “Select” dropdown is open (compressed `seq_id` key, may be comma-joined). */
+  const [pickerSelectMenuKey, setPickerSelectMenuKey] = useState(null);
   const [selectedDatasetId, setSelectedDatasetId] = useState(datasetId || "");
   const [activeTab, setActiveTab] = useState("export");
   const [exportFormat, setExportFormat] = useState("csv");
@@ -873,15 +1113,39 @@ const ApiPage = () => {
   useEffect(() => {
     const onEscape = (event) => {
       if (event.key === "Escape") {
+        if (pickerSelectMenuKey) {
+          setPickerSelectMenuKey(null);
+          return;
+        }
         setIsPickerOpen(false);
         setIsMetadataPopupOpen(false);
       }
     };
-    if (isPickerOpen || isMetadataPopupOpen) {
+    if (isPickerOpen || isMetadataPopupOpen || pickerSelectMenuKey) {
       window.addEventListener("keydown", onEscape);
     }
     return () => window.removeEventListener("keydown", onEscape);
-  }, [isPickerOpen, isMetadataPopupOpen]);
+  }, [isPickerOpen, isMetadataPopupOpen, pickerSelectMenuKey]);
+
+  useEffect(() => {
+    if (!isPickerOpen) {
+      setPickerSelectMenuKey(null);
+    }
+  }, [isPickerOpen]);
+
+  useEffect(() => {
+    if (pickerSelectMenuKey == null) {
+      return undefined;
+    }
+    const closeOnOutside = (e) => {
+      if (e.target?.closest?.("[data-picker-select-control]")) {
+        return;
+      }
+      setPickerSelectMenuKey(null);
+    };
+    document.addEventListener("mousedown", closeOnOutside, true);
+    return () => document.removeEventListener("mousedown", closeOnOutside, true);
+  }, [pickerSelectMenuKey]);
 
   // If a user navigates directly with ?datasetid=... update local state
   useEffect(() => {
@@ -921,6 +1185,12 @@ const ApiPage = () => {
     return filtered;
   }, [inventoryDatasets, pickerQuery]);
 
+  /** Same grouping as the Data Browser: one card per base table with geography pills. */
+  const filteredCompressedDatasets = useMemo(() => {
+    const compressed = compressDatasetsByGeography(filteredDatasets);
+    return compressed.sort((a, b) => String(a.menu3 || "").localeCompare(String(b.menu3 || "")));
+  }, [filteredDatasets]);
+
   const inventoryHighlightMatches = useMemo(() => {
     const query = pickerQuery.trim();
     if (!query) return {};
@@ -929,18 +1199,18 @@ const ApiPage = () => {
     const searchRegex = new RegExp(escapedQuery, "i");
     const highlights = {};
 
-    filteredDatasets.forEach((d) => {
-      const tableName = String(d.table_name || "");
-      const menu3 = String(d.menu3 || "");
+    filteredCompressedDatasets.forEach((cd) => {
+      const tableName = String(cd.table_name || "");
+      const menu3 = String(cd.menu3 || "");
       if (!searchRegex.test(menu3) && !searchRegex.test(tableName)) return;
 
-      const datasetId = d.seq_id || d.id;
-      highlights[datasetId] = [];
+      const cardId = cd.seq_id;
+      highlights[cardId] = [];
 
       if (searchRegex.test(menu3)) {
         const highlightRegex = new RegExp(escapedQuery, "gi");
         menu3.replace(highlightRegex, (matched, offset) => {
-          highlights[datasetId].push({
+          highlights[cardId].push({
             key: "menu3",
             indices: [[offset, offset + matched.length - 1]],
           });
@@ -951,7 +1221,7 @@ const ApiPage = () => {
       if (searchRegex.test(tableName)) {
         const highlightRegex = new RegExp(escapedQuery, "gi");
         tableName.replace(highlightRegex, (matched, offset) => {
-          highlights[datasetId].push({
+          highlights[cardId].push({
             key: "table_name",
             indices: [[offset, offset + matched.length - 1]],
           });
@@ -961,7 +1231,7 @@ const ApiPage = () => {
     });
 
     return highlights;
-  }, [filteredDatasets, pickerQuery]);
+  }, [filteredCompressedDatasets, pickerQuery]);
 
   const renderInventoryHighlightedText = (text, datasetId, key) => {
     if (!text) return null;
@@ -1034,8 +1304,8 @@ const ApiPage = () => {
           .filter((year) => year !== null && year !== undefined && String(year).trim() !== "")
           .sort((a, b) => String(b).localeCompare(String(a)));
         setAvailableYears(years);
-        // Default to all years selected; users can deselect to narrow export.
-        setSelectedYears(years);
+        // Default to latest year only; users can add years via pills or “Select all”.
+        setSelectedYears(years.length > 0 ? [years[0]] : []);
       } catch (error) {
         // Keep the page usable even if year metadata fails.
         setAvailableYears([]);
@@ -1184,11 +1454,6 @@ summary(data)
     setIsMetadataPopupOpen(false);
   }, [datasetBasics, starterQuerySql, queryDatabase]);
 
-  const curlFor = (url) => {
-    if (!url) return "";
-    return `curl -s "${url}"`;
-  };
-
   const handleDatasetChange = (nextId) => {
     setSelectedDatasetId(nextId);
     const next = new URLSearchParams(searchParams);
@@ -1205,6 +1470,21 @@ summary(data)
   const handleDatasetSelectFromPicker = (nextId) => {
     handleDatasetChange(nextId);
     setIsPickerOpen(false);
+  };
+
+  /** One clear target (single dataset or single geography row): select immediately. */
+  const handlePickerSelectSingle = (compressed) => {
+    if (!compressed?.datasets?.length) {
+      return;
+    }
+    const geos = compressed.geoIdPairs?.filter((p) => p.geography) || [];
+    if (geos.length === 1) {
+      handleDatasetSelectFromPicker(String(geos[0].id));
+      return;
+    }
+    if (compressed.datasets.length === 1) {
+      handleDatasetSelectFromPicker(String(compressed.datasets[0].seq_id ?? compressed.datasets[0].id));
+    }
   };
 
   const handleDatasetSearchChange = useCallback(({ query }) => {
@@ -1244,7 +1524,6 @@ summary(data)
   const handleCopy = async (text, type) => {
     await copyText(text);
     const statusByType = {
-      curl: "curl copied!",
       url: "URL copied!",
       python: "Python copied!",
       r: "R copied!",
@@ -1307,7 +1586,7 @@ summary(data)
       <Inner>
         <Title>API</Title>
         <SubTitle>
-          Choose a dataset to build export and query URLs you can paste into a browser, curl, or your own code.
+          Choose a dataset to build export and query URLs you can paste into a browser or your own code.
          
         </SubTitle>
 
@@ -1362,8 +1641,12 @@ summary(data)
             >
               <PickerHeader>
                 <PickerTitle>Select a dataset from Data Inventory</PickerTitle>
-                <CloseButton type="button" onClick={() => setIsPickerOpen(false)}>
-                  Close
+                <CloseButton
+                  type="button"
+                  onClick={() => setIsPickerOpen(false)}
+                  aria-label="Close"
+                >
+                  <FontAwesomeIcon icon={faXmark} aria-hidden />
                 </CloseButton>
               </PickerHeader>
               <PickerBody>
@@ -1374,41 +1657,137 @@ summary(data)
                   onChange={(e) => setPickerQuery(e.target.value)}
                   placeholder="Search by dataset title or table name..."
                 />
-                <Small style={{ marginTop: "0.6rem" }}>
-                  {filteredDatasets.length} dataset{filteredDatasets.length === 1 ? "" : "s"} found
-                </Small>
+                <PickerCountBar role="status" aria-live="polite">
+                  <span>
+                    <PickerCountNum>{inventoryDatasets.length.toLocaleString()}</PickerCountNum>
+                    {inventoryDatasets.length === 1 ? " dataset" : " datasets"} 
+                  </span>
+                  {pickerQuery.trim() ? (
+                    <>
+                      <PickerCountSep aria-hidden>·</PickerCountSep>
+                      <PickerCountMeta>
+                        <PickerCountNum>{filteredDatasets.length.toLocaleString()}</PickerCountNum>{" "}
+                        {filteredDatasets.length === 1 ? "dataset matches" : "datasets match"}
+                      </PickerCountMeta>
+                    </>
+                  ) : null}
+                </PickerCountBar>
                 <PickerDatasetList>
-                  {filteredDatasets.slice(0, 120).map((d) => {
-                    const datasetId = d.seq_id || d.id;
+                  {filteredCompressedDatasets.map((compressed) => {
+                    const cardId = compressed.seq_id;
+                    const cardKey = String(cardId);
+                    const geos = compressed.geoIdPairs?.filter((pair) => pair.geography) || [];
+                    const multipleGeos = geos.length > 1;
                     return (
-                    <PickerDatasetCard key={String(d.seq_id)}>
-                      <PickerDatasetMeta>
-                        <PickerDatasetName>
-                          {renderInventoryHighlightedText(d.menu3 || "", datasetId, "menu3") || "Untitled"}
-                        </PickerDatasetName>
-                        <PickerDatasetDetails>
-                          <Mono>
-                            {renderInventoryHighlightedText(d.table_name || "", datasetId, "table_name")}
-                          </Mono>
-                          <br />
-                          Source: {d.source || "N/A"}
-                        </PickerDatasetDetails>
-                      </PickerDatasetMeta>
-                      <PickerSelectButton
-                        type="button"
-                        onClick={() => handleDatasetSelectFromPicker(String(d.seq_id))}
-                      >
-                        Select
-                      </PickerSelectButton>
-                    </PickerDatasetCard>
-                  );
+                      <PickerInventoryCard key={cardKey}>
+                        <PickerCardHeader>
+                          <PickerCardTitle>
+                            {renderInventoryHighlightedText(compressed.menu3 || "", cardId, "menu3") || "Untitled"}
+                          </PickerCardTitle>
+                          {multipleGeos ? (
+                            <PickerSelectControl data-picker-select-control>
+                              <PickerSelectButton
+                                type="button"
+                                aria-haspopup="listbox"
+                                aria-expanded={pickerSelectMenuKey === cardKey}
+                                aria-label="Select dataset by geography"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setPickerSelectMenuKey((k) => (k === cardKey ? null : cardKey));
+                                }}
+                              >
+                                Select <span aria-hidden="true">▼</span>
+                              </PickerSelectButton>
+                              {pickerSelectMenuKey === cardKey && (
+                                <PickerSelectMenu role="listbox" aria-label="Choose geography">
+                                  {geos.map((geo) => (
+                                    <li key={String(geo.id)} role="none">
+                                      <PickerSelectMenuButton
+                                        type="button"
+                                        role="option"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDatasetSelectFromPicker(String(geo.id));
+                                          setPickerSelectMenuKey(null);
+                                        }}
+                                      >
+                                        {geo.geography}
+                                      </PickerSelectMenuButton>
+                                    </li>
+                                  ))}
+                                </PickerSelectMenu>
+                              )}
+                            </PickerSelectControl>
+                          ) : (
+                            <PickerSelectButton
+                              type="button"
+                              onClick={() => handlePickerSelectSingle(compressed)}
+                            >
+                              Select
+                            </PickerSelectButton>
+                          )}
+                        </PickerCardHeader>
+                        <PickerCardBody>
+                          <PickerCardInfo>
+                            <PickerInfoRow>
+                              <PickerInfoLabel>Table:</PickerInfoLabel>
+                              <span style={{ color: "#555" }}>
+                                <Mono>
+                                  {renderInventoryHighlightedText(
+                                    compressed.table_name || "",
+                                    cardId,
+                                    "table_name",
+                                  )}
+                                </Mono>
+                              </span>
+                            </PickerInfoRow>
+                            <PickerInfoRow>
+                              <PickerInfoLabel>Source:</PickerInfoLabel>
+                              <span style={{ color: "#555" }}>{compressed.source || "N/A"}</span>
+                            </PickerInfoRow>
+                            {geos.length > 0 && (
+                              <PickerInfoRow>
+                                <PickerInfoLabel>Geographies:</PickerInfoLabel>
+                                <PickerGeographies>
+                                  {geos.map((geo) => (
+                                    <PickerGeographyPill
+                                      key={String(geo.id)}
+                                      type="button"
+                                      onClick={() => handleDatasetSelectFromPicker(String(geo.id))}
+                                    >
+                                      {geo.geography}
+                                    </PickerGeographyPill>
+                                  ))}
+                                </PickerGeographies>
+                              </PickerInfoRow>
+                            )}
+                          </PickerCardInfo>
+                          <PickerCardMeta>
+                            <div style={{ width: "100%" }}>
+                              <PickerLastUpdatedLabel>Last updated</PickerLastUpdatedLabel>
+                              {(() => {
+                                const view = getPickerLastUpdatedView(compressed);
+                                if (view.kind === "single") {
+                                  return <PickerLastUpdatedValue>{view.text}</PickerLastUpdatedValue>;
+                                }
+                                return (
+                                  <PickerLastUpdatedList>
+                                    {view.rows.map((r) => (
+                                      <PickerLastUpdatedRow key={r.key}>
+                                        <PickerLastUpdatedGeo>{r.label}</PickerLastUpdatedGeo>
+                                        <PickerLastUpdatedDate>{r.display}</PickerLastUpdatedDate>
+                                      </PickerLastUpdatedRow>
+                                    ))}
+                                  </PickerLastUpdatedList>
+                                );
+                              })()}
+                            </div>
+                          </PickerCardMeta>
+                        </PickerCardBody>
+                      </PickerInventoryCard>
+                    );
                   })}
                 </PickerDatasetList>
-                {filteredDatasets.length > 120 && (
-                  <Small style={{ marginTop: "0.75rem" }}>
-                    Showing first 120 results. Refine your search to narrow down.
-                  </Small>
-                )}
               </PickerBody>
             </PickerDialog>
           </PickerOverlay>
@@ -1444,7 +1823,6 @@ summary(data)
             exportUrl={exportUrl}
             copyStatus={copyStatus}
             handleCopy={handleCopy}
-            curlFor={curlFor}
             exportExamplesExpanded={exportExamplesExpanded}
             setExportExamplesExpanded={setExportExamplesExpanded}
             exportExampleLang={exportExampleLang}
@@ -1469,7 +1847,6 @@ summary(data)
             queryUrl={queryUrl}
             copyStatus={copyStatus}
             handleCopy={handleCopy}
-            curlFor={curlFor}
           />
         )}
 

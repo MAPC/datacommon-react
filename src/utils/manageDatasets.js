@@ -282,3 +282,104 @@ export function sortDatasets({ datasets = [], sortOrder = 'Relevance', searchQue
       return sorted;
   }
 }
+
+/**
+ * Newest catalog `updated` across the member datasets of one merged card (chronological, not string sort).
+ * Per-geography labels still use `geoIdPairs[].updated`. This top-level `updated` is a convenience for
+ * code that only needs one value (sorting, single-line display, or fallbacks) without reading each pair.
+ */
+function pickLatestUpdated(datasets) {
+  if (!Array.isArray(datasets) || !datasets.length) {
+    return undefined;
+  }
+  const withKeys = datasets
+    .map((ds) => ({ raw: ds.updated, k: parseUpdatedForSort(ds.updated) }))
+    .filter((x) => x.k);
+  if (withKeys.length) {
+    withKeys.sort((a, b) => a.k.localeCompare(b.k));
+    return withKeys[withKeys.length - 1].raw;
+  }
+  const firstNonEmpty = datasets
+    .map((ds) => ds.updated)
+    .find((u) => u != null && String(u).trim() !== "");
+  return firstNonEmpty;
+}
+
+/**
+ * Group datasets the same way as BrowserPage: same base table across _m / _ct / _bg / _b / _blk
+ * become one card with multiple geographies.
+ */
+export function compressDatasetsByGeography(datasets) {
+  if (!Array.isArray(datasets) || datasets.length === 0) {
+    return [];
+  }
+
+  const datasetBaseTableMap = {};
+
+  datasets.forEach((dataset) => {
+    const tableName = dataset.table_name;
+    const datasetName = dataset.menu3;
+
+    let trimmedTable = tableName;
+    let trimmedName = datasetName;
+    let datasetGeography = null;
+
+    if (tableName && tableName.endsWith("_m")) {
+      trimmedTable = tableName.slice(0, -2);
+      if (datasetName && datasetName.endsWith(" (Municipal)")) trimmedName = datasetName.slice(0, -12);
+      if (datasetName && datasetName.endsWith(" (Municipality)")) trimmedName = datasetName.slice(0, -15);
+      datasetGeography = "Municipalities";
+    } else if (tableName && tableName.endsWith("_ct")) {
+      trimmedTable = tableName.slice(0, -3);
+      if (datasetName && datasetName.endsWith(" (Census Tracts)")) trimmedName = datasetName.slice(0, -16);
+      if (datasetName && datasetName.endsWith(" (Census Tract)")) trimmedName = datasetName.slice(0, -15);
+      datasetGeography = "Census Tracts";
+    } else if (tableName && tableName.endsWith("_bg")) {
+      trimmedTable = tableName.slice(0, -3);
+      if (datasetName && datasetName.endsWith(" (Block Groups)")) trimmedName = datasetName.slice(0, -15);
+      if (datasetName && datasetName.endsWith(" (Block Group)")) trimmedName = datasetName.slice(0, -14);
+      datasetGeography = "Block Groups";
+    } else if (tableName && tableName.endsWith("_b")) {
+      trimmedTable = tableName.slice(0, -2);
+      trimmedName = datasetName && datasetName.endsWith(" (Blocks)") ? datasetName.slice(0, -9) : datasetName;
+      datasetGeography = "Blocks";
+    } else if (tableName && tableName.endsWith("_blk")) {
+      trimmedTable = tableName.slice(0, -4);
+      trimmedName = datasetName && datasetName.endsWith(" (Blocks)") ? datasetName.slice(0, -9) : datasetName;
+      datasetGeography = "Blocks";
+    }
+
+    if (!datasetBaseTableMap[trimmedTable]) {
+      datasetBaseTableMap[trimmedTable] = {
+        baseName: trimmedName,
+        datasets: [],
+        geoIdPairs: [],
+      };
+    }
+    datasetBaseTableMap[trimmedTable].datasets.push(dataset);
+    // Each entry is one geography slice; `updated` is that row’s own catalog date (per-location UIs).
+    datasetBaseTableMap[trimmedTable].geoIdPairs.push({
+      geography: datasetGeography,
+      id: dataset.seq_id || dataset.id,
+      updated: dataset.updated,
+    });
+  });
+
+  const geoOrder = ["Municipalities", "Census Tracts", "Block Groups", "Blocks"];
+
+  return Object.entries(datasetBaseTableMap).map(([baseTable, cdsInfo]) => {
+    const sortedGeoIdPairs = [...cdsInfo.geoIdPairs].sort(
+      (pair1, pair2) => geoOrder.indexOf(pair1.geography) - geoOrder.indexOf(pair2.geography),
+    );
+    return {
+      ...cdsInfo,
+      table_name: baseTable,
+      menu3: cdsInfo.baseName,
+      seq_id: cdsInfo.datasets.map((ds) => ds.seq_id || ds.id).join(","),
+      // Summary: newest date in the group. For one date per geography, use `geoIdPairs` (not this field alone).
+      updated: pickLatestUpdated(cdsInfo.datasets),
+      source: cdsInfo.datasets.map((ds) => ds.source)[0],
+      geoIdPairs: sortedGeoIdPairs,
+    };
+  });
+}

@@ -20,7 +20,6 @@ const ExportApiSection = ({
   exportUrl,
   copyStatus,
   handleCopy,
-  curlFor,
   exportExamplesExpanded,
   setExportExamplesExpanded,
   exportExampleLang,
@@ -50,7 +49,6 @@ const ExportApiSection = ({
     CodeBlock,
     CopyRow,
     CopyStatus,
-    SecondaryButton,
     CopyButton,
     CodeExamplesSection,
     CodeExamplesDisclosure,
@@ -74,7 +72,7 @@ const ExportApiSection = ({
     <Card>
       <CardTitle>Export API</CardTitle>
       <Small>
-        Best for downloads (CSV/GeoJSON/etc). This uses <Mono>/api/export</Mono> and returns a file response.
+        Best for downloading data (CSV, GeoJSON, etc.). Uses <Mono>/api/export</Mono> to return a file.
       </Small>
 
       <InlineRow>
@@ -173,21 +171,18 @@ const ExportApiSection = ({
           style={{
             marginTop: "0.45rem",
             marginBottom: 0,
-            color: exportUrl.length >= VERY_LONG_URL_CHARS ? "#9a3412" : "#92400e",
+            color: exportUrl.length >= VERY_LONG_GET_URL_CHARS ? "#9a3412" : "#92400e",
             fontSize: "0.9rem",
             lineHeight: 1.45,
           }}
         >
           <strong>Long URL ({exportUrl.length.toLocaleString()} characters).</strong> Some browsers, proxies, or servers
-          limit long GET requests. If the link fails, try fewer values in <Mono>columns=</Mono> (if you use it), omit
-          optional parameters, or run the same URL with <Mono>curl</Mono> where limits are looser.
+          limit long GET requests. If the link fails, try fewer values in <Mono>columns=</Mono> (if you use it) or
+          omit optional parameters.
         </Small>
       )}
       <CopyRow>
         {copyStatus && <CopyStatus>{copyStatus}</CopyStatus>}
-        <SecondaryButton type="button" onClick={() => handleCopy(curlFor(exportUrl), "curl")}>
-          Copy curl
-        </SecondaryButton>
         <CopyButton type="button" onClick={() => handleCopy(exportUrl, "url")}>
           Copy URL
         </CopyButton>
