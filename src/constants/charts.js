@@ -2784,4 +2784,66 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
       },
     },
   },
+  "municipal-finances": {
+    fund_revenue:{
+      type: "tree-map",
+      title: "Fund Revenue Breakdown",
+      tooltip: { type: "percentAndCount" },
+      tables: {
+        "tabular.muni_finance_m": (() => {
+          const columnList = ["fiscal_yr", "tot_rev", "tax_levy", "state_aid", "loc_recpts", "all_other"];
+          return {
+            yearCol: "fiscal_yr",
+            latestYearOnly: true,
+            columns: columnList,
+            specialFetch: async (municipality, dispatchUpdate) => {
+              const api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
+              const muniName = String(municipality || "").replace(/'/g, "''");
+              const selectList = columnList.join(",");
+              const queryString = `
+                SELECT ${selectList}
+                FROM tabular.muni_finance_m
+                WHERE muni_name ILIKE '${muniName}'
+                  AND fiscal_yr = (
+                    SELECT MAX(fiscal_yr)
+                    FROM tabular.muni_finance_m
+                    WHERE muni_name ILIKE '${muniName}'
+                  )
+              `;
+              const response = await fetch(`${api}${queryString}`);
+              if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+              }
+              const payload = (await response.json()) || {};
+              dispatchUpdate(payload.rows || []);
+            },
+          };
+        })(),
+      },
+      timeframe: async () => {
+        let queryString = `SELECT fiscal_yr as latest_year FROM tabular.muni_finance_m GROUP BY fiscal_yr ORDER BY fiscal_yr DESC LIMIT 1`;
+        const years = await fetchLatestYear(queryString);
+        return years[0];
+      },
+      transformer: (tables, chart) => {
+        const data = tables["tabular.muni_finance_m"];
+        if (!data || data.length < 1) {
+          return [];
+        }
+        const row = data[0];
+        return [{ value: row.tot_rev, label: "Total Revenues", group: "Fund Revenue" }, 
+          { value: row.tax_levy, label: "Tax Levy", group: "Fund Revenue" }, 
+          { value: row.state_aid, label: "State Aid", group: "Fund Revenue" }, 
+          { value: row.loc_recpts, label: "Local Receipt", group: "Fund Revenue" }, 
+          { value: row.all_other, label: "All Other", group: "Fund Revenue" }];
+      },
+      source:"MA Dept of Revenue",
+      datasetLinks: { "Dept of Revenue Municipal Finance": 502 },
+      xAxis: {
+        label: "Fund Revenue",
+        format: format.string.default,
+      },
+    }
+ 
+  },
 };

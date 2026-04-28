@@ -124,6 +124,7 @@ const DownloadChartImageButton = ({ chartRef, chartTitle, muni, isSubregion, isR
       const chartType = chartWrapper.querySelector('.StackedAreaChart') ? 'stacked-area' : 
                        chartWrapper.querySelector('.StackedBarChart') ? 'stacked-bar' : 
                        chartWrapper.querySelector('.PieChart') ? 'pie' :
+                       chartWrapper.querySelector('.TreeMap') ? 'treemap' :
                        isGaugeChart ? 'gauge' : 'other';
       
       if (legend && !isSpeedTestMetrics) {
@@ -144,12 +145,16 @@ const DownloadChartImageButton = ({ chartRef, chartTitle, muni, isSubregion, isR
       if (chartType === 'gauge') {
         svgHeight = Math.round(svgWidth * (40 / 80)); // match 80x40 viewBox ratio
       }
+      // Treemap should preserve original internal aspect ratio so tiles are not clipped.
+      if (chartType === 'treemap') {
+        svgHeight = Math.round(svgWidth * (440 / 760));
+      }
       
       // Set explicit dimensions on the cloned SVG
       clonedSvg.setAttribute('width', svgWidth);
       clonedSvg.setAttribute('height', svgHeight);
-      // For gauges, keep the original internal viewBox (80x40) so the arc looks the same as in the tab
-      if (!isGaugeChart) {
+      // For gauges and treemaps, keep original viewBox to avoid clipping/distortion.
+      if (!isGaugeChart && chartType !== 'treemap') {
         clonedSvg.setAttribute('viewBox', `0 0 ${svgWidth} ${svgHeight}`);
       }
       
