@@ -138,6 +138,7 @@ class DatasetTable extends React.Component {
       selectedYears = [],
       selectedGeographies = [],
       geographyColumn = null,
+      linkRowsToDatasetView = false,
       updatePage,
       updateRowsPerPage
     } = this.props;
@@ -173,9 +174,14 @@ class DatasetTable extends React.Component {
     const sortedRows = this.sortData(allRows, effectiveSortColumn, effectiveSortDirection);
     
     // Convert to DataRow components
-    const dataRows = sortedRows.map((row, i) => 
-      <DataRow key={i} rowData={row} headers={filteredColumnKeys.map((key) => key.name)} />
-    );
+    const dataRows = sortedRows.map((row, i) => (
+      <DataRow
+        key={i}
+        rowData={row}
+        headers={filteredColumnKeys.map((key) => key.name)}
+        linkRowsToDatasetView={linkRowsToDatasetView}
+      />
+    ));
 
     const renderedRows = dataRows.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
     const firstRecordOnPage = (currentPage - 1) * rowsPerPage + 1;
@@ -280,6 +286,7 @@ DatasetTable.propTypes = {
   selectedYears: PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.string, PropTypes.number])),
   selectedGeographies: PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.string, PropTypes.number])),
   geographyColumn: PropTypes.string,
+  linkRowsToDatasetView: PropTypes.bool,
   updatePage: PropTypes.func.isRequired,
   updateRowsPerPage: PropTypes.func.isRequired,
 };
