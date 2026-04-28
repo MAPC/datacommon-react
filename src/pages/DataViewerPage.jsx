@@ -303,6 +303,8 @@ class DataViewerClass extends React.Component {
             selectedGeographies={this.state.selectedGeographies}
             updateSelectedGeographies={this.updateSelectedGeographies}
             geographyColumn={this.state.geographyColumn}
+            rowsPerPage={this.state.rowsPerPage}
+            updateRowsPerPage={this.updateRowsPerPage}
             source={this.state.source}
             table={this.state.table}
             title={this.state.title}
@@ -323,7 +325,6 @@ class DataViewerClass extends React.Component {
             geographyColumn={this.state.geographyColumn}
             linkRowsToDatasetView={this.state.linkInventoryRows}
             updatePage={this.updatePage}
-            updateRowsPerPage={this.updateRowsPerPage}
             metadata={this.state.metadata}
           />
         </section>

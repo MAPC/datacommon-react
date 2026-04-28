@@ -429,6 +429,8 @@ function DatasetHeader({
   selectedGeographies = [],
   updateSelectedGeographies,
   geographyColumn,
+  rowsPerPage,
+  updateRowsPerPage,
 }) {
   const location = useLocation();
   const isEmbedView = new URLSearchParams(location.search).get("embed") === "1";
@@ -556,6 +558,23 @@ function DatasetHeader({
                   Export
                 </button>
               </div>
+              <div className="rows-per-page-selector">
+                <label htmlFor="rows-per-page" className="rows-per-page-label">
+                  Rows per page:
+                </label>
+                <select
+                  id="rows-per-page"
+                  className="rows-per-page-dropdown"
+                  value={rowsPerPage}
+                  onChange={(e) => updateRowsPerPage(Number(e.target.value))}
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                  <option value={500}>500</option>
+                </select>
+              </div>
             </div>
           )}
         </div>
@@ -611,6 +630,8 @@ DatasetHeader.propTypes = {
   geographyColumn: PropTypes.string,
   universe: PropTypes.string,
   updatedAt: PropTypes.string,
+  rowsPerPage: PropTypes.number,
+  updateRowsPerPage: PropTypes.func
 };
 
 export default DatasetHeader;
