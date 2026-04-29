@@ -1084,9 +1084,14 @@ const BrowserPage = () => {
                   {(selectedGeoFilters.includes('other') || selectedGeoFilters.includes('all')) && <span>✓</span>}
                 </GeographyFilterPill>
               </GeographyFilterContainer>
-              <GeographyFilterPill onClick={() => setSelectedGeoFilters([])}>
-                <>Clear all geographies</>
-                <span>X</span>
+              <GeographyFilterPill
+                onClick={() => selectedGeoFilters.length === 0 ? setSelectedGeoFilters(['all']) : setSelectedGeoFilters([])}
+                className={selectedGeoFilters.length === 0 ? 'selected' : ''}
+              >
+                <>
+                  {selectedGeoFilters.length === 0 ? "Select all geographies" : "Clear all geographies"}
+                </>
+                <span>{selectedGeoFilters.length !== 0 ? "X" : "✓"}</span>
               </GeographyFilterPill>
             </GeographyBarContainer>
           </SearchInputContainer>
