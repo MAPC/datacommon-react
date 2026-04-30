@@ -514,7 +514,6 @@ export default {
         }
         // For aggregated data (subregion/RPA), race_eth is already filtered in query
         // For municipal data, filter for "All Race/Ethnicity"
-        console.log("popData", popData);
         const row = popData.filter((r) => r.race_eth === "All Race/Ethnicity")[0] || popData[0];
        
         const data = {
@@ -2515,7 +2514,7 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
     },
     internet_usage_by_income: {
       type: "stacked-bar",
-      title: "Internet Usage by Income Level",
+      title: "Lack of Access to Internet by Income Level",
       tooltip: { type: "percentAndCount" },
       xAxis: {
         label: "Household Income Level",

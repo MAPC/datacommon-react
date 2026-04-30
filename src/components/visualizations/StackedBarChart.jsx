@@ -187,7 +187,7 @@ const StackedBarChart = (props) => {
       if (row.pct_me !== undefined) {
         acc[row.x][`${row.z}_pct_me`] = row.pct_me;
       }
-       // Store count and its margin of error per series when provided (e.g. Internet Usage by Income Level)
+      // Store count and its margin of error per series when provided (e.g. Lack of Access to Internet by Income Level)
       if (row.count !== undefined) {
         acc[row.x][`${row.z}_count`] = row.count;
       }
@@ -259,9 +259,9 @@ const StackedBarChart = (props) => {
         const totpop_me = d.data.totpop_me;
         const isAcs = chartSourceIsAcs(props.chart);
 
-        const isPercentChart = props.chart?.title === "Internet Usage by Income Level";
+        const isPercentChart = props.chart?.title === "Lack of Access to Internet by Income Level";
         
-        // For Internet Usage by Income Level, values are already percentages (0-100 range), so format directly
+        // For Lack of Access to Internet by Income Level, values are already percentages (0-100 range), so format directly
         const formattedValue = typeof value === "number" ? 
           (isPercentChart 
             ? value.toFixed(1) + "%"  // Already a percentage, format with 1 decimal
@@ -295,7 +295,7 @@ const StackedBarChart = (props) => {
             ? "countAndPercent"
             : props.chart.title === "Employment of Residents"
               ? "countAndPercent"
-              : props.chart.title === "Housing Cost Burden" || props.chart.title === "Internet Usage by Income Level"
+              : props.chart.title === "Housing Cost Burden" || props.chart.title === "Lack of Access to Internet by Income Level"
                 ? "percentAndCount"
                 : "default");
 
