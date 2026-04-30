@@ -23,6 +23,7 @@ class DataViewerClass extends React.Component {
       loading: true,
       rowsPerPage: 25,
       selectedColumns: [], // Will be initialized with all columns
+      marginColumnsByBase: {},
       availableGeographies: [],
       selectedGeographies: [],
       geographyColumn: null,
@@ -35,6 +36,102 @@ class DataViewerClass extends React.Component {
     this.loadDatasetData = this.loadDatasetData.bind(this);
     this.updateSelectedGeographies = this.updateSelectedGeographies.bind(this);
     this.hasLoaded = false; // Flag to prevent duplicate API calls in StrictMode
+  }
+
+  getMarginColumnsByBase(columnKeys = []) {
+    const byName = new Set((columnKeys || []).map((c) => String(c?.name || "")));
+    const pairs = {};
+    const byAlias = {};
+    (columnKeys || []).forEach((col) => {
+      const alias = String(col?.alias || "").trim().toLowerCase();
+      if (alias) byAlias[alias] = String(col?.name || "");
+    });
+
+    const normalizeAliasMetric = (text) =>
+      String(text || "")
+        .toLowerCase()
+        .replace(/\s*;\s*(estimate|margin of error)\s*$/i, "")
+        .replace(/\s*,\s*(estimate|margin of error)\s*$/i, "")
+        .trim();
+
+    const getBaseCandidates = (name) => {
+      const candidates = [];
+      if (name.endsWith("_mp")) {
+        candidates.push(name.slice(0, -3) + "_p");
+        candidates.push(name.slice(0, -3));
+      }
+      if (name.endsWith("_me")) {
+        candidates.push(name.slice(0, -3));
+      }
+      if (name.endsWith("_moe")) {
+        candidates.push(name.slice(0, -4));
+      }
+      if (name.endsWith("_m")) {
+        candidates.push(name.slice(0, -2));
+      }
+      return candidates.filter(Boolean);
+    };
+
+    const isMarginColumn = (col) => {
+      const name = String(col?.name || "");
+      const alias = String(col?.alias || "").toLowerCase();
+      const details = String(col?.details || "").toLowerCase();
+      const hintFromMetadata = alias.includes("margin of error") || details.includes("margin of error");
+      const suffixHint = /(_mp|_me|_moe|_m)$/i.test(name);
+      if (!hintFromMetadata && !suffixHint) return { isMargin: false, base: null };
+
+      // Prefer alias-based pairing for ACS-style labels:
+      // "X; margin of error" -> "X; estimate"
+      if (alias.includes("margin of error")) {
+        const estimateAlias = alias.replace("margin of error", "estimate").replace(/\s+/g, " ").trim();
+        if (byAlias[estimateAlias]) {
+          return { isMargin: true, base: byAlias[estimateAlias] };
+        }
+        const normalized = normalizeAliasMetric(alias);
+        const matchedBase = (columnKeys || []).find((candidate) => {
+          const a = String(candidate?.alias || "").toLowerCase();
+          const isEstimate = /\bestimate\b/i.test(a) || (!/\bmargin of error\b/i.test(a) && !!a);
+          return isEstimate && normalizeAliasMetric(a) === normalized;
+        });
+        if (matchedBase?.name) {
+          return { isMargin: true, base: matchedBase.name };
+        }
+      }
+
+      const base = getBaseCandidates(name).find((candidate) => byName.has(candidate));
+      return { isMargin: true, base: base || null };
+    };
+
+    (columnKeys || []).forEach((col) => {
+      const name = String(col?.name || "");
+      const result = isMarginColumn(col);
+      if (!result?.isMargin || !result.base || !name) return;
+      if (!pairs[result.base]) pairs[result.base] = [];
+      pairs[result.base].push(name);
+    });
+
+    return pairs;
+  }
+
+  getVisibleColumnKeys(columnKeys = []) {
+    const isMarginColumn = (col) => {
+      const name = String(col?.name || "");
+      const alias = String(col?.alias || "").toLowerCase();
+      const details = String(col?.details || "").toLowerCase();
+      return alias.includes("margin of error") || details.includes("margin of error") || /(_mp|_me|_moe|_m)$/i.test(name);
+    };
+    return (columnKeys || []).filter((col) => !isMarginColumn(col));
+  }
+
+  expandSelectedWithMargins(selectedBaseColumns = [], marginColumnsByBase = {}) {
+    const next = [...selectedBaseColumns];
+    selectedBaseColumns.forEach((base) => {
+      const margins = marginColumnsByBase?.[base] || [];
+      margins.forEach((m) => {
+        if (!next.includes(m)) next.push(m);
+      });
+    });
+    return next;
   }
 
   componentDidMount() {
@@ -125,13 +222,17 @@ class DataViewerClass extends React.Component {
           // Process the distinct year data
           const distinctYears = yearResults.map((year) => Object.values(year)[0]).sort().reverse();
 
+          const visibleColumnKeys = this.getVisibleColumnKeys(columnKeys);
+          const marginColumnsByBase = this.getMarginColumnsByBase(columnKeys);
+          const selectedBaseColumns = visibleColumnKeys.map((col) => col.name);
           this.setState({
             availableYears: distinctYears,
             rows: tableResults,
             universe: universeData ? universeData.details : "",
             description: descriptionData ? descriptionData.details : "",
             columnKeys: columnKeys,
-            selectedColumns: columnKeys.map((col) => col.name), // Initialize with all columns
+            selectedColumns: this.expandSelectedWithMargins(selectedBaseColumns, marginColumnsByBase),
+            marginColumnsByBase,
             metadata,
             selectedYears: distinctYears.length ? [distinctYears[0]] : [],
             table: dataset.table_name,
@@ -174,12 +275,16 @@ class DataViewerClass extends React.Component {
             // Process the distinct year data
             const distinctYears = yearResults.map((year) => Object.values(year)[0]).sort().reverse();
 
+            const visibleColumnKeys = this.getVisibleColumnKeys(sortedMetadata);
+            const marginColumnsByBase = this.getMarginColumnsByBase(sortedMetadata);
+            const selectedBaseColumns = visibleColumnKeys.map((col) => col.name);
             this.setState({
               availableYears: distinctYears,
               rows: tableResults,
               description: metadata.documentation.metadata.dataIdInfo.idPurp || "",
               columnKeys: sortedMetadata,
-              selectedColumns: sortedMetadata.map((col) => col.name), // Initialize with all columns
+              selectedColumns: this.expandSelectedWithMargins(selectedBaseColumns, marginColumnsByBase),
+              marginColumnsByBase,
               metadata,
               selectedYears: distinctYears.length ? [distinctYears[0]] : [],
               table: dataset.table_name,
@@ -228,15 +333,16 @@ class DataViewerClass extends React.Component {
 
   updateSelectedColumns(columnName) {
     this.setState((prevState) => {
+      const marginColumns = prevState.marginColumnsByBase?.[columnName] || [];
       if (prevState.selectedColumns.includes(columnName)) {
-        const index = prevState.selectedColumns.indexOf(columnName);
-        const front = prevState.selectedColumns.slice(0, index);
-        const back = prevState.selectedColumns.slice(index + 1);
-        const newArray = front.concat(back);
-        return { selectedColumns: newArray };
+        const next = prevState.selectedColumns.filter((col) => col !== columnName && !marginColumns.includes(col));
+        return { selectedColumns: next };
       }
-      prevState.selectedColumns.push(columnName);
-      return { selectedColumns: prevState.selectedColumns };
+      const next = [...prevState.selectedColumns, columnName];
+      marginColumns.forEach((col) => {
+        if (!next.includes(col)) next.push(col);
+      });
+      return { selectedColumns: next };
     });
   }
 
