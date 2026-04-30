@@ -60,14 +60,14 @@ const FilterTitle = styled.h4`
 const ClearButton = styled.button`
   background: none;
   border: none;
-  color: #6fc68e;
+  color: #4ea56c;
   font-size: 0.875rem;
   cursor: pointer;
   padding: 0;
   text-decoration: underline;
   
   &:hover {
-    color: #5db37a;
+    color: #367a4e;
   }
 `;
 
@@ -891,8 +891,9 @@ const BrowserPage = () => {
     setSelectedSources([]);
   };
 
-  const clearMenu1Filter = () => {
+  const clearCategoryFilters = () => {
     setSelectedMenu1s([]);
+    setSelectedMenu2s([]);
   };
 
   const handleViewMetadata = (dataset) => {
@@ -962,8 +963,8 @@ const BrowserPage = () => {
           <FilterSection>
             <FilterHeader>
               <FilterTitle>Category</FilterTitle>
-              {selectedMenu1s.length > 0 && (
-                <ClearButton onClick={clearMenu1Filter}>Clear</ClearButton>
+              {(selectedMenu1s.length > 0 || selectedMenu2s.length > 0) && (
+                <ClearButton onClick={clearCategoryFilters}>Clear</ClearButton>
               )}
             </FilterHeader>
             <FilterListCategories>
@@ -1036,7 +1037,7 @@ const BrowserPage = () => {
         <ContentArea>
           <SearchInputContainer>
             <SearchInput
-              type="text"
+              type="search"
               placeholder="Search by table name or title..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
