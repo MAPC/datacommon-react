@@ -514,7 +514,6 @@ export default {
         }
         // For aggregated data (subregion/RPA), race_eth is already filtered in query
         // For municipal data, filter for "All Race/Ethnicity"
-        console.log("popData", popData);
         const row = popData.filter((r) => r.race_eth === "All Race/Ethnicity")[0] || popData[0];
        
         const data = {
