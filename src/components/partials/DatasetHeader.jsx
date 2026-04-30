@@ -285,7 +285,54 @@ const GeographyFilter = ({ availableGeographies = [], selectedGeographies = [], 
 
 const ColumnSelectorDropdown = ({ columnKeys, updateSelectedColumns, selectedColumns }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [columnSearchQuery, setColumnSearchQuery] = useState("");
   const dropdownRef = useRef(null);
+
+  const getMarginColumnsByBase = (keys = []) => {
+    const byName = new Set((keys || []).map((c) => String(c?.name || "")));
+    const pairs = {};
+    const byAlias = {};
+    (keys || []).forEach((col) => {
+      const alias = String(col?.alias || "").trim().toLowerCase();
+      if (alias) byAlias[alias] = String(col?.name || "");
+    });
+
+    const getBaseCandidates = (name) => {
+      const candidates = [];
+      if (name.endsWith("_mp")) {
+        candidates.push(name.slice(0, -3) + "_p");
+        candidates.push(name.slice(0, -3));
+      }
+      if (name.endsWith("_me")) candidates.push(name.slice(0, -3));
+      if (name.endsWith("_moe")) candidates.push(name.slice(0, -4));
+      if (name.endsWith("_m")) candidates.push(name.slice(0, -2));
+      return candidates.filter(Boolean);
+    };
+
+    const isMarginColumn = (col) => {
+      const name = String(col?.name || "");
+      const alias = String(col?.alias || "").toLowerCase();
+      const details = String(col?.details || "").toLowerCase();
+      const hintFromMetadata = alias.includes("margin of error") || details.includes("margin of error");
+      const suffixHint = /(_mp|_me|_moe|_m)$/i.test(name);
+      if (!hintFromMetadata && !suffixHint) return { isMargin: false, base: null };
+      if (alias.includes("margin of error")) {
+        const estimateAlias = alias.replace("margin of error", "estimate").replace(/\s+/g, " ").trim();
+        if (byAlias[estimateAlias]) return { isMargin: true, base: byAlias[estimateAlias] };
+      }
+      const base = getBaseCandidates(name).find((candidate) => byName.has(candidate));
+      return { isMargin: true, base: base || null };
+    };
+
+    (keys || []).forEach((col) => {
+      const result = isMarginColumn(col);
+      if (!result?.isMargin || !result.base) return;
+      if (!pairs[result.base]) pairs[result.base] = [];
+      pairs[result.base].push(col.name);
+    });
+
+    return pairs;
+  };
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -303,18 +350,40 @@ const ColumnSelectorDropdown = ({ columnKeys, updateSelectedColumns, selectedCol
     };
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) {
+      setColumnSearchQuery("");
+    }
+  }, [isOpen]);
+
   if (!columnKeys || columnKeys.length === 0) {
     return null;
   }
 
-  // Sort columns alphabetically by alias (or name if no alias)
-  const sortedColumnKeys = [...columnKeys].sort((a, b) => {
+  const marginColumnsByBase = getMarginColumnsByBase(columnKeys);
+  const isMarginColumn = (col) => {
+    const name = String(col?.name || "");
+    const alias = String(col?.alias || "").toLowerCase();
+    const details = String(col?.details || "").toLowerCase();
+    return alias.includes("margin of error") || details.includes("margin of error") || /(_mp|_me|_moe|_m)$/i.test(name);
+  };
+  const visibleColumnKeys = columnKeys.filter((col) => !isMarginColumn(col));
+
+  // Sort selectable (non-MOE) columns alphabetically by alias (or name if no alias)
+  const sortedColumnKeys = [...visibleColumnKeys].sort((a, b) => {
     const aName = (a.alias || a.name).toLowerCase();
     const bName = (b.alias || b.name).toLowerCase();
     return aName.localeCompare(bName);
   });
+  const filteredColumnKeys = sortedColumnKeys.filter((column) => {
+    const query = columnSearchQuery.trim().toLowerCase();
+    if (!query) return true;
+    const label = String(column.alias || column.name || "").toLowerCase();
+    const name = String(column.name || "").toLowerCase();
+    return label.includes(query) || name.includes(query);
+  });
 
-  const selectedCount = selectedColumns.length;
+  const selectedCount = sortedColumnKeys.filter((col) => selectedColumns.includes(col.name)).length;
   const totalCount = sortedColumnKeys.length;
   const displayText = selectedCount === totalCount 
     ? `All Columns (${totalCount})` 
@@ -360,21 +429,42 @@ const ColumnSelectorDropdown = ({ columnKeys, updateSelectedColumns, selectedCol
               {selectedCount === totalCount ? 'Deselect All' : 'Select All'}
             </button>
           </div>
+          <div style={{ padding: "8px 0 10px 0" }}>
+            <input
+              type="text"
+              placeholder="Search columns..."
+              value={columnSearchQuery}
+              onChange={(e) => setColumnSearchQuery(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              style={{
+                width: "100%",
+                padding: "8px 10px",
+                border: "1px solid #ccc",
+                borderRadius: 4,
+                fontSize: "12px",
+              }}
+            />
+          </div>
           <div className="column-checkboxes">
-            {sortedColumnKeys.map((column) => (
-              <label key={column.name} className="column-checkbox-label">
-              <input
-                type="checkbox"
-                checked={selectedColumns.includes(column.name)}
-                onChange={(e) => {
-                  e.stopPropagation();
-                  updateSelectedColumns(column.name);
-                }}
-                className="column-checkbox"
-              />
-                <span>{column.alias || column.name}</span>
-              </label>
-            ))}
+            {filteredColumnKeys.length === 0 ? (
+              <div style={{ padding: "8px 0", fontSize: "12px", color: "#777" }}>No matches</div>
+            ) : (
+              filteredColumnKeys.map((column) => (
+                <label key={column.name} className="column-checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={selectedColumns.includes(column.name)}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      updateSelectedColumns(column.name);
+                    }}
+                    className="column-checkbox"
+                  />
+                  <span>{column.alias || column.name}</span>
+                </label>
+              ))
+            )}
           </div>
         </div>
       )}
