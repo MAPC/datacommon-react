@@ -54,22 +54,40 @@ class DataViewerClass extends React.Component {
         .replace(/\s*,\s*(estimate|margin of error)\s*$/i, "")
         .trim();
 
+    // From MOE field name → possible base names; see DatasetHeader ColumnSelectorDropdown (keep in sync).
+    // Percent MOE for *_p: either *_mep or *mep (glued), e.g. bd3u_mep↔bd3u_p and noncitzmep↔noncitz_p.
     const getBaseCandidates = (name) => {
       const candidates = [];
-      if (name.endsWith("_mp")) {
-        candidates.push(name.slice(0, -3) + "_p");
-        candidates.push(name.slice(0, -3));
+      const n = String(name || "");
+
+      if (n.endsWith("_mep")) {
+        candidates.push(n.slice(0, -4) + "_p");
+      } else if (/mep$/i.test(n)) {
+        candidates.push(n.slice(0, -3) + "_p");
       }
-      if (name.endsWith("_me")) {
-        candidates.push(name.slice(0, -3));
+      if (n.endsWith("_mp")) {
+        candidates.push(n.slice(0, -3) + "_p");
+        candidates.push(n.slice(0, -3));
       }
-      if (name.endsWith("_moe")) {
-        candidates.push(name.slice(0, -4));
+      if (n.endsWith("_me")) {
+        candidates.push(n.slice(0, -3));
+      } else if (/[0-9][a-z0-9_]*me$/i.test(n)) {
+        candidates.push(n.slice(0, -2));
       }
-      if (name.endsWith("_m")) {
-        candidates.push(name.slice(0, -2));
+      if (n.endsWith("_moe")) {
+        candidates.push(n.slice(0, -4));
       }
-      return candidates.filter(Boolean);
+      if (
+        n.endsWith("_m") &&
+        !n.endsWith("_me") &&
+        !n.endsWith("_mp") &&
+        !n.endsWith("_moe") &&
+        !n.endsWith("_mep")
+      ) {
+        candidates.push(n.slice(0, -2));
+      }
+
+      return [...new Set(candidates.filter(Boolean))];
     };
 
     const isMarginColumn = (col) => {
@@ -77,7 +95,10 @@ class DataViewerClass extends React.Component {
       const alias = String(col?.alias || "").toLowerCase();
       const details = String(col?.details || "").toLowerCase();
       const hintFromMetadata = alias.includes("margin of error") || details.includes("margin of error");
-      const suffixHint = /(_mp|_me|_moe|_m)$/i.test(name);
+      const suffixHint =
+        /(?:_mp|_me|_moe|_mep|_m)$/i.test(name) ||
+        /[0-9][a-z0-9_]*me$/i.test(name) ||
+        /[a-z0-9_]mep$/i.test(name);
       if (!hintFromMetadata && !suffixHint) return { isMargin: false, base: null };
 
       // Prefer alias-based pairing for ACS-style labels:
@@ -118,7 +139,13 @@ class DataViewerClass extends React.Component {
       const name = String(col?.name || "");
       const alias = String(col?.alias || "").toLowerCase();
       const details = String(col?.details || "").toLowerCase();
-      return alias.includes("margin of error") || details.includes("margin of error") || /(_mp|_me|_moe|_m)$/i.test(name);
+      return (
+        alias.includes("margin of error") ||
+        details.includes("margin of error") ||
+        /(?:_mp|_me|_moe|_mep|_m)$/i.test(name) ||
+        /[0-9][a-z0-9_]*me$/i.test(name) ||
+        /[a-z0-9_]mep$/i.test(name)
+      );
     };
     return (columnKeys || []).filter((col) => !isMarginColumn(col));
   }

@@ -154,11 +154,13 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
+        gap: 10px;
         padding: 12px;
         border-bottom: 1px solid rgba($color_font-medium, 0.2);
         background: rgba($color_bg-medium, 0.3);
 
-        span {
+        /* Geography filter: title span is direct child */
+        > span {
           font-weight: 600;
           font-size: $font_size-xsmall;
         }
@@ -177,6 +179,30 @@
           &:hover {
             background: $color_brand-secondary;
             color: white;
+          }
+        }
+      }
+
+      .column-dropdown-moe-help {
+        flex-shrink: 0;
+        padding: 10px 12px;
+        border-bottom: 1px solid rgba($color_font-medium, 0.2);
+        background: rgba($color_brand-secondary, 0.07);
+
+        p {
+          margin: 0;
+          font-size: 11px;
+          line-height: 1.45;
+          color: $color_font-dark;
+        }
+
+        a {
+          color: $color_brand-secondary;
+          font-weight: 600;
+          text-decoration: underline;
+
+          &:hover {
+            text-decoration: none;
           }
         }
       }
