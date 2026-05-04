@@ -283,52 +283,107 @@ const GeographyFilter = ({ availableGeographies = [], selectedGeographies = [], 
   );
 };
 
+
+function columnDropdownVisibleLabel(column) {
+  return String(column?.alias ?? "").trim();
+}
+
+const CENSUS_ACS_MOE_WEBINAR_URL =
+  "https://www.census.gov/data/academy/webinars/2026/using-acs-estimates-margins-of-error.html";
+
 const ColumnSelectorDropdown = ({ columnKeys, updateSelectedColumns, selectedColumns }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [columnSearchQuery, setColumnSearchQuery] = useState("");
   const dropdownRef = useRef(null);
 
-  const getMarginColumnsByBase = (keys = []) => {
-    const byName = new Set((keys || []).map((c) => String(c?.name || "")));
+  // Mirrors DataViewerPage.getMarginColumnsByBase so checkbox expansion and counts agree.
+  const getMarginColumnsByBase = (columnKeysArg = []) => {
+    const byName = new Set((columnKeysArg || []).map((c) => String(c?.name || "")));
     const pairs = {};
     const byAlias = {};
-    (keys || []).forEach((col) => {
+    (columnKeysArg || []).forEach((col) => {
       const alias = String(col?.alias || "").trim().toLowerCase();
       if (alias) byAlias[alias] = String(col?.name || "");
     });
 
+    const normalizeAliasMetric = (text) =>
+      String(text || "")
+        .toLowerCase()
+        .replace(/\s*;\s*(margin of error)\s*$/i, "")
+        .trim();
+
+   
     const getBaseCandidates = (name) => {
       const candidates = [];
-      if (name.endsWith("_mp")) {
-        candidates.push(name.slice(0, -3) + "_p");
-        candidates.push(name.slice(0, -3));
+      const n = String(name || "");
+
+      if (n.endsWith("_mep")) {
+        candidates.push(n.slice(0, -4) + "_p");
+      } else if (/mep$/i.test(n)) {
+        candidates.push(n.slice(0, -3) + "_p");
       }
-      if (name.endsWith("_me")) candidates.push(name.slice(0, -3));
-      if (name.endsWith("_moe")) candidates.push(name.slice(0, -4));
-      if (name.endsWith("_m")) candidates.push(name.slice(0, -2));
-      return candidates.filter(Boolean);
+      if (n.endsWith("_mp")) {
+        candidates.push(n.slice(0, -3) + "_p");
+        candidates.push(n.slice(0, -3));
+      }
+      if (n.endsWith("_me")) {
+        candidates.push(n.slice(0, -3));
+      } else if (/[0-9][a-z0-9_]*me$/i.test(n)) {
+        candidates.push(n.slice(0, -2));
+      }
+      if (n.endsWith("_moe")) {
+        candidates.push(n.slice(0, -4));
+      }
+      if (
+        n.endsWith("_m") &&
+        !n.endsWith("_me") &&
+        !n.endsWith("_mp") &&
+        !n.endsWith("_moe") &&
+        !n.endsWith("_mep")
+      ) {
+        candidates.push(n.slice(0, -2));
+      }
+
+      return [...new Set(candidates.filter(Boolean))];
     };
 
-    const isMarginColumn = (col) => {
+    const isMarginColumnForPairing = (col) => {
       const name = String(col?.name || "");
       const alias = String(col?.alias || "").toLowerCase();
       const details = String(col?.details || "").toLowerCase();
       const hintFromMetadata = alias.includes("margin of error") || details.includes("margin of error");
-      const suffixHint = /(_mp|_me|_moe|_m)$/i.test(name);
+      const suffixHint =
+        /(?:_mp|_me|_moe|_mep|_m)$/i.test(name) ||
+        /[0-9][a-z0-9_]*me$/i.test(name) ||
+        /[a-z0-9_]mep$/i.test(name);
       if (!hintFromMetadata && !suffixHint) return { isMargin: false, base: null };
+
       if (alias.includes("margin of error")) {
-        const estimateAlias = alias.replace("margin of error", "estimate").replace(/\s+/g, " ").trim();
-        if (byAlias[estimateAlias]) return { isMargin: true, base: byAlias[estimateAlias] };
+        const baseAlias = normalizeAliasMetric(alias).replace(/\s+/g, " ").trim();
+        if (byAlias[baseAlias]) {
+          return { isMargin: true, base: byAlias[baseAlias] };
+        }
+        const normalized = normalizeAliasMetric(alias);
+        const matchedBase = (columnKeysArg || []).find((candidate) => {
+          const a = String(candidate?.alias || "").toLowerCase();
+          const isBaseAlias = !/\bmargin of error\b/i.test(a) && !!a;
+          return isBaseAlias && normalizeAliasMetric(a) === normalized;
+        });
+        if (matchedBase?.name) {
+          return { isMargin: true, base: matchedBase.name };
+        }
       }
+
       const base = getBaseCandidates(name).find((candidate) => byName.has(candidate));
       return { isMargin: true, base: base || null };
     };
 
-    (keys || []).forEach((col) => {
-      const result = isMarginColumn(col);
-      if (!result?.isMargin || !result.base) return;
+    (columnKeysArg || []).forEach((col) => {
+      const name = String(col?.name || "");
+      const result = isMarginColumnForPairing(col);
+      if (!result?.isMargin || !result.base || !name) return;
       if (!pairs[result.base]) pairs[result.base] = [];
-      pairs[result.base].push(col.name);
+      pairs[result.base].push(name);
     });
 
     return pairs;
@@ -336,17 +391,21 @@ const ColumnSelectorDropdown = ({ columnKeys, updateSelectedColumns, selectedCol
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+      const raw = event.target;
+      const target =
+        raw instanceof Element ? raw : raw && raw.parentElement instanceof Element ? raw.parentElement : null;
+      if (!target) return;
+      if (dropdownRef.current && !dropdownRef.current.contains(target)) {
         setIsOpen(false);
       }
     };
 
     if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener("mousedown", handleClickOutside);
     }
 
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [isOpen]);
 
@@ -365,29 +424,40 @@ const ColumnSelectorDropdown = ({ columnKeys, updateSelectedColumns, selectedCol
     const name = String(col?.name || "");
     const alias = String(col?.alias || "").toLowerCase();
     const details = String(col?.details || "").toLowerCase();
-    return alias.includes("margin of error") || details.includes("margin of error") || /(_mp|_me|_moe|_m)$/i.test(name);
+    return (
+      alias.includes("margin of error") ||
+      details.includes("margin of error") ||
+      /(?:_mp|_me|_moe|_mep|_m)$/i.test(name) ||
+      /[0-9][a-z0-9_]*me$/i.test(name) ||
+      /[a-z0-9_]mep$/i.test(name)
+    );
   };
   const visibleColumnKeys = columnKeys.filter((col) => !isMarginColumn(col));
 
-  // Sort selectable (non-MOE) columns alphabetically by alias (or name if no alias)
-  const sortedColumnKeys = [...visibleColumnKeys].sort((a, b) => {
-    const aName = (a.alias || a.name).toLowerCase();
-    const bName = (b.alias || b.name).toLowerCase();
-    return aName.localeCompare(bName);
-  });
+  // Same order as metadata / columnKeys (non-MOE rows only)
+  const sortedColumnKeys = [...visibleColumnKeys];
   const filteredColumnKeys = sortedColumnKeys.filter((column) => {
     const query = columnSearchQuery.trim().toLowerCase();
     if (!query) return true;
-    const label = String(column.alias || column.name || "").toLowerCase();
-    const name = String(column.name || "").toLowerCase();
-    return label.includes(query) || name.includes(query);
+    const aliasLabel = columnDropdownVisibleLabel(column).toLowerCase();
+    return aliasLabel.includes(query);
   });
 
-  const selectedCount = sortedColumnKeys.filter((col) => selectedColumns.includes(col.name)).length;
-  const totalCount = sortedColumnKeys.length;
-  const displayText = selectedCount === totalCount 
-    ? `All Columns (${totalCount})` 
-    : `${selectedCount} of ${totalCount} Columns Selected`;
+  const fullColumnCount = columnKeys.length;
+  const visibleSelectableCount = sortedColumnKeys.length;
+  const visibleSelectedCount = sortedColumnKeys.filter((col) => selectedColumns.includes(col.name)).length;
+  const tableColumnDisplayCount = sortedColumnKeys
+    .filter((col) => selectedColumns.includes(col.name))
+    .reduce((sum, col) => {
+      const margins = marginColumnsByBase[col.name] || [];
+      return sum + 1 + margins.length;
+    }, 0);
+  const allVisibleSelected =
+    visibleSelectableCount > 0 && visibleSelectedCount === visibleSelectableCount;
+  const fmt = (n) => Number(n).toLocaleString();
+  const displayText = allVisibleSelected
+    ? `All Columns (${fmt(fullColumnCount)})`
+    : `${fmt(tableColumnDisplayCount)} of ${fmt(fullColumnCount)} Columns Selected`;
 
   return (
     <div className="column-filter-dropdown" ref={dropdownRef}>
@@ -410,7 +480,7 @@ const ColumnSelectorDropdown = ({ columnKeys, updateSelectedColumns, selectedCol
               className="select-all-button"
               onClick={(e) => {
                 e.stopPropagation();
-                if (selectedCount === totalCount) {
+                if (visibleSelectedCount === visibleSelectableCount) {
                   sortedColumnKeys.forEach((col) => {
                     if (selectedColumns.includes(col.name)) {
                       updateSelectedColumns(col.name);
@@ -426,8 +496,22 @@ const ColumnSelectorDropdown = ({ columnKeys, updateSelectedColumns, selectedCol
                 }
               }}
             >
-              {selectedCount === totalCount ? 'Deselect All' : 'Select All'}
+              {visibleSelectedCount === visibleSelectableCount ? 'Deselect All' : 'Select All'}
             </button>
+          </div>
+          <div
+            className="column-dropdown-moe-help"
+            role="note"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <p>
+              Selecting an estimate column will also add the corresponding margin of error column to your table. For
+              more information on what a margin of error is and why it is important you can watch{" "}
+              <a href={CENSUS_ACS_MOE_WEBINAR_URL} target="_blank" rel="noopener noreferrer">
+                this webinar from the US Census Bureau
+              </a>
+              .
+            </p>
           </div>
           <div style={{ padding: "8px 0 10px 0" }}>
             <input
@@ -461,7 +545,7 @@ const ColumnSelectorDropdown = ({ columnKeys, updateSelectedColumns, selectedCol
                     }}
                     className="column-checkbox"
                   />
-                  <span>{column.alias || column.name}</span>
+                  <span>{columnDropdownVisibleLabel(column)}</span>
                 </label>
               ))
             )}
