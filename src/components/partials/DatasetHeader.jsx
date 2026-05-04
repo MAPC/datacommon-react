@@ -283,15 +283,9 @@ const GeographyFilter = ({ availableGeographies = [], selectedGeographies = [], 
   );
 };
 
-/** Dropdown-only: omit trailing ACS-style "estimate" qualifier from the visible label (metadata unchanged). */
+
 function columnDropdownVisibleLabel(column) {
-  const raw = String(column?.alias ?? column?.name ?? "").trim();
-  if (!raw) return String(column?.name ?? "");
-  const trimmed = raw
-    .replace(/\s*;\s*estimate\s*$/i, "")
-    .replace(/\s*,\s*estimate\s*$/i, "")
-    .trim();
-  return trimmed || raw;
+  return String(column?.alias ?? "").trim();
 }
 
 const CENSUS_ACS_MOE_WEBINAR_URL =
@@ -440,17 +434,13 @@ const ColumnSelectorDropdown = ({ columnKeys, updateSelectedColumns, selectedCol
   };
   const visibleColumnKeys = columnKeys.filter((col) => !isMarginColumn(col));
 
-  // Sort selectable (non-MOE) columns alphabetically by visible label
-  const sortedColumnKeys = [...visibleColumnKeys].sort((a, b) =>
-    columnDropdownVisibleLabel(a).toLowerCase().localeCompare(columnDropdownVisibleLabel(b).toLowerCase()),
-  );
+  // Same order as metadata / columnKeys (non-MOE rows only)
+  const sortedColumnKeys = [...visibleColumnKeys];
   const filteredColumnKeys = sortedColumnKeys.filter((column) => {
     const query = columnSearchQuery.trim().toLowerCase();
     if (!query) return true;
-    const visible = columnDropdownVisibleLabel(column).toLowerCase();
-    const rawAlias = String(column.alias || "").toLowerCase();
-    const name = String(column.name || "").toLowerCase();
-    return visible.includes(query) || rawAlias.includes(query) || name.includes(query);
+    const aliasLabel = columnDropdownVisibleLabel(column).toLowerCase();
+    return aliasLabel.includes(query);
   });
 
   const fullColumnCount = columnKeys.length;
