@@ -60,14 +60,14 @@ const FilterTitle = styled.h4`
 const ClearButton = styled.button`
   background: none;
   border: none;
-  color: #6fc68e;
+  color: #4ea56c;
   font-size: 0.875rem;
   cursor: pointer;
   padding: 0;
   text-decoration: underline;
   
   &:hover {
-    color: #5db37a;
+    color: #367a4e;
   }
 `;
 
@@ -534,7 +534,6 @@ const BrowserPage = () => {
   const [displayDatasets, setDisplayDatasets] = useState([]);
   const [highlightMatches, setHighlightMatches] = useState({});
   const [shareCopied, setShareCopied] = useState(false);
-  const [viewingMetadataDropdownId, setViewingMetadataDropdownId] = useState(null);
 
   const arraysEqual = (a, b) => {
     if (a.length !== b.length) return false;
@@ -610,38 +609,26 @@ const BrowserPage = () => {
     const datasetBaseTableMap = {};
     filtered.forEach(dataset => {
       const tableName = dataset.table_name;
-      const datasetName = dataset.menu3;
-
       let trimmedTable = tableName;
-      let trimmedName = datasetName;
       let datasetGeography = null;
       if (tableName.endsWith("_m")) {
         trimmedTable = tableName.slice(0, -2);
-        if (datasetName.endsWith(" (Municipal)")) trimmedName = datasetName.slice(0, -12);
-        if (datasetName.endsWith(" (Municipality)")) trimmedName = datasetName.slice(0, -15);
         datasetGeography = "Municipalities";
       } else if (tableName.endsWith("_ct")) {
         trimmedTable = tableName.slice(0, -3);
-        if (datasetName.endsWith(" (Census Tracts)")) trimmedName = datasetName.slice(0, -16);
-        if (datasetName.endsWith(" (Census Tract)")) trimmedName = datasetName.slice(0, -15);
         datasetGeography = "Census Tracts";
       } else if (tableName.endsWith("_bg")) {
         trimmedTable = tableName.slice(0, -3);
-        if (datasetName.endsWith(" (Block Groups)")) trimmedName = datasetName.slice(0, -15);
-        if (datasetName.endsWith(" (Block Group)")) trimmedName = datasetName.slice(0, -14);
         datasetGeography = "Block Groups";
       } else if (tableName.endsWith("_b")) {
         trimmedTable = tableName.slice(0, -2);
-        trimmedName = datasetName.endsWith(" (Blocks)") ? datasetName.slice(0, -9) : datasetName;
         datasetGeography = "Blocks";
       } else if (tableName.endsWith("_blk")) {
         trimmedTable = tableName.slice(0, -4);
-        trimmedName = datasetName.endsWith(" (Blocks)") ? datasetName.slice(0, -9) : datasetName;
         datasetGeography = "Blocks";
       }
       if (!datasetBaseTableMap[trimmedTable]) {
         datasetBaseTableMap[trimmedTable] = {
-          baseName: trimmedName,
           datasets: [],
           geoIdPairs: [],
         };
@@ -653,13 +640,21 @@ const BrowserPage = () => {
     const compressedDatasets = Object.entries(datasetBaseTableMap).map(([baseTable, cdsInfo]) => {
       const geoOrder = ["Municipal", "Census Tracts", "Block Groups", "Blocks"];
       const sortedGeoIdParis = cdsInfo.geoIdPairs.sort((pair1, pair2) => geoOrder.indexOf(pair1.geography) - geoOrder.indexOf(pair2.geography));
+      
+      // use the first dataset in sort order for the top-level menu3, table_name, and updated
+      let firstDataset;
+      if (cdsInfo.datasets.length === 1) {
+        firstDataset = cdsInfo.datasets[0]
+      } else {
+        const firstId = sortedGeoIdParis[0].id;
+        firstDataset = cdsInfo.datasets.find(d => d.seq_id === firstId);
+      }
 
       return {
-        table_name: baseTable,
-        menu3: cdsInfo.baseName,
-        seq_id: cdsInfo.datasets.map(ds => ds.seq_id || ds.id).join(','), // TODO: Is this right?
-        updated: cdsInfo.datasets.map(ds => ds.updated).sort()[0],
-        source: cdsInfo.datasets.map(ds => ds.source)[0],
+        table_name: baseTable,         // this top-level baseTable is only used during sorting
+        menu3: firstDataset.menu3,     // this top-level menu3 is only used during sorting
+        updated: firstDataset.updated, // this top-level 'updated' is only used during sorting
+        seq_id: cdsInfo.datasets.map(ds => ds.seq_id || ds.id).join(','), // this combined id is the id of the compressed dataset
         geoIdPairs: sortedGeoIdParis,
         ...cdsInfo,
       }
@@ -896,8 +891,9 @@ const BrowserPage = () => {
     setSelectedSources([]);
   };
 
-  const clearMenu1Filter = () => {
+  const clearCategoryFilters = () => {
     setSelectedMenu1s([]);
+    setSelectedMenu2s([]);
   };
 
   const handleViewMetadata = (dataset) => {
@@ -967,8 +963,8 @@ const BrowserPage = () => {
           <FilterSection>
             <FilterHeader>
               <FilterTitle>Category</FilterTitle>
-              {selectedMenu1s.length > 0 && (
-                <ClearButton onClick={clearMenu1Filter}>Clear</ClearButton>
+              {(selectedMenu1s.length > 0 || selectedMenu2s.length > 0) && (
+                <ClearButton onClick={clearCategoryFilters}>Clear</ClearButton>
               )}
             </FilterHeader>
             <FilterListCategories>
@@ -1041,7 +1037,7 @@ const BrowserPage = () => {
         <ContentArea>
           <SearchInputContainer>
             <SearchInput
-              type="text"
+              type="search"
               placeholder="Search by table name or title..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
