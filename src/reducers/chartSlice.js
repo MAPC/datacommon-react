@@ -4,13 +4,13 @@ import locations from "../constants/locations";
 export const fetchChartData = createAsyncThunk("chart/fetchData", async ({ chartInfo, municipality }, { dispatch, getState }) => {
   const { chart } = getState();
 
-  for (const tableName of Object.keys(chartInfo.tables)) {
+  for (const fullTableName of Object.keys(chartInfo.tables)) {
     // Skip if data already exists in cache
-    if (chart.cache[tableName]?.[municipality]) {
+    if (chart.cache[fullTableName]?.[municipality]) {
       continue;
     }
 
-    let { yearCol, where, latestYearOnly, years, specialFetch, columns } = chartInfo.tables[tableName];
+    let { yearCol, where, latestYearOnly, years, specialFetch, columns } = chartInfo.tables[fullTableName];
     //check years is a function if so call it and assign to years
     if (typeof years === "function") {
       try {
@@ -25,7 +25,7 @@ export const fetchChartData = createAsyncThunk("chart/fetchData", async ({ chart
     const dispatchUpdate = (data) => {
       dispatch(
         updateChart({
-          table: tableName,
+          table: fullTableName,
           muni: municipality,
           data,
         }),
@@ -37,13 +37,14 @@ export const fetchChartData = createAsyncThunk("chart/fetchData", async ({ chart
       return await specialFetch(municipality.replace("-", " "), dispatchUpdate);
     }
 
-    const api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
-    let query = `${api}SELECT ${columns.join(",")} FROM ${tableName}`;
-    query = `${query} WHERE municipal ilike '${municipality.replace("-", " ")}'`;
+    const schema = fullTableName.split('.')[0];
+    const tableName = fullTableName.split('.')[1];
+    const api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=${schema}&table=${tableName}`;
+    let query = `${api}&columns=${columns.join(',')}`;
+    let filters = `&filters=municipal~${municipality.replace("-", " ")}`;
 
     if (yearCol && latestYearOnly && !years) {
-      const yearResponse = await fetch(`${api}SELECT ${yearCol} from ${tableName} ORDER BY ${yearCol} DESC LIMIT 1`);
-      
+      const yearResponse = await fetch(`${api}&columns=${yearCol}&orderByColumn=${yearCol}&orderByDirection=DESC&limit=1`);
       if (!yearResponse.ok) {
         throw new Error(`HTTP error! status: ${yearResponse.status}`);
       }
@@ -51,15 +52,18 @@ export const fetchChartData = createAsyncThunk("chart/fetchData", async ({ chart
       const payload = (await yearResponse.json()) || {};
 
       if (payload.rows?.[0]?.[yearCol]) {
-        query = `${query} AND ${yearCol} = '${payload.rows[0][yearCol]}'`;
+        filters = `${filters},${yearCol}:${payload.rows[0][yearCol]}`;
       }
     } else if (years) {
-      query = `${query} AND ${yearCol} IN (${years.map((y) => `'${y}'`).join(",")})`;
+      const asFilters = years.map(y => `${yearCol}:${y}`);
+      filters = `${filters},${asFilters.join(',')}`;
     }
 
-    if (where) {
-      query = `${query} AND ${where}`;
-    }
+    // TODO only one place this is needed.
+    // if (where) {  
+    //   query = `${query} AND ${where}`; 
+    // }
+    query = `${query}${filters}`;
 
     const response = await fetch(query);
     

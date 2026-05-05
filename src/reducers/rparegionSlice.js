@@ -19,7 +19,7 @@ export const fetchRPAregionChartData = createAsyncThunk(
     };
 
     // Get all queries first
-    const queries = chartInfo.rparegionDataQuery(rpa_id);
+    const queries = await chartInfo.rparegionDataQuery(rpa_id);
 
     // Handle multiple tables - match each table with its corresponding query
     if (tableNames.length > 1) {
@@ -50,7 +50,7 @@ export const fetchRPAregionChartData = createAsyncThunk(
         }
 
         try {
-          const api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=${encodeURIComponent(query)}`;
+          const api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&${query}`;
           const response = await fetch(api);
           
           if (!response.ok) {
@@ -83,8 +83,7 @@ export const fetchRPAregionChartData = createAsyncThunk(
     try {
       // For single table, use the first (and should be only) query
       const query = Array.isArray(queries) ? queries[0] : queries;
-      const api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=${encodeURIComponent(query)}`;
-      console.log('api', api);
+      const api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&${query}`;
       const response = await fetch(api);
       
       if (!response.ok) {

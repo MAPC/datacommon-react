@@ -19,11 +19,11 @@ export const fetchSubregionChartData = createAsyncThunk(
     };
 
     // Get the chart info query for the subregion
-    const queries = chartInfo.subregionDataQuery(subregionId);
+    const queryParams = await chartInfo.subregionDataQuery(subregionId);
     // Handle multiple tables - match each table with its corresponding query
     if (tableNames.length > 1) {
       // Make sure we have the same number of queries as tables
-      if (queries.length !== tableNames.length) {
+      if (queryParams.length !== tableNames.length) {
         console.error("Mismatch between number of tables and queries");
         return;
       }
@@ -31,7 +31,7 @@ export const fetchSubregionChartData = createAsyncThunk(
       // Process each table with its corresponding subregion query
       for (let i = 0; i < tableNames.length; i++) {
         const tableName = tableNames[i];
-        const query = queries[i];
+        const query = queryParams[i];
         let { years } = chartInfo.tables[tableName];
 
         if (subregion.cache[tableName]?.[subregionId]) {
@@ -49,7 +49,7 @@ export const fetchSubregionChartData = createAsyncThunk(
         }
 
         try {
-          const api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=${encodeURIComponent(query)}`;
+          const api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&${query}`;
           const response = await fetch(api);
           
           if (!response.ok) {
@@ -81,8 +81,8 @@ export const fetchSubregionChartData = createAsyncThunk(
 
     try {
       // For single table, use the first (and should be only) query
-      const query = Array.isArray(queries) ? queries[0] : queries;
-      const api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=${encodeURIComponent(query)}`;
+      const query = Array.isArray(queryParams) ? queryParams[0] : queryParams;
+      const api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&${query}`;
       const response = await fetch(api);
       
       if (!response.ok) {
