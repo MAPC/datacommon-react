@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import PropTypes from "prop-types";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faXmark } from "@fortawesome/free-solid-svg-icons";
@@ -30,7 +30,16 @@ const getPresetForDimensions = (width, height) => {
   return "custom";
 };
 
-const EmbedTableModal = ({ isOpen, onClose, datasetId, title }) => {
+const EmbedTableModal = ({
+  isOpen,
+  onClose,
+  datasetId,
+  title,
+  shareUrl: shareUrlProp,
+  embedUrl: embedUrlProp,
+  urlTooLong = false,
+  adjustUrlFiltersSlot = null,
+}) => {
   const [panel, setPanel] = useState("share");
   /** Shown in inputs while typing; only digits (empty allowed briefly). */
   const [widthInput, setWidthInput] = useState(String(IFRAME_WIDTH_DEFAULT));
@@ -40,6 +49,8 @@ const EmbedTableModal = ({ isOpen, onClose, datasetId, title }) => {
   const [heightCommitted, setHeightCommitted] = useState(IFRAME_HEIGHT_DEFAULT);
   const [sizePreset, setSizePreset] = useState("large");
   const [copyStatus, setCopyStatus] = useState("");
+  /** Once the share URL is too long while this dialog is open, keep filter controls visible after it fits again. */
+  const [keepAdjustFiltersVisible, setKeepAdjustFiltersVisible] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -53,19 +64,32 @@ const EmbedTableModal = ({ isOpen, onClose, datasetId, title }) => {
     }
   }, [isOpen]);
 
-  const sourceUrl = useMemo(() => {
+  useEffect(() => {
+    if (!isOpen) {
+      setKeepAdjustFiltersVisible(false);
+      return;
+    }
+    if (urlTooLong) {
+      setKeepAdjustFiltersVisible(true);
+    }
+  }, [isOpen, urlTooLong]);
+
+  const fallbackSourceUrl = useMemo(() => {
     if (typeof window === "undefined") {
       return `/browser/datasets/${datasetId}`;
     }
     return `${window.location.origin}/browser/datasets/${datasetId}`;
   }, [datasetId]);
 
-  const embedUrl = useMemo(() => {
+  const fallbackEmbedUrl = useMemo(() => {
     if (typeof window === "undefined") {
       return `/browser/datasets/${datasetId}?embed=1`;
     }
     return `${window.location.origin}/browser/datasets/${datasetId}?embed=1`;
   }, [datasetId]);
+
+  const sourceUrl = shareUrlProp ?? fallbackSourceUrl;
+  const embedUrl = embedUrlProp ?? fallbackEmbedUrl;
 
   const resolveWidthFromInput = () => {
     if (widthInput === "") {
@@ -167,6 +191,30 @@ const EmbedTableModal = ({ isOpen, onClose, datasetId, title }) => {
     return null;
   }
 
+  const showFilterEditor = Boolean(adjustUrlFiltersSlot && (urlTooLong || keepAdjustFiltersVisible));
+
+  const shareEmbedFilterHelp = (
+    <>
+      {urlTooLong && (
+        <p className="embed-table-modal-url-warning" role="alert">
+          This link is too long to share reliably. To shorten it, select fewer table columns, fewer years, or fewer places
+          in the geography filter.
+        </p>
+      )}
+      {showFilterEditor && (
+        <div className="embed-table-modal-overlimit-editor">
+          {!urlTooLong && (
+            <p className="embed-table-modal-url-ready" role="status">
+              This share link is within a safe length.
+            </p>
+          )}
+          <p className="embed-table-modal-overlimit-title">Adjust filters in this window</p>
+          <div className="embed-table-modal-dataset-filters">{adjustUrlFiltersSlot}</div>
+        </div>
+      )}
+    </>
+  );
+
   return (
     <div className="download-modal-overlay" role="presentation" onClick={onClose}>
       <div
@@ -209,7 +257,16 @@ const EmbedTableModal = ({ isOpen, onClose, datasetId, title }) => {
           {panel === "share" && (
             <div className="embed-table-modal-panel" role="tabpanel" aria-label="Share">
               <p className="embed-table-modal-section-title">Copy link to page</p>
-              <div className="download-endpoint-field" role="group" aria-label="Page link">
+              <p className="embed-table-modal-section-hint">
+                This link includes the selected filters (columns, geography, and years).
+              </p>
+              {shareEmbedFilterHelp}
+              <div
+                className={`download-endpoint-field ${urlTooLong ? "is-disabled" : ""}`}
+                role="group"
+                aria-label="Page link"
+                aria-disabled={urlTooLong}
+              >
                 <div className="download-endpoint-field-body">
                   <span className="download-endpoint-field-label">Link</span>
                   <div className="download-endpoint-field-url">{sourceUrl}</div>
@@ -217,9 +274,13 @@ const EmbedTableModal = ({ isOpen, onClose, datasetId, title }) => {
                 <button
                   type="button"
                   className="download-endpoint-field-copy"
-                  onClick={() => copyText(sourceUrl, "Link copied!")}
+                  onClick={() => {
+                    if (urlTooLong) return;
+                    copyText(sourceUrl, "Link copied!");
+                  }}
                   aria-label="Copy link to clipboard"
                   title="Copy URL"
+                  disabled={urlTooLong}
                 >
                   <FontAwesomeIcon icon={faClone} aria-hidden />
                 </button>
@@ -230,6 +291,10 @@ const EmbedTableModal = ({ isOpen, onClose, datasetId, title }) => {
           {panel === "embed" && (
             <div className="embed-table-modal-panel" role="tabpanel" aria-label="Embed">
               <p className="embed-table-modal-section-title">Copy embed code</p>
+              <p className="embed-table-modal-section-hint">
+                The embed URL updates based on the applied filters (columns, geography, and years).
+              </p>
+              {shareEmbedFilterHelp}
               <div className="embed-table-modal-group embed-table-modal-group--tight">
                 <label className="embed-table-modal-embed-size-label" htmlFor="embed-size-preset">
                   Size
@@ -282,7 +347,12 @@ const EmbedTableModal = ({ isOpen, onClose, datasetId, title }) => {
                   />
                 </div>
               </div>
-              <div className="download-endpoint-field" role="group" aria-label="Embed code">
+              <div
+                className={`download-endpoint-field ${urlTooLong ? "is-disabled" : ""}`}
+                role="group"
+                aria-label="Embed code"
+                aria-disabled={urlTooLong}
+              >
                 <div className="download-endpoint-field-body">
                   <span className="download-endpoint-field-label">Embed code</span>
                   <pre className="download-endpoint-field-url embed-table-modal-embed-code-content">{iframeCode}</pre>
@@ -290,9 +360,13 @@ const EmbedTableModal = ({ isOpen, onClose, datasetId, title }) => {
                 <button
                   type="button"
                   className="download-endpoint-field-copy"
-                  onClick={copyEmbedCode}
+                  onClick={() => {
+                    if (urlTooLong) return;
+                    copyEmbedCode();
+                  }}
                   aria-label="Copy embed code to clipboard"
                   title="Copy embed code"
+                  disabled={urlTooLong}
                 >
                   <FontAwesomeIcon icon={faClone} aria-hidden />
                 </button>
@@ -321,10 +395,15 @@ EmbedTableModal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
   title: PropTypes.string,
+  shareUrl: PropTypes.string,
+  embedUrl: PropTypes.string,
+  urlTooLong: PropTypes.bool,
+  adjustUrlFiltersSlot: PropTypes.node,
 };
 
 EmbedTableModal.defaultProps = {
   title: "",
+  urlTooLong: false,
 };
 
 export default EmbedTableModal;
