@@ -50,7 +50,6 @@ export const fetchChartData = createAsyncThunk("chart/fetchData", async ({ chart
       }
       
       const payload = (await yearResponse.json()) || {};
-
       if (payload.rows?.[0]?.[yearCol]) {
         filters = `${filters},${yearCol}:${payload.rows[0][yearCol]}`;
       }
@@ -59,20 +58,13 @@ export const fetchChartData = createAsyncThunk("chart/fetchData", async ({ chart
       filters = `${filters},${asFilters.join(',')}`;
     }
 
-    // TODO only one place this is needed.
-    // if (where) {  
-    //   query = `${query} AND ${where}`; 
-    // }
     query = `${query}${filters}`;
-
     const response = await fetch(query);
-    
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     
     const payload = (await response.json()) || {};
-
     dispatchUpdate(payload.rows || []);
   }
 });

@@ -103,17 +103,19 @@ export const fetchRPAregionChartData = createAsyncThunk(
 export const fetchRPAregionData = createAsyncThunk(
   "rparegion/fetchData",
   async () => {
-      const api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&query=`;
-    const query = `
-      SELECT 
-        muni_id,
-        muni_name,
-        region as rpa_name,
-		region_id as rpa_id
-      FROM tabular._datakeys_muni_all
-      WHERE rpa_name IS NOT NULL
-      ORDER BY region, muni_name
-    `;
+    const api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular`;
+    // TODO: enable this without passing SQL to the backend if we support RPA regions in the future
+    // const query = `
+    //   SELECT 
+    //     muni_id,
+    //     muni_name,
+    //     region as rpa_name,
+		// region_id as rpa_id
+    //   FROM tabular._datakeys_muni_all
+    //   WHERE rpa_name IS NOT NULL
+    //   ORDER BY region, muni_name
+    // `;
+    const query = '';
 
     const response = await fetch(`${api}${encodeURIComponent(query)}`);
     

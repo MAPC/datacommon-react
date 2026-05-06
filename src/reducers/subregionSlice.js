@@ -88,7 +88,7 @@ export const fetchSubregionChartData = createAsyncThunk(
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const payload = (await response.json()) || {};
       dispatchUpdate(payload.rows, tableName);
     } catch (error) {
@@ -100,19 +100,10 @@ export const fetchSubregionChartData = createAsyncThunk(
 export const fetchSubregionData = createAsyncThunk(
   "subregion/fetchData",
   async () => {
-    const api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
-    const query = `
-      SELECT 
-        muni_id,
-        muni_name,
-        subrg_id,
-        subrg_acr
-      FROM tabular._datakeys_muni_all
-      WHERE subrg_id IS NOT NULL
-      ORDER BY subrg_id, muni_name
-    `;
+    let api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all`;
+    api = `${api}&orderByColumn=subrg_id&filters=subrg_id!!`;
 
-    const response = await fetch(`${api}${encodeURIComponent(query)}`);
+    const response = await fetch(`${api}`);
     
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
