@@ -1,13 +1,18 @@
 import React from "react";
 import axios from "axios";
 import { useSelector, useDispatch } from "react-redux";
-import { useParams } from "react-router-dom";
+import { useLocation, useParams } from "react-router-dom";
 import { css } from "@emotion/react";
 import MoonLoader from "react-spinners/MoonLoader";
 import { fetchDatasets } from "../reducers/datasetSlice";
 import DatasetHeader from "../components/partials/DatasetHeader";
 import DatasetTable from "../components/partials/DatasetTable";
 import { isDatasetInventoryCatalog } from "../utils/datasetInventoryRow";
+import {
+  parseDatasetViewShareSearch,
+  resolveGeographiesFromUrl,
+  resolveYearsFromUrl,
+} from "../utils/datasetViewShareQuery";
 
 const override = css`
   height: 3.5rem;
@@ -252,16 +257,33 @@ class DataViewerClass extends React.Component {
           const visibleColumnKeys = this.getVisibleColumnKeys(columnKeys);
           const marginColumnsByBase = this.getMarginColumnsByBase(columnKeys);
           const selectedBaseColumns = visibleColumnKeys.map((col) => col.name);
+          let selectedColumns = this.expandSelectedWithMargins(selectedBaseColumns, marginColumnsByBase);
+          let selectedGeographies = availableGeographies;
+          let selectedYears = distinctYears.length ? [distinctYears[0]] : [];
+
+          const parsedShare = parseDatasetViewShareSearch(this.props.location?.search ?? "");
+          if (parsedShare.baseColumnNames?.length) {
+            const visibleSet = new Set(visibleColumnKeys.map((c) => c.name));
+            const validBases = parsedShare.baseColumnNames.filter((n) => visibleSet.has(n));
+            if (validBases.length) {
+              selectedColumns = this.expandSelectedWithMargins(validBases, marginColumnsByBase);
+            }
+          }
+          const geoOverride = resolveGeographiesFromUrl(parsedShare, availableGeographies);
+          if (geoOverride) selectedGeographies = geoOverride;
+          const yearOverride = resolveYearsFromUrl(parsedShare, distinctYears);
+          if (yearOverride) selectedYears = yearOverride;
+
           this.setState({
             availableYears: distinctYears,
             rows: tableResults,
             universe: universeData ? universeData.details : "",
             description: descriptionData ? descriptionData.details : "",
             columnKeys: columnKeys,
-            selectedColumns: this.expandSelectedWithMargins(selectedBaseColumns, marginColumnsByBase),
+            selectedColumns,
             marginColumnsByBase,
             metadata,
-            selectedYears: distinctYears.length ? [distinctYears[0]] : [],
+            selectedYears,
             table: dataset.table_name,
             schema: dataset.schemaname,
             database: dataset.db_name,
@@ -271,7 +293,7 @@ class DataViewerClass extends React.Component {
             updatedAt: dataset.updated,
             geographyColumn,
             availableGeographies,
-            selectedGeographies: availableGeographies, // default: show all
+            selectedGeographies,
             linkInventoryRows: isDatasetInventoryCatalog(dataset),
             loading: false,
           });
@@ -305,15 +327,29 @@ class DataViewerClass extends React.Component {
             const visibleColumnKeys = this.getVisibleColumnKeys(sortedMetadata);
             const marginColumnsByBase = this.getMarginColumnsByBase(sortedMetadata);
             const selectedBaseColumns = visibleColumnKeys.map((col) => col.name);
+            let selectedColumns = this.expandSelectedWithMargins(selectedBaseColumns, marginColumnsByBase);
+            let selectedYears = distinctYears.length ? [distinctYears[0]] : [];
+
+            const parsedShare = parseDatasetViewShareSearch(this.props.location?.search ?? "");
+            if (parsedShare.baseColumnNames?.length) {
+              const visibleSet = new Set(visibleColumnKeys.map((c) => c.name));
+              const validBases = parsedShare.baseColumnNames.filter((n) => visibleSet.has(n));
+              if (validBases.length) {
+                selectedColumns = this.expandSelectedWithMargins(validBases, marginColumnsByBase);
+              }
+            }
+            const yearOverride = resolveYearsFromUrl(parsedShare, distinctYears);
+            if (yearOverride) selectedYears = yearOverride;
+
             this.setState({
               availableYears: distinctYears,
               rows: tableResults,
               description: metadata.documentation.metadata.dataIdInfo.idPurp || "",
               columnKeys: sortedMetadata,
-              selectedColumns: this.expandSelectedWithMargins(selectedBaseColumns, marginColumnsByBase),
+              selectedColumns,
               marginColumnsByBase,
               metadata,
-              selectedYears: distinctYears.length ? [distinctYears[0]] : [],
+              selectedYears,
               table: dataset.table_name,
               schema: dataset.schemaname,
               database: dataset.db_name,
@@ -353,8 +389,7 @@ class DataViewerClass extends React.Component {
         const newArray = front.concat(back);
         return { selectedYears: newArray };
       }
-      prevState.selectedYears.push(year);
-      return { selectedYears: prevState.selectedYears };
+      return { selectedYears: [...prevState.selectedYears, year] };
     });
   }
 
@@ -470,10 +505,18 @@ class DataViewerClass extends React.Component {
 
 const DataViewerPage = () => {
   const params = useParams();
+  const location = useLocation();
   const dispatch = useDispatch();
   const datasets = useSelector((state) => state.dataset.cache);
 
-  return <DataViewerClass params={params} datasets={datasets} fetchDatasets={() => dispatch(fetchDatasets())} />;
+  return (
+    <DataViewerClass
+      params={params}
+      location={location}
+      datasets={datasets}
+      fetchDatasets={() => dispatch(fetchDatasets())}
+    />
+  );
 };
 
 export default DataViewerPage;

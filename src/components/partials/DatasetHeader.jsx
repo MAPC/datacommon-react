@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import PropTypes from "prop-types";
 import { useLocation } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -7,6 +7,7 @@ import { faMessage } from "@fortawesome/free-regular-svg-icons";
 import { formatUpdated } from "../../utils/formatUpdated";
 import ExportDataModal from "./ExportDataModal";
 import EmbedTableModal from "./EmbedTableModal";
+import { buildDatasetViewShareSearchParams, DATASET_VIEW_SHARE_MAX_URL_LENGTH } from "../../utils/datasetViewShareQuery";
 
 const setSelectYears = (availableYears, updateSelectedYears, selectedYears) => {
   if (availableYears.length > 0) {
@@ -83,33 +84,41 @@ const GeographyFilter = ({ availableGeographies = [], selectedGeographies = [], 
         <span className="dropdown-arrow">{isOpen ? "▲" : "▼"}</span>
       </button>
       {isOpen && (
-        <div className="column-dropdown-menu">
+        <div className="column-dropdown-menu column-dropdown-menu--geography">
           <div className="column-dropdown-header">
             <span>{displayText}</span>
-            <button
-              type="button"
-              className="select-all-button"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (selectedCount === totalCount) {
-                  // Deselect all
-                  availableGeographies.forEach((geo) => {
-                    if (selectedGeographies.includes(geo)) {
-                      updateSelectedGeographies(geo);
-                    }
-                  });
-                } else {
-                  // Select all
+            <div className="column-dropdown-bulk-actions" role="group" aria-label="Geography bulk selection">
+              <button
+                type="button"
+                className="select-all-button"
+                disabled={selectedCount === totalCount}
+                onClick={(e) => {
+                  e.stopPropagation();
                   availableGeographies.forEach((geo) => {
                     if (!selectedGeographies.includes(geo)) {
                       updateSelectedGeographies(geo);
                     }
                   });
-                }
-              }}
-            >
-              {selectedCount === totalCount ? "Deselect All" : "Select All"}
-            </button>
+                }}
+              >
+                Select All
+              </button>
+              <button
+                type="button"
+                className="select-all-button column-dropdown-clear-button"
+                disabled={selectedCount === 0}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  availableGeographies.forEach((geo) => {
+                    if (selectedGeographies.includes(geo)) {
+                      updateSelectedGeographies(geo);
+                    }
+                  });
+                }}
+              >
+                Clear All
+              </button>
+            </div>
           </div>
 
           {selectedCount > 0 && (
@@ -475,29 +484,38 @@ const ColumnSelectorDropdown = ({ columnKeys, updateSelectedColumns, selectedCol
         <div className="column-dropdown-menu">
           <div className="column-dropdown-header">
             <span>Select Columns:</span>
-            <button
-              type="button"
-              className="select-all-button"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (visibleSelectedCount === visibleSelectableCount) {
-                  sortedColumnKeys.forEach((col) => {
-                    if (selectedColumns.includes(col.name)) {
-                      updateSelectedColumns(col.name);
-                    }
-                  });
-                } else {
-                  // Select all columns that aren't currently selected
+            <div className="column-dropdown-bulk-actions" role="group" aria-label="Column bulk selection">
+              <button
+                type="button"
+                className="select-all-button"
+                disabled={visibleSelectedCount >= visibleSelectableCount || visibleSelectableCount === 0}
+                onClick={(e) => {
+                  e.stopPropagation();
                   sortedColumnKeys.forEach((col) => {
                     if (!selectedColumns.includes(col.name)) {
                       updateSelectedColumns(col.name);
                     }
                   });
-                }
-              }}
-            >
-              {visibleSelectedCount === visibleSelectableCount ? 'Deselect All' : 'Select All'}
-            </button>
+                }}
+              >
+                Select All
+              </button>
+              <button
+                type="button"
+                className="select-all-button column-dropdown-clear-button"
+                disabled={visibleSelectedCount === 0}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  sortedColumnKeys.forEach((col) => {
+                    if (selectedColumns.includes(col.name)) {
+                      updateSelectedColumns(col.name);
+                    }
+                  });
+                }}
+              >
+                Clear All
+              </button>
+            </div>
           </div>
           <div
             className="column-dropdown-moe-help"
@@ -612,6 +630,70 @@ function DatasetHeader({
   const [embedModalOpen, setEmbedModalOpen] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
   const actionsDropdownRef = useRef(null);
+
+  const { sharePageUrl, embedPageUrl, shareUrlTooLong } = useMemo(() => {
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const basePath = `${origin}/browser/datasets/${datasetId}`;
+    const shareArgs = {
+      columnKeys,
+      selectedColumns,
+      availableGeographies,
+      selectedGeographies,
+      availableYears,
+      selectedYears,
+      queryYearColumn,
+    };
+    const shareParams = buildDatasetViewShareSearchParams({ embed: false, ...shareArgs });
+    const embedParams = buildDatasetViewShareSearchParams({ embed: true, ...shareArgs });
+    const qsShare = shareParams.toString();
+    const qsEmbed = embedParams.toString();
+    const sharePageUrl = qsShare ? `${basePath}?${qsShare}` : basePath;
+    const embedPageUrl = qsEmbed ? `${basePath}?${qsEmbed}` : `${basePath}?embed=1`;
+    const shareUrlTooLong =
+      sharePageUrl.length > DATASET_VIEW_SHARE_MAX_URL_LENGTH ||
+      embedPageUrl.length > DATASET_VIEW_SHARE_MAX_URL_LENGTH;
+    return { sharePageUrl, embedPageUrl, shareUrlTooLong };
+  }, [
+    datasetId,
+    columnKeys,
+    selectedColumns,
+    selectedGeographies,
+    availableGeographies,
+    selectedYears,
+    availableYears,
+    queryYearColumn,
+  ]);
+
+  const embedModalAdjustFilters = useMemo(
+    () => (
+      <>
+        {setSelectYears(availableYears, updateSelectedYears, selectedYears)}
+        <div style={{ marginTop: "12px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
+          <ColumnSelectorDropdown
+            columnKeys={columnKeys}
+            updateSelectedColumns={updateSelectedColumns}
+            selectedColumns={selectedColumns}
+          />
+          <GeographyFilter
+            availableGeographies={availableGeographies}
+            selectedGeographies={selectedGeographies}
+            updateSelectedGeographies={updateSelectedGeographies}
+          />
+        </div>
+      </>
+    ),
+    [
+      availableYears,
+      updateSelectedYears,
+      selectedYears,
+      columnKeys,
+      updateSelectedColumns,
+      selectedColumns,
+      availableGeographies,
+      selectedGeographies,
+      updateSelectedGeographies,
+    ],
+  );
 
   useEffect(() => {
     if (!actionsOpen) {
@@ -777,6 +859,10 @@ function DatasetHeader({
         onClose={() => setEmbedModalOpen(false)}
         datasetId={datasetId}
         title={title}
+        shareUrl={sharePageUrl}
+        embedUrl={embedPageUrl}
+        urlTooLong={shareUrlTooLong}
+        adjustUrlFiltersSlot={embedModalAdjustFilters}
       />
     </div>
   );
@@ -805,7 +891,7 @@ DatasetHeader.propTypes = {
   universe: PropTypes.string,
   updatedAt: PropTypes.string,
   rowsPerPage: PropTypes.number,
-  updateRowsPerPage: PropTypes.func
+  updateRowsPerPage: PropTypes.func,
 };
 
 export default DatasetHeader;
