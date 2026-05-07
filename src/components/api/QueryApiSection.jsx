@@ -11,8 +11,6 @@ const QueryApiSection = ({
   queryDatabase,
   selectedDataset,
   setIsMetadataPopupOpen,
-  querySql,
-  setQuerySql,
   handleGenerateQueryUrl,
   queryJustGenerated,
   queryUrl,
@@ -29,7 +27,6 @@ const QueryApiSection = ({
     Mono,
     Small,
     SecondaryButton,
-    QueryInput,
     QueryActionRow,
     GenerateButton,
     CodeBlock,
@@ -61,15 +58,6 @@ const QueryApiSection = ({
           </div>
         </QueryTopRow>
 
-        <Label htmlFor="query-sql" style={{ marginTop: "0.7rem", marginBottom: "0.15rem" }}>
-          SQL query
-        </Label>
-        <QueryInput
-          id="query-sql"
-          value={querySql}
-          onChange={(e) => setQuerySql(e.target.value)}
-          placeholder="SELECT * FROM tabular.some_table LIMIT 100"
-        />
         {selectedDataset && (
           <div style={{ marginTop: "0.35rem" }}>
             <SecondaryButton type="button" onClick={() => setIsMetadataPopupOpen(true)}>
@@ -101,9 +89,8 @@ const QueryApiSection = ({
                 lineHeight: 1.45,
               }}
             >
-              <strong>Long URL ({queryUrl.length.toLocaleString()} characters).</strong> The <Mono>query</Mono> value is
-              URL-encoded, so many columns greatly increase length. If the request fails in the browser, shorten the SQL
-              (fewer columns or <Mono>SELECT *</Mono>).
+              <strong>Long URL ({queryUrl.length.toLocaleString()} characters).</strong> If the request fails in the browser, 
+              shorten the URL (fewer columns or filters).
             </Small>
           )}
           <CopyRow>
@@ -124,7 +111,7 @@ const QueryApiSection = ({
         <Small style={{ marginTop: 0, marginBottom: "0.65rem" }}>
           <strong>Endpoint:</strong> <Mono>GET {DATACOMMON_BASE_URL}/api/</Mono>
           <br />
-          Returns JSON rows. Use the same <Mono>token</Mono>, <Mono>database</Mono>, and <Mono>query</Mono> values as in the URL above.
+          Returns JSON rows. Use the same <Mono>token</Mono>, <Mono>database</Mono>, <Mono>schema</Mono>, and <Mono>table</Mono> values as in the URL above.
         </Small>
         <ParamTable>
           <thead>
@@ -154,11 +141,49 @@ const QueryApiSection = ({
             </tr>
             <tr>
               <td>
-                <Mono>query</Mono>
+                <Mono>schema</Mono>
               </td>
               <td>
-                Required. SQL query string. Include schema in table names, e.g.{" "}
-                <Mono>SELECT * FROM tabular.hous_building_permits_m LIMIT 100</Mono>.
+                Required. The name of the database schema that contains the dataset. This value is automatically populated from the selected
+                dataset in Data Inventory.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <Mono>table</Mono>
+              </td>
+              <td>
+                Required. The name of the database table that corresponds to the dataset. This value is automatically populated from the selected
+                dataset in Data Inventory.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <Mono>columns</Mono>
+              </td>
+              <td>
+                Optional. A comma separated list of column names to fetch. e.g.{" "}
+                <Mono>columns=col1,col2,col3</Mono>.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <Mono>filters</Mono>
+              </td>
+              <td>
+                Optional. A comma separated list of filters to limit the data being returned. Filters can be of the form:
+                <div><Mono>column:value</Mono> for a direct EQUALS or IN comparison{" "}</div>
+                <div><Mono>column~value</Mono> for a fuzzy ILIKE comparison{" "}</div>
+                <div><Mono>column!!</Mono> for an IS NOT NULL filter on the column{" "}</div>
+                <div>e.g.<Mono>filters=col1:value1,col1:value2,col2:value3,col3~fuzzyMatch,col4!!</Mono></div>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <Mono>limit</Mono>
+              </td>
+              <td>
+                Optional. A limit on the number of rows returned by the query. 
               </td>
             </tr>
           </tbody>

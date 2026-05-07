@@ -906,27 +906,6 @@ const QueryTopRow = styled.div`
   }
 `;
 
-const QueryInput = styled.textarea`
-  width: 100%;
-  min-height: 170px;
-  margin-top: 0.45rem;
-  padding: 0.65rem 0.75rem;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  line-height: 1.5;
-  background: #fff;
-  resize: vertical;
-  box-sizing: border-box;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-
-  &:focus {
-    outline: none;
-    border-color: #6fc68e;
-    box-shadow: 0 0 0 3px rgba(111, 198, 142, 0.14);
-  }
-`;
-
 const FieldValue = styled.div`
   width: 100%;
   min-height: 38px;
@@ -1028,11 +1007,12 @@ function buildExportUrl({ database, schema, table, format, years, allAvailableYe
   return `${DATACOMMON_BASE_URL}/api/export?${params.toString()}`;
 }
 
-function buildQueryUrl({ database, query }) {
+function buildQueryUrl({ database, dataset }) {
   const params = new URLSearchParams();
   params.set("token", DATACOMMON_API_TOKEN);
   params.set("database", database || "ds");
-  params.set("query", query || "SELECT * FROM tabular.some_table LIMIT 100");
+  params.set("schema", dataset.schemaname);
+  params.set("table", dataset.table_name);
 
   return `${DATACOMMON_BASE_URL}/api?${params.toString()}`;
 }
@@ -1097,7 +1077,6 @@ const ApiPage = () => {
   const [exportExampleLang, setExportExampleLang] = useState("python");
   const [exportExamplesExpanded, setExportExamplesExpanded] = useState(false);
   const [queryJustGenerated, setQueryJustGenerated] = useState(false);
-  const [querySql, setQuerySql] = useState("");
   const [queryUrl, setQueryUrl] = useState("");
   const [isMetadataPopupOpen, setIsMetadataPopupOpen] = useState(false);
 
@@ -1437,22 +1416,11 @@ summary(data)
 
   const queryDatabase = useMemo(() => datasetBasics?.database || "ds", [datasetBasics]);
 
-  const starterQuerySql = useMemo(() => {
-    if (!datasetBasics?.schema || !datasetBasics?.table) return "SELECT * FROM tabular.some_table LIMIT 100";
-    const fqTable = `${datasetBasics.schema}.${datasetBasics.table}`;
-    if (datasetBasics.yearcolumn) {
-      return `SELECT *\nFROM ${fqTable}\nORDER BY ${datasetBasics.yearcolumn} DESC\nLIMIT 100`;
-    }
-    return `SELECT *\nFROM ${fqTable}\nLIMIT 100`;
-  }, [datasetBasics]);
-
   useEffect(() => {
-    const nextSql = starterQuerySql;
-    setQuerySql(nextSql);
     setQueryUrl("");
     setQueryJustGenerated(false);
     setIsMetadataPopupOpen(false);
-  }, [datasetBasics, starterQuerySql, queryDatabase]);
+  }, [datasetBasics, queryDatabase]);
 
   const handleDatasetChange = (nextId) => {
     setSelectedDatasetId(nextId);
@@ -1512,7 +1480,7 @@ summary(data)
   const handleGenerateQueryUrl = () => {
     const next = buildQueryUrl({
       database: queryDatabase,
-      query: querySql,
+      dataset: selectedDataset,
     });
     setQueryUrl(next);
     setQueryJustGenerated(true);
@@ -1576,7 +1544,6 @@ summary(data)
     QueryTopRow,
     FieldValue,
     Search,
-    QueryInput,
     QueryActionRow,
     GenerateButton,
   };
@@ -1840,8 +1807,6 @@ summary(data)
             queryDatabase={queryDatabase}
             selectedDataset={selectedDataset}
             setIsMetadataPopupOpen={setIsMetadataPopupOpen}
-            querySql={querySql}
-            setQuerySql={setQuerySql}
             handleGenerateQueryUrl={handleGenerateQueryUrl}
             queryJustGenerated={queryJustGenerated}
             queryUrl={queryUrl}

@@ -1,4 +1,3 @@
-import { key } from "vega";
 import colors from "./colors";
 import locations from "./locations";
 
