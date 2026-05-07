@@ -1332,10 +1332,14 @@ export default {
 
         const allData = [];
         let expectedYear = 2001; // start in 2001, go until most recent data
+        const currentYear = new Date().getFullYear();
         const recentPermitData = permitData.filter(pd => pd[tableDef.yearCol] > 2000);
         recentPermitData.forEach(permitData => {
           // add 0's for missing years
           while (permitData[tableDef.yearCol] !== expectedYear) {
+            if (expectedYear > currentYear) {
+              break; // for safety to prevent inifnite loop. 
+            }
             allData.push({
               [tableDef.yearCol]: `${expectedYear}*`,
               mf_units: 0,
