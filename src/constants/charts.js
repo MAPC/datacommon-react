@@ -2788,6 +2788,16 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
     fund_revenue:{
       type: "tree-map",
       title: "Fund Revenue Breakdown",
+      colors: Array.from(colors.CHART.PRIMARY.values()).slice(-4),
+      valueFormatter: (v) => {
+        const n = typeof v === "number" ? v : Number(v);
+        if (!Number.isFinite(n)) return v == null || v === "" ? "" : String(v);
+        return new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+          maximumFractionDigits: 0,
+        }).format(n);
+      },
       tooltip: { type: "percentAndCount" },
       tables: {
         "tabular.muni_finance_m": (() => {
@@ -2825,17 +2835,24 @@ SELECT CONCAT(MIN(cal_year), '-', MAX(cal_year)) AS latest_year FROM years;`;
         const years = await fetchLatestYear(queryString);
         return years[0];
       },
-      transformer: (tables, chart) => {
+      transformer: (tables) => {
         const data = tables["tabular.muni_finance_m"];
         if (!data || data.length < 1) {
           return [];
         }
         const row = data[0];
-        return [{ value: row.tot_rev, label: "Total Revenues", group: "Fund Revenue" }, 
-          { value: row.tax_levy, label: "Tax Levy", group: "Fund Revenue" }, 
-          { value: row.state_aid, label: "State Aid", group: "Fund Revenue" }, 
-          { value: row.loc_recpts, label: "Local Receipt", group: "Fund Revenue" }, 
-          { value: row.all_other, label: "All Other", group: "Fund Revenue" }];
+        const totRev = row.tot_rev != null && row.tot_rev !== "" ? Number(row.tot_rev) : NaN;
+        const summaryRow =
+          Number.isFinite(totRev)
+            ? [{ summaryOnly: true, key: "tot_rev_display", label: "Total Revenue", value: totRev, group: "Fund Revenue" }]
+            : [];
+        return [
+          ...summaryRow,
+          { key: "tax_levy", value: Number(row.tax_levy), label: "Tax Levy", group: "Fund Revenue" },
+          { key: "state_aid", value: Number(row.state_aid), label: "State Aid", group: "Fund Revenue" },
+          { key: "loc_recpts", value: Number(row.loc_recpts), label: "Local Receipt", group: "Fund Revenue" },
+          { key: "all_other", value: Number(row.all_other), label: "All Other", group: "Fund Revenue" },
+        ];
       },
       source:"MA Dept of Revenue",
       datasetLinks: { "Dept of Revenue Municipal Finance": 502 },

@@ -452,7 +452,12 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
               </header>
               <div className="tab__row">
                 {charts["municipal-finances"]?.fund_revenue ? (
-                  <ChartDetails chart={charts["municipal-finances"].fund_revenue} muni={muni} onViewData={handleShowModal}>
+                  <ChartDetails
+                    chart={charts["municipal-finances"].fund_revenue}
+                    muni={muni}
+                    onViewData={handleShowModal}
+                    wrapperClassName="chart-wrapper--fund-revenue-breakdown"
+                  >
                     <TreeMap chart={charts["municipal-finances"].fund_revenue} muni={muni} />
                   </ChartDetails>
                 ) : null}

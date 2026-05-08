@@ -340,6 +340,33 @@
         border: none;
       }
     }
+
+    /* Treemap: Total Revenue column left, chart right (see TreeMap.jsx) */
+    .chart.TreeMap .treemap-layout {
+      direction: ltr;
+    }
+
+    @include media(medium-small) {
+      .chart.TreeMap .treemap-layout {
+        flex-wrap: wrap !important;
+      }
+
+      .chart.TreeMap .treemap-summary {
+        flex: 1 1 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        order: 1 !important;
+        border-right: none !important;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+        padding-bottom: 0.75rem !important;
+        margin-bottom: 0.25rem;
+      }
+
+      .chart.TreeMap .svg-wrapper {
+        flex: 1 1 100% !important;
+        order: 2 !important;
+      }
+    }
   }
 
 }

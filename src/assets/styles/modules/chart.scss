@@ -162,6 +162,16 @@
   flex: 1;
   max-width: calc(50% - 3em);
 
+  &.chart-wrapper--fund-revenue-breakdown {
+    max-width: none;
+    width: 100%;
+    flex: 1 1 100%;
+
+    &:first-child {
+      margin-right: 0;
+    }
+  }
+
   &:first-child {
     margin-right: 6em;
   }

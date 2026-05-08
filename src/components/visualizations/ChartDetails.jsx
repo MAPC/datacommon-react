@@ -29,7 +29,7 @@ const ChartTitle = styled.h3`
 const ButtonGroup = styled.div`
   display: flex;
   gap: 8px;
-  flex: 3;
+  flex: ${({ $treemap }) => ($treemap ? "0 0 auto" : 3)};
 `;
 
 const ViewButton = styled.button`
@@ -82,7 +82,7 @@ const normalizeDigitalEquityTableKeyForMetadata = (tableKey) => {
   return `${schema}.${baseTable}`;
 };
 
-const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAregion, displayName, hideButtons }) => {
+const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAregion, displayName, hideButtons, wrapperClassName }) => {
   const [timeframe, setTimeframe] = useState(typeof chart.timeframe === 'string' ? chart.timeframe : 'Unknown');
   const chartWrapperRef = useRef(null);
 
@@ -147,7 +147,7 @@ const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAreg
   const isGauge = chart.type === "gauge";
 
   return (
-    <div className="chart-wrapper" ref={chartWrapperRef}>
+    <div className={["chart-wrapper", wrapperClassName].filter(Boolean).join(" ")} ref={chartWrapperRef}>
       <ChartHeader className={isGauge ? "gauge-header" : ""}>
         <ChartTitle
           className="chart__title"
@@ -158,7 +158,7 @@ const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAreg
           {isSubregion && ' (Aggregated)'}
         </ChartTitle>
         {!hideButtons && (
-          <ButtonGroup className="chart-details-buttons">
+          <ButtonGroup className="chart-details-buttons" $treemap={chart.type === "tree-map"}>
             <ViewButton
               onClick={handleViewData}
               title={`View ${isSubregion ? 'aggregated ' : ''}chart data in table format`}
@@ -252,11 +252,14 @@ ChartDetails.propTypes = {
   isRPAregion: PropTypes.bool,
   displayName: PropTypes.string,
   hideButtons: PropTypes.bool,
+  /** Extra class on the outer .chart-wrapper (e.g. layout overrides per chart). */
+  wrapperClassName: PropTypes.string,
 };
 
 ChartDetails.defaultProps = {
   isSubregion: false,
-  isRPAregion: false
+  isRPAregion: false,
+  wrapperClassName: "",
 };
 
 export default ChartDetails;
