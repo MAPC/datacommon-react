@@ -203,7 +203,7 @@ class DataViewerClass extends React.Component {
     }
     if (dataset.table_name === "_data_browser") {
       // filter on active datasets if viewing the data browser
-      tableQueryUrl = `${tableQueryUrl}&active=true`;
+      tableQueryUrl = `${tableQueryUrl}&filters=active:Y`;
     }
     const tableQuery = axios.get(tableQueryUrl);
 

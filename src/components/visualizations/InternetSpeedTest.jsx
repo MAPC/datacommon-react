@@ -89,9 +89,9 @@ const InternetSpeedTest = ({ municipalityName, onViewData }) => {
       return;
     }
 
-    const apiBase = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
+    const apiBase = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=internet_speed_test_m`;
     const escapedName = municipalityName.replace(/'/g, "''");
-    const query = `${apiBase}SELECT muni_name,year,med_down,med_up,d_100p,u_20p FROM tabular.internet_speed_test_m WHERE muni_name ilike '${escapedName}'`;
+    const query = `${apiBase}&columns=muni_name,year,med_down,med_up,d_100p,u_20p&filters=muni_name:${escapedName}`;
 
     fetch(query)
       .then((response) => {
