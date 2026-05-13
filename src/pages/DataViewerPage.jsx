@@ -208,7 +208,7 @@ class DataViewerClass extends React.Component {
     const tableQuery = axios.get(tableQueryUrl);
 
     const metadataQuery = axios.get(
-      `/api/metadata?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=${dataset.db_name}&schema=${dataset.schemaname}&table=${dataset.table_name}`,
+      `/api/metadata?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=${dataset.db_name}&schema=${dataset.schemaname}&table=${dataset.table_name}&useNewMetadata=true`,
     );
 
     const queries = [tableQuery, metadataQuery];
@@ -219,25 +219,51 @@ class DataViewerClass extends React.Component {
       queries.push(yearQuery);
     }
 
-    if (dataset.schemaname === "tabular") {
-      axios
-        .all(queries)
-        .then((response) => {
-          const tableResults = response[0].data.rows;
-          const metadata = Object.values(response[1].data)[0];
-          const yearResults = queries.length === 3 ? response[2].data.rows : [];
+    // fetch and process the data.
+    axios
+      .all(queries)
+      .then((response) => {
+        const tableResults = response[0].data.rows;
+        const metadata = Object.values(response[1].data)[0];
+        const yearResults = queries.length === 3 ? response[2].data.rows : [];
 
-          // Validate metadata structure
-          const universeData = metadata.find((row) => row.name === "universe");
-          const descriptionData = metadata.find((row) => row.name === "descriptn");
-          const columnKeys = metadata
-            .filter((object) => tableResults[0] && Object.keys(tableResults[0]).includes(object.name))
-            .filter((header) => header.name !== "seq_id");
+        // Validate metadata structure
+        const universeData = metadata.find((row) => row.name === "universe");
+        const descriptionData = metadata.find((row) => row.name === "descriptn");
+        const columnKeys = metadata
+          .filter((object) => tableResults[0] && Object.keys(tableResults[0]).includes(object.name))
+          .filter((header) => header.name !== "seq_id") // never show seq_id even if it's in metadata
+          .filter((header) => header.name !== "shape"); // never show shape even if it's in metadata
 
-          // Initialize geography filter for municipal (_m) tables
-          let geographyColumn = null;
-          let availableGeographies = [];
-          if (dataset.table_name && dataset.table_name.endsWith("_m")) {
+        // Process the distinct year data
+        const distinctYears = yearResults.map((year) => Object.values(year)[0]).sort().reverse();
+
+        const visibleColumnKeys = this.getVisibleColumnKeys(columnKeys);
+        const marginColumnsByBase = this.getMarginColumnsByBase(columnKeys);
+        const selectedBaseColumns = visibleColumnKeys.map((col) => col.name);
+        let selectedColumns = this.expandSelectedWithMargins(selectedBaseColumns, marginColumnsByBase);
+        let selectedYears = distinctYears.length ? [distinctYears[0]] : [];
+
+        const parsedShare = parseDatasetViewShareSearch(this.props.location?.search ?? "");
+        if (parsedShare.baseColumnNames?.length) {
+          const visibleSet = new Set(visibleColumnKeys.map((c) => c.name));
+          const validBases = parsedShare.baseColumnNames.filter((n) => visibleSet.has(n));
+          if (validBases.length) {
+            selectedColumns = this.expandSelectedWithMargins(validBases, marginColumnsByBase);
+          }
+        }
+
+        const yearOverride = resolveYearsFromUrl(parsedShare, distinctYears);
+        if (yearOverride) selectedYears = yearOverride;
+
+        // Initialize geography filter for municipal (_m) tables in the tabular schema
+        let selectedGeographies;
+        let availableGeographies;
+        let geographyColumn;
+        if (dataset.schemaname === "tabular") {
+          geographyColumn = null;
+          availableGeographies = [];
+          if (dataset.table_name && dataset.table_name.endsWith("_m")) { // TODO: switch to using the geography column from data browser
             const candidateColumns = ["muni_name", "municipal", "muni"];
             geographyColumn = candidateColumns.find((col) => tableResults[0] && col in tableResults[0]) || null;
             if (geographyColumn) {
@@ -251,128 +277,39 @@ class DataViewerClass extends React.Component {
             }
           }
 
-          // Process the distinct year data
-          const distinctYears = yearResults.map((year) => Object.values(year)[0]).sort().reverse();
-
-          const visibleColumnKeys = this.getVisibleColumnKeys(columnKeys);
-          const marginColumnsByBase = this.getMarginColumnsByBase(columnKeys);
-          const selectedBaseColumns = visibleColumnKeys.map((col) => col.name);
-          let selectedColumns = this.expandSelectedWithMargins(selectedBaseColumns, marginColumnsByBase);
-          let selectedGeographies = availableGeographies;
-          let selectedYears = distinctYears.length ? [distinctYears[0]] : [];
-
-          const parsedShare = parseDatasetViewShareSearch(this.props.location?.search ?? "");
-          if (parsedShare.baseColumnNames?.length) {
-            const visibleSet = new Set(visibleColumnKeys.map((c) => c.name));
-            const validBases = parsedShare.baseColumnNames.filter((n) => visibleSet.has(n));
-            if (validBases.length) {
-              selectedColumns = this.expandSelectedWithMargins(validBases, marginColumnsByBase);
-            }
-          }
+          selectedGeographies = availableGeographies;
           const geoOverride = resolveGeographiesFromUrl(parsedShare, availableGeographies);
           if (geoOverride) selectedGeographies = geoOverride;
-          const yearOverride = resolveYearsFromUrl(parsedShare, distinctYears);
-          if (yearOverride) selectedYears = yearOverride;
+        }
 
-          this.setState({
-            availableYears: distinctYears,
-            rows: tableResults,
-            universe: universeData ? universeData.details : "",
-            description: descriptionData ? descriptionData.details : "",
-            columnKeys: columnKeys,
-            selectedColumns,
-            marginColumnsByBase,
-            metadata,
-            selectedYears,
-            table: dataset.table_name,
-            schema: dataset.schemaname,
-            database: dataset.db_name,
-            title: dataset.menu3,
-            source: dataset.source,
-            queryYearColumn: dataset.yearcolumn,
-            updatedAt: dataset.updated,
-            geographyColumn,
-            availableGeographies,
-            selectedGeographies,
-            linkInventoryRows: isDatasetInventoryCatalog(dataset),
-            loading: false,
-          });
-        })
-        .catch((error) => {
-          this.setState({ loading: false, error: "Please try again later" });
-          console.error("Error:", error);
+        this.setState({
+          availableYears: distinctYears,
+          rows: tableResults,
+          universe: universeData ? universeData.details : "",
+          description: descriptionData ? descriptionData.details : "",
+          columnKeys: columnKeys,
+          selectedColumns,
+          marginColumnsByBase,
+          metadata,
+          selectedYears,
+          table: dataset.table_name,
+          schema: dataset.schemaname,
+          database: dataset.db_name,
+          title: dataset.menu3,
+          source: dataset.source,
+          queryYearColumn: dataset.yearcolumn,
+          updatedAt: dataset.updated,
+          geographyColumn,
+          availableGeographies,
+          selectedGeographies,
+          linkInventoryRows: isDatasetInventoryCatalog(dataset),
+          loading: false,
         });
-    } else {
-      axios
-        .all(queries)
-        .then(async (response) => {
-          const tableResults = response[0].data.rows;
-          const metadata = Object.values(response[1].data)[0];
-          const yearResults = queries.length === 3 ? response[2].data.rows : [];
 
-          try {
-            // process the metadata
-            const columns = Object.keys(tableResults[0] || {});
-            const sortedMetadata = metadata.documentation.metadata.eainfo.detailed.attr
-              .map((attribute) => ({
-                name: attribute.attrlabl,
-                alias: attribute.attalias,
-              }))
-              .filter((header) => columns.includes(header.name))
-              .filter((header) => header.name !== "shape");
-
-            // Process the distinct year data
-            const distinctYears = yearResults.map((year) => Object.values(year)[0]).sort().reverse();
-
-            const visibleColumnKeys = this.getVisibleColumnKeys(sortedMetadata);
-            const marginColumnsByBase = this.getMarginColumnsByBase(sortedMetadata);
-            const selectedBaseColumns = visibleColumnKeys.map((col) => col.name);
-            let selectedColumns = this.expandSelectedWithMargins(selectedBaseColumns, marginColumnsByBase);
-            let selectedYears = distinctYears.length ? [distinctYears[0]] : [];
-
-            const parsedShare = parseDatasetViewShareSearch(this.props.location?.search ?? "");
-            if (parsedShare.baseColumnNames?.length) {
-              const visibleSet = new Set(visibleColumnKeys.map((c) => c.name));
-              const validBases = parsedShare.baseColumnNames.filter((n) => visibleSet.has(n));
-              if (validBases.length) {
-                selectedColumns = this.expandSelectedWithMargins(validBases, marginColumnsByBase);
-              }
-            }
-            const yearOverride = resolveYearsFromUrl(parsedShare, distinctYears);
-            if (yearOverride) selectedYears = yearOverride;
-
-            this.setState({
-              availableYears: distinctYears,
-              rows: tableResults,
-              description: metadata.documentation.metadata.dataIdInfo.idPurp || "",
-              columnKeys: sortedMetadata,
-              selectedColumns,
-              marginColumnsByBase,
-              metadata,
-              selectedYears,
-              table: dataset.table_name,
-              schema: dataset.schemaname,
-              database: dataset.db_name,
-              title: dataset.menu3,
-              source: dataset.source,
-              queryYearColumn: dataset.yearcolumn,
-              updatedAt: dataset.updated,
-              linkInventoryRows: isDatasetInventoryCatalog(dataset),
-              loading: false,
-            });
-          } catch (error) {
-            this.setState({
-              loading: false,
-              error: "Error parsing metadata",
-            });
-            console.error("Error parsing metadata:", error);
-          }
-        })
-        .catch((error) => {
-          this.setState({ loading: false, error: "Error fetching datasets" });
-          console.error("Error:", error);
-        });
-    }
+      }).catch((error) => {
+        this.setState({ loading: false, error: "Please try again later" });
+        console.error("Error:", error);
+      });
   }
 
   componentWillUnmount() {
@@ -493,7 +430,6 @@ class DataViewerClass extends React.Component {
             geographyColumn={this.state.geographyColumn}
             linkRowsToDatasetView={this.state.linkInventoryRows}
             updatePage={this.updatePage}
-            metadata={this.state.metadata}
           />
         </section>
       );
