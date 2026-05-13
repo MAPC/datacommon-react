@@ -169,32 +169,10 @@ const MetadataModal = ({ show, handleClose, dataset }) => {
     
     try {
       const response = await axios.get(
-        `/api/metadata?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=${dataset.db_name}&schema=${dataset.schemaname}&table=${dataset.table_name}`
+        `/api/metadata?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=${dataset.db_name}&schema=${dataset.schemaname}&table=${dataset.table_name}&useNewMetadata=true`
       );
-      
-      // Handle gisdata differently - it has a different structure
-      if (dataset.db_name === 'gisdata' || dataset.db_name === 'towndata') {
-        // For gisdata, first get the metadata object from response
-        const metadata = Object.values(response.data)[0];
-        // Then navigate to documentation.metadata.eainfo.detailed.attr
-        const eainfo = metadata?.documentation?.metadata?.eainfo;
-        if (eainfo?.detailed?.attr && Array.isArray(eainfo.detailed.attr)) {
-          // Map attrlabl, attalias, attrdef to our format
-          const mappedMetadata = eainfo.detailed.attr.map(attr => ({
-            name: attr.attrlabl || 'N/A',
-            alias: attr.attalias || 'N/A',
-            details: attr.attrdef || 'N/A'
-          }));
-          setMetadata(mappedMetadata);
-        } else {
-          console.warn('gisdata metadata structure not found:', response.data);
-          setMetadata([]);
-        }
-      } else {
-        // Handle different metadata formats for other databases
-        const metadataData = Object.values(response.data)[0];
-        setMetadata(Array.isArray(metadataData) ? metadataData : []);
-      }
+      const metadataData = Object.values(response.data)[0];
+      setMetadata(Array.isArray(metadataData) ? metadataData : []);
     } catch (err) {
       console.error('Error fetching metadata:', err);
       setError('Failed to load metadata. Please try again later.');

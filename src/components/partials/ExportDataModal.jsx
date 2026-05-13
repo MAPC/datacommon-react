@@ -35,22 +35,10 @@ const formats = {
   },
 };
 
-const downloadMetadata = (database, metadata, title, table = "", description = "") => {
+const downloadMetadata = (metadata, title) => {
   const documentHeader = ["name", "alias", "details"];
-  let rows;
-  if (database === "towndata" || database === "gisdata") {
-    const metadataName = metadata.documentation.metadata.eainfo.detailed.attr.map((attr) => (attr.attrlabl ? attr.attrlabl : "undefined"));
-    const metadataAlias = metadata.documentation.metadata.eainfo.detailed.attr.map((attr) => attr.attalias);
-    const metadataDescription = metadata.documentation.metadata.eainfo.detailed.attr.map((attr) => (attr.attrdef ? attr.attrdef : "undefined"));
-    rows = [
-      ["title", "Title", title],
-      ["tbl_table", "Table", table],
-      ["descriptn", "Description", description],
-    ].concat(metadataName.map((item, i) => [item, metadataAlias[i], metadataDescription[i]]));
-  } else {
-    const values = metadata.map((row) => documentHeader.map((key) => row[key]));
-    rows = values.map((row) => row.reduce((a, b) => `${a},${b}`));
-  }
+  const values = metadata.map((row) => documentHeader.map((key) => row[key]));
+  const rows = values.map((row) => row.reduce((a, b) => `${a},${b}`));
   const csvHeader = "data:text/csv;charset=utf-8,";
   const documentRows = rows.reduce((a, b) => `${a}\n${b}`);
 
@@ -157,7 +145,6 @@ function ExportDataModal({
   datasetId,
   title = "",
   table = "",
-  description = "",
   database = "ds",
   schema = "",
   metadata = [],
@@ -296,7 +283,7 @@ function ExportDataModal({
 
   const handleDownloadSubmit = () => {
     if (exportTarget === "metadata") {
-      downloadMetadata(database, metadata, title, table, description);
+      downloadMetadata(metadata, title);
       return;
     }
 
@@ -530,7 +517,6 @@ ExportDataModal.propTypes = {
   datasetId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   title: PropTypes.string,
   table: PropTypes.string,
-  description: PropTypes.string,
   database: PropTypes.string,
   schema: PropTypes.string,
   metadata: PropTypes.oneOfType([PropTypes.arrayOf(PropTypes.object), PropTypes.objectOf(PropTypes.object)]),

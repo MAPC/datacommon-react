@@ -284,9 +284,7 @@ const DataTableModal = ({ show, handleClose, data, title, muni, tableKey }) => {
 
       try {
         const res = await fetch(
-          `/api/metadata?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=${encodeURIComponent(schema)}&table=${encodeURIComponent(
-            table,
-          )}`,
+          `/api/metadata?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=${encodeURIComponent(schema)}&table=${encodeURIComponent(table)}&useNewMetadata=true`,
         );
         if (!res.ok) {
           throw new Error(`Metadata HTTP error: ${res.status}`);
@@ -301,11 +299,6 @@ const DataTableModal = ({ show, handleClose, data, title, muni, tableKey }) => {
         } else {
           const maybeFirst = Object.values(metadataContainer || {})[0];
           metadataArray = Array.isArray(maybeFirst) ? maybeFirst : [];
-        }
-
-        // Fallback for nested metadata shapes (defensive)
-        if ((!metadataArray || metadataArray.length === 0) && metadataContainer?.documentation?.metadata?.eainfo?.detailed?.attr) {
-          metadataArray = metadataContainer.documentation.metadata.eainfo.detailed.attr;
         }
 
         const next = {};

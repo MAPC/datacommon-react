@@ -841,7 +841,6 @@ function DatasetHeader({
         datasetId={datasetId}
         title={title}
         table={table}
-        description={description}
         database={database}
         schema={schema}
         metadata={metadata}
