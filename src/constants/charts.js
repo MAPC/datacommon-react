@@ -21,11 +21,15 @@ const format = {
   },
 };
 
-const fetchYears = async (schema, table, yearCol, limit, orderDir = 'DESC') => {
+const fetchYears = async (schema, table, yearCol, limit, orderDir = "DESC", extraQueryParams = "") => {
   const tabular_api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=${schema}&table=${table}`;
   let query = `${tabular_api}&columns=DISTINCT(${yearCol}) as latest_year&orderByColumn=${yearCol}&orderByDirection=${orderDir}`;
   if (limit) {
     query = `${query}&limit=${limit}`;
+  }
+  if (extraQueryParams) {
+    const suffix = extraQueryParams.startsWith("&") ? extraQueryParams : `&${extraQueryParams}`;
+    query = `${query}${suffix}`;
   }
 
   try {
@@ -2350,9 +2354,8 @@ export default {
         })(),
       },
       timeframe: async () => {
-        let queryString = `SELECT fiscal_yr as latest_year FROM tabular.muni_finance_m GROUP BY fiscal_yr ORDER BY fiscal_yr DESC LIMIT 1`;
-        const years = await fetchLatestYear(queryString);
-        return years[0];
+        const years = await fetchYears("tabular", "muni_finance_m", "fiscal_yr", 1, "DESC");
+        return years && years[0] ? String(years[0]) : "";
       },
       transformer: (tables) => {
         const data = tables["tabular.muni_finance_m"];

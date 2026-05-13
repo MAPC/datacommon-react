@@ -127,10 +127,10 @@ const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAreg
   const rpaCache = useSelector(selectRPAregionCache);
 
   useEffect(() => {
-    if (typeof chart.timeframe === 'function') {
-      chart.timeframe().then(setTimeframe);
+    if (typeof chart.timeframe === "function") {
+      chart.timeframe(muni).then(setTimeframe);
     }
-  }, [chart.timeframe]);
+  }, [chart.timeframe,muni]);
 
   const handleViewData = () => {
     if (isSubregion) {

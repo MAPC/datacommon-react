@@ -311,7 +311,10 @@ class TreeMap extends React.Component {
           </div>
         </div>
         {tiles.length > 0 ? (
-          <div style={{ marginTop: "0.05rem", display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "center" }}>
+          <div
+            className="treemap-legend"
+            style={{ marginTop: "0.05rem", display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "center" }}
+          >
             {tiles.map((node) => (
               <div
                 key={node.key || node.label}
