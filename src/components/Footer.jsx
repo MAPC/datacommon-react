@@ -43,7 +43,7 @@ function Footer() {
           </li>
           <li>
             <a href="https://share-open-data-metroboston.hub.arcgis.com/" target="_blank" rel="noopener noreferrer">
-              MAPC Open Data Hub
+              MAPC spatial data hub
             </a>
           </li>
         </ul>

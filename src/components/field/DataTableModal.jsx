@@ -309,7 +309,6 @@ const DataTableModal = ({ show, handleClose, data, title, muni, tableKey }) => {
         }
 
         const next = {};
-        console.log("metadataArray", metadataArray);
         metadataArray.forEach((col) => {
           const alias = col?.alias ?? "";
             

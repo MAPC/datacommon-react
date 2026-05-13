@@ -60,14 +60,14 @@ const FilterTitle = styled.h4`
 const ClearButton = styled.button`
   background: none;
   border: none;
-  color: #6fc68e;
+  color: #4ea56c;
   font-size: 0.875rem;
   cursor: pointer;
   padding: 0;
   text-decoration: underline;
   
   &:hover {
-    color: #5db37a;
+    color: #367a4e;
   }
 `;
 
@@ -270,6 +270,38 @@ const DatasetGrid = styled.div`
   }
 `;
 
+const DatasetContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+`;
+
+const DatasetTabs = styled.div`
+  display: flex;
+  flex-direction: row;
+`;
+const GeographyTab = styled.div`
+  position: relative;
+  top: 5px;
+  cursor: pointer;
+  padding: 6px 12px 10px 12px;
+  background: #f9f9f9;
+  border: 1px solid #e0e0e0;
+  border-bottom: none;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+
+  &:hover {
+    background: #f1f1f1;
+    border: 1px solid #dadada;
+    border-bottom: none;
+  }
+
+  &.selected {
+    z-index: 99;
+    background: #ffffff;
+  }
+`;
+
 const DatasetBox = styled.div`
   background: white;
   border: 1px solid #e0e0e0;
@@ -326,20 +358,6 @@ const InfoValue = styled.span`
   color: #555;
 `;
 
-const InfoGeographyValue = styled.div`
-  color: #4ea56c;
-  border: 1px solid #4ea56c;
-  border-radius: 12px;
-  padding: 4px 8px 6px;
-  line-height: 14px;
-  cursor: pointer;
-
-  &:hover {
-    color: #367a4e;
-    border: 1px solid #367a4e;
-  }
-`;
-
 const DatasetActions = styled.div`
   display: flex;
   flex-direction: column;
@@ -365,38 +383,6 @@ const ViewMetadataButton = styled.button`
   
   &:hover {
     opacity: 0.9;
-  }
-`;
-
-const ViewMetadataDropdownContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-`;
-
-const ViewMetadataDropdownOptionsContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  position: absolute;
-  top: 2.5rem;
-  z-index: 999;
-  border-radius: 5px;
-`;
-
-const ViewMetadataDropdownOption = styled.button`
-  width: 10rem;
-  background-color: #64c08d;
-  color: white;
-  border: none;
-  padding: 0.3rem 1rem;
-  font-size: 0.8rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  transition: background-color 0.2s ease;
-
-  &:hover {
-    background-color: #7bc69d;
   }
 `;
 
@@ -536,6 +522,7 @@ const BrowserPage = () => {
     return geoFilterParams ? geoFilterParams.split(",").filter(Boolean) : ['all'];
   });
 
+  const [selectedGeographyTabs, setSelectedGeographyTabs] = useState({});
   const [categoryOptionTree, setCategoryOptionTree] = useState({});
   const [sortBy, setSortBy] = useState('Relevance');
   const [selectedDataset, setSelectedDataset] = useState(null);
@@ -547,7 +534,6 @@ const BrowserPage = () => {
   const [displayDatasets, setDisplayDatasets] = useState([]);
   const [highlightMatches, setHighlightMatches] = useState({});
   const [shareCopied, setShareCopied] = useState(false);
-  const [viewingMetadataDropdownId, setViewingMetadataDropdownId] = useState(null);
 
   const arraysEqual = (a, b) => {
     if (a.length !== b.length) return false;
@@ -623,38 +609,26 @@ const BrowserPage = () => {
     const datasetBaseTableMap = {};
     filtered.forEach(dataset => {
       const tableName = dataset.table_name;
-      const datasetName = dataset.menu3;
-
       let trimmedTable = tableName;
-      let trimmedName = datasetName;
       let datasetGeography = null;
       if (tableName.endsWith("_m")) {
         trimmedTable = tableName.slice(0, -2);
-        if (datasetName.endsWith(" (Municipal)")) trimmedName = datasetName.slice(0, -12);
-        if (datasetName.endsWith(" (Municipality)")) trimmedName = datasetName.slice(0, -15);
         datasetGeography = "Municipalities";
       } else if (tableName.endsWith("_ct")) {
         trimmedTable = tableName.slice(0, -3);
-        if (datasetName.endsWith(" (Census Tracts)")) trimmedName = datasetName.slice(0, -16);
-        if (datasetName.endsWith(" (Census Tract)")) trimmedName = datasetName.slice(0, -15);
         datasetGeography = "Census Tracts";
       } else if (tableName.endsWith("_bg")) {
         trimmedTable = tableName.slice(0, -3);
-        if (datasetName.endsWith(" (Block Groups)")) trimmedName = datasetName.slice(0, -15);
-        if (datasetName.endsWith(" (Block Group)")) trimmedName = datasetName.slice(0, -14);
         datasetGeography = "Block Groups";
       } else if (tableName.endsWith("_b")) {
         trimmedTable = tableName.slice(0, -2);
-        trimmedName = datasetName.endsWith(" (Blocks)") ? datasetName.slice(0, -9) : datasetName;
         datasetGeography = "Blocks";
       } else if (tableName.endsWith("_blk")) {
         trimmedTable = tableName.slice(0, -4);
-        trimmedName = datasetName.endsWith(" (Blocks)") ? datasetName.slice(0, -9) : datasetName;
         datasetGeography = "Blocks";
       }
       if (!datasetBaseTableMap[trimmedTable]) {
         datasetBaseTableMap[trimmedTable] = {
-          baseName: trimmedName,
           datasets: [],
           geoIdPairs: [],
         };
@@ -666,20 +640,28 @@ const BrowserPage = () => {
     const compressedDatasets = Object.entries(datasetBaseTableMap).map(([baseTable, cdsInfo]) => {
       const geoOrder = ["Municipal", "Census Tracts", "Block Groups", "Blocks"];
       const sortedGeoIdParis = cdsInfo.geoIdPairs.sort((pair1, pair2) => geoOrder.indexOf(pair1.geography) - geoOrder.indexOf(pair2.geography));
+      
+      // use the first dataset in sort order for the top-level menu3, table_name, and updated
+      let firstDataset;
+      if (cdsInfo.datasets.length === 1) {
+        firstDataset = cdsInfo.datasets[0]
+      } else {
+        const firstId = sortedGeoIdParis[0].id;
+        firstDataset = cdsInfo.datasets.find(d => d.seq_id === firstId);
+      }
 
       return {
-        table_name: baseTable,
-        menu3: cdsInfo.baseName,
-        seq_id: cdsInfo.datasets.map(ds => ds.seq_id || ds.id).join(','), // TODO: Is this right?
-        updated: cdsInfo.datasets.map(ds => ds.updated).sort()[0],
-        source: cdsInfo.datasets.map(ds => ds.source)[0],
+        table_name: baseTable,         // this top-level baseTable is only used during sorting
+        menu3: firstDataset.menu3,     // this top-level menu3 is only used during sorting
+        updated: firstDataset.updated, // this top-level 'updated' is only used during sorting
+        seq_id: cdsInfo.datasets.map(ds => ds.seq_id || ds.id).join(','), // this combined id is the id of the compressed dataset
         geoIdPairs: sortedGeoIdParis,
         ...cdsInfo,
       }
     });
 
-    // set the matched search terms to be highlighted
-    const highlights = highlightDatasets({ searchQuery, datasets: compressedDatasets });
+    // set the matched search terms to be highlighted (use filtered list not compressed datasets)
+    const highlights = highlightDatasets({ searchQuery, datasets: filtered });
 
     setHighlightMatches(highlights);
     setDisplayDatasets(compressedDatasets);
@@ -909,8 +891,9 @@ const BrowserPage = () => {
     setSelectedSources([]);
   };
 
-  const clearMenu1Filter = () => {
+  const clearCategoryFilters = () => {
     setSelectedMenu1s([]);
+    setSelectedMenu2s([]);
   };
 
   const handleViewMetadata = (dataset) => {
@@ -923,19 +906,42 @@ const BrowserPage = () => {
     setSelectedDataset(null);
   };
 
+  const onGeoTabClicked = (compressedDatasetId, geography) => {
+    const newSelectedGeoTabs = {...selectedGeographyTabs};
+
+    newSelectedGeoTabs[compressedDatasetId] = geography;
+    setSelectedGeographyTabs(newSelectedGeoTabs);
+  }
+
+  const isTabSelected = (selectedGeographyTabs, compressedDataset, geography) => {
+    const compressedId = compressedDataset.id || compressedDataset.seq_id;
+    if (!selectedGeographyTabs[compressedId]) {
+      return compressedDataset.geoIdPairs.filter(pair => !!pair.geography)[0].geography === geography;
+    } else {
+      return selectedGeographyTabs[compressedId] === geography;
+    }
+  }
+
+  const getSelectedDataset = (compressedDataset) => {
+    const compressedId = compressedDataset.id || compressedDataset.seq_id;
+    if (compressedDataset.datasets.length === 1) {
+      return compressedDataset.datasets[0];
+    }
+    
+    let selectedDatasetId;
+    if (!selectedGeographyTabs[compressedId]) {
+      selectedDatasetId = compressedDataset.geoIdPairs.filter(pair => !!pair.geography)[0].id;
+    } else {
+      const selectedGeography = selectedGeographyTabs[compressedId];
+      selectedDatasetId = compressedDataset.geoIdPairs.find(geoIdPair => geoIdPair.geography === selectedGeography).id;
+    }
+
+    return compressedDataset.datasets.find(d => d.seq_id === selectedDatasetId);
+  }
+
   const toDataset = (datasetId) => {
     // open in new tab to preserve user's search & filters from the datasets landing page
     window.open(`/browser/datasets/${datasetId}`, '_blank', 'noreferrer');
-  };
-
-  const handleDatasetClick = (compressedDataset) => {
-    // handle case of one dataset
-    if (compressedDataset.datasets.length === 1) {
-      toDataset(compressedDataset.datasets[0].seq_id);
-    } else {
-      // otherwise use the first one in the order the geos were sorted in
-      toDataset(compressedDataset.geoIdPairs[0].id);
-    }
   };
 
   return (
@@ -957,8 +963,8 @@ const BrowserPage = () => {
           <FilterSection>
             <FilterHeader>
               <FilterTitle>Category</FilterTitle>
-              {selectedMenu1s.length > 0 && (
-                <ClearButton onClick={clearMenu1Filter}>Clear</ClearButton>
+              {(selectedMenu1s.length > 0 || selectedMenu2s.length > 0) && (
+                <ClearButton onClick={clearCategoryFilters}>Clear</ClearButton>
               )}
             </FilterHeader>
             <FilterListCategories>
@@ -1031,7 +1037,7 @@ const BrowserPage = () => {
         <ContentArea>
           <SearchInputContainer>
             <SearchInput
-              type="text"
+              type="search"
               placeholder="Search by table name or title..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -1074,9 +1080,14 @@ const BrowserPage = () => {
                   {(selectedGeoFilters.includes('other') || selectedGeoFilters.includes('all')) && <span>✓</span>}
                 </GeographyFilterPill>
               </GeographyFilterContainer>
-              <GeographyFilterPill onClick={() => setSelectedGeoFilters([])}>
-                <>Clear all geographies</>
-                <span>X</span>
+              <GeographyFilterPill
+                onClick={() => selectedGeoFilters.length === 0 ? setSelectedGeoFilters(['all']) : setSelectedGeoFilters([])}
+                className={selectedGeoFilters.length === 0 ? 'selected' : ''}
+              >
+                <>
+                  {selectedGeoFilters.length === 0 ? "Select all geographies" : "Clear all geographies"}
+                </>
+                <span>{selectedGeoFilters.length !== 0 ? "X" : "✓"}</span>
               </GeographyFilterPill>
             </GeographyBarContainer>
           </SearchInputContainer>
@@ -1114,87 +1125,59 @@ const BrowserPage = () => {
           <DatasetGrid ref={datasetGridRef}>
             {sortedDatasets.map((compressedDataset) => {
               const compressedDatasetId = compressedDataset.seq_id || compressedDataset.id;
+              const selectedDatasetFromTab = getSelectedDataset(compressedDataset);
               return (
-                <DatasetBox 
-                  key={compressedDatasetId}
-                  onClick={() => handleDatasetClick(compressedDataset)}
-                >
-                  <DatasetHeaderContainer>
-                    <DatasetHeader>
-                      {renderHighlightedText(compressedDataset.menu3, compressedDatasetId, 'menu3')}
-                    </DatasetHeader>
-                    {compressedDataset.datasets.length === 1 && 
+                <DatasetContainer>
+                  <DatasetTabs>
+                    {compressedDataset.geoIdPairs.filter(pair => !!pair.geography).map(geoIdPair =>
+                      <GeographyTab
+                        key={`${compressedDataset.id}_${geoIdPair.geography}`}
+                        className={isTabSelected(selectedGeographyTabs, compressedDataset, geoIdPair.geography) ? "selected" : ""}
+                        onClick={() => onGeoTabClicked(compressedDatasetId, geoIdPair.geography)}
+                      >
+                        {geoIdPair.geography}
+                      </GeographyTab>
+                    )}
+                  </DatasetTabs>
+                  <DatasetBox
+                    key={selectedDatasetFromTab.seq_id}
+                    onClick={() => toDataset(selectedDatasetFromTab.seq_id)}
+                  >
+                    <DatasetHeaderContainer>
+                      <DatasetHeader>
+                        {renderHighlightedText(selectedDatasetFromTab.menu3, selectedDatasetFromTab.seq_id, 'menu3')}
+                      </DatasetHeader>
                       <ViewMetadataButton
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleViewMetadata(compressedDataset.datasets[0]);
+                          handleViewMetadata(selectedDatasetFromTab);
                         }}
                       >
                         View Metadata
                       </ViewMetadataButton>
-                    }
-                    {compressedDataset.datasets.length !== 1 && 
-                    <ViewMetadataDropdownContainer>
-                      <ViewMetadataButton
-                        onClick={e => {
-                          e.stopPropagation();
-                          viewingMetadataDropdownId === compressedDatasetId ? setViewingMetadataDropdownId(null) : setViewingMetadataDropdownId(compressedDatasetId);
-                        }}
-                      >
-                        View Metadata <span style={{ float: 'right' }}>▼</span>
-                      </ViewMetadataButton>
-                      <ViewMetadataDropdownOptionsContainer>
-                        {viewingMetadataDropdownId === compressedDatasetId && compressedDataset.geoIdPairs.map(geoIdPair => 
-                          <ViewMetadataDropdownOption 
-                            key={geoIdPair.id}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setViewingMetadataDropdownId(null);
-                              handleViewMetadata(compressedDataset.datasets.filter(d => d.seq_id === geoIdPair.id)[0]);
-                            }}
-                          >
-                            {geoIdPair.geography}
-                          </ViewMetadataDropdownOption>
-                        )}
-                      </ViewMetadataDropdownOptionsContainer>
-                    </ViewMetadataDropdownContainer>
-                    }
-                  </DatasetHeaderContainer>
-                  <DatasetBody>
-                    <DatasetInfo>
-                      <InfoRow>
-                        <InfoLabel>Table:</InfoLabel>
-                        <InfoValue>
-                          {renderHighlightedText(compressedDataset.table_name, compressedDatasetId, 'table_name')}
-                        </InfoValue>
-                      </InfoRow>
-                      <InfoRow>
-                        <InfoLabel>Source:</InfoLabel>
-                        <InfoValue>{compressedDataset.source}</InfoValue>
-                      </InfoRow>
-                      {compressedDataset.geoIdPairs.filter(pair => !!pair.geography).length > 0 && <InfoRow>
-                        <InfoLabel>Geographies:</InfoLabel>
-                        {compressedDataset.geoIdPairs.map(geoIdPair => 
-                          <InfoGeographyValue
-                            key={geoIdPair.id}
-                            onClick={e => {
-                              e.stopPropagation();
-                              toDataset(geoIdPair.id);
-                            }}
-                          >
-                            {geoIdPair.geography}
-                          </InfoGeographyValue>
-                        )}
-                      </InfoRow>}
-                    </DatasetInfo>
-                    <DatasetActions>
-                      <LastUpdated>
-                        <LastUpdatedLabel>Last updated:</LastUpdatedLabel>
-                        {formatUpdated(compressedDataset.updated)}
-                      </LastUpdated>
-                    </DatasetActions>
-                  </DatasetBody>
-                </DatasetBox>
+                    </DatasetHeaderContainer>
+                    <DatasetBody>
+                      <DatasetInfo>
+                        <InfoRow>
+                          <InfoLabel>Table:</InfoLabel>
+                          <InfoValue>
+                            {renderHighlightedText(selectedDatasetFromTab.table_name, selectedDatasetFromTab.seq_id, 'table_name')}
+                          </InfoValue>
+                        </InfoRow>
+                        <InfoRow>
+                          <InfoLabel>Source:</InfoLabel>
+                          <InfoValue>{selectedDatasetFromTab.source}</InfoValue>
+                        </InfoRow>
+                      </DatasetInfo>
+                      <DatasetActions>
+                        <LastUpdated>
+                          <LastUpdatedLabel>Last updated:</LastUpdatedLabel>
+                          {formatUpdated(selectedDatasetFromTab.updated)}
+                        </LastUpdated>
+                      </DatasetActions>
+                    </DatasetBody>
+                  </DatasetBox>
+                </DatasetContainer>
               );
             })}
           </DatasetGrid>

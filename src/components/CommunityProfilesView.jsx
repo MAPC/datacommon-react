@@ -35,7 +35,6 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
   });
 
   const handleShowModal = (data, title, tableKey = "") => {
-    console.log("tableKey", tableKey);
     setModalConfig({
       show: true,
       data,

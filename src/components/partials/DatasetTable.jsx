@@ -140,7 +140,6 @@ class DatasetTable extends React.Component {
       geographyColumn = null,
       linkRowsToDatasetView = false,
       updatePage,
-      updateRowsPerPage
     } = this.props;
     const { sortColumn, sortDirection, inputPageNum } = this.state;
     // Filter columnKeys based on selectedColumns
@@ -189,12 +188,13 @@ class DatasetTable extends React.Component {
     const numOfPages = Math.ceil(dataRows.length / rowsPerPage);
     const backButtonClasses = currentPage === 1 ? "button-wrapper lift disabled" : "button-wrapper lift";
     const forwardButtonClasses = currentPage === numOfPages ? "button-wrapper list disabled" : "button-wrapper lift";
+    const isEmbedView = new URLSearchParams(location.search).get("embed") === "1";
     return (
       <div className="table-wrapper">
         <div className="container tight">
           <div className="scroll-horizontal-rotated ui lift">
             <div className="cancel-rotate">
-              <div className="table-container">
+              <div className={`table-container${!isEmbedView && rowsPerPage <= 25 ? "" : " vertical-scroll"}`}>
                 <table className="ui sortable unstackable selectable compact table ember-view sticky-header-table">
                   <thead className="sticky-header">
                     <tr>{renderedHeaders}</tr>
@@ -288,7 +288,6 @@ DatasetTable.propTypes = {
   geographyColumn: PropTypes.string,
   linkRowsToDatasetView: PropTypes.bool,
   updatePage: PropTypes.func.isRequired,
-  updateRowsPerPage: PropTypes.func.isRequired,
 };
 
 export default DatasetTable;

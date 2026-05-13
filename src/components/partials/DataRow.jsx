@@ -51,6 +51,7 @@ const DataRow = ({ headers, rowData, linkRowsToDatasetView }) => {
       onClick={canLink ? go : undefined}
       onKeyDown={canLink ? onKeyDown : undefined}
       tabIndex={canLink ? 0 : undefined}
+      role={canLink ? "link" : undefined}
       title={canLink ? "Click to view data (open in a new tab)" : undefined}
       aria-label={canLink ? `Open dataset table view for id ${targetId} in a new tab` : undefined}
     >

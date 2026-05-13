@@ -162,25 +162,27 @@ export default function DownloadAllChartsButton({ muni, datatype, displayName })
     try {
       setIsLoading(true);
       await fetchMissingData();
-      
+
       setLoadingStatus("Preparing Excel file...");
       const state = store.getState();
       const excelData = {};
-    
-      getAllChartConfigs().forEach((chartInfo) => {
-        Object.keys(chartInfo.tables).forEach((tableName) => {
-          let data;
-          switch (datatype) {
-            case 'subregion':
-              data = state.subregion.cache[tableName]?.[muni] || [];
-              break;
-            case 'rpa':
-              data = state.rparegion.cache[tableName]?.[muni] || [];
-              break;
-            default:
-              data = state.chart.cache[tableName]?.[muni] || [];
-          }
-          excelData[tableName] = data;
+
+      Object.values(charts).forEach((category) => {
+        Object.values(category).forEach((chartInfo) => {
+          Object.keys(chartInfo.tables).forEach((tableName) => {
+            let data;
+            switch (datatype) {
+              case 'subregion':
+                data = state.subregion.cache[tableName]?.[muni] || [];
+                break;
+              case 'rpa':
+                data = state.rparegion.cache[tableName]?.[muni] || [];
+                break;
+              default:
+                data = state.chart.cache[tableName]?.[muni] || [];
+            }
+            excelData[tableName] = data;
+          });
         });
       });
 
@@ -188,9 +190,9 @@ export default function DownloadAllChartsButton({ muni, datatype, displayName })
       if (datatype === "municipality") {
         try {
           const muniName = displayName || muni;
-          const apiBase = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
+          const apiBase = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=internet_speed_test_m`;
           const escapedName = muniName.replace(/'/g, "''");
-          const query = `${apiBase}SELECT * FROM tabular.internet_speed_test_m WHERE muni_name ilike '${escapedName}'`;
+          const query = `${apiBase}&columns=muni_name,year,med_down,med_up,d_100p,u_20p&filters=muni_name:${escapedName}`;
           const response = await fetch(query);
           if (response.ok) {
             const payload = (await response.json()) || {};

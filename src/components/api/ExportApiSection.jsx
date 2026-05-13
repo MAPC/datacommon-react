@@ -1,6 +1,6 @@
 import React from "react";
 
-/** GET URLs with a very long `query=` string may hit browser or proxy limits. */
+/** GET URLs with a very long query params may hit browser or proxy limits. */
 const LONG_GET_URL_CHARS = 2048;
 const VERY_LONG_GET_URL_CHARS = 8192;
 
