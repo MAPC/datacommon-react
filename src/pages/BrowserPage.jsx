@@ -32,11 +32,34 @@ const Sidebar = styled.div`
   top: 2rem;
 `;
 
+const SidebarTitleContainer = styled.div`
+  display: flex;
+  justify-content: space-between;
+`;
+
 const SidebarTitle = styled.h3`
   margin: 0 0 1.5rem 0;
   font-size: 1.25rem;
   font-weight: 700;
   color: #333;
+`;
+
+const ClearAllFiltersButton = styled.button`
+  height: 2rem;
+  display: inline;
+  text-align: center;
+  background: linear-gradient(90deg, #64c08d, #5aba8c);
+  color: white;
+  border: none;
+  padding: 0.2rem 0.5rem;
+  border-radius: 5px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+
+  &:hover {
+    background: linear-gradient(90deg, #51a477, #47a778);
+  }
 `;
 
 const FilterSection = styled.div`
@@ -428,7 +451,7 @@ const DatasetCount = styled.div`
   }
 `;
 
-const SearchInputContainer = styled.div`
+const SearchAndGeoFilterContainer = styled.div`
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -915,7 +938,7 @@ const BrowserPage = () => {
 
     newSelectedGeoTabs[compressedDatasetId] = geography;
     setSelectedGeographyTabs(newSelectedGeoTabs);
-  }
+  };
 
   const isTabSelected = (selectedGeographyTabs, compressedDataset, geography) => {
     const compressedId = compressedDataset.id || compressedDataset.seq_id;
@@ -924,7 +947,7 @@ const BrowserPage = () => {
     } else {
       return selectedGeographyTabs[compressedId] === geography;
     }
-  }
+  };
 
   const getSelectedDataset = (compressedDataset) => {
     const compressedId = compressedDataset.id || compressedDataset.seq_id;
@@ -941,7 +964,21 @@ const BrowserPage = () => {
     }
 
     return compressedDataset.datasets.find(d => d.seq_id === selectedDatasetId);
-  }
+  };
+
+  const areFiltersPresent = () => {
+    const categoryFiltersPresent = selectedMenu1s.length > 0 || selectedMenu2s.length > 0;
+    const geographyFiltersPresent = selectedGeoFilters.length > 0 && !selectedGeoFilters.includes('all');
+    return (searchQuery.trim() || selectedSources.length > 0 || categoryFiltersPresent || geographyFiltersPresent);
+  };
+
+  const clearAllFilters = () => {
+    setSelectedMenu1s([]);
+    setSelectedMenu2s([]);
+    setSelectedSources([]);
+    setSelectedGeoFilters(['all']);
+    setSearchQuery('');
+  };
 
   const toDataset = (datasetId) => {
     // open in new tab to preserve user's search & filters from the datasets landing page
@@ -962,7 +999,14 @@ const BrowserPage = () => {
       </PageHeader>
       <MainContent>
         <Sidebar>
-          <SidebarTitle>Filters</SidebarTitle>
+          <SidebarTitleContainer>
+            <SidebarTitle>Filters</SidebarTitle>
+            {areFiltersPresent() && (
+              <ClearAllFiltersButton onClick={() => clearAllFilters()}>
+                Clear All Filters
+              </ClearAllFiltersButton>
+            )}
+          </SidebarTitleContainer>
 
           <FilterSection>
             <FilterHeader>
@@ -1039,9 +1083,8 @@ const BrowserPage = () => {
         </Sidebar>
 
         <ContentArea>
-          <SearchInputContainer>
+          <SearchAndGeoFilterContainer>
             <SearchInput
-              type="search"
               placeholder="Search by table name or title..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -1094,7 +1137,7 @@ const BrowserPage = () => {
                 <span>{selectedGeoFilters.length !== 0 ? "X" : "✓"}</span>
               </GeographyFilterPill>
             </GeographyBarContainer>
-          </SearchInputContainer>
+          </SearchAndGeoFilterContainer>
           
           <ContentHeader>
             <div>
@@ -1115,7 +1158,7 @@ const BrowserPage = () => {
                   <option value="Oldest First">Oldest First</option>
                 </SortSelect>
               </SortContainer>
-              {(searchQuery.trim() || selectedSources.length > 0 || selectedMenu1s.length > 0 || selectedMenu2s.length > 0 || (selectedGeoFilters.length > 0 && !selectedGeoFilters.includes('all'))) && (
+              {areFiltersPresent() && (
                 <ShareLinkContainer>
                   <ShareLinkButton type="button" onClick={handleCopyShareLink}>
                     Share Search Result
