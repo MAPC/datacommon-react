@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import Tab from "./Tab";
@@ -17,6 +17,8 @@ import ChartDetails from "./visualizations/ChartDetails";
 import PieChart from "../containers/visualizations/PieChart";
 import LineChart from "../containers/visualizations/LineChart";
 import GaugeChart from "../containers/visualizations/GaugeChart";
+import TreeMap from "../containers/visualizations/TreeMap";
+import MunicipalFinanceOverridesMap from "./visualizations/MunicipalFinanceOverridesMap";
 import DownloadAllChartsButton from "./field/DownloadAllChartsButton";
 import DataTableModal from "./field/DataTableModal";
 import { store } from "../store";
@@ -51,14 +53,27 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
     });
   };
 
+  const getChartsForTab = (tabKey) => {
+    const tabConfig = charts[tabKey];
+    if (!tabConfig) return [];
+    // Most tabs are a map of charts; some may be a single chart object.
+    if (tabConfig.tables) return [tabConfig];
+    return Object.values(tabConfig).filter((chartConfig) => chartConfig?.tables);
+  };
+
+  const getAllChartConfigs = () =>
+    Object.values(charts).flatMap((tabConfig) => {
+      if (!tabConfig || typeof tabConfig !== "object") return [];
+      if (tabConfig.tables) return [tabConfig];
+      return Object.values(tabConfig).filter((chartConfig) => chartConfig?.tables);
+    });
+
   useEffect(() => {
     setActiveTab(tab);
   }, [tab]);
 
   useEffect(() => {
-    if (charts[activeTab]) {
-      Object.values(charts[activeTab]).forEach((chart) => dispatch(fetchChartData({ chartInfo: chart, municipality: muni })));
-    }
+    getChartsForTab(activeTab).forEach((chart) => dispatch(fetchChartData({ chartInfo: chart, municipality: muni })));
   }, [activeTab, muni, dispatch]);
 
   const handlePrintCharts = async () => {
@@ -67,11 +82,9 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
     const allTables = [];
     
     // Get all table names from charts
-    Object.values(charts).forEach((category) => {
-      Object.values(category).forEach((chartInfo) => {
-        Object.keys(chartInfo.tables).forEach((tableName) => {
-          allTables.push(tableName);
-        });
+    getAllChartConfigs().forEach((chartInfo) => {
+      Object.keys(chartInfo.tables).forEach((tableName) => {
+        allTables.push(tableName);
       });
     });
 
@@ -85,12 +98,10 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
     if (!allDataLoaded) {
       const fetchPromises = [];
       
-      Object.values(charts).forEach((category) => {
-        Object.values(category).forEach((chartInfo) => {
-          fetchPromises.push(
-            dispatch(fetchChartData({ chartInfo: chartInfo, municipality: muni }))
-          );
-        });
+      getAllChartConfigs().forEach((chartInfo) => {
+        fetchPromises.push(
+          dispatch(fetchChartData({ chartInfo, municipality: muni }))
+        );
       });
 
       // Wait for all data to be loaded
@@ -152,6 +163,33 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
         .chart-wrapper svg {
           width: 100% !important;
           height: auto !important;
+        }
+        /* Treemap needs full row in print or it gets clipped. */
+        .tab__row .chart-wrapper:has(.chart.TreeMap) {
+          width: 100% !important;
+          max-width: 100% !important;
+          padding: 0 !important;
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+        }
+        .chart.TreeMap .svg-wrapper,
+        .chart.TreeMap svg {
+          overflow: visible !important;
+        }
+        .chart.TreeMap,
+        .chart.TreeMap * {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+        .chart.TreeMap > div:last-child {
+          display: flex !important;
+          flex-wrap: wrap !important;
+          gap: 0.5rem 0.75rem !important;
+          margin-top: 0.1rem !important;
+          color: #111 !important;
+        }
+        .chart.TreeMap > div:last-child span[aria-hidden] {
+          border: 1px solid rgba(0, 0, 0, 0.25) !important;
         }
         .tab__row--after-gauges {
           margin-top: 2.5em !important;
@@ -407,6 +445,31 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                   </div>
                 </div>
               </div>
+            </Tab>
+            <Tab active={activeTab === "municipal-finances"}>
+              <header className="print-header">
+                <h3>Municipal Finances</h3>
+              </header>
+              <div className="tab__row">
+                
+                  <ChartDetails
+                    chart={charts["municipal-finances"].fund_revenue}
+                    muni={muni}
+                    onViewData={handleShowModal}
+                    wrapperClassName="chart-wrapper--fund-revenue-breakdown"
+                  >
+                    <TreeMap chart={charts["municipal-finances"].fund_revenue} muni={muni} />
+                  </ChartDetails>
+             
+              </div>
+              
+                <div className="tab__row tab__row--full-width-map">
+                  <MunicipalFinanceOverridesMap
+                    config={charts["municipal-finances"].overrides_map_config}
+                    municipalFeature={municipalFeature}
+                  />
+                </div>
+             
             </Tab>
           </div>
         </div>

@@ -25,6 +25,9 @@ const tabs = [{
 }, {
   value: 'digital-equity',
   label: 'Digital Equity',
+}, {
+  value: 'municipal-finances',
+  label: 'Municipal Finances',
 }];
 
 export default tabs;

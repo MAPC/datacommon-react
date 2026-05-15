@@ -21,11 +21,15 @@ const format = {
   },
 };
 
-const fetchYears = async (schema, table, yearCol, limit, orderDir = 'DESC') => {
+export const fetchYears = async (schema, table, yearCol, limit, orderDir = "DESC", extraQueryParams = "") => {
   const tabular_api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=${schema}&table=${table}`;
   let query = `${tabular_api}&columns=DISTINCT(${yearCol}) as latest_year&orderByColumn=${yearCol}&orderByDirection=${orderDir}`;
   if (limit) {
     query = `${query}&limit=${limit}`;
+  }
+  if (extraQueryParams) {
+    const suffix = extraQueryParams.startsWith("&") ? extraQueryParams : `&${extraQueryParams}`;
+    query = `${query}${suffix}`;
   }
 
   try {
@@ -2302,5 +2306,113 @@ export default {
         return queryString;
       },
     },
+  },
+  "municipal-finances": {
+    
+    
+    fund_revenue:{
+      type: "tree-map",
+      title: "Fund Revenue Breakdown",
+      colors: Array.from(colors.CHART.PRIMARY.values()).slice(-4),
+      valueFormatter: (v) => {
+        const n = typeof v === "number" ? v : Number(v);
+        if (!Number.isFinite(n)) return v == null || v === "" ? "" : String(v);
+        return new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+          maximumFractionDigits: 0,
+        }).format(n);
+      },
+      tooltip: { type: "percentAndCount" },
+      tables: {
+        "tabular.muni_finance_m": (() => {
+          const columnList = ["fiscal_yr", "tot_rev", "tax_levy", "state_aid", "loc_recpts", "all_other"];
+          return {
+            yearCol: "fiscal_yr",
+            latestYearOnly: true,
+            columns: columnList,
+            specialFetch: async (municipality, dispatchUpdate) => {
+              const api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
+              const muniName = String(municipality || "").replace(/'/g, "''");
+              const selectList = columnList.join(",");
+              const queryString = `
+                SELECT ${selectList}
+                FROM tabular.muni_finance_m
+                WHERE muni_name ILIKE '${muniName}'
+                  AND fiscal_yr = (
+                    SELECT MAX(fiscal_yr)
+                    FROM tabular.muni_finance_m
+                    WHERE muni_name ILIKE '${muniName}'
+                  )
+              `;
+              const response = await fetch(`${api}${queryString}`);
+              if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+              }
+              const payload = (await response.json()) || {};
+              dispatchUpdate(payload.rows || []);
+            },
+          };
+        })(),
+      },
+      timeframe: async () => {
+        const years = await fetchYears("tabular", "muni_finance_m", "fiscal_yr", 1, "DESC");
+        return years && years[0] ? String(years[0]) : "";
+      },
+      transformer: (tables) => {
+        const data = tables["tabular.muni_finance_m"];
+        if (!data || data.length < 1) {
+          return [];
+        }
+        const row = data[0];
+        const totRev = row.tot_rev != null && row.tot_rev !== "" ? Number(row.tot_rev) : NaN;
+        const summaryRow =
+          Number.isFinite(totRev)
+            ? [{ summaryOnly: true, key: "tot_rev_display", label: "Total Revenue", value: totRev, group: "Fund Revenue" }]
+            : [];
+        return [
+          ...summaryRow,
+          { key: "tax_levy", value: Number(row.tax_levy), label: "Tax Levy", group: "Fund Revenue" },
+          { key: "state_aid", value: Number(row.state_aid), label: "State Aid", group: "Fund Revenue" },
+          { key: "loc_recpts", value: Number(row.loc_recpts), label: "Local Receipt", group: "Fund Revenue" },
+          { key: "all_other", value: Number(row.all_other), label: "All Other", group: "Fund Revenue" },
+        ];
+      },
+      source:"MA Dept of Revenue",
+      datasetLinks: { "Dept of Revenue Municipal Finance": 502 },
+      xAxis: {
+        label: "Fund Revenue",
+        format: format.string.default,
+      },
+    },overrides_map_config: {
+      mapTitleTemplate: "2024 Municipal Override Map",
+      yearColumn: "fiscal_yr",
+      tableSchema: "tabular",
+      tableName: "muni_finance_m",
+      mapColumns: ["muni_name", "fiscal_yr", "tot_rev", "total_exp", "win_amt", "loss_amt"],
+    
+      legend: [
+        {
+          key: "success",
+          label: "Successful override",
+          color: colors.CHART.EXTENDED.get("GREEN"),
+        },
+        {
+          key: "loss_only",
+          label: "No successful override",
+          color: colors.CHART.EXTENDED.get("LIGHT_PINK"),
+        },
+        {
+          key: "none_attempted",
+          label: "No override amounts reported",
+          color: colors.CHART.PRIMARY.get("LIGHT_BLUE"),
+        },
+        {
+          key: "no_data",
+          label: "No data",
+          color: "#cdcdcd",
+        },
+      ],
+    }
   },
 };

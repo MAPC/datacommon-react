@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { fetchTableColumnAliases } from '../visualizations/MunicipalFinanceOverridesMap';
 import PropTypes from 'prop-types';
 import styled, { keyframes } from 'styled-components';
 
@@ -385,7 +386,7 @@ const DataTableModal = ({ show, handleClose, data, title, muni, tableKey }) => {
         )
       ].join('\n');
 
-      const fileName = `${title}_${muni || 'data'}.csv`.replace(/[^a-z0-9-_\.]/gi, '_');
+      const fileName = `${title}_${muni || 'data'}.csv`.replace(/[^a-z0-9._-]/gi, '_');
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
