@@ -72,17 +72,19 @@ const CloseButton = styled.button`
   background: none;
   border: none;
   font-size: 1.5rem;
-  padding-bottom: 0.33em;
+  line-height: 1;
+  padding: 0;
   cursor: pointer;
   color: #666;
   width: 32px;
   height: 32px;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   border-radius: 4px;
   transition: all 0.2s ease;
-  
+
   &:hover {
     background: rgba(0, 0, 0, 0.05);
     color: #333;
