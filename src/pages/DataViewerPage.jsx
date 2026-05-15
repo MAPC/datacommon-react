@@ -13,6 +13,7 @@ import {
   resolveGeographiesFromUrl,
   resolveYearsFromUrl,
 } from "../utils/datasetViewShareQuery";
+import { syncPreviewColumnOrder } from "../utils/datasetTablePreview";
 
 const override = css`
   height: 3.5rem;
@@ -33,6 +34,8 @@ class DataViewerClass extends React.Component {
       selectedGeographies: [],
       geographyColumn: null,
       linkInventoryRows: false,
+      previewColumnOrder: [],
+      previewRowOrder: [],
     };
     this.updateSelectedYears = this.updateSelectedYears.bind(this);
     this.updateSelectedColumns = this.updateSelectedColumns.bind(this);
@@ -40,6 +43,9 @@ class DataViewerClass extends React.Component {
     this.updateRowsPerPage = this.updateRowsPerPage.bind(this);
     this.loadDatasetData = this.loadDatasetData.bind(this);
     this.updateSelectedGeographies = this.updateSelectedGeographies.bind(this);
+    this.onPreviewColumnOrderChange = this.onPreviewColumnOrderChange.bind(this);
+    this.onPreviewRowOrderChange = this.onPreviewRowOrderChange.bind(this);
+    this.onResetPreviewLayout = this.onResetPreviewLayout.bind(this);
     this.hasLoaded = false; // Flag to prevent duplicate API calls in StrictMode
   }
 
@@ -282,6 +288,8 @@ class DataViewerClass extends React.Component {
           if (geoOverride) selectedGeographies = geoOverride;
         }
 
+        const previewColumnOrder = syncPreviewColumnOrder([], selectedColumns, columnKeys);
+
         this.setState({
           availableYears: distinctYears,
           rows: tableResults,
@@ -303,6 +311,8 @@ class DataViewerClass extends React.Component {
           availableGeographies,
           selectedGeographies,
           linkInventoryRows: isDatasetInventoryCatalog(dataset),
+          previewColumnOrder,
+          previewRowOrder: [],
           loading: false,
         });
 
@@ -333,16 +343,40 @@ class DataViewerClass extends React.Component {
   updateSelectedColumns(columnName) {
     this.setState((prevState) => {
       const marginColumns = prevState.marginColumnsByBase?.[columnName] || [];
+      let selectedColumns;
       if (prevState.selectedColumns.includes(columnName)) {
-        const next = prevState.selectedColumns.filter((col) => col !== columnName && !marginColumns.includes(col));
-        return { selectedColumns: next };
+        selectedColumns = prevState.selectedColumns.filter(
+          (col) => col !== columnName && !marginColumns.includes(col),
+        );
+      } else {
+        selectedColumns = [...prevState.selectedColumns, columnName];
+        marginColumns.forEach((col) => {
+          if (!selectedColumns.includes(col)) selectedColumns.push(col);
+        });
       }
-      const next = [...prevState.selectedColumns, columnName];
-      marginColumns.forEach((col) => {
-        if (!next.includes(col)) next.push(col);
-      });
-      return { selectedColumns: next };
+      const previewColumnOrder = syncPreviewColumnOrder(
+        prevState.previewColumnOrder,
+        selectedColumns,
+        prevState.columnKeys,
+      );
+      return { selectedColumns, previewColumnOrder };
     });
+  }
+
+  onPreviewColumnOrderChange(previewColumnOrder) {
+    this.setState({ previewColumnOrder });
+  }
+
+  onPreviewRowOrderChange(previewRowOrder) {
+    this.setState({ previewRowOrder });
+  }
+
+  onResetPreviewLayout() {
+    this.setState((prevState) => ({
+      previewColumnOrder: syncPreviewColumnOrder([], prevState.selectedColumns, prevState.columnKeys),
+      previewRowOrder: [],
+      currentPage: 1,
+    }));
   }
 
   updatePage(newPage) {
@@ -430,6 +464,18 @@ class DataViewerClass extends React.Component {
             geographyColumn={this.state.geographyColumn}
             linkRowsToDatasetView={this.state.linkInventoryRows}
             updatePage={this.updatePage}
+            updateSelectedColumns={
+              this.state.linkInventoryRows ? undefined : this.updateSelectedColumns
+            }
+            previewColumnOrder={this.state.previewColumnOrder}
+            previewRowOrder={this.state.previewRowOrder}
+            onPreviewColumnOrderChange={
+              this.state.linkInventoryRows ? undefined : this.onPreviewColumnOrderChange
+            }
+            onPreviewRowOrderChange={
+              this.state.linkInventoryRows ? undefined : this.onPreviewRowOrderChange
+            }
+            onResetPreviewLayout={this.state.linkInventoryRows ? undefined : this.onResetPreviewLayout}
           />
         </section>
       );
