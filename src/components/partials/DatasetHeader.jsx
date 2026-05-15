@@ -2,11 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import PropTypes from "prop-types";
 import { useLocation } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEllipsisVertical, faShareNodes } from "@fortawesome/free-solid-svg-icons";
+import { faEllipsisVertical, faShareNodes, faTable } from "@fortawesome/free-solid-svg-icons";
 import { faMessage } from "@fortawesome/free-regular-svg-icons";
+
 import { formatUpdated } from "../../utils/formatUpdated";
 import ExportDataModal from "./ExportDataModal";
 import EmbedTableModal from "./EmbedTableModal";
+import MetadataModal from "./MetadataModal";
 import { buildDatasetViewShareSearchParams, DATASET_VIEW_SHARE_MAX_URL_LENGTH } from "../../utils/datasetViewShareQuery";
 
 const setSelectYears = (availableYears, updateSelectedYears, selectedYears) => {
@@ -628,6 +630,7 @@ function DatasetHeader({
   const isEmbedView = new URLSearchParams(location.search).get("embed") === "1";
   const [downloadModalOpen, setDownloadModalOpen] = useState(false);
   const [embedModalOpen, setEmbedModalOpen] = useState(false);
+  const [metadataModalOpen, setMetadataModalOpen] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
   const actionsDropdownRef = useRef(null);
 
@@ -781,6 +784,19 @@ function DatasetHeader({
                         type="button"
                         className="dataset-actions-item"
                         onClick={() => {
+                          setMetadataModalOpen(true);
+                          setActionsOpen(false);
+                        }}
+                      >
+                        <span className="dataset-actions-item-icon" aria-hidden="true">
+                          <FontAwesomeIcon icon={faTable} size="sm" />
+                        </span>
+                        View Metadata
+                      </button>
+                      <button
+                        type="button"
+                        className="dataset-actions-item"
+                        onClick={() => {
                           setEmbedModalOpen(true);
                           setActionsOpen(false);
                         }}
@@ -841,7 +857,6 @@ function DatasetHeader({
         datasetId={datasetId}
         title={title}
         table={table}
-        description={description}
         database={database}
         schema={schema}
         metadata={metadata}
@@ -863,6 +878,16 @@ function DatasetHeader({
         embedUrl={embedPageUrl}
         urlTooLong={shareUrlTooLong}
         adjustUrlFiltersSlot={embedModalAdjustFilters}
+      />
+      <MetadataModal
+        show={metadataModalOpen}
+        handleClose={() => setMetadataModalOpen(false)}
+        dataset={{
+          db_name: database,
+          schemaname: schema,
+          table_name: table,
+          menu3: title,
+        }}
       />
     </div>
   );

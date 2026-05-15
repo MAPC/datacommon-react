@@ -284,7 +284,31 @@ const DataTableModal = ({ show, handleClose, data, title, muni, tableKey }) => {
       const table = tableKeyStr.slice(firstDot + 1);
 
       try {
-        const next = await fetchTableColumnAliases({ database: "ds", schema, table });
+        const res = await fetch(
+          `/api/metadata?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=${encodeURIComponent(schema)}&table=${encodeURIComponent(table)}&useNewMetadata=true`,
+        );
+        if (!res.ok) {
+          throw new Error(`Metadata HTTP error: ${res.status}`);
+        }
+
+        const json = await res.json();
+        const metadataContainer = json?.data ?? json;
+
+        let metadataArray = [];
+        if (Array.isArray(metadataContainer)) {
+          metadataArray = metadataContainer;
+        } else {
+          const maybeFirst = Object.values(metadataContainer || {})[0];
+          metadataArray = Array.isArray(maybeFirst) ? maybeFirst : [];
+        }
+
+        const next = {};
+        metadataArray.forEach((col) => {
+          const alias = col?.alias ?? "";
+            
+          next[String(col?.name)] = alias;
+        });
+
         if (!cancelled) setColumnAliasByName(next);
       } catch (err) {
         console.error("Failed to fetch column aliases for table:", tableKeyStr, err);

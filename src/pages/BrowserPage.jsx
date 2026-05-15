@@ -32,11 +32,34 @@ const Sidebar = styled.div`
   top: 2rem;
 `;
 
+const SidebarTitleContainer = styled.div`
+  display: flex;
+  justify-content: space-between;
+`;
+
 const SidebarTitle = styled.h3`
   margin: 0 0 1.5rem 0;
   font-size: 1.25rem;
   font-weight: 700;
   color: #333;
+`;
+
+const ClearAllFiltersButton = styled.button`
+  height: 2rem;
+  display: inline;
+  text-align: center;
+  background: linear-gradient(90deg, #64c08d, #5aba8c);
+  color: white;
+  border: none;
+  padding: 0.2rem 0.5rem;
+  border-radius: 5px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+
+  &:hover {
+    background: linear-gradient(90deg, #51a477, #47a778);
+  }
 `;
 
 const FilterSection = styled.div`
@@ -428,7 +451,7 @@ const DatasetCount = styled.div`
   }
 `;
 
-const SearchInputContainer = styled.div`
+const SearchAndGeoFilterContainer = styled.div`
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -610,31 +633,35 @@ const BrowserPage = () => {
     filtered.forEach(dataset => {
       const tableName = dataset.table_name;
       let trimmedTable = tableName;
-      let datasetGeography = null;
       if (tableName.endsWith("_m")) {
         trimmedTable = tableName.slice(0, -2);
-        datasetGeography = "Municipalities";
       } else if (tableName.endsWith("_ct")) {
         trimmedTable = tableName.slice(0, -3);
-        datasetGeography = "Census Tracts";
       } else if (tableName.endsWith("_bg")) {
         trimmedTable = tableName.slice(0, -3);
-        datasetGeography = "Block Groups";
       } else if (tableName.endsWith("_b")) {
         trimmedTable = tableName.slice(0, -2);
-        datasetGeography = "Blocks";
       } else if (tableName.endsWith("_blk")) {
         trimmedTable = tableName.slice(0, -4);
-        datasetGeography = "Blocks";
       }
+
       if (!datasetBaseTableMap[trimmedTable]) {
         datasetBaseTableMap[trimmedTable] = {
           datasets: [],
           geoIdPairs: [],
         };
       }
+      const geographyToTextMap = {
+        municipal: "Municipalities",
+        census_tracts: "Census Tracts",
+        block_groups: "Block Groups",
+        blocks: "Blocks",
+      }
       datasetBaseTableMap[trimmedTable].datasets.push(dataset);
-      datasetBaseTableMap[trimmedTable].geoIdPairs.push({ geography: datasetGeography, id: dataset.seq_id });
+      datasetBaseTableMap[trimmedTable].geoIdPairs.push({
+        geography: geographyToTextMap[dataset.geography],
+        id: dataset.seq_id
+      });
     });
 
     const compressedDatasets = Object.entries(datasetBaseTableMap).map(([baseTable, cdsInfo]) => {
@@ -860,7 +887,7 @@ const BrowserPage = () => {
 
   const onGeoFilterClick = (geoVal, selectedGeoFilters) => {
     let newGeoFilters = [...selectedGeoFilters];
-    const allGeos = ['_m', '_ct', '_bg', '_b', 'other']
+    const allGeos = ['municipal', 'census_tracts', 'block_groups', 'blocks', 'other'];
 
     // if all was selected, break up into individual
     if (newGeoFilters.includes('all')) {
@@ -911,7 +938,7 @@ const BrowserPage = () => {
 
     newSelectedGeoTabs[compressedDatasetId] = geography;
     setSelectedGeographyTabs(newSelectedGeoTabs);
-  }
+  };
 
   const isTabSelected = (selectedGeographyTabs, compressedDataset, geography) => {
     const compressedId = compressedDataset.id || compressedDataset.seq_id;
@@ -920,7 +947,7 @@ const BrowserPage = () => {
     } else {
       return selectedGeographyTabs[compressedId] === geography;
     }
-  }
+  };
 
   const getSelectedDataset = (compressedDataset) => {
     const compressedId = compressedDataset.id || compressedDataset.seq_id;
@@ -937,7 +964,21 @@ const BrowserPage = () => {
     }
 
     return compressedDataset.datasets.find(d => d.seq_id === selectedDatasetId);
-  }
+  };
+
+  const areFiltersPresent = () => {
+    const categoryFiltersPresent = selectedMenu1s.length > 0 || selectedMenu2s.length > 0;
+    const geographyFiltersPresent = selectedGeoFilters.length > 0 && !selectedGeoFilters.includes('all');
+    return (searchQuery.trim() || selectedSources.length > 0 || categoryFiltersPresent || geographyFiltersPresent);
+  };
+
+  const clearAllFilters = () => {
+    setSelectedMenu1s([]);
+    setSelectedMenu2s([]);
+    setSelectedSources([]);
+    setSelectedGeoFilters(['all']);
+    setSearchQuery('');
+  };
 
   const toDataset = (datasetId) => {
     // open in new tab to preserve user's search & filters from the datasets landing page
@@ -958,7 +999,14 @@ const BrowserPage = () => {
       </PageHeader>
       <MainContent>
         <Sidebar>
-          <SidebarTitle>Filters</SidebarTitle>
+          <SidebarTitleContainer>
+            <SidebarTitle>Filters</SidebarTitle>
+            {areFiltersPresent() && (
+              <ClearAllFiltersButton onClick={() => clearAllFilters()}>
+                Clear All Filters
+              </ClearAllFiltersButton>
+            )}
+          </SidebarTitleContainer>
 
           <FilterSection>
             <FilterHeader>
@@ -1035,9 +1083,8 @@ const BrowserPage = () => {
         </Sidebar>
 
         <ContentArea>
-          <SearchInputContainer>
+          <SearchAndGeoFilterContainer>
             <SearchInput
-              type="search"
               placeholder="Search by table name or title..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -1045,32 +1092,32 @@ const BrowserPage = () => {
             <GeographyBarContainer>
               <GeographyFilterContainer>
                 <GeographyFilterPill
-                  onClick={() => onGeoFilterClick('_m', selectedGeoFilters)}
-                  className={(selectedGeoFilters.includes('_m') || selectedGeoFilters.includes('all')) ? 'selected' : ''}
+                  onClick={() => onGeoFilterClick('municipal', selectedGeoFilters)}
+                  className={(selectedGeoFilters.includes('municipal') || selectedGeoFilters.includes('all')) ? 'selected' : ''}
                 >
                   Municipalities
-                  {(selectedGeoFilters.includes('_m') || selectedGeoFilters.includes('all')) && <span>✓</span>}
+                  {(selectedGeoFilters.includes('municipal') || selectedGeoFilters.includes('all')) && <span>✓</span>}
                 </GeographyFilterPill>
                 <GeographyFilterPill
-                  onClick={() => onGeoFilterClick('_ct', selectedGeoFilters)}
-                  className={(selectedGeoFilters.includes('_ct') || selectedGeoFilters.includes('all')) ? 'selected' : ''}
+                  onClick={() => onGeoFilterClick('census_tracts', selectedGeoFilters)}
+                  className={(selectedGeoFilters.includes('census_tracts') || selectedGeoFilters.includes('all')) ? 'selected' : ''}
                 >
                   Census Tracts
-                  {(selectedGeoFilters.includes('_ct') || selectedGeoFilters.includes('all')) && <span>✓</span>}
+                  {(selectedGeoFilters.includes('census_tracts') || selectedGeoFilters.includes('all')) && <span>✓</span>}
                 </GeographyFilterPill>
                 <GeographyFilterPill
-                  onClick={() => onGeoFilterClick('_bg', selectedGeoFilters)}
-                  className={(selectedGeoFilters.includes('_bg') || selectedGeoFilters.includes('all')) ? 'selected' : ''}
+                  onClick={() => onGeoFilterClick('block_groups', selectedGeoFilters)}
+                  className={(selectedGeoFilters.includes('block_groups') || selectedGeoFilters.includes('all')) ? 'selected' : ''}
                 >
                   Block Groups
-                  {(selectedGeoFilters.includes('_bg') || selectedGeoFilters.includes('all')) && <span>✓</span>}
+                  {(selectedGeoFilters.includes('block_groups') || selectedGeoFilters.includes('all')) && <span>✓</span>}
                 </GeographyFilterPill>
                 <GeographyFilterPill
-                  onClick={() => onGeoFilterClick('_b', selectedGeoFilters)}
-                  className={(selectedGeoFilters.includes('_b') || selectedGeoFilters.includes('all')) ? 'selected' : ''}
+                  onClick={() => onGeoFilterClick('blocks', selectedGeoFilters)}
+                  className={(selectedGeoFilters.includes('blocks') || selectedGeoFilters.includes('all')) ? 'selected' : ''}
                 >
                   Blocks
-                  {(selectedGeoFilters.includes('_b') || selectedGeoFilters.includes('all')) && <span>✓</span>}
+                  {(selectedGeoFilters.includes('blocks') || selectedGeoFilters.includes('all')) && <span>✓</span>}
                 </GeographyFilterPill>
                 <GeographyFilterPill
                   onClick={() => onGeoFilterClick('other', selectedGeoFilters)}
@@ -1090,7 +1137,7 @@ const BrowserPage = () => {
                 <span>{selectedGeoFilters.length !== 0 ? "X" : "✓"}</span>
               </GeographyFilterPill>
             </GeographyBarContainer>
-          </SearchInputContainer>
+          </SearchAndGeoFilterContainer>
           
           <ContentHeader>
             <div>
@@ -1111,7 +1158,7 @@ const BrowserPage = () => {
                   <option value="Oldest First">Oldest First</option>
                 </SortSelect>
               </SortContainer>
-              {(searchQuery.trim() || selectedSources.length > 0 || selectedMenu1s.length > 0 || selectedMenu2s.length > 0 || (selectedGeoFilters.length > 0 && !selectedGeoFilters.includes('all'))) && (
+              {areFiltersPresent() && (
                 <ShareLinkContainer>
                   <ShareLinkButton type="button" onClick={handleCopyShareLink}>
                     Share Search Result

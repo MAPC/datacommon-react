@@ -130,7 +130,6 @@ class DatasetTable extends React.Component {
     const { 
       columnKeys = [],
       currentPage = 1,
-      metadata = [],
       queryYearColumn = "",
       rows = [],
       rowsPerPage = 25,
@@ -278,7 +277,6 @@ class DatasetTable extends React.Component {
 DatasetTable.propTypes = {
   columnKeys: PropTypes.arrayOf(PropTypes.object),
   currentPage: PropTypes.number,
-  metadata: PropTypes.oneOfType([PropTypes.arrayOf(PropTypes.object), PropTypes.objectOf(PropTypes.object)]),
   queryYearColumn: PropTypes.string,
   rows: PropTypes.arrayOf(PropTypes.object),
   rowsPerPage: PropTypes.number,

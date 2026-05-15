@@ -39,21 +39,16 @@ export function filterDatasets({
 
   // check if the table name matches the selected geographies, don't do anything if 'all' selected
   if (!geographies.includes('all')) {
-    const allGeos = ['_m', '_muni', '_ct', '_bg', '_b', '_blk'];
-
-    const geos = [...geographies]; // don't mutate
-    if (geos.includes('_b')) geos.push('_blk'); // some "(block)" tables end in _b, some end in _blk
-    if (geos.includes('_m')) geos.push('_muni'); // some "(municipal)" tables end in _m, a few end in _muni
-
     filtered = filtered.filter(d => {
       // If the table name ends with a selected geo include it.
-      if (geos.some(g => d.table_name.endsWith(g))) {
+      if (geographies.some(g => d.geography === g)) {
         return true;
       }
 
       // If other is selected, return it if the table name doesn't match any of the available geos
-      if (geos.includes('other')) {
-        return !allGeos.some(g => d.table_name.endsWith(g));
+      const allGeos = ['municipal', 'census_tracts', 'block_groups', 'blocks'];
+      if (geographies.includes('other')) {
+        return !allGeos.some(g => d.geography === g);
       }
 
       return false;
