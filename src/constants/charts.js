@@ -21,7 +21,7 @@ const format = {
   },
 };
 
-const fetchYears = async (schema, table, yearCol, limit, orderDir = "DESC", extraQueryParams = "") => {
+export const fetchYears = async (schema, table, yearCol, limit, orderDir = "DESC", extraQueryParams = "") => {
   const tabular_api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=${schema}&table=${table}`;
   let query = `${tabular_api}&columns=DISTINCT(${yearCol}) as latest_year&orderByColumn=${yearCol}&orderByDirection=${orderDir}`;
   if (limit) {
@@ -2308,6 +2308,8 @@ export default {
     },
   },
   "municipal-finances": {
+    
+    
     fund_revenue:{
       type: "tree-map",
       title: "Fund Revenue Breakdown",
@@ -2382,7 +2384,35 @@ export default {
         label: "Fund Revenue",
         format: format.string.default,
       },
+    },overrides_map_config: {
+      mapTitleTemplate: "2024 Municipal Override Map",
+      yearColumn: "fiscal_yr",
+      tableSchema: "tabular",
+      tableName: "muni_finance_m",
+      mapColumns: ["muni_name", "fiscal_yr", "tot_rev", "total_exp", "win_amt", "loss_amt"],
+    
+      legend: [
+        {
+          key: "success",
+          label: "Successful override",
+          color: colors.CHART.EXTENDED.get("GREEN"),
+        },
+        {
+          key: "loss_only",
+          label: "No successful override",
+          color: colors.CHART.EXTENDED.get("LIGHT_PINK"),
+        },
+        {
+          key: "none_attempted",
+          label: "No override amounts reported",
+          color: colors.CHART.PRIMARY.get("LIGHT_BLUE"),
+        },
+        {
+          key: "no_data",
+          label: "No data",
+          color: "#cdcdcd",
+        },
+      ],
     }
- 
   },
 };

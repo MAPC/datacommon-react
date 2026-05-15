@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { fetchTableColumnAliases } from '../visualizations/MunicipalFinanceOverridesMap';
 import PropTypes from 'prop-types';
 import styled, { keyframes } from 'styled-components';
 
@@ -283,38 +284,7 @@ const DataTableModal = ({ show, handleClose, data, title, muni, tableKey }) => {
       const table = tableKeyStr.slice(firstDot + 1);
 
       try {
-        const res = await fetch(
-          `/api/metadata?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=${encodeURIComponent(schema)}&table=${encodeURIComponent(
-            table,
-          )}`,
-        );
-        if (!res.ok) {
-          throw new Error(`Metadata HTTP error: ${res.status}`);
-        }
-
-        const json = await res.json();
-        const metadataContainer = json?.data ?? json;
-
-        let metadataArray = [];
-        if (Array.isArray(metadataContainer)) {
-          metadataArray = metadataContainer;
-        } else {
-          const maybeFirst = Object.values(metadataContainer || {})[0];
-          metadataArray = Array.isArray(maybeFirst) ? maybeFirst : [];
-        }
-
-        // Fallback for nested metadata shapes (defensive)
-        if ((!metadataArray || metadataArray.length === 0) && metadataContainer?.documentation?.metadata?.eainfo?.detailed?.attr) {
-          metadataArray = metadataContainer.documentation.metadata.eainfo.detailed.attr;
-        }
-
-        const next = {};
-        metadataArray.forEach((col) => {
-          const alias = col?.alias ?? "";
-            
-          next[String(col?.name)] = alias;
-        });
-
+        const next = await fetchTableColumnAliases({ database: "ds", schema, table });
         if (!cancelled) setColumnAliasByName(next);
       } catch (err) {
         console.error("Failed to fetch column aliases for table:", tableKeyStr, err);
@@ -392,7 +362,7 @@ const DataTableModal = ({ show, handleClose, data, title, muni, tableKey }) => {
         )
       ].join('\n');
 
-      const fileName = `${title}_${muni || 'data'}.csv`.replace(/[^a-z0-9-_\.]/gi, '_');
+      const fileName = `${title}_${muni || 'data'}.csv`.replace(/[^a-z0-9._-]/gi, '_');
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');

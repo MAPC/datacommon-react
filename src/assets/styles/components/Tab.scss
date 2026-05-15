@@ -13,6 +13,16 @@
   &__row {
     display: flex;
     padding: 2em 8em;
+
+    &--full-width-map {
+      > .municipal-finance-overrides-map {
+        flex: 1 1 100%;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+      }
+    }
     
     // For 3 charts in a row (digital equity tab)
     &:has(.chart-wrapper:nth-child(3)) {
