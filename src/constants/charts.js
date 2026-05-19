@@ -2308,8 +2308,138 @@ export default {
     },
   },
   "municipal-finances": {
-    
-    
+    bond_rating_sp: {
+      type: "profile-metric",
+      title: "Bond rating (S&P)",
+      hideOuterTitle: true,
+      tables: {
+        "tabular.muni_finance_m_bond_rating": {
+          yearCol: "fiscal_yr",
+          latestYearOnly: false,
+          columns: ["fiscal_yr", "muni_name", "sp_rating"],
+          specialFetch: async (municipality, dispatchUpdate) => {
+            const api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
+            const muniName = String(municipality || "").replace(/'/g, "''");
+            const queryString = `
+              SELECT fiscal_yr, muni_name, sp_rating
+              FROM tabular.muni_finance_m
+              WHERE muni_name ILIKE '${muniName}'
+                AND fiscal_yr = 2023
+              LIMIT 1
+            `;
+            const response = await fetch(`${api}${queryString}`);
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const payload = (await response.json()) || {};
+            dispatchUpdate(payload.rows || []);
+          },
+        },
+      },
+      source: "MA Dept of Revenue",
+      datasetLinks: { "Dept of Revenue Municipal Finance": 502 },
+      timeframe: "2023",
+      transformer: (tables) => {
+        const data = tables["tabular.muni_finance_m_bond_rating"];
+        if (!data?.length) return [{ displayValue: "" }];
+        const raw = data[0].sp_rating;
+        if (raw == null || String(raw).trim() === "") return [{ displayValue: "" }];
+        return [{ displayValue: String(raw).trim() }];
+      },
+      subregionDataQuery: async (subregionId) =>
+        `&schema=tabular&table=muni_finance_m&columns=fiscal_yr,muni_name,sp_rating&filters=muni_id:${subregionId},fiscal_yr:2023&limit=1`,
+    },
+    cpa_annual_spending: {
+      type: "profile-metric",
+      title: "Annual Community Preservation Act spending",
+      hideOuterTitle: true,
+      tables: {
+        "tabular.muni_finance_m_cpa_spending": {
+          yearCol: "fiscal_yr",
+          latestYearOnly: false,
+          columns: ["fiscal_yr", "muni_name", "ent_cpafnd"],
+          specialFetch: async (municipality, dispatchUpdate) => {
+            const api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
+            const muniName = String(municipality || "").replace(/'/g, "''");
+            const queryString = `
+              SELECT fiscal_yr, muni_name, ent_cpafnd
+              FROM tabular.muni_finance_m
+              WHERE muni_name ILIKE '${muniName}'
+                AND fiscal_yr = 2024
+              LIMIT 1
+            `;
+            const response = await fetch(`${api}${queryString}`);
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const payload = (await response.json()) || {};
+            dispatchUpdate(payload.rows || []);
+          },
+        },
+      },
+      source: "MA Dept of Revenue",
+      datasetLinks: { "Dept of Revenue Municipal Finance": 502 },
+      timeframe: "2024",
+      transformer: (tables) => {
+        const data = tables["tabular.muni_finance_m_cpa_spending"];
+        if (!data?.length) return [{ displayValue: "" }];
+        const n = Number(data[0].ent_cpafnd);
+        if (!Number.isFinite(n)) return [{ displayValue: "" }];
+        return [
+          {
+            displayValue: new Intl.NumberFormat("en-US", {
+              style: "currency",
+              currency: "USD",
+              maximumFractionDigits: 0,
+            }).format(n),
+          },
+        ];
+      },
+      subregionDataQuery: async (subregionId) =>
+        `&schema=tabular&table=muni_finance_m&columns=fiscal_yr,muni_name,ent_cpafnd&filters=muni_id:${subregionId},fiscal_yr:2024&limit=1`,
+    },
+    total_employees_finance: {
+      type: "profile-metric",
+      title: "Total employees",
+      hideOuterTitle: true,
+      tables: {
+        "tabular.muni_finance_m_total_employees": {
+          yearCol: "fiscal_yr",
+          latestYearOnly: false,
+          columns: ["fiscal_yr", "muni_name", "tot_empl"],
+          specialFetch: async (municipality, dispatchUpdate) => {
+            const api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
+            const muniName = String(municipality || "").replace(/'/g, "''");
+            const queryString = `
+              SELECT fiscal_yr, muni_name, tot_empl
+              FROM tabular.muni_finance_m
+              WHERE muni_name ILIKE '${muniName}'
+                AND fiscal_yr = 2024
+              LIMIT 1
+            `;
+            const response = await fetch(`${api}${queryString}`);
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const payload = (await response.json()) || {};
+            dispatchUpdate(payload.rows || []);
+          },
+        },
+      },
+      source: "MA Dept of Revenue",
+      datasetLinks: { "Dept of Revenue Municipal Finance": 502 },
+      timeframe: "2024",
+      transformer: (tables) => {
+        const data = tables["tabular.muni_finance_m_total_employees"];
+        if (!data?.length) return [{ displayValue: "" }];
+        const n = Number(data[0].tot_empl);
+        if (!Number.isFinite(n)) return [{ displayValue: "" }];
+        return [{ displayValue: new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(n) }];
+      },
+      subregionDataQuery: async (subregionId) =>
+        `&schema=tabular&table=muni_finance_m&columns=fiscal_yr,muni_name,tot_empl&filters=muni_id:${subregionId},fiscal_yr:2024&limit=1`,
+    },
+
     fund_revenue:{
       type: "tree-map",
       title: "Fund Revenue Breakdown",
@@ -2403,13 +2533,8 @@ export default {
           color: colors.CHART.EXTENDED.get("LIGHT_PINK"),
         },
         {
-          key: "none_attempted",
-          label: "No override amounts reported",
-          color: colors.CHART.PRIMARY.get("LIGHT_BLUE"),
-        },
-        {
-          key: "no_data",
-          label: "No data",
+          key: "no_overrides_attempted",
+          label: "No overrides attempted",
           color: "#cdcdcd",
         },
       ],

@@ -17,6 +17,26 @@ const ChartHeader = styled.div`
     align-items: flex-start;
     gap: 0.5rem;
   }
+
+  &.chart-header--stat-toolbar {
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: center;
+    margin-bottom: 0.65rem;
+    gap: 0.5rem;
+  }
+`;
+
+const ScreenReaderOnlyTitle = styled.h3`
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 `;
 
 const ChartTitle = styled.h3`
@@ -82,6 +102,19 @@ const normalizeDigitalEquityTableKeyForMetadata = (tableKey) => {
   return `${schema}.${baseTable}`;
 };
 
+const normalizeMuniFinanceTableKeyForMetadata = (tableKey) => {
+  if (!tableKey || typeof tableKey !== "string") return tableKey;
+  const m = tableKey.match(/^([^.\s]+)\.(muni_finance_m)(?:_.+)?$/);
+  if (!m) return tableKey;
+  return `${m[1]}.${m[2]}`;
+};
+
+const normalizeTableKeyForMetadata = (tableKey) => {
+  const digitalEquity = normalizeDigitalEquityTableKeyForMetadata(tableKey);
+  if (digitalEquity !== tableKey) return digitalEquity;
+  return normalizeMuniFinanceTableKeyForMetadata(tableKey);
+};
+
 const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAregion, displayName, hideButtons, wrapperClassName }) => {
   const [timeframe, setTimeframe] = useState(typeof chart.timeframe === 'string' ? chart.timeframe : 'Unknown');
   const chartWrapperRef = useRef(null);
@@ -89,7 +122,7 @@ const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAreg
   // Used by the "View data table" modal to fetch column alias metadata.
   // If the chart has multiple backing tables, we use the first one.
   const primaryTableKey = Object.keys(chart.tables || {})[0];
-  const primaryTableKeyForMetadata = normalizeDigitalEquityTableKeyForMetadata(primaryTableKey);
+  const primaryTableKeyForMetadata = normalizeTableKeyForMetadata(primaryTableKey);
 
   const selectChartData = React.useMemo(
     () => makeSelectChartData(Object.keys(chart.tables), muni),
@@ -143,19 +176,32 @@ const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAreg
     }
   };
 
-  const isGauge = chart.type === "gauge";
+  const isGauge = chart.type === "gauge" || chart.type === "profile-metric";
+  const hideOuterTitle = Boolean(chart.hideOuterTitle);
+  const headerClassName = isGauge
+    ? hideOuterTitle
+      ? "chart-header--stat-toolbar"
+      : "gauge-header"
+    : "";
 
   return (
     <div className={["chart-wrapper", wrapperClassName].filter(Boolean).join(" ")} ref={chartWrapperRef}>
-      <ChartHeader className={isGauge ? "gauge-header" : ""}>
-        <ChartTitle
-          className="chart__title"
-          hideButtons={hideButtons}
-          isGauge={isGauge}
-        >
-          {chart.title || 'Chart Title'}
-          {isSubregion && ' (Aggregated)'}
-        </ChartTitle>
+      <ChartHeader className={headerClassName}>
+        {hideOuterTitle ? (
+          <ScreenReaderOnlyTitle className="chart__title">
+            {chart.title || "Chart Title"}
+            {isSubregion ? " (Aggregated)" : ""}
+          </ScreenReaderOnlyTitle>
+        ) : (
+          <ChartTitle
+            className="chart__title"
+            hideButtons={hideButtons}
+            isGauge={isGauge}
+          >
+            {chart.title || "Chart Title"}
+            {isSubregion && " (Aggregated)"}
+          </ChartTitle>
+        )}
         {!hideButtons && (
           <ButtonGroup className="chart-details-buttons" $treemap={chart.type === "tree-map"}>
             <ViewButton
@@ -237,6 +283,7 @@ const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAreg
 ChartDetails.propTypes = {
   chart: PropTypes.shape({
     title: PropTypes.string,
+    hideOuterTitle: PropTypes.bool,
     source: PropTypes.string,
     timeframe: PropTypes.oneOfType([
       PropTypes.string,

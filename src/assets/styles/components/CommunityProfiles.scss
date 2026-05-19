@@ -7,7 +7,7 @@
 
   p {
     font-family: $font_family-primary;
-    font-size: $p_size;
+    font-size: 2rem;
     font-weight: normal;
     line-height: 1.5rem;
   }
@@ -240,21 +240,25 @@
     }
   }
 
-  .digital-equity-resources {
-    .digital-equity-resources__content {
+  .digital-equity-resources,
+  .municipal-finances-resources {
+    .digital-equity-resources__content,
+    .municipal-finances-resources__content {
       padding: 0.5rem 0;
       font-size: $font_size-xsmall;
       color: $color_font-medium;
     }
 
-    .digital-equity-resources__title {
+    .digital-equity-resources__title,
+    .municipal-finances-resources__title {
       margin: 0 0 0.5rem 0;
       font-size: $font_size-small;
       font-weight: 700;
       color: $color_font-dark;
     }
 
-    .digital-equity-resources__list {
+    .digital-equity-resources__list,
+    .municipal-finances-resources__list {
       margin: 0;
       padding-left: 1rem;
       li {
