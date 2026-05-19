@@ -2,6 +2,9 @@ const tabs = [{
   value: 'demographics',
   label: 'Demographics',
 }, {
+  value: 'digital-equity',
+  label: 'Digital Equity',
+}, {
   value: 'economy',
   label: 'Economy',
 }, {
@@ -17,17 +20,14 @@ const tabs = [{
   value: 'housing',
   label: 'Housing',
 }, {
+  value: 'municipal-finance',
+  label: 'Municipal Finance',
+}, {
   value: 'public-health',
   label: 'Public Health',
 }, {
   value: 'transportation',
   label: 'Transportation',
-}, {
-  value: 'digital-equity',
-  label: 'Digital Equity',
-}, {
-  value: 'municipal-finances',
-  label: 'Municipal Finances',
 }];
 
 export default tabs;

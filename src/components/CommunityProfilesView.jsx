@@ -269,99 +269,6 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 </ChartDetails>
               </div>
             </Tab>
-            <Tab active={activeTab === "economy"}>
-              <header className="print-header">
-                <h3>Economy</h3>
-              </header>
-              <div className="tab__row">
-                <ChartDetails chart={charts.economy.resident_employment} muni={muni} onViewData={handleShowModal}>
-                  <StackedBarChart chart={charts.economy.resident_employment} muni={muni} />
-                </ChartDetails>
-                <ChartDetails chart={charts.economy.emp_by_sector} muni={muni} onViewData={handleShowModal}>
-                  <StackedAreaChart chart={charts.economy.emp_by_sector} muni={muni} />
-                </ChartDetails>
-              </div>
-            </Tab>
-            <Tab active={activeTab === "education"}>
-              <header className="print-header">
-                <h3>Education</h3>
-              </header>
-              <div className="tab__row">
-                <ChartDetails chart={charts.education.school_enrollment} muni={muni} onViewData={handleShowModal}>
-                  <StackedBarChart chart={charts.education.school_enrollment} muni={muni} horizontal />
-                </ChartDetails>
-                <ChartDetails chart={charts.education.edu_attainment_by_race} muni={muni} onViewData={handleShowModal}>
-                  <GroupedBarChart chart={charts.education.edu_attainment_by_race} muni={muni} />
-                </ChartDetails>
-              </div>
-            </Tab>
-            <Tab active={activeTab === "governance"}>
-              <header className="print-header">
-                <h3>Governance</h3>
-              </header>
-              <div className="tab__row">
-                <ChartDetails chart={charts.governance.tax_levy} muni={muni} onViewData={handleShowModal}>
-                  <PieChart chart={charts.governance.tax_levy} muni={muni} />
-                </ChartDetails>
-              </div>
-            </Tab>
-            <Tab active={activeTab === "environment"}>
-              <header className="print-header">
-                <h3>Environment</h3>
-              </header>
-              <div className="tab__row tab__row--break">
-                <ChartDetails chart={charts.environment.water_usage_per_cap} muni={muni} onViewData={handleShowModal}>
-                  <LineChart chart={charts.environment.water_usage_per_cap} muni={muni} />
-                </ChartDetails>
-                <ChartDetails chart={charts.environment.energy_usage_gas} muni={muni} onViewData={handleShowModal}>
-                  <StackedAreaChart chart={charts.environment.energy_usage_gas} muni={muni} />
-                </ChartDetails>
-              </div>
-              <div className="tab__row">
-                <ChartDetails chart={charts.environment.energy_usage_electricity} muni={muni} onViewData={handleShowModal}>
-                  <StackedAreaChart chart={charts.environment.energy_usage_electricity} muni={muni} />
-                </ChartDetails>
-              </div>
-            </Tab>
-            <Tab active={activeTab === "housing"}>
-              <header className="print-header">
-                <h3>Housing</h3>
-              </header>
-              <div className="tab__row">
-                <ChartDetails chart={charts.housing.cost_burden} muni={muni} onViewData={handleShowModal}>
-                  <GroupedBarChart chart={charts.housing.cost_burden} muni={muni} />
-                </ChartDetails>
-                <ChartDetails chart={charts.housing.units_permitted} muni={muni} onViewData={handleShowModal}>
-                  <StackedBarChart chart={charts.housing.units_permitted} muni={muni} />
-                </ChartDetails>
-              </div>
-            </Tab>
-            <Tab active={activeTab === "public-health"}>
-              <header className="print-header">
-                <h3>Public Health</h3>
-              </header>
-              <div className="tab__row">
-                <ChartDetails chart={charts["public-health"].premature_mortality_rate} muni={muni} onViewData={handleShowModal}>
-                  <StackedBarChart chart={charts["public-health"].premature_mortality_rate} muni={muni} />
-                </ChartDetails>
-                <ChartDetails chart={charts["public-health"].hospitalizations} muni={muni} onViewData={handleShowModal}>
-                  <StackedBarChart chart={charts["public-health"].hospitalizations} muni={muni} />
-                </ChartDetails>
-              </div>
-            </Tab>
-            <Tab active={activeTab === "transportation"}>
-              <header className="print-header">
-                <h3>Transportation</h3>
-              </header>
-              <div className="tab__row">
-                <ChartDetails chart={charts.transportation.daily_vmt} muni={muni} onViewData={handleShowModal}>
-                  <StackedAreaChart chart={charts.transportation.daily_vmt} muni={muni} />
-                </ChartDetails>
-                <ChartDetails chart={charts.transportation.commute_to_work} muni={muni} onViewData={handleShowModal}>
-                  <PieChart chart={charts.transportation.commute_to_work} muni={muni} />
-                </ChartDetails>
-              </div>
-            </Tab>
             <Tab active={activeTab === "digital-equity"}>
               <header className="print-header">
                 <h3>Digital Equity</h3>
@@ -446,30 +353,119 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 </div>
               </div>
             </Tab>
-            <Tab active={activeTab === "municipal-finances"}>
+            <Tab active={activeTab === "economy"}>
               <header className="print-header">
-                <h3>Municipal Finances</h3>
+                <h3>Economy</h3>
               </header>
               <div className="tab__row">
-                
-                  <ChartDetails
-                    chart={charts["municipal-finances"].fund_revenue}
-                    muni={muni}
-                    onViewData={handleShowModal}
-                    wrapperClassName="chart-wrapper--fund-revenue-breakdown"
-                  >
-                    <TreeMap chart={charts["municipal-finances"].fund_revenue} muni={muni} />
-                  </ChartDetails>
-             
+                <ChartDetails chart={charts.economy.resident_employment} muni={muni} onViewData={handleShowModal}>
+                  <StackedBarChart chart={charts.economy.resident_employment} muni={muni} />
+                </ChartDetails>
+                <ChartDetails chart={charts.economy.emp_by_sector} muni={muni} onViewData={handleShowModal}>
+                  <StackedAreaChart chart={charts.economy.emp_by_sector} muni={muni} />
+                </ChartDetails>
               </div>
-              
-                <div className="tab__row tab__row--full-width-map">
-                  <MunicipalFinanceOverridesMap
-                    config={charts["municipal-finances"].overrides_map_config}
-                    municipalFeature={municipalFeature}
-                  />
-                </div>
-             
+            </Tab>
+            <Tab active={activeTab === "education"}>
+              <header className="print-header">
+                <h3>Education</h3>
+              </header>
+              <div className="tab__row">
+                <ChartDetails chart={charts.education.school_enrollment} muni={muni} onViewData={handleShowModal}>
+                  <StackedBarChart chart={charts.education.school_enrollment} muni={muni} horizontal />
+                </ChartDetails>
+                <ChartDetails chart={charts.education.edu_attainment_by_race} muni={muni} onViewData={handleShowModal}>
+                  <GroupedBarChart chart={charts.education.edu_attainment_by_race} muni={muni} />
+                </ChartDetails>
+              </div>
+            </Tab>
+            <Tab active={activeTab === "governance"}>
+              <header className="print-header">
+                <h3>Governance</h3>
+              </header>
+              <div className="tab__row">
+                <ChartDetails chart={charts.governance.tax_levy} muni={muni} onViewData={handleShowModal}>
+                  <PieChart chart={charts.governance.tax_levy} muni={muni} />
+                </ChartDetails>
+              </div>
+            </Tab>
+            <Tab active={activeTab === "environment"}>
+              <header className="print-header">
+                <h3>Environment</h3>
+              </header>
+              <div className="tab__row tab__row--break">
+                <ChartDetails chart={charts.environment.water_usage_per_cap} muni={muni} onViewData={handleShowModal}>
+                  <LineChart chart={charts.environment.water_usage_per_cap} muni={muni} />
+                </ChartDetails>
+                <ChartDetails chart={charts.environment.energy_usage_gas} muni={muni} onViewData={handleShowModal}>
+                  <StackedAreaChart chart={charts.environment.energy_usage_gas} muni={muni} />
+                </ChartDetails>
+              </div>
+              <div className="tab__row">
+                <ChartDetails chart={charts.environment.energy_usage_electricity} muni={muni} onViewData={handleShowModal}>
+                  <StackedAreaChart chart={charts.environment.energy_usage_electricity} muni={muni} />
+                </ChartDetails>
+              </div>
+            </Tab>
+            <Tab active={activeTab === "housing"}>
+              <header className="print-header">
+                <h3>Housing</h3>
+              </header>
+              <div className="tab__row">
+                <ChartDetails chart={charts.housing.cost_burden} muni={muni} onViewData={handleShowModal}>
+                  <GroupedBarChart chart={charts.housing.cost_burden} muni={muni} />
+                </ChartDetails>
+                <ChartDetails chart={charts.housing.units_permitted} muni={muni} onViewData={handleShowModal}>
+                  <StackedBarChart chart={charts.housing.units_permitted} muni={muni} />
+                </ChartDetails>
+              </div>
+            </Tab>
+            <Tab active={activeTab === "municipal-finance"}>
+              <header className="print-header">
+                <h3>Municipal Finance</h3>
+              </header>
+              <div className="tab__row">
+                <ChartDetails
+                  chart={charts["municipal-finance"].fund_revenue}
+                  muni={muni}
+                  onViewData={handleShowModal}
+                  wrapperClassName="chart-wrapper--fund-revenue-breakdown"
+                >
+                  <TreeMap chart={charts["municipal-finance"].fund_revenue} muni={muni} />
+                </ChartDetails>
+              </div>
+              <div className="tab__row tab__row--full-width-map">
+                <MunicipalFinanceOverridesMap
+                  config={charts["municipal-finance"].overrides_map_config}
+                  municipalFeature={municipalFeature}
+                />
+              </div>
+            </Tab>
+            <Tab active={activeTab === "public-health"}>
+              <header className="print-header">
+                <h3>Public Health</h3>
+              </header>
+              <div className="tab__row">
+                <ChartDetails chart={charts["public-health"].premature_mortality_rate} muni={muni} onViewData={handleShowModal}>
+                  <StackedBarChart chart={charts["public-health"].premature_mortality_rate} muni={muni} />
+                </ChartDetails>
+                <ChartDetails chart={charts["public-health"].hospitalizations} muni={muni} onViewData={handleShowModal}>
+                  <StackedBarChart chart={charts["public-health"].hospitalizations} muni={muni} />
+                </ChartDetails>
+              </div>
+            </Tab>
+            <Tab active={activeTab === "transportation"}>
+              <header className="print-header">
+                <h3>Transportation</h3>
+              </header>
+              <div className="tab__row">
+                <ChartDetails chart={charts.transportation.daily_vmt} muni={muni} onViewData={handleShowModal}>
+                  <StackedAreaChart chart={charts.transportation.daily_vmt} muni={muni} />
+                </ChartDetails>
+                <ChartDetails chart={charts.transportation.commute_to_work} muni={muni} onViewData={handleShowModal}>
+                  <PieChart chart={charts.transportation.commute_to_work} muni={muni} />
+                </ChartDetails>
+              </div>
             </Tab>
           </div>
         </div>
