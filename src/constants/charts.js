@@ -2307,7 +2307,7 @@ export default {
       },
     },
   },
-  "municipal-finances": {
+  "municipal-finance": {
     
     
     fund_revenue:{
