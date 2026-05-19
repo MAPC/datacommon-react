@@ -163,9 +163,23 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
           box-sizing: border-box !important;
           padding: 0 10px !important;
         }
-        .chart-wrapper svg {
+        .chart-wrapper:not(.chart-wrapper--stat-tile) svg {
           width: 100% !important;
           height: auto !important;
+        }
+        .chart-wrapper--stat-tile {
+          width: 33.333% !important;
+          max-width: 33.333% !important;
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+        }
+        .chart-wrapper--stat-tile svg {
+          display: none !important;
+        }
+        .chart-wrapper--stat-tile .profile-metric__panel {
+          min-height: 0 !important;
+          padding: 0.5rem 0.75rem !important;
+          box-shadow: none !important;
         }
         /* Treemap needs full row in print or it gets clipped. */
         .tab__row .chart-wrapper:has(.chart.TreeMap) {
@@ -188,7 +202,6 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
           display: flex !important;
           flex-wrap: wrap !important;
           gap: 0.5rem 0.75rem !important;
-          margin-top: 0.1rem !important;
           color: #111 !important;
         }
         .chart.TreeMap > div:last-child span[aria-hidden] {
@@ -197,10 +210,28 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
         .tab__row--after-gauges {
           margin-top: 2.5em !important;
         }
-        /* Municipal finance profile metrics: smaller value type for print */
+        /* Municipal finance profile metrics: compact stat cards for print */
+        .ProfileMetricChart .profile-metric__label {
+          font-size: 0.75rem !important;
+          font-weight: 500 !important;
+        }
         .ProfileMetricChart .profile-metric__value {
-          font-size: 0.875rem !important;
+          font-size: 1rem !important;
           line-height: 1.25 !important;
+          font-weight: 700 !important;
+        }
+        .ProfileMetricChart .profile-metric__empty {
+          font-size: 0.75rem !important;
+          font-weight: 500 !important;
+        }
+        .chart-wrapper--stat-tile .profile-metric__stat-header {
+          margin-bottom: 1rem !important;
+        }
+        .chart-wrapper--stat-tile .metadata {
+          margin-top: 1rem !important;
+        }
+        .chart.TreeMap .treemap-legend {
+          margin-top: 1rem !important;
         }
         /* Hide municipal finance override map on print */
         .tab__row--full-width-map {

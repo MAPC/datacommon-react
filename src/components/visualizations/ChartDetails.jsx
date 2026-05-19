@@ -235,6 +235,7 @@ const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAreg
               isSubregion={isSubregion}
               isRPAregion={isRPAregion}
               displayName={displayName}
+              hideTitle={hideOuterTitle}
             />
           </ButtonGroup>
         )}

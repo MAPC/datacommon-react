@@ -202,6 +202,10 @@
       letter-spacing: -0.01em;
       padding-top: 2px;
       max-width: 100%;
+
+      @media print {
+        font-weight: 500 !important;
+      }
     }
   }
 
@@ -233,6 +237,7 @@
     @media print {
       font-size: 1rem !important;
       line-height: 1.25;
+      font-weight: 700 !important;
     }
   }
 
@@ -245,6 +250,10 @@
     letter-spacing: -0.01em;
     opacity: 1;
     text-align: left;
+
+    @media print {
+      font-weight: 500 !important;
+    }
   }
 
   .profile-metric__loader {
