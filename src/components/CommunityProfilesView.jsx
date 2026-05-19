@@ -17,6 +17,7 @@ import ChartDetails from "./visualizations/ChartDetails";
 import PieChart from "../containers/visualizations/PieChart";
 import LineChart from "../containers/visualizations/LineChart";
 import GaugeChart from "../containers/visualizations/GaugeChart";
+import MultiGaugeChart from "../containers/visualizations/MultiGaugeChart";
 import TreeMap from "../containers/visualizations/TreeMap";
 import MunicipalFinanceOverridesMap from "./visualizations/MunicipalFinanceOverridesMap";
 import DownloadAllChartsButton from "./field/DownloadAllChartsButton";
@@ -451,24 +452,32 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 <h3>Municipal Finances</h3>
               </header>
               <div className="tab__row">
-                
-                  <ChartDetails
-                    chart={charts["municipal-finances"].fund_revenue}
-                    muni={muni}
-                    onViewData={handleShowModal}
-                    wrapperClassName="chart-wrapper--fund-revenue-breakdown"
-                  >
-                    <TreeMap chart={charts["municipal-finances"].fund_revenue} muni={muni} />
-                  </ChartDetails>
-             
+                <ChartDetails
+                  chart={charts["municipal-finances"].fund_revenue}
+                  muni={muni}
+                  onViewData={handleShowModal}
+                  wrapperClassName="chart-wrapper--fund-revenue-breakdown"
+                >
+                  <TreeMap chart={charts["municipal-finances"].fund_revenue} muni={muni} />
+                </ChartDetails>
+              </div>
+
+              <div className="tab__row">
+                <ChartDetails
+                  chart={charts["municipal-finances"].levy_share_gauge}
+                  muni={muni}
+                  onViewData={handleShowModal}
+                >
+                  <MultiGaugeChart chart={charts["municipal-finances"].levy_share_gauge} muni={muni} />
+                </ChartDetails>
               </div>
               
-                <div className="tab__row tab__row--full-width-map">
-                  <MunicipalFinanceOverridesMap
-                    config={charts["municipal-finances"].overrides_map_config}
-                    municipalFeature={municipalFeature}
-                  />
-                </div>
+              <div className="tab__row tab__row--full-width-map">
+                <MunicipalFinanceOverridesMap
+                  config={charts["municipal-finances"].overrides_map_config}
+                  municipalFeature={municipalFeature}
+                />
+              </div>
              
             </Tab>
           </div>
