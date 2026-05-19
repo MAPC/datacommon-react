@@ -11,6 +11,9 @@ const tabs = [{
   value: 'education',
   label: 'Education',
 }, {
+  value: 'governance',
+  label: 'Governance',
+}, {
   value: 'environment',
   label: 'Environment',
 }, {
