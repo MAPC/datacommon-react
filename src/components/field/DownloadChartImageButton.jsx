@@ -69,6 +69,84 @@ const DownloadChartImageButton = ({ chartRef, chartTitle, muni, isSubregion, isR
     return lines;
   };
 
+  const buildProfileMetricChartSvg = (chartWrapper, cardW) => {
+    const ns = 'http://www.w3.org/2000/svg';
+    const labelEl = chartWrapper.querySelector('.profile-metric__label');
+    const valueEl = chartWrapper.querySelector('.profile-metric__value');
+    const emptyEl = chartWrapper.querySelector('.profile-metric__empty');
+
+    const labelText = labelEl?.textContent?.trim() || '';
+    const valueText =
+      valueEl?.textContent?.trim() || emptyEl?.textContent?.trim() || 'Data not available';
+    const isEmpty = !valueEl;
+
+    const padX = 20;
+    const padY = 16;
+    const labelFs = 13;
+    const valueFs = isEmpty ? 13 : 28;
+    const labelLineH = 18;
+    const valueLineH = Math.ceil(valueFs * 1.2);
+    const gap = labelText && valueText ? 10 : 0;
+    const innerW = Math.max(120, cardW - padX * 2);
+
+    const labelLines = labelText ? wrapText(labelText, innerW) : [];
+    const valueLines = wrapText(valueText, innerW);
+    const headerH = labelLines.length * labelLineH;
+    const valueH = valueLines.length * valueLineH;
+    const cardH = padY + headerH + gap + valueH + padY;
+
+    const svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('width', String(cardW));
+    svg.setAttribute('height', String(cardH));
+    svg.setAttribute('viewBox', `0 0 ${cardW} ${cardH}`);
+
+    const bg = document.createElementNS(ns, 'rect');
+    bg.setAttribute('width', String(cardW));
+    bg.setAttribute('height', String(cardH));
+    bg.setAttribute('rx', '12');
+    bg.setAttribute('fill', '#ffffff');
+    bg.setAttribute('stroke', '#e2e8f0');
+    bg.setAttribute('stroke-width', '1');
+    svg.appendChild(bg);
+
+    let y = padY + labelFs;
+    labelLines.forEach((line) => {
+      const t = document.createElementNS(ns, 'text');
+      t.setAttribute('x', String(padX));
+      t.setAttribute('y', String(y));
+      t.setAttribute('font-family', 'Helvetica, Arial, sans-serif');
+      t.setAttribute('font-size', `${labelFs}px`);
+      t.setAttribute('font-weight', '500');
+      t.setAttribute('fill', '#64748b');
+      t.textContent = line;
+      svg.appendChild(t);
+      y += labelLineH;
+    });
+
+    if (gap) {
+      y += gap;
+    } else if (!labelLines.length) {
+      y = padY + valueFs;
+    }
+
+    const valueWeight = isEmpty ? '400' : '500';
+    const valueColor = isEmpty ? '#64748b' : '#1e293b';
+    valueLines.forEach((line) => {
+      const t = document.createElementNS(ns, 'text');
+      t.setAttribute('x', String(padX));
+      t.setAttribute('y', String(y));
+      t.setAttribute('font-family', 'Helvetica, Arial, sans-serif');
+      t.setAttribute('font-size', `${valueFs}px`);
+      t.setAttribute('font-weight', valueWeight);
+      t.setAttribute('fill', valueColor);
+      t.textContent = line;
+      svg.appendChild(t);
+      y += valueLineH;
+    });
+
+    return { svg, width: cardW, height: cardH };
+  };
+
   const downloadChartImage = async () => {
     if (!chartRef.current) return;
 
@@ -78,85 +156,104 @@ const DownloadChartImageButton = ({ chartRef, chartTitle, muni, isSubregion, isR
       const chartWrapper = chartRef.current;
       const legend = chartWrapper.querySelector('.legend');
       const metadata = chartWrapper.querySelector('.metadata');
+      const isProfileMetric = !!chartWrapper.querySelector('.ProfileMetricChart');
       const isGaugeChart = !!chartWrapper.querySelector('.GaugeChart');
-      
-      // Get the SVG element: prefer the main chart SVG, not small icon SVGs
-      let svg = chartWrapper.querySelector('.chart svg');
-      if (!svg) {
-        svg = chartWrapper.querySelector('svg');
-      }
-      if (!svg) {
-        console.error('SVG not found');
-        setIsDownloading(false);
-        return;
-      }
 
-      // Clone the SVG to avoid modifying the original
-      const clonedSvg = svg.cloneNode(true);
-      
-      // For gauges, switch to the static (print) segment so the exported image shows the final value, not mid-animation,
-      // and ensure the value text is dark green for better contrast in the downloaded image.
-      if (isGaugeChart) {
-        const animatedSeg = clonedSvg.querySelector('.donut-segment--animated');
-        const printSeg = clonedSvg.querySelector('.donut-segment--print');
-        if (animatedSeg && printSeg) {
-          animatedSeg.parentNode.removeChild(animatedSeg);
-          printSeg.style.display = 'block';
+      let clonedSvg;
+      let svgWidth;
+      let svgHeight;
+      let chartType;
+
+      if (isProfileMetric) {
+        const cardW = Math.max(300, chartWrapper.clientWidth || 320);
+        const built = buildProfileMetricChartSvg(chartWrapper, cardW);
+        clonedSvg = built.svg;
+        svgWidth = built.width;
+        svgHeight = built.height;
+        chartType = 'profile-metric';
+      } else {
+        // Get the SVG element: prefer the main chart SVG, not small icon SVGs
+        let svg = chartWrapper.querySelector('.chart svg');
+        if (!svg) {
+          svg = chartWrapper.querySelector('svg');
+        }
+        if (!svg) {
+          console.error('SVG not found');
+          setIsDownloading(false);
+          return;
         }
 
-        const gaugeValueText = clonedSvg.querySelector('.gauge-text');
-        if (gaugeValueText) {
-          gaugeValueText.setAttribute('fill', '#1F4E46'); // dark brand green
+        // Clone the SVG to avoid modifying the original
+        clonedSvg = svg.cloneNode(true);
+
+        // For gauges, switch to the static (print) segment so the exported image shows the final value, not mid-animation,
+        // and ensure the value text is dark green for better contrast in the downloaded image.
+        if (isGaugeChart) {
+          const animatedSeg = clonedSvg.querySelector('.donut-segment--animated');
+          const printSeg = clonedSvg.querySelector('.donut-segment--print');
+          if (animatedSeg && printSeg) {
+            animatedSeg.parentNode.removeChild(animatedSeg);
+            printSeg.style.display = 'block';
+          }
+
+          const gaugeValueText = clonedSvg.querySelector('.gauge-text');
+          if (gaugeValueText) {
+            gaugeValueText.setAttribute('fill', '#1F4E46'); // dark brand green
+          }
+        }
+
+        const computedStyle = window.getComputedStyle(svg);
+        svgWidth = parseInt(computedStyle.width, 10) || 500;
+
+        const isSpeedTestMetricsInBranch =
+          hideTitle &&
+          chartWrapper.classList &&
+          chartWrapper.classList.contains('digital-equity-speed-stats');
+        svgHeight = isSpeedTestMetricsInBranch ? 260 : 550;
+
+        chartType = chartWrapper.querySelector('.StackedAreaChart')
+          ? 'stacked-area'
+          : chartWrapper.querySelector('.StackedBarChart')
+            ? 'stacked-bar'
+            : chartWrapper.querySelector('.PieChart')
+              ? 'pie'
+              : chartWrapper.querySelector('.TreeMap')
+                ? 'treemap'
+                : isGaugeChart
+                  ? 'gauge'
+                  : 'other';
+
+        if (legend && !isSpeedTestMetricsInBranch) {
+          const legendItems = legend.querySelectorAll('li');
+          const numLegendItems = legendItems.length;
+
+          if (chartType === 'pie') {
+            svgHeight = 450;
+          } else if (chartType === 'stacked-area' || numLegendItems > 8) {
+            svgHeight = 570;
+          } else if (numLegendItems > 4) {
+            svgHeight = 560;
+          }
+        }
+
+        if (chartType === 'gauge') {
+          svgHeight = Math.round(svgWidth * (40 / 80));
+        }
+        if (chartType === 'treemap') {
+          svgHeight = Math.round(svgWidth * (440 / 760));
+        }
+
+        clonedSvg.setAttribute('width', svgWidth);
+        clonedSvg.setAttribute('height', svgHeight);
+        if (!isGaugeChart && chartType !== 'treemap') {
+          clonedSvg.setAttribute('viewBox', `0 0 ${svgWidth} ${svgHeight}`);
         }
       }
-      
-      // Get computed styles for the SVG
-      const computedStyle = window.getComputedStyle(svg);
-      const svgWidth = parseInt(computedStyle.width) || 500;
-      
-      // Calculate dynamic height based on chart type and content
-      // Default height works well for most charts; we tighten it for certain special layouts.
+
       const isSpeedTestMetrics =
-        hideTitle && chartWrapper.classList && chartWrapper.classList.contains('digital-equity-speed-stats');
-      let svgHeight = isSpeedTestMetrics ? 260 : 550;
-      
-      // Check chart type for sizing tweaks
-      const chartType = chartWrapper.querySelector('.StackedAreaChart') ? 'stacked-area' : 
-                       chartWrapper.querySelector('.StackedBarChart') ? 'stacked-bar' : 
-                       chartWrapper.querySelector('.PieChart') ? 'pie' :
-                       chartWrapper.querySelector('.TreeMap') ? 'treemap' :
-                       isGaugeChart ? 'gauge' : 'other';
-      
-      if (legend && !isSpeedTestMetrics) {
-        const legendItems = legend.querySelectorAll('li');
-        const numLegendItems = legendItems.length;
-        
-        // For pie charts, use smaller height since they don't need as much vertical space
-        if (chartType === 'pie') {
-          svgHeight = 450; // Smaller height for pie charts
-        } else if (chartType === 'stacked-area' || numLegendItems > 8) {
-          svgHeight = 570; // Increase height for complex charts
-        } else if (numLegendItems > 4) {
-          svgHeight = 560;
-        }
-      }
-      
-      // Gauges are short; keep aspect similar to what you see in the tab
-      if (chartType === 'gauge') {
-        svgHeight = Math.round(svgWidth * (40 / 80)); // match 80x40 viewBox ratio
-      }
-      // Treemap should preserve original internal aspect ratio so tiles are not clipped.
-      if (chartType === 'treemap') {
-        svgHeight = Math.round(svgWidth * (440 / 760));
-      }
-
-      // Set explicit dimensions on the cloned SVG before composing treemap + summary
-      clonedSvg.setAttribute('width', svgWidth);
-      clonedSvg.setAttribute('height', svgHeight);
-      // For gauges and treemaps, keep original viewBox to avoid clipping/distortion.
-      if (!isGaugeChart && chartType !== 'treemap') {
-        clonedSvg.setAttribute('viewBox', `0 0 ${svgWidth} ${svgHeight}`);
-      }
+        hideTitle &&
+        chartWrapper.classList &&
+        chartWrapper.classList.contains('digital-equity-speed-stats');
 
       // Fund Revenue treemap: stack summary above chart in the exported image (avoids horizontal overflow).
       const treemapSummaryEl =
@@ -300,12 +397,19 @@ const DownloadChartImageButton = ({ chartRef, chartTitle, muni, isSubregion, isR
         ? Math.max(isGaugeChart ? 55 : 40, 30 + titleHeight + 10)
         : (isGaugeChart ? 40 : 30);
       const topPadding = chartTop - 40;
+      const chartFooterGap = chartType === 'profile-metric' ? 16 : hideTitle ? 0 : 10;
 
       // Create a new SVG that will contain everything
       const combinedSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       combinedSvg.setAttribute('width', layoutChartWidth + 80); 
-      combinedSvg.setAttribute('height', exportChartBodyHeight + legendHeight + metadataHeight + 30 + topPadding);
-      combinedSvg.setAttribute('viewBox', `0 0 ${layoutChartWidth + 80} ${exportChartBodyHeight + legendHeight + metadataHeight + 50 + topPadding}`);
+      combinedSvg.setAttribute(
+        'height',
+        exportChartBodyHeight + legendHeight + metadataHeight + chartFooterGap + 30 + topPadding,
+      );
+      combinedSvg.setAttribute(
+        'viewBox',
+        `0 0 ${layoutChartWidth + 80} ${exportChartBodyHeight + legendHeight + metadataHeight + chartFooterGap + 50 + topPadding}`,
+      );
       combinedSvg.style.backgroundColor = 'white';
       
       // Add chart title (multiple lines when long), unless hidden
@@ -478,9 +582,8 @@ const DownloadChartImageButton = ({ chartRef, chartTitle, muni, isSubregion, isR
         const metadataGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
         // Slightly tighter spacing between chart and metadata when no title is drawn (e.g., Internet Speed Test),
         // so the exported image more closely matches on-screen layout.
-        const metadataYOffset = hideTitle
-          ? chartTop + exportChartBodyHeight + legendHeight
-          : chartTop + exportChartBodyHeight + legendHeight + 10;
+        const metadataYOffset =
+          chartTop + exportChartBodyHeight + legendHeight + chartFooterGap;
         metadataGroup.setAttribute('transform', `translate(50, ${metadataYOffset})`);
         
         // Get metadata sections
@@ -558,10 +661,13 @@ const DownloadChartImageButton = ({ chartRef, chartTitle, muni, isSubregion, isR
 
       // Treemap legend height is applied after root <svg> was first sized; refresh box so exports are not clipped.
       combinedSvg.setAttribute('width', layoutChartWidth + 80);
-      combinedSvg.setAttribute('height', exportChartBodyHeight + legendHeight + metadataHeight + 30 + topPadding);
+      combinedSvg.setAttribute(
+        'height',
+        exportChartBodyHeight + legendHeight + metadataHeight + chartFooterGap + 30 + topPadding,
+      );
       combinedSvg.setAttribute(
         'viewBox',
-        `0 0 ${layoutChartWidth + 80} ${exportChartBodyHeight + legendHeight + metadataHeight + 50 + topPadding}`,
+        `0 0 ${layoutChartWidth + 80} ${exportChartBodyHeight + legendHeight + metadataHeight + chartFooterGap + 50 + topPadding}`,
       );
       
       // Convert SVG to string
@@ -574,7 +680,9 @@ const DownloadChartImageButton = ({ chartRef, chartTitle, muni, isSubregion, isR
       // Set high resolution canvas size (2x for retina displays)
       const scale = 2;
       const finalWidth = (layoutChartWidth + 80) * scale;
-      const finalHeight = (exportChartBodyHeight + legendHeight + metadataHeight + 50 + topPadding) * scale;
+      const finalHeight =
+        (exportChartBodyHeight + legendHeight + metadataHeight + chartFooterGap + 50 + topPadding) *
+        scale;
       
       canvas.width = finalWidth;
       canvas.height = finalHeight;
