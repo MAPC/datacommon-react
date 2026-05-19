@@ -48,8 +48,9 @@ export const fetchYears = async (schema, table, yearCol, limit, orderDir = "DESC
 };
 
 const formatYearRange = (latestYear) => {
-  if (!latestYear) return null;
-  const yearStr = Array.isArray(latestYear) ? latestYear[0] : latestYear;
+  if (latestYear == null || latestYear === "") return null;
+  const raw = Array.isArray(latestYear) ? latestYear[0] : latestYear;
+  const yearStr = String(raw);
   // Handle ACS year range format (e.g., "2019-23")
   const [startStr, endStr] = yearStr.split("-");
   if (startStr && endStr) {
@@ -2318,16 +2319,18 @@ export default {
           latestYearOnly: false,
           columns: ["fiscal_yr", "muni_name", "sp_rating"],
           specialFetch: async (municipality, dispatchUpdate) => {
-            const api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
-            const muniName = String(municipality || "").replace(/'/g, "''");
-            const queryString = `
-              SELECT fiscal_yr, muni_name, sp_rating
-              FROM tabular.muni_finance_m
-              WHERE muni_name ILIKE '${muniName}'
-                AND fiscal_yr = 2023
-              LIMIT 1
-            `;
-            const response = await fetch(`${api}${queryString}`);
+            
+            const years = await fetchYears("tabular", "muni_finance_m", "fiscal_yr", 1, "DESC");
+            const latestYear = years[0];
+            if (latestYear == null) {
+              dispatchUpdate([]);
+              return;
+            }
+            const fiscalYear = Number(latestYear) - 1;
+            const columns = ["fiscal_yr", "muni_name", "sp_rating"];
+            let url = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
+            url = `${url}&columns=${columns.join(",")}&filters=muni_name~${municipality},fiscal_yr:${fiscalYear}&limit=1`;
+            const response = await fetch(url);
             if (!response.ok) {
               throw new Error(`HTTP error! status: ${response.status}`);
             }
@@ -2338,7 +2341,10 @@ export default {
       },
       source: "MA Dept of Revenue",
       datasetLinks: { "Dept of Revenue Municipal Finance": 502 },
-      timeframe: "2023",
+      timeframe: async () => {
+        const years = await fetchYears("tabular", "muni_finance_m", "fiscal_yr", 1, "DESC");
+        return years[0] - 1
+      },
       transformer: (tables) => {
         const data = tables["tabular.muni_finance_m_bond_rating"];
         if (!data?.length) return [{ displayValue: "" }];
@@ -2346,8 +2352,11 @@ export default {
         if (raw == null || String(raw).trim() === "") return [{ displayValue: "" }];
         return [{ displayValue: String(raw).trim() }];
       },
-      subregionDataQuery: async (subregionId) =>
-        `&schema=tabular&table=muni_finance_m&columns=fiscal_yr,muni_name,sp_rating&filters=muni_id:${subregionId},fiscal_yr:2023&limit=1`,
+      subregionDataQuery: async (subregionId) => {
+        const years = await fetchYears("tabular", "muni_finance_m", "fiscal_yr", 1, "DESC");
+        const fiscalYear = years[0] != null ? Number(years[0]) - 1 : "";
+        return `&schema=tabular&table=muni_finance_m&columns=fiscal_yr,muni_name,sp_rating&filters=muni_id:${subregionId},fiscal_yr:${fiscalYear}&limit=1`;
+      },
     },
     cpa_annual_spending: {
       type: "profile-metric",
@@ -2359,16 +2368,17 @@ export default {
           latestYearOnly: false,
           columns: ["fiscal_yr", "muni_name", "ent_cpafnd"],
           specialFetch: async (municipality, dispatchUpdate) => {
-            const api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
-            const muniName = String(municipality || "").replace(/'/g, "''");
-            const queryString = `
-              SELECT fiscal_yr, muni_name, ent_cpafnd
-              FROM tabular.muni_finance_m
-              WHERE muni_name ILIKE '${muniName}'
-                AND fiscal_yr = 2024
-              LIMIT 1
-            `;
-            const response = await fetch(`${api}${queryString}`);
+           
+            const years = await fetchYears("tabular", "muni_finance_m", "fiscal_yr", 1, "DESC");
+            const fiscalYear = years[0];
+            if (fiscalYear == null) {
+              dispatchUpdate([]);
+              return;
+            }
+            const columns = ["fiscal_yr", "muni_name", "ent_cpafnd"];
+            let url = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
+            url = `${url}&columns=${columns.join(",")}&filters=muni_name~${municipality},fiscal_yr:${fiscalYear}&limit=1`;
+            const response = await fetch(url);
             if (!response.ok) {
               throw new Error(`HTTP error! status: ${response.status}`);
             }
@@ -2379,7 +2389,10 @@ export default {
       },
       source: "MA Dept of Revenue",
       datasetLinks: { "Dept of Revenue Municipal Finance": 502 },
-      timeframe: "2024",
+      timeframe: async () => {
+        const years = await fetchYears("tabular", "muni_finance_m", "fiscal_yr", 1, "DESC");
+        return years[0];
+      },
       transformer: (tables) => {
         const data = tables["tabular.muni_finance_m_cpa_spending"];
         if (!data?.length) return [{ displayValue: "" }];
@@ -2395,8 +2408,11 @@ export default {
           },
         ];
       },
-      subregionDataQuery: async (subregionId) =>
-        `&schema=tabular&table=muni_finance_m&columns=fiscal_yr,muni_name,ent_cpafnd&filters=muni_id:${subregionId},fiscal_yr:2024&limit=1`,
+      subregionDataQuery: async (subregionId) => {
+        const years = await fetchYears("tabular", "muni_finance_m", "fiscal_yr", 1, "DESC");
+        const fiscalYear = years[0] ?? "";
+        return `&schema=tabular&table=muni_finance_m&columns=fiscal_yr,muni_name,ent_cpafnd&filters=muni_id:${subregionId},fiscal_yr:${fiscalYear}&limit=1`;
+      },
     },
     total_employees_finance: {
       type: "profile-metric",
@@ -2408,16 +2424,17 @@ export default {
           latestYearOnly: false,
           columns: ["fiscal_yr", "muni_name", "tot_empl"],
           specialFetch: async (municipality, dispatchUpdate) => {
-            const api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
-            const muniName = String(municipality || "").replace(/'/g, "''");
-            const queryString = `
-              SELECT fiscal_yr, muni_name, tot_empl
-              FROM tabular.muni_finance_m
-              WHERE muni_name ILIKE '${muniName}'
-                AND fiscal_yr = 2024
-              LIMIT 1
-            `;
-            const response = await fetch(`${api}${queryString}`);
+           
+            const years = await fetchYears("tabular", "muni_finance_m", "fiscal_yr", 1, "DESC");
+            const fiscalYear = years[0];
+            if (fiscalYear == null) {
+              dispatchUpdate([]);
+              return;
+            }
+            const columns = ["fiscal_yr", "muni_name", "tot_empl"];
+            let url = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
+            url = `${url}&columns=${columns.join(",")}&filters=muni_name~${municipality},fiscal_yr:${fiscalYear}&limit=1`;
+            const response = await fetch(url);
             if (!response.ok) {
               throw new Error(`HTTP error! status: ${response.status}`);
             }
@@ -2428,7 +2445,10 @@ export default {
       },
       source: "MA Dept of Revenue",
       datasetLinks: { "Dept of Revenue Municipal Finance": 502 },
-      timeframe: "2024",
+      timeframe: async () => {
+        const years = await fetchYears("tabular", "muni_finance_m", "fiscal_yr", 1, "DESC");
+        return years[0] != null ? String(years[0]) : "";
+      },
       transformer: (tables) => {
         const data = tables["tabular.muni_finance_m_total_employees"];
         if (!data?.length) return [{ displayValue: "" }];
@@ -2436,8 +2456,11 @@ export default {
         if (!Number.isFinite(n)) return [{ displayValue: "" }];
         return [{ displayValue: new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(n) }];
       },
-      subregionDataQuery: async (subregionId) =>
-        `&schema=tabular&table=muni_finance_m&columns=fiscal_yr,muni_name,tot_empl&filters=muni_id:${subregionId},fiscal_yr:2024&limit=1`,
+      subregionDataQuery: async (subregionId) => {
+        const years = await fetchYears("tabular", "muni_finance_m", "fiscal_yr", 1, "DESC");
+        const fiscalYear = years[0] ?? "";
+        return `&schema=tabular&table=muni_finance_m&columns=fiscal_yr,muni_name,tot_empl&filters=muni_id:${subregionId},fiscal_yr:${fiscalYear}&limit=1`;
+      },
     },
 
     fund_revenue:{
@@ -2462,20 +2485,16 @@ export default {
             latestYearOnly: true,
             columns: columnList,
             specialFetch: async (municipality, dispatchUpdate) => {
-              const api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
-              const muniName = String(municipality || "").replace(/'/g, "''");
-              const selectList = columnList.join(",");
-              const queryString = `
-                SELECT ${selectList}
-                FROM tabular.muni_finance_m
-                WHERE muni_name ILIKE '${muniName}'
-                  AND fiscal_yr = (
-                    SELECT MAX(fiscal_yr)
-                    FROM tabular.muni_finance_m
-                    WHERE muni_name ILIKE '${muniName}'
-                  )
-              `;
-              const response = await fetch(`${api}${queryString}`);
+              
+              const years = await fetchYears("tabular", "muni_finance_m", "fiscal_yr", 1, "DESC");
+              const fiscalYear = years[0];
+              if (fiscalYear == null) {
+                dispatchUpdate([]);
+                return;
+              }
+              let url = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
+              url = `${url}&columns=${columnList.join(",")}&filters=muni_name~${municipality},fiscal_yr:${fiscalYear}&limit=1`;
+              const response = await fetch(url);
               if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
               }
@@ -2515,12 +2534,11 @@ export default {
         format: format.string.default,
       },
     },overrides_map_config: {
-      mapTitleTemplate: "2024 Municipal Override Map",
+      mapTitleTemplate: "{year} Municipal Override Map",
       yearColumn: "fiscal_yr",
       tableSchema: "tabular",
       tableName: "muni_finance_m",
       mapColumns: ["muni_name", "fiscal_yr", "tot_rev", "total_exp", "win_amt", "loss_amt"],
-    
       legend: [
         {
           key: "success",
