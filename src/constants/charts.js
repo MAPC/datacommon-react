@@ -34,11 +34,11 @@ export const fetchYears = async (schema, table, yearCol, limit, orderDir = "DESC
 
   try {
     const response = await fetch(query);
-    
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    
+
     const data = (await response.json()) || {};
     return data.rows?.map((row) => row.latest_year) || [];
   } catch (error) {
@@ -225,7 +225,7 @@ const costBurdenColumns = [
   "r_cb50",
   "r_cb50me",
   "r_cb50_p",
-  "r_cb50_mep"
+  "r_cb50_mep",
 ];
 
 const commuteToWorkColumns = [
@@ -346,7 +346,7 @@ export default {
             "nhaa",
             "nhaa_me",
             "nhaa_p",
-            "nhaa_mep", 
+            "nhaa_mep",
             "nhna",
             "nhna_me",
             "nhna_p",
@@ -381,9 +381,9 @@ export default {
         nhaa: "Non-hispanic Black or African American",
         nhas: "Non-Hispanic Asian",
         nhpi: "Non-Hispanic Native Hawaiian and Other Pacific Islander",
-        nhoth:"Non-Hispanic Some Other Race",
-        nhmlt:"Non-Hispanic Two or More Races",
-        nhna:"Non-Hispanic American Indian and Alaska Native",
+        nhoth: "Non-Hispanic Some Other Race",
+        nhmlt: "Non-Hispanic Two or More Races",
+        nhna: "Non-Hispanic American Indian and Alaska Native",
         lat: "Hispanic or Latino",
       },
       colors: {
@@ -395,11 +395,10 @@ export default {
         nhmlt: colors.CHART.EXTENDED.get("CYAN"),
         nhna: colors.CHART.EXTENDED.get("BLUE"),
         lat: colors.CHART.EXTENDED.get("PINK"),
-       
       },
       source: "American Community Survey",
       timeframe: async () => {
-        return await getFormattedYearRange('tabular', 'b03002_race_ethnicity_acs_m', 'acs_year', 1);
+        return await getFormattedYearRange("tabular", "b03002_race_ethnicity_acs_m", "acs_year", 1);
       },
       datasetLinks: { "Race and Ethnicity Estimates (Municipal)": 6 },
       transformer: (tables, chart) => {
@@ -446,26 +445,88 @@ export default {
         );
       },
       subregionDataQuery: async (subregionId) => {
-        const maxYear = await fetchYears('tabular', 'b03002_race_ethnicity_acs_m', 'acs_year', 1);
+        const maxYear = await fetchYears("tabular", "b03002_race_ethnicity_acs_m", "acs_year", 1);
         const columns = [
-          'acs_year', 'nhwhi', 'nhwhi_me', 'nhwhi_p', 'nhwhi_mep', 'nhaa', 'nhaa_me', 'nhaa_p', 'nhaa_mep',
-          'nhna', 'nhna_me', 'nhna_p', 'nhna_mep', 'nhas', 'nhas_me', 'nhas_p', 'nhas_mep', 'nhpi', 'nhpi_me',
-          'nhpi_p', 'nhpi_mep', 'nhoth', 'nhoth_me', 'nhoth_p', 'nhoth_mep', 'nhmlt', 'nhmlt_me', 'nhmlt_p', 
-          'nhmlt_mep', 'lat', 'lat_me', 'lat_p', 'lat_mep', 'totpop', 'totpop_me'
+          "acs_year",
+          "nhwhi",
+          "nhwhi_me",
+          "nhwhi_p",
+          "nhwhi_mep",
+          "nhaa",
+          "nhaa_me",
+          "nhaa_p",
+          "nhaa_mep",
+          "nhna",
+          "nhna_me",
+          "nhna_p",
+          "nhna_mep",
+          "nhas",
+          "nhas_me",
+          "nhas_p",
+          "nhas_mep",
+          "nhpi",
+          "nhpi_me",
+          "nhpi_p",
+          "nhpi_mep",
+          "nhoth",
+          "nhoth_me",
+          "nhoth_p",
+          "nhoth_mep",
+          "nhmlt",
+          "nhmlt_me",
+          "nhmlt_p",
+          "nhmlt_mep",
+          "lat",
+          "lat_me",
+          "lat_p",
+          "lat_mep",
+          "totpop",
+          "totpop_me",
         ];
-        let urlQueryParams = `schema=tabular&table=b03002_race_ethnicity_acs_m&columns=${columns.join(',')}`;
+        let urlQueryParams = `schema=tabular&table=b03002_race_ethnicity_acs_m&columns=${columns.join(",")}`;
         urlQueryParams = `${urlQueryParams}&filters=muni_id:${subregionId},acs_year:${maxYear[0]}`;
         return urlQueryParams;
       },
       rparegionDataQuery: async (rpaId) => {
-        const maxYear = await fetchYears('tabular', 'b03002_race_ethnicity_acs_m', 'acs_year', 1);
+        const maxYear = await fetchYears("tabular", "b03002_race_ethnicity_acs_m", "acs_year", 1);
         const columns = [
-          'acs_year', 'nhwhi', 'nhwhi_me', 'nhwhi_p', 'nhwhi_mep', 'nhaa', 'nhaa_me', 'nhaa_p', 'nhaa_mep',
-          'nhna', 'nhna_me', 'nhna_p', 'nhna_mep', 'nhas', 'nhas_me', 'nhas_p', 'nhas_mep', 'nhpi', 'nhpi_me',
-          'nhpi_p', 'nhpi_mep', 'nhoth', 'nhoth_me', 'nhoth_p', 'nhoth_mep', 'nhmlt', 'nhmlt_me', 'nhmlt_p', 
-          'nhmlt_mep', 'lat', 'lat_me', 'lat_p', 'lat_mep', 'totpop', 'totpop_me'
+          "acs_year",
+          "nhwhi",
+          "nhwhi_me",
+          "nhwhi_p",
+          "nhwhi_mep",
+          "nhaa",
+          "nhaa_me",
+          "nhaa_p",
+          "nhaa_mep",
+          "nhna",
+          "nhna_me",
+          "nhna_p",
+          "nhna_mep",
+          "nhas",
+          "nhas_me",
+          "nhas_p",
+          "nhas_mep",
+          "nhpi",
+          "nhpi_me",
+          "nhpi_p",
+          "nhpi_mep",
+          "nhoth",
+          "nhoth_me",
+          "nhoth_p",
+          "nhoth_mep",
+          "nhmlt",
+          "nhmlt_me",
+          "nhmlt_p",
+          "nhmlt_mep",
+          "lat",
+          "lat_me",
+          "lat_p",
+          "lat_mep",
+          "totpop",
+          "totpop_me",
         ];
-        let urlQueryParams = `schema=tabular&table=b03002_race_ethnicity_acs_m&columns=${columns.join(',')}`;
+        let urlQueryParams = `schema=tabular&table=b03002_race_ethnicity_acs_m&columns=${columns.join(",")}`;
         urlQueryParams = `${urlQueryParams}&filters=muni_id:${rpaId},acs_year:${maxYear[0]}`;
         return urlQueryParams;
       },
@@ -493,7 +554,7 @@ export default {
       },
       source: "2020 Census",
       timeframe: async () => {
-        return await getFormattedYearRange('tabular', 'demo_race_by_age_gender_m', 'years', 1);
+        return await getFormattedYearRange("tabular", "demo_race_by_age_gender_m", "years", 1);
       },
       datasetLinks: { "Race and Ethnicity by Gender and Age Groups (Municipal)": 315 },
       transformer: (tables, chart) => {
@@ -504,7 +565,7 @@ export default {
         // For aggregated data (subregion/RPA), race_eth is already filtered in query
         // For municipal data, filter for "All Race/Ethnicity"
         const row = popData.filter((r) => r.race_eth === "All Race/Ethnicity")[0] || popData[0];
-       
+
         const data = {
           pop_u18: row.pop_u18,
           pop18_24: row.pop18_24,
@@ -530,7 +591,7 @@ export default {
       },
       rparegionDataQuery: (rpaId) => {
         // TODO: fix this without passing SQL to the backend if we want to support RPA view in the future.
-        return '';
+        return "";
       },
     },
   },
@@ -545,10 +606,10 @@ export default {
         "tabular.b23025_employment_acs_m": {
           yearCol: "acs_year",
           years: async () => {
-            const years = await fetchYears('tabular', 'b23025_employment_acs_m', 'acs_year', 2);
+            const years = await fetchYears("tabular", "b23025_employment_acs_m", "acs_year", 2);
             return years;
           },
-          columns: ["acs_year", "emp", "emp_me","emp_p","emp_mep","unemp", "unemp_me", "unemp_p","unemp_mep","clf", "clf_me","clf_p","clf_mep"],
+          columns: ["acs_year", "emp", "emp_me", "emp_p", "emp_mep", "unemp", "unemp_me", "unemp_p", "unemp_mep", "clf", "clf_me", "clf_p", "clf_mep"],
         },
       },
       labels: {
@@ -557,7 +618,7 @@ export default {
       },
       source: "American Community Survey",
       timeframe: async () => {
-        const years = await fetchYears('tabular', 'b23025_employment_acs_m', 'acs_year', 2);
+        const years = await fetchYears("tabular", "b23025_employment_acs_m", "acs_year", 2);
         if (!years || years.length < 2) return "";
         const [latest, previous] = years;
 
@@ -593,11 +654,8 @@ export default {
         );
       },
       subregionDataQuery: (subregionId) => {
-        const columns = [
-          'acs_year', 'emp', 'emp_me', 'emp_p', 'emp_mep', 'unemp', 'unemp_me', 'unemp_p',
-          'unemp_mep', 'clf', 'clf_me', 'clf_p', 'clf_mep'
-        ];
-        let urlQueryParams = `&schema=tabular&table=b23025_employment_acs_m&columns=${columns.join(',')}`;
+        const columns = ["acs_year", "emp", "emp_me", "emp_p", "emp_mep", "unemp", "unemp_me", "unemp_p", "unemp_mep", "clf", "clf_me", "clf_p", "clf_mep"];
+        let urlQueryParams = `&schema=tabular&table=b23025_employment_acs_m&columns=${columns.join(",")}`;
         urlQueryParams = `${urlQueryParams}&orderByColumn=acs_year&orderByDirection=DESC&limit=2`;
         urlQueryParams = `${urlQueryParams}&filters=muni_id:${subregionId}`;
         return urlQueryParams;
@@ -633,7 +691,7 @@ export default {
       },
       source: "Executive Office of Labor and Workforce Development (EOLWD)",
       timeframe: async () => {
-        const years = await fetchYears('tabular', 'econ_es202_naics_2d_m', 'cal_year', null, 'ASC');
+        const years = await fetchYears("tabular", "econ_es202_naics_2d_m", "cal_year", null, "ASC");
         if (!years || years.length === 0) return "";
         return `${years[0]}-${years[years.length - 1]}`;
       },
@@ -683,15 +741,15 @@ export default {
         return data;
       },
       subregionDataQuery: (subregionId) => {
-        const columns = ['cal_year', 'naicstitle', 'naicscode', 'avgemp'];
-        let urlQueryParams = `&schema=tabular&table=econ_es202_naics_2d_m&columns=${columns.join(',')}`;
+        const columns = ["cal_year", "naicstitle", "naicscode", "avgemp"];
+        let urlQueryParams = `&schema=tabular&table=econ_es202_naics_2d_m&columns=${columns.join(",")}`;
         urlQueryParams = `${urlQueryParams}&orderByColumn=cal_year&orderByDirection=ASC`;
         urlQueryParams = `${urlQueryParams}&filters=muni_id:${subregionId}`;
         return urlQueryParams;
       },
       rparegionDataQuery: (rpaId) => {
-        const columns = ['cal_year', 'naicstitle', 'naicscode', 'avgemp'];
-        let urlQueryParams = `&schema=tabular&table=econ_es202_naics_2d_m&columns=${columns.join(',')}`;
+        const columns = ["cal_year", "naicstitle", "naicscode", "avgemp"];
+        let urlQueryParams = `&schema=tabular&table=econ_es202_naics_2d_m&columns=${columns.join(",")}`;
         urlQueryParams = `${urlQueryParams}&orderByColumn=cal_year&orderByDirection=ASC`;
         urlQueryParams = `${urlQueryParams}&filters=muni_id:${rpaId}`;
         return urlQueryParams;
@@ -707,7 +765,8 @@ export default {
       tables: {
         "tabular.educ_enrollment_by_year_districts": {
           specialFetch: async (municipality, dispatchUpdate) => {
-            const gis_query = // Use a hardcoded named query on the backend for a complex gis spatial query
+            const gis_query =
+              // Use a hardcoded named query on the backend for a complex gis spatial query
               `${locations.BROWSER_API}/named-query?token=${import.meta.env.VITE_MAPC_API_TOKEN}&queryName=enrolment-by-districts-gis&municipality=${municipality}`;
 
             const gis_response = await fetch(gis_query);
@@ -720,20 +779,34 @@ export default {
               return dispatchUpdate([]);
             }
             const districtIds = gis_payload.rows.map((district) => district.districtid);
-            const districtIdsAsFilters =  districtIds.map(did => `districtid:${did}`);
+            const districtIdsAsFilters = districtIds.map((did) => `districtid:${did}`);
 
             const columns = [
-              'district', 'districtid', 'schoolyear', 'grade_k', 'grade_1', 'grade_2', 'grade_3', 'grade_4',
-              'grade_5', 'grade_6', 'grade_7', 'grade_8', 'grade_9', 'grade_10', 'grade_11', 'grade_12'
+              "district",
+              "districtid",
+              "schoolyear",
+              "grade_k",
+              "grade_1",
+              "grade_2",
+              "grade_3",
+              "grade_4",
+              "grade_5",
+              "grade_6",
+              "grade_7",
+              "grade_8",
+              "grade_9",
+              "grade_10",
+              "grade_11",
+              "grade_12",
             ];
             let mainQuery = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=educ_enrollment_by_year_districts`;
-            mainQuery = `${mainQuery}&columns=${columns.join(',')}&filters=${districtIdsAsFilters.join(',')}`;
+            mainQuery = `${mainQuery}&columns=${columns.join(",")}&filters=${districtIdsAsFilters.join(",")}`;
             const response = await fetch(mainQuery);
-            
+
             if (!response.ok) {
               throw new Error(`HTTP error! status: ${response.status}`);
             }
-            
+
             const payload = (await response.json()) || {};
             return dispatchUpdate(payload.rows);
           },
@@ -756,7 +829,7 @@ export default {
       },
       source: "MA Department of Elementary and Secondary Education",
       timeframe: async () => {
-        const years = await fetchYears('tabular', 'educ_enrollment_by_year_districts', 'schoolyear');
+        const years = await fetchYears("tabular", "educ_enrollment_by_year_districts", "schoolyear");
         if (!years || years.length === 0) return "";
 
         const oldestYear = years[years.length - 1];
@@ -812,12 +885,7 @@ export default {
         label: "Level of Education",
         format: format.string.default,
         sort: (a, b) => {
-          const order = [
-            "Less than high school diploma",
-            "High school diploma",
-            "Some college or associate degree",
-            "Bachelor degree or higher",
-          ];
+          const order = ["Less than high school diploma", "High school diploma", "Some college or associate degree", "Bachelor degree or higher"];
           return order.indexOf(a) - order.indexOf(b);
         },
       },
@@ -861,15 +929,15 @@ export default {
       },
       source: "American Community Survey",
       timeframe: async () => {
-        const years = await fetchYears('tabular', 'c15002_educational_attainment_by_race_acs_m', 'acs_year', 1);
+        const years = await fetchYears("tabular", "c15002_educational_attainment_by_race_acs_m", "acs_year", 1);
         return formatYearRange(years);
       },
       datasetLinks: { "Educational Attainment by Race (Municipal)": 202 },
       transformer: (tables, chart) => {
         const eduData = tables["tabular.c15002_educational_attainment_by_race_acs_m"];
         if (!eduData || eduData.length < 1) return [];
-  
-        const row = eduData[eduData.length - 1] 
+
+        const row = eduData[eduData.length - 1];
         const raceKeys = ["nhw", "aa", "na", "as", "pi", "oth", "mlt", "lat"];
         const eduKeys = ["lh", "hs", "sc", "bd"];
 
@@ -914,7 +982,7 @@ export default {
       },
       rparegionDataQuery: (rpaId) => {
         // TODO: Enable this without passing SQL to the backend if we enable RPA views in the future.
-        return '';
+        return "";
       },
     },
   },
@@ -941,7 +1009,7 @@ export default {
       },
       source: "MA Dept. of Revenue",
       timeframe: async () => {
-        const years = await fetchYears('tabular', 'econ_municipal_taxes_revenue_m', 'fy', 1);
+        const years = await fetchYears("tabular", "econ_municipal_taxes_revenue_m", "fy", 1);
         return years[0];
       },
       datasetLinks: {
@@ -968,17 +1036,17 @@ export default {
         muniIdsApi = `${muniIdsApi}&filters=subrg_id:${subregionId}`;
         const muniIdsResp = await fetch(muniIdsApi);
         const muniIdData = (await muniIdsResp.json()) || {};
-        const muniIdsList = muniIdData.rows.map(row => `muni_id:${row.muni_id}`);
+        const muniIdsList = muniIdData.rows.map((row) => `muni_id:${row.muni_id}`);
 
         let maxFyApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=econ_municipal_taxes_revenue_m&columns=fy`;
         maxFyApi = `${maxFyApi}&orderByColumn=fy&orderByDirection=DESC&limit=1`;
-        maxFyApi = `${maxFyApi}&filters=${muniIdsList.join(',')}`;
+        maxFyApi = `${maxFyApi}&filters=${muniIdsList.join(",")}`;
         const maxFyResp = await fetch(maxFyApi);
         const maxFyData = (await maxFyResp.json()) || {};
         const maxFy = maxFyData.rows[0].fy;
 
         const columns = ["fy", "res_taxes", "os_taxes", "comm_taxes", "ind_taxes", "p_prop_tax", "tot_rev"];
-        let urlQueryParams = `&schema=tabular&table=econ_municipal_taxes_revenue_m&columns=${columns.join(',')}`;
+        let urlQueryParams = `&schema=tabular&table=econ_municipal_taxes_revenue_m&columns=${columns.join(",")}`;
         urlQueryParams = `${urlQueryParams}&filters=muni_id:${subregionId},fy:${maxFy}`;
         return urlQueryParams;
       },
@@ -1006,22 +1074,30 @@ export default {
       transformer: (tables, chart) => {
         const waterData = tables["tabular.env_dep_reviewed_water_demand_m"];
         if (waterData.length < 1) {
-          return [
-            { label: "Water Useage per Capita", values: [] },
-          ];
+          return [{ label: "Water Useage per Capita", values: [] }];
         }
         const totals = {
-          rgpcd2009: 0, rgpcd2010: 0, rgpcd2011: 0, rgpcd2012: 0,
-          rgpcd2013: 0, rgpcd2014: 0, rgpcd2015: 0,
+          rgpcd2009: 0,
+          rgpcd2010: 0,
+          rgpcd2011: 0,
+          rgpcd2012: 0,
+          rgpcd2013: 0,
+          rgpcd2014: 0,
+          rgpcd2015: 0,
         };
-        waterData.forEach(row => {
+        waterData.forEach((row) => {
           Object.entries(row).forEach(([key, value]) => {
             totals[key] += value;
           });
         });
         const pairs = [
-          [2009, "rgpcd2009"], [2010, "rgpcd2010"], [2011, "rgpcd2011"], [2012, "rgpcd2012"],
-          [2013, "rgpcd2013"], [2014, "rgpcd2014"], [2015, "rgpcd2015"],
+          [2009, "rgpcd2009"],
+          [2010, "rgpcd2010"],
+          [2011, "rgpcd2011"],
+          [2012, "rgpcd2012"],
+          [2013, "rgpcd2013"],
+          [2014, "rgpcd2014"],
+          [2015, "rgpcd2015"],
         ];
         return [
           {
@@ -1036,16 +1112,16 @@ export default {
         muniIdsApi = `${muniIdsApi}&filters=subrg_id:${subregionId}`;
         const muniIdsResp = await fetch(muniIdsApi);
         const muniIdData = (await muniIdsResp.json()) || {};
-        const muniIdsList = muniIdData.rows.map(row => `muni_id:${row.muni_id}`);
+        const muniIdsList = muniIdData.rows.map((row) => `muni_id:${row.muni_id}`);
 
         const columns = ["rgpcd2009", "rgpcd2010", "rgpcd2011", "rgpcd2012", "rgpcd2013", "rgpcd2014", "rgpcd2015"];
-        let urlQueryParams = `&schema=tabular&table=env_dep_reviewed_water_demand_m&columns=${columns.join(',')}`;
-        urlQueryParams = `${urlQueryParams}&filters=${muniIdsList.join(',')}`;
+        let urlQueryParams = `&schema=tabular&table=env_dep_reviewed_water_demand_m&columns=${columns.join(",")}`;
+        urlQueryParams = `${urlQueryParams}&filters=${muniIdsList.join(",")}`;
         return urlQueryParams;
       },
       rparegionDataQuery: (rpaId) => {
         // TODO: Enable this without passing SQL to the backend if we support RPA regions in the future.
-        return '';
+        return "";
       },
     },
     energy_usage_gas: {
@@ -1068,9 +1144,9 @@ export default {
       },
       source: "MassSave",
       timeframe: async () => {
-        const years = await fetchYears('tabular', 'energy_masssave_elec_gas_ci_consumption_m', 'cal_year');
-        const earliestyear = years.length ? years[years.length - 1] : 'unknown';
-        const latestYear = years.length ? years[0] : 'unknown';
+        const years = await fetchYears("tabular", "energy_masssave_elec_gas_ci_consumption_m", "cal_year");
+        const earliestyear = years.length ? years[years.length - 1] : "unknown";
+        const latestYear = years.length ? years[0] : "unknown";
         return `${earliestyear}-${latestYear}`;
       },
       datasetLinks: {
@@ -1085,7 +1161,7 @@ export default {
           return [];
         }
         const totals = {}; // map of "cal_year.sector" to the sector and totals for mwh_use and therm_use
-        rows.forEach(row => {
+        rows.forEach((row) => {
           const key = `${row.cal_year}.${row.sector}`;
           if (!totals[key] && row.cal_year && row.sector) {
             totals[key] = { mwh_use: 0, therm_use: 0 };
@@ -1095,7 +1171,7 @@ export default {
         });
 
         const data = Object.entries(totals).map(([key, data]) => {
-          const [year, sector] = key.split('.');
+          const [year, sector] = key.split(".");
           return { x: year, y: data.therm_use, z: `${sector} ${chart.labels.therm_use}` };
         });
         return data;
@@ -1106,20 +1182,20 @@ export default {
         muniIdsApi = `${muniIdsApi}&filters=subrg_id:${subregionId}`;
         const muniIdsResp = await fetch(muniIdsApi);
         const muniIdData = (await muniIdsResp.json()) || {};
-        const muniIdsList = muniIdData.rows.map(row => `muni_id:${row.muni_id}`);
+        const muniIdsList = muniIdData.rows.map((row) => `muni_id:${row.muni_id}`);
 
         const columns = ["cal_year", "sector", "mwh_use", "therm_use"];
-        let url1QueryParams = `&schema=tabular&table=energy_masssave_elec_gas_ci_consumption_m&columns=${columns.join(',')}`;
-        url1QueryParams = `${url1QueryParams}&filters=${muniIdsList.join(',')}`;
-        
-        let url2QueryParams = `&schema=tabular&table=energy_masssave_elec_gas_res_li_consumption_m&columns=${columns.join(',')}`;
-        url2QueryParams = `${url2QueryParams}&filters=${muniIdsList.join(',')}`;
-        
+        let url1QueryParams = `&schema=tabular&table=energy_masssave_elec_gas_ci_consumption_m&columns=${columns.join(",")}`;
+        url1QueryParams = `${url1QueryParams}&filters=${muniIdsList.join(",")}`;
+
+        let url2QueryParams = `&schema=tabular&table=energy_masssave_elec_gas_res_li_consumption_m&columns=${columns.join(",")}`;
+        url2QueryParams = `${url2QueryParams}&filters=${muniIdsList.join(",")}`;
+
         return [url1QueryParams, url2QueryParams];
       },
       rparegionDataQuery: (rpaId) => {
         // TODO: Enable this without passing SQL to the backend if we support RPA regions in the future.
-        return ['', ''];
+        return ["", ""];
       },
     },
     energy_usage_electricity: {
@@ -1142,9 +1218,9 @@ export default {
       },
       source: "MassSave",
       timeframe: async () => {
-        const years = await fetchYears('tabular', 'energy_masssave_elec_gas_ci_consumption_m', 'cal_year');
-        const earliestyear = years.length ? years[years.length - 1] : 'unknown';
-        const latestYear = years.length ? years[0] : 'unknown';
+        const years = await fetchYears("tabular", "energy_masssave_elec_gas_ci_consumption_m", "cal_year");
+        const earliestyear = years.length ? years[years.length - 1] : "unknown";
+        const latestYear = years.length ? years[0] : "unknown";
         return `${earliestyear}-${latestYear}`;
       },
       datasetLinks: {
@@ -1159,7 +1235,7 @@ export default {
           return [];
         }
         const totals = {}; // map of "cal_year.sector" to the sector and totals for mwh_use and therm_use
-        rows.forEach(row => {
+        rows.forEach((row) => {
           const key = `${row.cal_year}.${row.sector}`;
           if (!totals[key] && row.cal_year && row.sector) {
             totals[key] = { mwh_use: 0, therm_use: 0 };
@@ -1169,7 +1245,7 @@ export default {
         });
 
         const data = Object.entries(totals).map(([key, data]) => {
-          const [year, sector] = key.split('.');
+          const [year, sector] = key.split(".");
           return { x: year, y: data.mwh_use, z: `${sector} ${chart.labels.mwh_use}` };
         });
         return data;
@@ -1180,20 +1256,20 @@ export default {
         muniIdsApi = `${muniIdsApi}&filters=subrg_id:${subregionId}`;
         const muniIdsResp = await fetch(muniIdsApi);
         const muniIdData = (await muniIdsResp.json()) || {};
-        const muniIdsList = muniIdData.rows.map(row => `muni_id:${row.muni_id}`);
+        const muniIdsList = muniIdData.rows.map((row) => `muni_id:${row.muni_id}`);
 
         const columns = ["cal_year", "sector", "mwh_use", "therm_use"];
-        let url1QueryParams = `&schema=tabular&table=energy_masssave_elec_gas_ci_consumption_m&columns=${columns.join(',')}`;
-        url1QueryParams = `${url1QueryParams}&filters=${muniIdsList.join(',')}`;
-        
-        let url2QueryParams = `&schema=tabular&table=energy_masssave_elec_gas_res_li_consumption_m&columns=${columns.join(',')}`;
-        url2QueryParams = `${url2QueryParams}&filters=${muniIdsList.join(',')}`;
-        
+        let url1QueryParams = `&schema=tabular&table=energy_masssave_elec_gas_ci_consumption_m&columns=${columns.join(",")}`;
+        url1QueryParams = `${url1QueryParams}&filters=${muniIdsList.join(",")}`;
+
+        let url2QueryParams = `&schema=tabular&table=energy_masssave_elec_gas_res_li_consumption_m&columns=${columns.join(",")}`;
+        url2QueryParams = `${url2QueryParams}&filters=${muniIdsList.join(",")}`;
+
         return [url1QueryParams, url2QueryParams];
       },
       rparegionDataQuery: (rpaId) => {
         // TODO: Enable this without passing SQL to the backend if we support RPA regions in the future
-        return ['', ''];
+        return ["", ""];
       },
     },
   },
@@ -1211,7 +1287,7 @@ export default {
         "tabular.b25091_b25070_costburden_acs_m": {
           yearCol: "acs_year",
           years: async () => {
-            const years = await fetchYears('tabular', 'b25091_b25070_costburden_acs_m', 'acs_year', 1);
+            const years = await fetchYears("tabular", "b25091_b25070_costburden_acs_m", "acs_year", 1);
             return years;
           },
           columns: costBurdenColumns,
@@ -1226,7 +1302,7 @@ export default {
       },
       source: "American Community Survey",
       timeframe: async () => {
-        const years = await fetchYears('tabular', 'b25091_b25070_costburden_acs_m', 'acs_year', 1);
+        const years = await fetchYears("tabular", "b25091_b25070_costburden_acs_m", "acs_year", 1);
         return formatYearRange(years);
       },
       datasetLinks: { "Cost Burdened Households (Municipal)": 185 },
@@ -1237,7 +1313,8 @@ export default {
         }
         const row = costData[0];
         return [
-          { // % of Owner not cost burdened
+          {
+            // % of Owner not cost burdened
             x: chart.labels.not_cb,
             y: row.o_notcb_p,
             // Percentage MOE
@@ -1247,7 +1324,8 @@ export default {
             countMarginOfError: row.o_notcbme,
             z: chart.labels.owner,
           },
-          { // % of Renter not cost burdened
+          {
+            // % of Renter not cost burdened
             x: chart.labels.not_cb,
             y: row.r_notcb_p,
             me: row.r_notcbmep,
@@ -1255,7 +1333,8 @@ export default {
             countMarginOfError: row.r_notcbme,
             z: chart.labels.renter,
           },
-          { // %  of Owner paying 30-50% of income 
+          {
+            // %  of Owner paying 30-50% of income
             x: chart.labels.p3050,
             y: row.ocb3050_p,
             me: row.ocb3050mep,
@@ -1263,7 +1342,8 @@ export default {
             countMarginOfError: row.ocb3050me,
             z: chart.labels.owner,
           },
-          { // % of Renter paying 30-50% of income 
+          {
+            // % of Renter paying 30-50% of income
             x: chart.labels.p3050,
             y: row.rcb3050_p,
             me: row.rcb3050mep,
@@ -1271,7 +1351,8 @@ export default {
             countMarginOfError: row.rcb3050me,
             z: chart.labels.renter,
           },
-          { // % of Owner paying 50%+ of income
+          {
+            // % of Owner paying 50%+ of income
             x: chart.labels["p50+"],
             y: row.o_cb50_p,
             me: row.o_cb50_mep,
@@ -1279,7 +1360,8 @@ export default {
             countMarginOfError: row.o_cb50me,
             z: chart.labels.owner,
           },
-          { // % of Renter paying 50%+ of income
+          {
+            // % of Renter paying 50%+ of income
             x: chart.labels["p50+"],
             y: row.r_cb50_p,
             me: row.r_cb50_mep,
@@ -1290,8 +1372,8 @@ export default {
         ];
       },
       subregionDataQuery: async (subregionId) => {
-        const yearResp = await fetchYears('tabular', 'b25091_b25070_costburden_acs_m', 'acs_year', 1);
-        const maxYear = yearResp.length ? yearResp[0] : 'unknown';
+        const yearResp = await fetchYears("tabular", "b25091_b25070_costburden_acs_m", "acs_year", 1);
+        const maxYear = yearResp.length ? yearResp[0] : "unknown";
 
         const selectList = costBurdenColumns.join(",");
         let urlQueryParams = `&schema=tabular&table=b25091_b25070_costburden_acs_m&columns=${selectList}`;
@@ -1321,10 +1403,10 @@ export default {
       source: "Census Building Permit Survey",
       caveat: "*Ignoring years for which the municipality did not report all 12 months.",
       timeframe: async () => {
-        const years = await fetchYears('tabular', 'hous_building_permits_m', 'cal_year');
-        const yearsPost2000 = years.filter(y => y > 2000);
-        const latestYear = yearsPost2000.length ? yearsPost2000[0] : 'unknown';
-        const earliestYear = yearsPost2000.length ? yearsPost2000[yearsPost2000.length - 1] : 'unknown';
+        const years = await fetchYears("tabular", "hous_building_permits_m", "cal_year");
+        const yearsPost2000 = years.filter((y) => y > 2000);
+        const latestYear = yearsPost2000.length ? yearsPost2000[0] : "unknown";
+        const earliestYear = yearsPost2000.length ? yearsPost2000[yearsPost2000.length - 1] : "unknown";
         return `${earliestYear}-${latestYear}`;
       },
       datasetLinks: { "Building Permits by Type and Year (Municipal)": 384 },
@@ -1338,12 +1420,12 @@ export default {
         const allData = [];
         let expectedYear = 2001; // start in 2001, go until most recent data
         const currentYear = new Date().getFullYear();
-        const recentPermitData = permitData.filter(pd => pd[tableDef.yearCol] > 2000);
-        recentPermitData.forEach(permitData => {
+        const recentPermitData = permitData.filter((pd) => pd[tableDef.yearCol] > 2000);
+        recentPermitData.forEach((permitData) => {
           // add 0's for missing years
           while (permitData[tableDef.yearCol] !== expectedYear) {
             if (expectedYear > currentYear) {
-              break; // for safety to prevent inifnite loop. 
+              break; // for safety to prevent inifnite loop.
             }
             allData.push({
               [tableDef.yearCol]: `${expectedYear}*`,
@@ -1352,7 +1434,7 @@ export default {
             });
             expectedYear++;
           }
-          // year is not missing: 
+          // year is not missing:
           allData.push(permitData);
           expectedYear++;
         });
@@ -1374,14 +1456,14 @@ export default {
         );
       },
       subregionDataQuery: (subregionId) => {
-        const columns = ['cal_year', '12 as months_rep', 'sf_units', 'mf_units'];
-        let urlQueryParams = `&schema=tabular&table=hous_building_permits_m&columns=${columns.join(',')}`;
+        const columns = ["cal_year", "12 as months_rep", "sf_units", "mf_units"];
+        let urlQueryParams = `&schema=tabular&table=hous_building_permits_m&columns=${columns.join(",")}`;
         urlQueryParams = `${urlQueryParams}&filters=muni_id:${subregionId}`;
         return urlQueryParams;
       },
       rparegionDataQuery: (rpaId) => {
         // TODO: enable this without passing SQL to the backend if we support RPA regions in the future
-        return '';
+        return "";
       },
     },
   },
@@ -1390,21 +1472,21 @@ export default {
       type: "stacked-bar",
       title: "Premature Mortality Rate by Race",
       xAxis: { label: "Race" },
-      yAxis: { 
+      yAxis: {
         label: "Age Adjusted Rate per 100,000",
         format: (d) => {
-          if (d == null || d === '') return d;
+          if (d == null || d === "") return d;
           const num = Number(d);
           if (isNaN(num)) return d;
           // Only show 2 decimals if there is a decimal part
           return num % 1 === 0 ? num.toString() : num.toFixed(2);
-        }
+        },
       },
       tables: {
         "tabular.health_premature_mortality_race_m": {
           yearCol: "years",
           years: async () => {
-            const years = await fetchYears('tabular', 'health_premature_mortality_race_m', 'years', 1);
+            const years = await fetchYears("tabular", "health_premature_mortality_race_m", "years", 1);
             return years;
           },
           columns: [
@@ -1456,8 +1538,8 @@ export default {
       },
       source: "MA Dept. of Public Health",
       timeframe: async () => {
-        const years = await fetchYears('tabular', 'health_premature_mortality_race_m', 'years', 1);
-        const year = years.length ? years[0] : 'unknown';
+        const years = await fetchYears("tabular", "health_premature_mortality_race_m", "years", 1);
+        const year = years.length ? years[0] : "unknown";
         return year + " 5-year averages";
       },
       datasetLinks: { "Premature Mortality (Municipal)": 386 },
@@ -1467,7 +1549,8 @@ export default {
           return [];
         }
 
-        const totals = { // to calculate averages.
+        const totals = {
+          // to calculate averages.
           whi_art: { total: 0, count: 0 },
           aa_art: { total: 0, count: 0 },
           api_art: { total: 0, count: 0 },
@@ -1476,9 +1559,10 @@ export default {
           lat_art: { total: 0, count: 0 },
         };
         const raceKeys = ["whi_art", "aa_art", "api_art", "na_art", "oth_art", "lat_art"];
-        premoData.forEach(row => {
+        premoData.forEach((row) => {
           Object.entries(row).forEach(([key, value]) => {
-            if (value && raceKeys.includes(key)) { // TODO should we count rows where value is 0 instead of null??
+            if (value && raceKeys.includes(key)) {
+              // TODO should we count rows where value is 0 instead of null??
               totals[key].total += value;
               totals[key].count += 1;
             }
@@ -1490,7 +1574,7 @@ export default {
             acc.concat([
               {
                 x: chart.abbreviations[key],
-                y: (totals[key].total / (totals[key].count || 1)) || 0, // prevent div by 0
+                y: totals[key].total / (totals[key].count || 1) || 0, // prevent div by 0
                 z: chart.labels[key],
                 color: chart.colors[key],
               },
@@ -1504,19 +1588,19 @@ export default {
         muniIdsApi = `${muniIdsApi}&filters=subrg_id:${subregionId}`;
         const muniIdsResp = await fetch(muniIdsApi);
         const muniIdData = (await muniIdsResp.json()) || {};
-        const muniIdsList = muniIdData.rows.map(row => `muni_id:${row.muni_id}`);
+        const muniIdsList = muniIdData.rows.map((row) => `muni_id:${row.muni_id}`);
 
-        const years = await fetchYears('tabular', 'health_premature_mortality_race_m', 'years', 1);
-        const year = years.length ? years[0] : 'unknown';
+        const years = await fetchYears("tabular", "health_premature_mortality_race_m", "years", 1);
+        const year = years.length ? years[0] : "unknown";
 
         const columns = ["years", "whi_art", "aa_art", "api_art", "na_art", "oth_art", "lat_art"];
-        let urlQueryParams = `&schema=tabular&table=health_premature_mortality_race_m&columns=${columns.join(',')}`;
-        urlQueryParams = `${urlQueryParams}&filters=${muniIdsList.join(',')},years:${year}`;
+        let urlQueryParams = `&schema=tabular&table=health_premature_mortality_race_m&columns=${columns.join(",")}`;
+        urlQueryParams = `${urlQueryParams}&filters=${muniIdsList.join(",")},years:${year}`;
         return urlQueryParams;
       },
       rparegionDataQuery: (rpaId) => {
         // TODO: Enable this without passing SQL to the backend if we support RPA regions in the future
-        return '';
+        return "";
       },
     },
     hospitalizations: {
@@ -1526,7 +1610,7 @@ export default {
       yAxis: {
         label: "Age Adjusted Rate per 100,000",
         format: (d) => {
-          if (d == null || d === '') return '';
+          if (d == null || d === "") return "";
           const num = parseFloat(d);
           if (isNaN(num)) return d;
           // Only show 2 decimals if there is a decimal part
@@ -1534,7 +1618,7 @@ export default {
             return num.toFixed(0);
           }
           return num.toFixed(2);
-        }
+        },
       },
       tables: {
         // TODO: Heart failure data not loaded at this time.
@@ -1553,7 +1637,7 @@ export default {
         "tabular.health_hospitalizations_hypertension_m": {
           yearCol: "cal_years",
           years: async () => {
-            const years = await fetchYears('tabular', 'health_hospitalizations_hypertension_m', 'cal_years', 1);
+            const years = await fetchYears("tabular", "health_hospitalizations_hypertension_m", "cal_years", 1);
             return years;
           },
           columns: ["cal_years", "whi_arte", "aa_arte", "api_arte", "na_arte", "oth_arte", "lat_arte"],
@@ -1585,8 +1669,8 @@ export default {
       },
       source: "MA Dept. of Public Health",
       timeframe: async () => {
-        const years = await fetchYears('tabular', 'health_hospitalizations_hypertension_m', 'cal_years', 1);
-        const year = years.length ? years[0] : 'unknown';
+        const years = await fetchYears("tabular", "health_hospitalizations_hypertension_m", "cal_years", 1);
+        const year = years.length ? years[0] : "unknown";
         return year + " 5-year averages";
       },
       datasetLinks: {
@@ -1598,7 +1682,8 @@ export default {
           return [];
         }
 
-        const totals = { // to calculate averages.
+        const totals = {
+          // to calculate averages.
           whi_arte: { total: 0, count: 0 },
           aa_arte: { total: 0, count: 0 },
           api_arte: { total: 0, count: 0 },
@@ -1607,9 +1692,10 @@ export default {
           lat_arte: { total: 0, count: 0 },
         };
         const raceKeys = ["whi_arte", "aa_arte", "api_arte", "na_arte", "oth_arte", "lat_arte"];
-        hyperData.forEach(row => {
+        hyperData.forEach((row) => {
           Object.entries(row).forEach(([key, value]) => {
-            if (value && raceKeys.includes(key)) { // TODO should we count rows where value is 0 instead of null??
+            if (value && raceKeys.includes(key)) {
+              // TODO should we count rows where value is 0 instead of null??
               totals[key].total += value;
               totals[key].count += 1;
             }
@@ -1621,7 +1707,7 @@ export default {
             acc.concat([
               {
                 x: chart.abbreviations[key],
-                y: (totals[key].total / (totals[key].count || 1)) || 0,
+                y: totals[key].total / (totals[key].count || 1) || 0,
                 z: chart.labels[key],
                 color: chart.colors[key],
               },
@@ -1635,19 +1721,19 @@ export default {
         muniIdsApi = `${muniIdsApi}&filters=subrg_id:${subregionId}`;
         const muniIdsResp = await fetch(muniIdsApi);
         const muniIdData = (await muniIdsResp.json()) || {};
-        const muniIdsList = muniIdData.rows.map(row => `muni_id:${row.muni_id}`);
+        const muniIdsList = muniIdData.rows.map((row) => `muni_id:${row.muni_id}`);
 
-        const years = await fetchYears('tabular', 'health_hospitalizations_hypertension_m', 'cal_years', 1);
-        const year = years.length ? years[0] : 'unknown';
+        const years = await fetchYears("tabular", "health_hospitalizations_hypertension_m", "cal_years", 1);
+        const year = years.length ? years[0] : "unknown";
 
         const columns = ["cal_years", "whi_arte", "aa_arte", "api_arte", "na_arte", "oth_arte", "lat_arte"];
-        let urlQueryParams = `&schema=tabular&table=health_hospitalizations_hypertension_m&columns=${columns.join(',')}`;
-        urlQueryParams = `${urlQueryParams}&filters=${muniIdsList.join(',')},cal_years:${year}`;
+        let urlQueryParams = `&schema=tabular&table=health_hospitalizations_hypertension_m&columns=${columns.join(",")}`;
+        urlQueryParams = `${urlQueryParams}&filters=${muniIdsList.join(",")},cal_years:${year}`;
         return urlQueryParams;
       },
       rparegionDataQuery: (rpaId) => {
         // TODO: enable this without passing SQL to the backend if we supprot RPA regions in the future
-        return '';
+        return "";
       },
     },
   },
@@ -1668,9 +1754,9 @@ export default {
       },
       source: "MAPC and MA RMV",
       timeframe: async () => {
-        const years = await fetchYears('tabular', 'trans_mavc_public_summary_m', 'quarter');
-        const latestYear = years.length ? years[0].substring(0, 4) : 'unknown';
-        const earliersYear = years.length ? years[years.length - 1].substring(0, 4) : 'unknown';
+        const years = await fetchYears("tabular", "trans_mavc_public_summary_m", "quarter");
+        const latestYear = years.length ? years[0].substring(0, 4) : "unknown";
+        const earliersYear = years.length ? years[years.length - 1].substring(0, 4) : "unknown";
         return `${earliersYear}-${latestYear}`;
       },
       datasetLinks: {
@@ -1688,7 +1774,7 @@ export default {
         };
 
         const totalsByYear = {};
-        vmtData.forEach(vmtRow => {
+        vmtData.forEach((vmtRow) => {
           const rowYear = quarterToYear(vmtRow.quarter);
           if (!totalsByYear[rowYear]) {
             totalsByYear[rowYear] = { pass_vmt: 0, hh_est: 0, comm_vmt: 0 };
@@ -1723,16 +1809,16 @@ export default {
         muniIdsApi = `${muniIdsApi}&filters=subrg_id:${subregionId}`;
         const muniIdsResp = await fetch(muniIdsApi);
         const muniIdData = (await muniIdsResp.json()) || {};
-        const muniIdsList = muniIdData.rows.map(row => `muni_id:${row.muni_id}`);
+        const muniIdsList = muniIdData.rows.map((row) => `muni_id:${row.muni_id}`);
 
         const columns = ["quarter", "hh_est", "pass_vmt", "comm_vmt"];
-        let urlQueryParams = `&schema=tabular&table=trans_mavc_public_summary_m&columns=${columns.join(',')}`;
-        urlQueryParams = `${urlQueryParams}&filters=${muniIdsList.join(',')}`;
+        let urlQueryParams = `&schema=tabular&table=trans_mavc_public_summary_m&columns=${columns.join(",")}`;
+        urlQueryParams = `${urlQueryParams}&filters=${muniIdsList.join(",")}`;
         return urlQueryParams;
       },
       rparegionDataQuery: (rpaId) => {
         // TODO: enable without passing SQL to the backend if we support RPA regions in the future
-        return '';
+        return "";
       },
     },
     commute_to_work: {
@@ -1757,7 +1843,7 @@ export default {
       },
       source: "American Community Survey",
       timeframe: async () => {
-        const years = await fetchYears('tabular', 'b08301_means_transportation_to_work_by_residence_acs_m', 'acs_year', 1);
+        const years = await fetchYears("tabular", "b08301_means_transportation_to_work_by_residence_acs_m", "acs_year", 1);
         return formatYearRange(years);
       },
       datasetLinks: { "Transportation to Work from Residence (Municpal)": 38 },
@@ -1767,12 +1853,12 @@ export default {
           return [];
         }
         const row = commData[0];
-       
+
         return Object.keys(chart.labels).map((key) => ({
           value: row[key],
           label: chart.labels[key],
           count: row[key],
-          countMarginOfError: row[`${key}me`] !== undefined ? row[`${key}me`] : row[`${key}_me`]
+          countMarginOfError: row[`${key}me`] !== undefined ? row[`${key}me`] : row[`${key}_me`],
         }));
       },
       subregionDataQuery: (subregionId) => {
@@ -1782,8 +1868,8 @@ export default {
         return urlQueryParams;
       },
       rparegionDataQuery: (rpaId) => {
-       // Enable this without passing SQL to the backend if we decide to support RPA regions in the future
-       return '';
+        // Enable this without passing SQL to the backend if we decide to support RPA regions in the future
+        return "";
       },
     },
   },
@@ -1813,16 +1899,16 @@ export default {
             countyIdsApi = `${countyIdsApi}&filters=muni_name~${municipalityFormatted}`;
             const countyIdResp = await fetch(countyIdsApi);
             const countyIdData = (await countyIdResp.json()) || {};
-            const countyId = countyIdData.rows?.length ? countyIdData.rows[0].county_id : 'unknown'; 
+            const countyId = countyIdData.rows?.length ? countyIdData.rows[0].county_id : "unknown";
 
-            const years = await fetchYears('tabular', 's2801_computer_internet_acs_m', 'acs_year', 1);
-            const year = years.length ? years[0] : 'unknown';
+            const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
+            const year = years.length ? years[0] : "unknown";
 
             const columns = ["acs_year", "muni_id", "municipal", "nocmp", "nocmpm", "nocmp_p", "nocmp_mp"];
             let mainDataApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=s2801_computer_internet_acs_m`;
-            mainDataApi = `${mainDataApi}&columns=${columns.join(',')}`;
+            mainDataApi = `${mainDataApi}&columns=${columns.join(",")}`;
             mainDataApi = `${mainDataApi}&filters=acs_year:${year}`;
-            mainDataApi = `${mainDataApi}&orFilters=muni_id:${countyId},muni_id:353,municipal~${municipalityFormatted}%`;            
+            mainDataApi = `${mainDataApi}&orFilters=muni_id:${countyId},muni_id:353,municipal~${municipalityFormatted}%`;
             const response = await fetch(mainDataApi);
             if (!response.ok) {
               throw new Error(`HTTP error! status: ${response.status}`);
@@ -1849,7 +1935,7 @@ export default {
         "Computers and Internet Subscriptions (Municipal)": 455,
       },
       timeframe: async () => {
-        const years = await fetchYears('tabular', 's2801_computer_internet_acs_m', 'acs_year', 1);
+        const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
         return years[0] || "N/A";
       },
       transformer: (tables, chart) => {
@@ -1866,11 +1952,11 @@ export default {
         return [{ value, marginOfError, count, countMarginOfError }];
       },
       subregionDataQuery: async (subregionId) => {
-        const years = await fetchYears('tabular', 's2801_computer_internet_acs_m', 'acs_year', 1);
-        const year = years.length ? years[0] : 'unknown';
+        const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
+        const year = years.length ? years[0] : "unknown";
 
         const columns = ["acs_year", "muni_id", "municipal", "nocmp", "nocmpm", "nocmp_p", "nocmp_mp"];
-        let queryString = `&schema=tabular&table=s2801_computer_internet_acs_m&columns=${columns.join(',')}`;
+        let queryString = `&schema=tabular&table=s2801_computer_internet_acs_m&columns=${columns.join(",")}`;
         queryString = `${queryString}&filters=acs_year:${year},muni_id:${subregionId}`;
         return queryString;
       },
@@ -1900,16 +1986,16 @@ export default {
             countyIdsApi = `${countyIdsApi}&filters=muni_name~${municipalityFormatted}`;
             const countyIdResp = await fetch(countyIdsApi);
             const countyIdData = (await countyIdResp.json()) || {};
-            const countyId = countyIdData.rows?.length ? countyIdData.rows[0].county_id : 'unknown'; 
+            const countyId = countyIdData.rows?.length ? countyIdData.rows[0].county_id : "unknown";
 
-            const years = await fetchYears('tabular', 's2801_computer_internet_acs_m', 'acs_year', 1);
-            const year = years.length ? years[0] : 'unknown';
+            const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
+            const year = years.length ? years[0] : "unknown";
 
             const columns = ["acs_year", "muni_id", "municipal", "noint", "nointm", "noint_p", "noint_mp"];
             let mainDataApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=s2801_computer_internet_acs_m`;
-            mainDataApi = `${mainDataApi}&columns=${columns.join(',')}`;
+            mainDataApi = `${mainDataApi}&columns=${columns.join(",")}`;
             mainDataApi = `${mainDataApi}&filters=acs_year:${year}`;
-            mainDataApi = `${mainDataApi}&orFilters=muni_id:${countyId},muni_id:353,municipal~${municipalityFormatted}%`;            
+            mainDataApi = `${mainDataApi}&orFilters=muni_id:${countyId},muni_id:353,municipal~${municipalityFormatted}%`;
             const response = await fetch(mainDataApi);
             if (!response.ok) {
               throw new Error(`HTTP error! status: ${response.status}`);
@@ -1934,7 +2020,7 @@ export default {
         "Computers and Internet Subscriptions (Municipal)": 455,
       },
       timeframe: async () => {
-        const years = await fetchYears('tabular', 's2801_computer_internet_acs_m', 'acs_year', 1);
+        const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
         return years[0] || "N/A";
       },
       transformer: (tables, chart) => {
@@ -1943,26 +2029,19 @@ export default {
           return [{ value: 0, marginOfError: null }];
         }
         const row = data[0];
-        const noInternet =
-          row.noint_p !== null && row.noint_p !== undefined
-            ? parseFloat(row.noint_p)
-            : 0;
-        const marginOfError =
-          row.noint_mp !== null && row.noint_mp !== undefined
-            ? parseFloat(row.noint_mp)
-            : null;
+        const noInternet = row.noint_p !== null && row.noint_p !== undefined ? parseFloat(row.noint_p) : 0;
+        const marginOfError = row.noint_mp !== null && row.noint_mp !== undefined ? parseFloat(row.noint_mp) : null;
         const value = isNaN(noInternet) ? 0 : Math.max(0, Math.min(100, noInternet));
         const count = row.noint !== null && row.noint !== undefined ? parseFloat(row.noint) : null;
-        const countMarginOfError =
-          row.nointm !== null && row.nointm !== undefined ? parseFloat(row.nointm) : null;
+        const countMarginOfError = row.nointm !== null && row.nointm !== undefined ? parseFloat(row.nointm) : null;
         return [{ value, marginOfError, count, countMarginOfError }];
       },
       subregionDataQuery: async (subregionId) => {
-        const years = await fetchYears('tabular', 's2801_computer_internet_acs_m', 'acs_year', 1);
-        const year = years.length ? years[0] : 'unknown';
+        const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
+        const year = years.length ? years[0] : "unknown";
 
         const columns = ["acs_year", "muni_id", "municipal", "noint", "nointm", "noint_p", "noint_mp"];
-        let queryString = `&schema=tabular&table=s2801_computer_internet_acs_m&columns=${columns.join(',')}`;
+        let queryString = `&schema=tabular&table=s2801_computer_internet_acs_m&columns=${columns.join(",")}`;
         queryString = `${queryString}&filters=acs_year:${year},muni_id:${subregionId}`;
         return queryString;
       },
@@ -1992,16 +2071,16 @@ export default {
             countyIdsApi = `${countyIdsApi}&filters=muni_name~${municipalityFormatted}`;
             const countyIdResp = await fetch(countyIdsApi);
             const countyIdData = (await countyIdResp.json()) || {};
-            const countyId = countyIdData.rows?.length ? countyIdData.rows[0].county_id : 'unknown'; 
+            const countyId = countyIdData.rows?.length ? countyIdData.rows[0].county_id : "unknown";
 
-            const years = await fetchYears('tabular', 's2801_computer_internet_acs_m', 'acs_year', 1);
-            const year = years.length ? years[0] : 'unknown';
+            const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
+            const year = years.length ? years[0] : "unknown";
 
             const columns = ["acs_year", "muni_id", "municipal", "moblo", "moblom", "moblo_p", "moblo_mp"];
             let mainDataApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=s2801_computer_internet_acs_m`;
-            mainDataApi = `${mainDataApi}&columns=${columns.join(',')}`;
+            mainDataApi = `${mainDataApi}&columns=${columns.join(",")}`;
             mainDataApi = `${mainDataApi}&filters=acs_year:${year}`;
-            mainDataApi = `${mainDataApi}&orFilters=muni_id:${countyId},muni_id:353,municipal~${municipalityFormatted}%`;            
+            mainDataApi = `${mainDataApi}&orFilters=muni_id:${countyId},muni_id:353,municipal~${municipalityFormatted}%`;
             const response = await fetch(mainDataApi);
             if (!response.ok) {
               throw new Error(`HTTP error! status: ${response.status}`);
@@ -2026,7 +2105,7 @@ export default {
         "Computers and Internet Subscriptions (Municipal)": 455,
       },
       timeframe: async () => {
-        const years = await fetchYears('tabular', 's2801_computer_internet_acs_m', 'acs_year', 1);
+        const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
         return years[0] || "N/A";
       },
       transformer: (tables, chart) => {
@@ -2040,16 +2119,15 @@ export default {
         const value = isNaN(smartphoneOnly) ? 0 : Math.max(0, Math.min(100, smartphoneOnly));
         const marginOfErrorSafe = isNaN(marginOfError) ? null : marginOfError;
         const count = row.moblo !== null && row.moblo !== undefined ? parseFloat(row.moblo) : null;
-        const countMarginOfError =
-          row.moblom !== null && row.moblom !== undefined ? parseFloat(row.moblom) : null;
+        const countMarginOfError = row.moblom !== null && row.moblom !== undefined ? parseFloat(row.moblom) : null;
         return [{ value, marginOfError: marginOfErrorSafe, count, countMarginOfError }];
       },
       subregionDataQuery: async (subregionId) => {
-        const years = await fetchYears('tabular', 's2801_computer_internet_acs_m', 'acs_year', 1);
-        const year = years.length ? years[0] : 'unknown';
+        const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
+        const year = years.length ? years[0] : "unknown";
 
         const columns = ["acs_year", "muni_id", "municipal", "moblo", "moblom", "moblo_p", "moblo_mp"];
-        let queryString = `&schema=tabular&table=s2801_computer_internet_acs_m&columns=${columns.join(',')}`;
+        let queryString = `&schema=tabular&table=s2801_computer_internet_acs_m&columns=${columns.join(",")}`;
         queryString = `${queryString}&filters=acs_year:${year},muni_id:${subregionId}`;
         return queryString;
       },
@@ -2066,13 +2144,13 @@ export default {
           return order.indexOf(a) - order.indexOf(b);
         },
       },
-      yAxis: { 
-        label: "Percent of Household", 
+      yAxis: {
+        label: "Percent of Household",
         format: (d) => {
           if (d == null || isNaN(d)) return "";
           const num = Number(d);
           return `${num.toFixed(1)}%`;
-        }
+        },
       },
       tables: {
         // Use a dedicated cache key so we always fetch income columns (gauges use same table but different columns and would otherwise overwrite cache)
@@ -2082,8 +2160,8 @@ export default {
           columns: internetUsageByIncomeColumns,
           specialFetch: async (municipality, dispatchUpdate) => {
             const municipalityFormatted = municipality.replace("-", " ");
-            const years = await fetchYears('tabular', 's2801_computer_internet_acs_m', 'acs_year', 1);
-            const year = years.length ? years[0] : 'unknown';
+            const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
+            const year = years.length ? years[0] : "unknown";
 
             let mainDataApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=s2801_computer_internet_acs_m`;
             mainDataApi = `${mainDataApi}&columns=${internetUsageByIncomeColumns.join(",")}`;
@@ -2104,7 +2182,7 @@ export default {
       datasetLinks: { "Computers and Internet Subscriptions (Municipal)": 455 },
       source: "American Community Survey (ACS)",
       timeframe: async () => {
-        const years = await fetchYears('tabular', 's2801_computer_internet_acs_m', 'acs_year', 1);
+        const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
         return years[0] ? formatYearRange(years[0]) : "N/A";
       },
       transformer: (tables, chart) => {
@@ -2189,8 +2267,8 @@ export default {
       },
       subregionDataQuery: async (subregionId) => {
         const selectList = internetUsageByIncomeColumns.join(",");
-        const years = await fetchYears('tabular', 's2801_computer_internet_acs_m', 'acs_year', 1);
-        const year = years.length ? years[0] : 'unknown';
+        const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
+        const year = years.length ? years[0] : "unknown";
 
         let queryString = `&schema=tabular&table=s2801_computer_internet_acs_m&columns=${selectList}`;
         queryString = `${queryString}&filters=acs_year:${year},muni_id:${subregionId}`;
@@ -2215,14 +2293,14 @@ export default {
           if (d == null || isNaN(d)) return "";
           const num = Number(d);
           return `${num.toFixed(1)}%`;
-        }
+        },
       },
       tables: {
         "tabular.s2801_computer_internet_acs_m_subscription": {
           yearCol: "acs_year",
           latestYearOnly: false,
           years: async () => {
-            const years = await fetchYears('tabular', 's2801_computer_internet_acs_m', 'acs_year', 2);
+            const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 2);
             return years;
           },
           columns: internetSubscriptionTypesColumns,
@@ -2248,7 +2326,7 @@ export default {
       datasetLinks: { "Computers and Internet Subscriptions (Municipal)": 455 },
       source: "American Community Survey (ACS)",
       timeframe: async () => {
-        const years = await fetchYears('tabular', 's2801_computer_internet_acs_m', 'acs_year', 2);
+        const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 2);
         if (!years || years.length < 2) return "";
         const [latest, previous] = years;
         return `${previous} and ${latest}`;
@@ -2259,8 +2337,8 @@ export default {
           return [];
         }
         const formatYearRange = (yearStr) => {
-          if (yearStr === '2020-24') return '2020-2024';
-          if (yearStr === '2019-23') return '2019-2023';
+          if (yearStr === "2020-24") return "2020-2024";
+          if (yearStr === "2019-23") return "2019-2023";
           const [start, end] = yearStr.split("-");
           return `${start}-20${end}`;
         };
@@ -2309,9 +2387,157 @@ export default {
     },
   },
   "municipal-finance": {
-    
-    
-    fund_revenue:{
+    bond_rating_sp: {
+      type: "profile-metric",
+      title: "Bond rating (S&P)",
+      hideOuterTitle: true,
+      tables: {
+        "tabular.muni_finance_m_bond_rating": {
+          yearCol: "fiscal_yr",
+          latestYearOnly: false,
+          columns: ["fiscal_yr", "muni_name", "sp_rating"],
+          specialFetch: async (municipality, dispatchUpdate) => {
+            const years = await fetchYears("tabular", "muni_finance_m", "fiscal_yr", 1, "DESC");
+            const latestYear = years[0];
+            if (latestYear == null) {
+              dispatchUpdate([]);
+              return;
+            }
+            const fiscalYear = Number(latestYear) - 1;
+            const columns = ["fiscal_yr", "muni_name", "sp_rating"];
+            let url = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
+            url = `${url}&columns=${columns.join(",")}&filters=muni_name~${municipality},fiscal_yr:${fiscalYear}&limit=1`;
+            const response = await fetch(url);
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const payload = (await response.json()) || {};
+            dispatchUpdate(payload.rows || []);
+          },
+        },
+      },
+      source: "MA Dept of Revenue",
+      datasetLinks: { "Dept of Revenue Municipal Finance": 502 },
+      timeframe: async () => {
+        const years = await fetchYears("tabular", "muni_finance_m", "fiscal_yr", 1, "DESC");
+        return years[0] - 1;
+      },
+      transformer: (tables) => {
+        const data = tables["tabular.muni_finance_m_bond_rating"];
+        if (!data?.length) return [{ displayValue: "" }];
+        const raw = data[0].sp_rating;
+        if (raw == null || String(raw).trim() === "") return [{ displayValue: "" }];
+        return [{ displayValue: String(raw).trim() }];
+      },
+      subregionDataQuery: async (subregionId) => {
+        const years = await fetchYears("tabular", "muni_finance_m", "fiscal_yr", 1, "DESC");
+        const fiscalYear = years[0] != null ? Number(years[0]) - 1 : "";
+        return `&schema=tabular&table=muni_finance_m&columns=fiscal_yr,muni_name,sp_rating&filters=muni_id:${subregionId},fiscal_yr:${fiscalYear}&limit=1`;
+      },
+    },
+    cpa_annual_spending: {
+      type: "profile-metric",
+      title: "Annual Community Preservation Act spending",
+      hideOuterTitle: true,
+      tables: {
+        "tabular.muni_finance_m_cpa_spending": {
+          yearCol: "fiscal_yr",
+          latestYearOnly: false,
+          columns: ["fiscal_yr", "muni_name", "ent_cpafnd"],
+          specialFetch: async (municipality, dispatchUpdate) => {
+            const years = await fetchYears("tabular", "muni_finance_m", "fiscal_yr", 1, "DESC");
+            const fiscalYear = years[0];
+            if (fiscalYear == null) {
+              dispatchUpdate([]);
+              return;
+            }
+            const columns = ["fiscal_yr", "muni_name", "ent_cpafnd"];
+            let url = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
+            url = `${url}&columns=${columns.join(",")}&filters=muni_name~${municipality},fiscal_yr:${fiscalYear}&limit=1`;
+            const response = await fetch(url);
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const payload = (await response.json()) || {};
+            dispatchUpdate(payload.rows || []);
+          },
+        },
+      },
+      source: "MA Dept of Revenue",
+      datasetLinks: { "Dept of Revenue Municipal Finance": 502 },
+      timeframe: async () => {
+        const years = await fetchYears("tabular", "muni_finance_m", "fiscal_yr", 1, "DESC");
+        return years[0] != null ? String(years[0]) : "";
+      },
+      transformer: (tables) => {
+        const data = tables["tabular.muni_finance_m_cpa_spending"];
+        if (!data?.length) return [{ displayValue: "" }];
+        const n = Number(data[0].ent_cpafnd);
+        if (!Number.isFinite(n)) return [{ displayValue: "" }];
+        return [
+          {
+            displayValue: new Intl.NumberFormat("en-US", {
+              style: "currency",
+              currency: "USD",
+              maximumFractionDigits: 0,
+            }).format(n),
+          },
+        ];
+      },
+      subregionDataQuery: async (subregionId) => {
+        const years = await fetchYears("tabular", "muni_finance_m", "fiscal_yr", 1, "DESC");
+        const fiscalYear = years[0] ?? "";
+        return `&schema=tabular&table=muni_finance_m&columns=fiscal_yr,muni_name,ent_cpafnd&filters=muni_id:${subregionId},fiscal_yr:${fiscalYear}&limit=1`;
+      },
+    },
+    total_employees_finance: {
+      type: "profile-metric",
+      title: "Total employees",
+      hideOuterTitle: true,
+      tables: {
+        "tabular.muni_finance_m_total_employees": {
+          yearCol: "fiscal_yr",
+          latestYearOnly: false,
+          columns: ["fiscal_yr", "muni_name", "tot_empl"],
+          specialFetch: async (municipality, dispatchUpdate) => {
+            const years = await fetchYears("tabular", "muni_finance_m", "fiscal_yr", 1, "DESC");
+            const fiscalYear = years[0];
+            if (fiscalYear == null) {
+              dispatchUpdate([]);
+              return;
+            }
+            const columns = ["fiscal_yr", "muni_name", "tot_empl"];
+            let url = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
+            url = `${url}&columns=${columns.join(",")}&filters=muni_name~${municipality},fiscal_yr:${fiscalYear}&limit=1`;
+            const response = await fetch(url);
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const payload = (await response.json()) || {};
+            dispatchUpdate(payload.rows || []);
+          },
+        },
+      },
+      source: "MA Dept of Revenue",
+      datasetLinks: { "Dept of Revenue Municipal Finance": 502 },
+      timeframe: async () => {
+        const years = await fetchYears("tabular", "muni_finance_m", "fiscal_yr", 1, "DESC");
+        return years[0] != null ? String(years[0]) : "";
+      },
+      transformer: (tables) => {
+        const data = tables["tabular.muni_finance_m_total_employees"];
+        if (!data?.length) return [{ displayValue: "" }];
+        const n = Number(data[0].tot_empl);
+        if (!Number.isFinite(n)) return [{ displayValue: "" }];
+        return [{ displayValue: new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(n) }];
+      },
+      subregionDataQuery: async (subregionId) => {
+        const years = await fetchYears("tabular", "muni_finance_m", "fiscal_yr", 1, "DESC");
+        const fiscalYear = years[0] ?? "";
+        return `&schema=tabular&table=muni_finance_m&columns=fiscal_yr,muni_name,tot_empl&filters=muni_id:${subregionId},fiscal_yr:${fiscalYear}&limit=1`;
+      },
+    },
+    fund_revenue: {
       type: "tree-map",
       title: "Fund Revenue Breakdown",
       colors: Array.from(colors.CHART.PRIMARY.values()).slice(-4),
@@ -2333,7 +2559,6 @@ export default {
             latestYearOnly: true,
             columns: columnList,
             specialFetch: async (municipality, dispatchUpdate) => {
-              
               const years = await fetchYears("tabular", "muni_finance_m", "fiscal_yr", 1, "DESC");
               const fiscalYear = years[0];
               if (fiscalYear == null) {
@@ -2363,10 +2588,9 @@ export default {
         }
         const row = data[0];
         const totRev = row.tot_rev != null && row.tot_rev !== "" ? Number(row.tot_rev) : NaN;
-        const summaryRow =
-          Number.isFinite(totRev)
-            ? [{ summaryOnly: true, key: "tot_rev_display", label: "Total Revenue", value: totRev, group: "Fund Revenue" }]
-            : [];
+        const summaryRow = Number.isFinite(totRev)
+          ? [{ summaryOnly: true, key: "tot_rev_display", label: "Total Revenue", value: totRev, group: "Fund Revenue" }]
+          : [];
         return [
           ...summaryRow,
           { key: "tax_levy", value: Number(row.tax_levy), label: "Tax Levy", group: "Fund Revenue" },
@@ -2375,13 +2599,14 @@ export default {
           { key: "all_other", value: Number(row.all_other), label: "All Other", group: "Fund Revenue" },
         ];
       },
-      source:"MA Dept of Revenue",
+      source: "MA Dept of Revenue",
       datasetLinks: { "Dept of Revenue Municipal Finance": 502 },
       xAxis: {
         label: "Fund Revenue",
         format: format.string.default,
       },
-    },overrides_map_config: {
+    },
+    overrides_map_config: {
       mapTitleTemplate: "{year} Municipal Override Map",
       yearColumn: "fiscal_yr",
       tableSchema: "tabular",
@@ -2404,6 +2629,6 @@ export default {
           color: "#cdcdcd",
         },
       ],
-    }
+    },
   },
 };

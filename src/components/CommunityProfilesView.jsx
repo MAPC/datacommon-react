@@ -467,6 +467,32 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
               </header>
               <div className="tab__row">
                 <ChartDetails
+                  chart={charts["municipal-finance"].bond_rating_sp}
+                  muni={muni}
+                  onViewData={handleShowModal}
+                  wrapperClassName="chart-wrapper--stat-tile"
+                >
+                  <ProfileMetricChart chart={charts["municipal-finance"].bond_rating_sp} muni={muni} />
+                </ChartDetails>
+                <ChartDetails
+                  chart={charts["municipal-finance"].cpa_annual_spending}
+                  muni={muni}
+                  onViewData={handleShowModal}
+                  wrapperClassName="chart-wrapper--stat-tile"
+                >
+                  <ProfileMetricChart chart={charts["municipal-finance"].cpa_annual_spending} muni={muni} />
+                </ChartDetails>
+                <ChartDetails
+                  chart={charts["municipal-finance"].total_employees_finance}
+                  muni={muni}
+                  onViewData={handleShowModal}
+                  wrapperClassName="chart-wrapper--stat-tile"
+                >
+                  <ProfileMetricChart chart={charts["municipal-finance"].total_employees_finance} muni={muni} />
+                </ChartDetails>
+              </div>
+              <div className="tab__row">
+                <ChartDetails
                   chart={charts["municipal-finance"].fund_revenue}
                   muni={muni}
                   onViewData={handleShowModal}
@@ -480,6 +506,33 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                   config={charts["municipal-finance"].overrides_map_config}
                   municipalFeature={municipalFeature}
                 />
+              </div>
+              <div className="tab__row municipal-finances-resources">
+                <div className="chart-wrapper" style={{ maxWidth: "100%", flex: "0 0 100%" }}>
+                  <div className="municipal-finances-resources__content">
+                    <h4 className="municipal-finances-resources__title">Additional Municipal Finance Resources</h4>
+                    <ul className="municipal-finances-resources__list">
+                      <li>
+                        <a
+                          href="https://dlstab.dor.state.ma.us/views/TrendsinBudgetedGeneralFundRevenue/BudgetedGFRevenue?:embed=y&:isGuestRedirectFromVizportal=y"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          DLS data dashboard
+                        </a>
+                      </li>
+                      <li>
+                        <a
+                          href="https://www.mma.org/resources/a-perfect-storm-cities-and-towns-face-historic-fiscal-pressures/"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          A Perfect Storm: Cities and Towns Face Historic Fiscal Pressures (MMA)
+                        </a>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
               </div>
             </Tab>
             <Tab active={activeTab === "public-health"}>
