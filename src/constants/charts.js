@@ -2389,7 +2389,6 @@ export default {
       title: "Levy Share",
       minValue: 0,
       maxValue: 100,
-      // valueColor: "#44aa44",
       backgroundColor: "#e0e0e0",
       showUnit: true,
       unit: "%",
@@ -2399,7 +2398,7 @@ export default {
       height: 400,
       tooltip: { type: "percentAndCount" },
       tables: {
-        "tabular.muni_finance_m": (() => {
+        "tabular.muni_finance_m_levy_share": (() => {
           const columnList = ["muni_name", "fiscal_yr", "ro_lvypct", "cip_lvypct"];
           return {
             yearCol: "fiscal_yr",
@@ -2432,7 +2431,7 @@ export default {
         return years && years[0] ? String(years[0]) : "";
       },
       transformer: (tables) => {
-        const data = tables["tabular.muni_finance_m"];
+        const data = tables["tabular.muni_finance_m_levy_share"];
         if (!data || data.length < 1) {
           return [{ value: 0, marginOfError: null }]; // TODO: no moe?
         }
