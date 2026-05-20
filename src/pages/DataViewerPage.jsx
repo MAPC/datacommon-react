@@ -172,6 +172,25 @@ class DataViewerClass extends React.Component {
     return next;
   }
 
+  /** Base + all paired margin columns when hiding either side from the table or column picker. */
+  getColumnsToRemoveWhenDeselecting(columnName, marginColumnsByBase = {}) {
+    const toRemove = new Set([columnName]);
+    const marginsForBase = marginColumnsByBase[columnName] || [];
+    marginsForBase.forEach((m) => toRemove.add(m));
+
+    if (!marginsForBase.length) {
+      for (const [base, margins] of Object.entries(marginColumnsByBase)) {
+        if (margins.includes(columnName)) {
+          toRemove.add(base);
+          margins.forEach((m) => toRemove.add(m));
+          break;
+        }
+      }
+    }
+
+    return toRemove;
+  }
+
   componentDidMount() {
     // Prevent duplicate API calls in React.StrictMode
     if (this.hasLoaded) {
@@ -342,13 +361,13 @@ class DataViewerClass extends React.Component {
 
   updateSelectedColumns(columnName) {
     this.setState((prevState) => {
-      const marginColumns = prevState.marginColumnsByBase?.[columnName] || [];
+      const marginColumnsByBase = prevState.marginColumnsByBase || {};
       let selectedColumns;
       if (prevState.selectedColumns.includes(columnName)) {
-        selectedColumns = prevState.selectedColumns.filter(
-          (col) => col !== columnName && !marginColumns.includes(col),
-        );
+        const toRemove = this.getColumnsToRemoveWhenDeselecting(columnName, marginColumnsByBase);
+        selectedColumns = prevState.selectedColumns.filter((col) => !toRemove.has(col));
       } else {
+        const marginColumns = marginColumnsByBase[columnName] || [];
         selectedColumns = [...prevState.selectedColumns, columnName];
         marginColumns.forEach((col) => {
           if (!selectedColumns.includes(col)) selectedColumns.push(col);
