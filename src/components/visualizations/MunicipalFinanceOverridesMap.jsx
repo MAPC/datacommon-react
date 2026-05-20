@@ -50,6 +50,8 @@ function metadataResponseToRowArray(container) {
 
 mapboxgl.accessToken = MAP_CONFIG.accessToken;
 
+const INITIAL_MAP_PADDING = { top: 28, bottom: 28, left: 28, right: 28 };
+
 const FILL_LAYER_ID = "muni-finance-overrides-fill";
 const SOURCE_ID = "muni-finance-overrides";
 const SELECTED_OUTLINE_SOURCE_ID = "muni-finance-overrides-selected-outline";
@@ -77,9 +79,9 @@ function classifyRow(row) {
   // success = at least one successful override (win_amt > 0), including when loss_amt > 0 as well.
   if (winPositive) return "success";
   if (winNull && lossPositive) return "loss_only";
-  if (winNull && lossNull) return "none_attempted";
+  if (winNull && lossNull) return "no_overrides_attempted";
   if (!winPositive && lossPositive) return "loss_only";
-  return "none_attempted";
+  return "no_overrides_attempted";
 }
 
 function formatUsd(v) {
@@ -203,7 +205,6 @@ function buildOverridePopupHtml(p) {
   const displayName = String(p.popupMuniName ?? "");
   const slug = String(p.popupMuniName || "")
     .toLowerCase()
-  /*   .replace(/\s+/g, "-"); */
   const profileUrl = `/profile/${slug}`;
   const order = parsePopupColumnOrder(p);
   const labelByCol = parsePopupColumnLabels(p);
@@ -248,7 +249,7 @@ function enrichGeojson(baseGeojson, rowByTown, mapColumns, mapFiscalYear, popupC
       const town = f.properties?.town;
       const key = normalizeTownName(town);
       const row = rowByTown.get(key);
-      const category = row ? classifyRow(row) : "no_data";
+      const category = row ? classifyRow(row) : "no_overrides_attempted";
       const props = {
         town: f.properties?.town,
         overrideCategory: category,
@@ -295,6 +296,8 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
   outlineSetterRef.current = setOutlineHighlightFeature;
 
   const ignoreNextPopupCloseRef = useRef(false);
+  const profilePopupTimerRef = useRef(null);
+  const suppressPopupDuringPrintRef = useRef(false);
 
   const clearOutlineOnPopupCloseRef = useRef(() => {});
   clearOutlineOnPopupCloseRef.current = () => {
@@ -327,7 +330,92 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
     municipalFeature,
   };
 
+  const closeOverrideMapPopup = useCallback(() => {
+    if (profilePopupTimerRef.current != null) {
+      window.clearTimeout(profilePopupTimerRef.current);
+      profilePopupTimerRef.current = null;
+    }
+    ignoreNextPopupCloseRef.current = true;
+    popupRef.current?.remove();
+    outlineSetterRef.current(null);
+    const map = mapRef.current;
+    const outlineSrc = map?.getSource(SELECTED_OUTLINE_SOURCE_ID);
+    if (outlineSrc) {
+      outlineSrc.setData({ type: "FeatureCollection", features: [] });
+    }
+    map?.resize();
+    requestAnimationFrame(() => {
+      ignoreNextPopupCloseRef.current = false;
+    });
+  }, []);
+
+  const fitMapToInitialView = useCallback((map) => {
+    if (!map) return;
+    map.resize();
+    map.fitBounds(MAP_CONFIG.bounds, {
+      padding: INITIAL_MAP_PADDING,
+      animate: false,
+    });
+    if (typeof map.triggerRepaint === "function") {
+      map.triggerRepaint();
+    }
+  }, []);
+
+  const prepareOverrideMapForPrint = useCallback(() => {
+    suppressPopupDuringPrintRef.current = true;
+    closeOverrideMapPopup();
+    outlineSetterRef.current(null);
+
+    const map = mapRef.current;
+    if (!map) {
+      window.dispatchEvent(new Event("datacommon-override-map-print-ready"));
+      return;
+    }
+
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      window.dispatchEvent(new Event("datacommon-override-map-print-ready"));
+    };
+
+    const applyInitialView = () => {
+      fitMapToInitialView(map);
+      map.once("idle", finish);
+      window.setTimeout(finish, 1500);
+    };
+
+    if (map.isStyleLoaded()) {
+      applyInitialView();
+    } else {
+      map.once("load", applyInitialView);
+    }
+  }, [closeOverrideMapPopup, fitMapToInitialView]);
+
+  const restoreMapAfterPrint = useCallback(() => {
+    suppressPopupDuringPrintRef.current = false;
+    const map = mapRef.current;
+    const mf = latestDataRef.current.municipalFeature;
+    if (!map?.isStyleLoaded() || !mf?.geometry) return;
+    const bounds = geometryToBounds(mf.geometry);
+    if (!bounds) return;
+    map.resize();
+    map.fitBounds(bounds, {
+      padding: INITIAL_MAP_PADDING,
+      maxZoom: 14,
+      duration: 0,
+    });
+    if (mf.properties?.town) {
+      outlineSetterRef.current({
+        type: "Feature",
+        properties: { town: mf.properties.town },
+        geometry: mf.geometry,
+      });
+    }
+  }, []);
+
   const openProfilePopupForCurrentData = useCallback(() => {
+    if (suppressPopupDuringPrintRef.current) return;
     const map = mapRef.current;
     if (!map || !popupRef.current) return;
     const {
@@ -450,7 +538,7 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
       dragRotate: false,
     });
     map.fitBounds(MAP_CONFIG.bounds, {
-      padding: { top: 28, bottom: 28, left: 28, right: 28 },
+      padding: INITIAL_MAP_PADDING,
       animate: false,
     });
     const navCfg = MAP_CONFIG.navigationControl || {};
@@ -494,7 +582,7 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
 
     const onLoad = () => {
       const lc = legendKeyToColor(config.legend);
-      const fillDefault = lc.no_data || "#e2e8f0";
+      const fillDefault = lc.no_overrides_attempted || "#e2e8f0";
       const empty = { type: "FeatureCollection", features: [] };
       map.addSource(SOURCE_ID, { type: "geojson", data: empty });
       map.addLayer({
@@ -509,10 +597,8 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
             lc.success || fillDefault,
             "loss_only",
             lc.loss_only || fillDefault,
-            "none_attempted",
-            lc.none_attempted || fillDefault,
-            "no_data",
-            lc.no_data || fillDefault,
+            "no_overrides_attempted",
+            lc.no_overrides_attempted || fillDefault,
             fillDefault,
           ],
           "fill-opacity": 0.82,
@@ -602,12 +688,17 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
     const profileNorm = normalizeTownName(mf.properties.town);
     if (outlineTown !== profileNorm) return undefined;
 
-    const popupTimer = window.setTimeout(() => {
+    profilePopupTimerRef.current = window.setTimeout(() => {
+      profilePopupTimerRef.current = null;
+      if (suppressPopupDuringPrintRef.current) return;
       openProfilePopupForCurrentData();
     }, 500);
 
     return () => {
-      if (popupTimer != null) window.clearTimeout(popupTimer);
+      if (profilePopupTimerRef.current != null) {
+        window.clearTimeout(profilePopupTimerRef.current);
+        profilePopupTimerRef.current = null;
+      }
     };
   }, [
     mapReady,
@@ -618,6 +709,27 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
     config.popupColumnLabels,
     openProfilePopupForCurrentData,
   ]);
+
+  useEffect(() => {
+    const onBeforePrint = () => prepareOverrideMapForPrint();
+    const onAfterPrint = () => {
+      restoreMapAfterPrint();
+    };
+    const onPrepareForPrint = () => prepareOverrideMapForPrint();
+    // Legacy event name used by Print charts button
+    const onCloseMapPopups = () => prepareOverrideMapForPrint();
+
+    window.addEventListener("beforeprint", onBeforePrint);
+    window.addEventListener("afterprint", onAfterPrint);
+    window.addEventListener("datacommon-prepare-override-map-for-print", onPrepareForPrint);
+    window.addEventListener("datacommon-close-map-popups", onCloseMapPopups);
+    return () => {
+      window.removeEventListener("beforeprint", onBeforePrint);
+      window.removeEventListener("afterprint", onAfterPrint);
+      window.removeEventListener("datacommon-prepare-override-map-for-print", onPrepareForPrint);
+      window.removeEventListener("datacommon-close-map-popups", onCloseMapPopups);
+    };
+  }, [prepareOverrideMapForPrint, restoreMapAfterPrint]);
 
   useEffect(() => {
     if (!mapReady || !mapRef.current || !mapContainerRef.current) return undefined;
@@ -632,6 +744,7 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
   }, [mapReady]);
 
   useEffect(() => {
+    if (suppressPopupDuringPrintRef.current) return undefined;
     if (!mapReady || !municipalFeature?.geometry || !mapRef.current) {
       return undefined;
     }
@@ -644,7 +757,7 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
     map.resize();
 
     map.fitBounds(bounds, {
-      padding: { top: 28, bottom: 28, left: 28, right: 28 },
+      padding: INITIAL_MAP_PADDING,
       maxZoom: 14,
       duration: 0,
     });
@@ -689,14 +802,19 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
         }}
       >
         {(config.legend || []).map((item) => (
-          <span key={item.key} style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
+          <span
+            key={item.key}
+            className={`municipal-finance-overrides-map__legend-item municipal-finance-overrides-map__legend-item--${item.key}`}
+            style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}
+          >
             <span
               aria-hidden
+              className="municipal-finance-overrides-map__legend-swatch"
               style={{
                 width: 14,
                 height: 14,
                 borderRadius: 2,
-                background: item.color,
+                backgroundColor: item.color,
                 border: "1px solid rgba(0,0,0,0.15)",
               }}
             />
@@ -704,8 +822,8 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
           </span>
         ))}
       </div>
-      <p className="metadata" style={{ marginTop: "0.5rem", fontStyle: "italic" }}>
-        Click a town for total revenue, expenditures, and override amounts.
+      <p className="metadata municipal-finance-overrides-map__hint">
+        Click a municipality for total revenue, expenditures, and override amounts.
       </p>
     </section>
   );
