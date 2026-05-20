@@ -112,7 +112,6 @@ const MultiGaugeChart = (props) => {
       const clampedPct = Math.max(minValue, Math.min(maxValue, value));
       const dashValue = (clampedPct / 100) * halfCirc;
       const dashGap = fullCirc - dashValue;
-
       const valueColor = colorRef.current(dataItem.label);
       chart
         .append("circle")
@@ -165,30 +164,30 @@ const MultiGaugeChart = (props) => {
       const percent = ((value - minValue) / (maxValue - minValue)) * 100;
       return { percent, label: dataItem.label };
     });
-    // const maxVal = Math.max(...percentages.map());
     const firstValue = percentagesByLabels[0];
     const displayLabel = `${firstValue.percent.toFixed(1)}%`;
     const valueText = chart
-    .append("text")
-    .attr("x", cx)
-    .attr("y", 31.5)
-    .attr("text-anchor", "middle")
-    .attr("class", "gauge-text")
-    .attr("font-size", "10")
-    .attr("font-weight", "400")
-    .attr("fill", "black")
-    .text(displayLabel);
-    const displaySubLabel = firstValue.label;
-    const labelText = chart
       .append("text")
       .attr("x", cx)
-      .attr("y", 36.5)
+      .attr("y", 35.5)
       .attr("text-anchor", "middle")
       .attr("class", "gauge-text")
-      .attr("font-size", "2.5")
+      .attr("font-size", "10")
       .attr("font-weight", "400")
       .attr("fill", "black")
-      .text(displaySubLabel);
+      .text(displayLabel);
+    // leaving out the sub-label for now
+    // const displaySubLabel = firstValue.label;
+    // const labelText = chart
+    //   .append("text")
+    //   .attr("x", cx)
+    //   .attr("y", 36.5)
+    //   .attr("text-anchor", "middle")
+    //   .attr("class", "gauge-text")
+    //   .attr("font-size", "2.4")
+    //   .attr("font-weight", "400")
+    //   .attr("fill", "black")
+    //   .text(displaySubLabel);
 
     // Add legend
     const legend = d3.select(legendContainerRef.current);

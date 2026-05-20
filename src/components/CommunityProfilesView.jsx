@@ -468,11 +468,26 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
               </header>
               <div className="tab__row">
                 <ChartDetails
-                  chart={charts["municipal-finances"].levy_share_gauge}
+                  chart={charts["municipal-finance"].levy_share_gauge}
                   muni={muni}
                   onViewData={handleShowModal}
                 >
-                  <MultiGaugeChart chart={charts["municipal-finances"].levy_share_gauge} muni={muni} />
+                  <MultiGaugeChart chart={charts["municipal-finance"].levy_share_gauge} muni={muni} />
+                </ChartDetails>
+                {/* TODO: Add this back in once Zoe has updated the underlying data in the table. data has issues for now */}
+                {/* <ChartDetails
+                  chart={charts["municipal-finance"].levy_ceiling_gauge}
+                  muni={muni}
+                  onViewData={handleShowModal}
+                >
+                  <MultiGaugeChart chart={charts["municipal-finance"].levy_ceiling_gauge} muni={muni} />
+                </ChartDetails> */}
+                <ChartDetails
+                  chart={charts["municipal-finance"].levy_new_growth_gauge}
+                  muni={muni}
+                  onViewData={handleShowModal}
+                >
+                  <MultiGaugeChart chart={charts["municipal-finance"].levy_new_growth_gauge} muni={muni} />
                 </ChartDetails>
               </div>
               <div className="tab__row">
