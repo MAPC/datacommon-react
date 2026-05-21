@@ -295,6 +295,7 @@ class DatasetTable extends React.Component {
       updateSelectedColumns,
       previewColumnOrder = [],
       previewRowOrder = [],
+      onPreviewColumnOrderChange,
       onPreviewRowOrderChange,
       onResetPreviewLayout,
     } = this.props;
@@ -304,7 +305,10 @@ class DatasetTable extends React.Component {
 
     // Avoid a broken table (row drag gutter only) when all columns are deselected.
     if (columnKeys.length > 0 && orderedColumnKeys.length === 0) {
-      const showPreviewChrome = Boolean(updateSelectedColumns || onPreviewRowOrderChange);
+      const showRowPreviewControls = Boolean(updateSelectedColumns || onPreviewRowOrderChange);
+    const canCustomizeLayout = Boolean(
+        showRowPreviewControls || onPreviewColumnOrderChange,
+      );
       const defaultColumnNames = orderedColumnKeys.map((col) => col.name);
       const columnOrderCustom =
         previewColumnOrder.length > 0 && previewColumnOrder.join("|") !== defaultColumnNames.join("|");
@@ -314,7 +318,7 @@ class DatasetTable extends React.Component {
       return (
         <div className="table-wrapper">
           <DatasetTableContextMenu menu={contextMenu} onClose={this.closeContextMenu} />
-          {showPreviewChrome && hasPreviewCustomization && onResetPreviewLayout ? (
+          {canCustomizeLayout && hasPreviewCustomization && onResetPreviewLayout ? (
             <div className="dataset-table-preview-toolbar">
               <button type="button" className="dataset-table-preview-toolbar__reset" onClick={onResetPreviewLayout}>
                 Reset table layout
@@ -372,7 +376,13 @@ class DatasetTable extends React.Component {
     const effectiveSortDirection = sortColumn ? sortDirection : "asc";
     const sortedRows = this.sortData(allRows, effectiveSortColumn, effectiveSortDirection);
 
-    const showPreviewChrome = Boolean(updateSelectedColumns || onPreviewRowOrderChange);
+    const showRowDragControls = Boolean(
+      !linkRowsToDatasetView && (updateSelectedColumns || onPreviewRowOrderChange),
+    );
+    const showRowGutter = showRowDragControls || linkRowsToDatasetView;
+    const canCustomizeLayout = Boolean(
+      showRowDragControls || onPreviewColumnOrderChange,
+    );
 
     const previewRows = applyPreviewRowOrder(sortedRows, previewRowOrder);
     const rowKeysInView = previewRows.map((row, i) => getDatasetRowKey(row, i));
@@ -383,7 +393,7 @@ class DatasetTable extends React.Component {
         rowData={row}
         headers={orderedColumnKeys.map((key) => key.name)}
         linkRowsToDatasetView={linkRowsToDatasetView}
-        showPreviewControls={showPreviewChrome}
+        showRowDragControls={showRowDragControls}
         isDragging={dragRowIndex === i}
         onDragHandleDragStart={(e) => this.handleRowDragStart(e, i)}
         onDragHandleDragEnd={() => this.setState({ dragRowIndex: null })}
@@ -407,7 +417,7 @@ class DatasetTable extends React.Component {
     return (
       <div className="table-wrapper">
         <DatasetTableContextMenu menu={contextMenu} onClose={this.closeContextMenu} />
-        {showPreviewChrome && hasPreviewCustomization && onResetPreviewLayout ? (
+        {canCustomizeLayout && hasPreviewCustomization && onResetPreviewLayout ? (
           <div className="dataset-table-preview-toolbar">
             <button type="button" className="dataset-table-preview-toolbar__reset" onClick={onResetPreviewLayout}>
               Reset table layout
@@ -421,7 +431,12 @@ class DatasetTable extends React.Component {
                 <table className="ui sortable unstackable selectable compact table ember-view sticky-header-table dataset-table--preview">
                   <thead className="sticky-header">
                     <tr>
-                      {showPreviewChrome && <th className="dataset-table__gutter" aria-label="Row controls" />}
+                      {showRowGutter && (
+                        <th
+                          className="dataset-table__gutter"
+                          aria-label={linkRowsToDatasetView ? "Open dataset" : "Row controls"}
+                        />
+                      )}
                       {renderedHeaders}
                     </tr>
                   </thead>

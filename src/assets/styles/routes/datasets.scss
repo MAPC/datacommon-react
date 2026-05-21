@@ -1372,6 +1372,31 @@
         justify-content: center;
       }
 
+      .dataset-table__open-table-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.75rem;
+        height: 1.75rem;
+        padding: 0;
+        border: none;
+        border-radius: 4px;
+        background: transparent;
+        color: $color_brand-secondary;
+        cursor: pointer;
+        transition: background-color 0.15s ease, color 0.15s ease;
+
+        &:hover {
+          background: rgba($color_brand-secondary, 0.12);
+          color: $color_brand-secondary--dark;
+        }
+
+        &:focus-visible {
+          outline: 2px solid $color_brand-secondary;
+          outline-offset: 2px;
+        }
+      }
+
       .dataset-table__drag-grip {
         position: relative;
         display: inline-flex;
@@ -1508,51 +1533,35 @@
       }
     }
 
-    // Data browser inventory: each row opens that dataset in the data viewer
+    // Data browser inventory: row click or gutter icon opens dataset in a new tab
     .ui.table tbody tr.data-row--dataset-link {
       cursor: pointer;
       transition: background-color 0.15s ease, box-shadow 0.15s ease;
 
-      td {
+      td:not(.dataset-table__gutter) {
         color: $color_brand-secondary;
         text-decoration: underline;
         text-underline-offset: 2px;
       }
 
       &:hover {
-        background-color: rgba($color_brand-secondary, 0.18) !important;
-        box-shadow: inset 3px 0 0 $color_brand-secondary;
-
         td {
+          background-color: rgba($color_bg-medium, 0.22) !important;
+        }
+
+        td:not(.dataset-table__gutter) {
           color: $color_brand-secondary--dark;
         }
-      }
-
-      &:hover td:first-child::after,
-      &:focus-visible td:first-child::after {
-        opacity: 1;
-      }
-
-      td:first-child {
-        position: relative;
-        padding-right: 24px;
-      }
-
-      td:first-child::after {
-        content: "↗";
-        position: absolute;
-        right: 8px;
-        top: 50%;
-        transform: translateY(-50%);
-        font-size: 12px;
-        color: $color_brand-secondary;
-        opacity: 0.25;
-        transition: opacity 0.15s ease;
       }
 
       &:focus-visible {
         outline: 2px solid $color_brand-secondary;
         outline-offset: -2px;
+      }
+
+      .dataset-table__open-table-btn {
+        position: relative;
+        z-index: 1;
       }
     }
   }
