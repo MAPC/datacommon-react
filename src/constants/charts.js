@@ -2606,6 +2606,265 @@ export default {
         format: format.string.default,
       },
     },
+    levy_share_gauge: {
+      type: "gauge",
+      title: "Levy Share",
+      minValue: 0,
+      maxValue: 100,
+      backgroundColor: "#e0e0e0",
+      showUnit: true,
+      unit: "%",
+      showLabels: true,
+      valueFormat: (d) => d.toFixed(1),
+      width: 500,
+      height: 400,
+      tooltip: { type: "percentAndCount" },
+      tables: {
+        "tabular.muni_finance_m_levy_share": (() => {
+          const columnList = ["muni_name", "fiscal_yr", "ro_lvypct", "cip_lvypct"];
+          return {
+            yearCol: "fiscal_yr",
+            latestYearOnly: true,
+            columns: columnList,
+            specialFetch: async (municipality, dispatchUpdate) => {
+              const api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
+              const muniName = String(municipality || "").replace(/'/g, "''");
+              const selectList = columnList.join(",");
+
+              const years = await fetchYears('tabular', 'muni_finance_m', 'fiscal_yr', 1, 'DESC');
+              const year = years.length ? years[0] : 'unknown';
+
+              let mainDataApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
+              mainDataApi = `${mainDataApi}&columns=${selectList}`;
+              mainDataApi = `${mainDataApi}&filters=fiscal_yr:${year},muni_name~${muniName}%`;
+
+              const response = await fetch(mainDataApi);
+              if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+              }
+              const payload = (await response.json()) || {};
+              dispatchUpdate(payload.rows || []);
+            },
+          };
+        })(),
+      },
+      timeframe: async () => {
+        const years = await fetchYears("tabular", "muni_finance_m", "fiscal_yr", 1, "DESC");
+        return years && years[0] ? String(years[0]) : "";
+      },
+      transformer: (tables) => {
+        const data = tables["tabular.muni_finance_m_levy_share"];
+        if (!data || data.length < 1) {
+          return [{ value: 0, }];
+        }
+        const row = data[0];
+        const resAndOpenSpaceLevyPct =
+          row.ro_lvypct !== null && row.ro_lvypct !== undefined
+            ? parseFloat(row.ro_lvypct)
+            : 0;
+        const comercialResIndLevyPct =
+          row.cip_lvypct !== null && row.cip_lvypct !== undefined
+            ? parseFloat(row.cip_lvypct)
+            : 0;
+
+        const roValue = isNaN(resAndOpenSpaceLevyPct) ? 0 : Math.max(0, Math.min(100, resAndOpenSpaceLevyPct));
+        const criValue = isNaN(comercialResIndLevyPct) ? 0 : Math.max(0, Math.min(100, comercialResIndLevyPct));
+        
+        return [
+          { value: roValue, label: "Residential & Open Space Levy Percent" },
+          { value: criValue, label: "Commercial, Industrial, & Personal Levy Percent" },
+        ];
+      },
+      source:"MA Dept of Revenue",
+      datasetLinks: { "Dept of Revenue Municipal Finance": 502 },
+      legend: [
+        {
+          key: "ro_lvypct",
+          label: "Residential & Open Space Levy Percent",
+          color: colors.CHART.PRIMARY.get("DARK_GREEN"),
+        },
+        {
+          key: "cip_lvypct",
+          label: "Commercial, Industrial, & Personal Levy Percent",
+          color: colors.CHART.PRIMARY.get("TEAL_GREEN"),
+        },
+      ],
+    },
+    levy_ceiling_gauge: {
+      type: "gauge",
+      title: "Levy Ceiling Share",
+      minValue: 0,
+      maxValue: 100,
+      backgroundColor: "#e0e0e0",
+      showUnit: true,
+      unit: "%",
+      showLabels: true,
+      valueFormat: (d) => d.toFixed(1),
+      width: 500,
+      height: 400,
+      tooltip: { type: "percentAndCount" },
+      tables: {
+        "tabular.muni_finance_m_levy_ceiling_share": (() => {
+          const columnList = ["muni_name", "fiscal_yr", "ro_pct", "cip_pct"];
+          return {
+            yearCol: "fiscal_yr",
+            latestYearOnly: true,
+            columns: columnList,
+            specialFetch: async (municipality, dispatchUpdate) => {
+              const api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
+              const muniName = String(municipality || "").replace(/'/g, "''");
+              const selectList = columnList.join(",");
+
+              const years = await fetchYears('tabular', 'muni_finance_m', 'fiscal_yr', 1, 'DESC');
+              const year = years.length ? years[0] : 'unknown';
+
+              let mainDataApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
+              mainDataApi = `${mainDataApi}&columns=${selectList}`;
+              mainDataApi = `${mainDataApi}&filters=fiscal_yr:${year},muni_name~${muniName}%`;
+
+              const response = await fetch(mainDataApi);
+              if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+              }
+              const payload = (await response.json()) || {};
+              dispatchUpdate(payload.rows || []);
+            },
+          };
+        })(),
+      },
+      timeframe: async () => {
+        const years = await fetchYears("tabular", "muni_finance_m", "fiscal_yr", 1, "DESC");
+        return years && years[0] ? String(years[0]) : "";
+      },
+      transformer: (tables) => {
+        const data = tables["tabular.muni_finance_m_levy_ceiling_share"];
+        if (!data || data.length < 1) {
+          return [{ value: 0 }];
+        }
+        const row = data[0];
+        const resAndOpenSpaceLevyCeilingPct =
+          row.ro_pct !== null && row.ro_pct !== undefined
+            ? parseFloat(row.ro_pct)
+            : 0;
+        const comercialResIndLevyCeilingPct =
+          row.cip_pct !== null && row.cip_pct !== undefined
+            ? parseFloat(row.cip_pct)
+            : 0;
+
+        const roValue = isNaN(resAndOpenSpaceLevyCeilingPct) ? 0 : Math.max(0, Math.min(100, resAndOpenSpaceLevyCeilingPct));
+        const criValue = isNaN(comercialResIndLevyCeilingPct) ? 0 : Math.max(0, Math.min(100, comercialResIndLevyCeilingPct));
+        
+        return [
+          { value: roValue, label: "Residential & Open Space Levy Ceiling Percent" },
+          { value: criValue, label: "Commercial, Industrial, & Personal Levy Ceiling Percent" },
+        ];
+      },
+      source:"MA Dept of Revenue",
+      datasetLinks: { "Dept of Revenue Municipal Finance": 502 },
+      legend: [
+        {
+          key: "ro_pct",
+          label: "Residential & Open Space Levy Ceiling Percent",
+          color: colors.CHART.PRIMARY.get("DARK_GREEN"),
+        },
+        {
+          key: "cip_pct",
+          label: "Commercial, Industrial, & Personal Levy Ceiling Percent",
+          color: colors.CHART.PRIMARY.get("TEAL_GREEN"),
+        },
+      ],
+    },
+    levy_new_growth_gauge: {
+      type: "gauge",
+      title: "New Growth Not Applied to Limit",
+      minValue: 0,
+      maxValue: 100,
+      backgroundColor: "#e0e0e0",
+      showUnit: true,
+      unit: "%",
+      showLabels: true,
+      valueFormat: (d) => d.toFixed(1),
+      width: 500,
+      height: 400,
+      tooltip: { type: "percentAndCount" },
+      tables: {
+        "tabular.muni_finance_m_levy_new_growth": (() => {
+          const columnList = ["muni_name", "fiscal_yr", "res_ng_lvy", "cip_ng_lvy"];
+          return {
+            yearCol: "fiscal_yr",
+            latestYearOnly: true,
+            columns: columnList,
+            specialFetch: async (municipality, dispatchUpdate) => {
+              const api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
+              const muniName = String(municipality || "").replace(/'/g, "''");
+              const selectList = columnList.join(",");
+
+              const years = await fetchYears('tabular', 'muni_finance_m', 'fiscal_yr', 1, 'DESC');
+              const year = years.length ? years[0] : 'unknown';
+
+              let mainDataApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
+              mainDataApi = `${mainDataApi}&columns=${selectList}`;
+              mainDataApi = `${mainDataApi}&filters=fiscal_yr:${year},muni_name~${muniName}%`;
+
+              const response = await fetch(mainDataApi);
+              if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+              }
+              const payload = (await response.json()) || {};
+              dispatchUpdate(payload.rows || []);
+            },
+          };
+        })(),
+      },
+      timeframe: async () => {
+        const years = await fetchYears("tabular", "muni_finance_m", "fiscal_yr", 1, "DESC");
+        return years && years[0] ? String(years[0]) : "";
+      },
+      transformer: (tables) => {
+        const data = tables["tabular.muni_finance_m_levy_new_growth"];
+        if (!data || data.length < 1) {
+          return [{ value: 0 }];
+        }
+        const row = data[0];
+        const resNewGrowthForLevy =
+          row.res_ng_lvy !== null && row.res_ng_lvy !== undefined
+            ? parseFloat(row.res_ng_lvy)
+            : 0;
+        const cipNewGrowthForLevy =
+          row.cip_ng_lvy !== null && row.cip_ng_lvy !== undefined
+            ? parseFloat(row.cip_ng_lvy)
+            : 0;
+
+        // TODO: this sum to get the total is a temporary fix, eventually it should come from the table
+        const totalNewGrowth = resNewGrowthForLevy + cipNewGrowthForLevy;
+
+        // get the percentage of the total for both while preventing divide by 0
+        const resNewGrowthPercent = (resNewGrowthForLevy / (totalNewGrowth || 1)) * 100;
+        const cipNewGrowthPercent = (cipNewGrowthForLevy / (totalNewGrowth || 1)) * 100;
+
+        const roValue = isNaN(resNewGrowthPercent) ? 0 : Math.max(0, Math.min(100, resNewGrowthPercent));
+        const criValue = isNaN(cipNewGrowthPercent) ? 0 : Math.max(0, Math.min(100, cipNewGrowthPercent));
+        
+        return [
+          { value: roValue, label: "Residential New Growth Applied to Levy Limit" },
+          { value: criValue, label: "CIP New Growth Applied to Levy Limit" },
+        ];
+      },
+      source:"MA Dept of Revenue",
+      datasetLinks: { "Dept of Revenue Municipal Finance": 502 },
+      legend: [
+        {
+          key: "res_ng_lvy",
+          label: "Residential New Growth Applied to Levy Limit",
+          color: colors.CHART.PRIMARY.get("DARK_GREEN"),
+        },
+        {
+          key: "cip_ng_lvy",
+          label: "CIP New Growth Applied to Levy Limit",
+          color: colors.CHART.PRIMARY.get("TEAL_GREEN"),
+        },
+      ],
+    },
     overrides_map_config: {
       mapTitleTemplate: "{year} Municipal Override Map",
       yearColumn: "fiscal_yr",

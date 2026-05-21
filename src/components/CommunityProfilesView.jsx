@@ -17,6 +17,7 @@ import ChartDetails from "./visualizations/ChartDetails";
 import PieChart from "../containers/visualizations/PieChart";
 import LineChart from "../containers/visualizations/LineChart";
 import GaugeChart from "../containers/visualizations/GaugeChart";
+import MultiGaugeChart from "../containers/visualizations/MultiGaugeChart";
 import ProfileMetricChart from "../containers/visualizations/ProfileMetricChart";
 import TreeMap from "../containers/visualizations/TreeMap";
 import MunicipalFinanceOverridesMap from "./visualizations/MunicipalFinanceOverridesMap";
@@ -465,6 +466,30 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
               <header className="print-header">
                 <h3>Municipal Finance</h3>
               </header>
+              <div className="tab__row">
+                <ChartDetails
+                  chart={charts["municipal-finance"].levy_share_gauge}
+                  muni={muni}
+                  onViewData={handleShowModal}
+                >
+                  <MultiGaugeChart chart={charts["municipal-finance"].levy_share_gauge} muni={muni} />
+                </ChartDetails>
+                {/* TODO: Add this back in once Zoe has updated the underlying data in the table. data has issues for now */}
+                {/* <ChartDetails
+                  chart={charts["municipal-finance"].levy_ceiling_gauge}
+                  muni={muni}
+                  onViewData={handleShowModal}
+                >
+                  <MultiGaugeChart chart={charts["municipal-finance"].levy_ceiling_gauge} muni={muni} />
+                </ChartDetails> */}
+                <ChartDetails
+                  chart={charts["municipal-finance"].levy_new_growth_gauge}
+                  muni={muni}
+                  onViewData={handleShowModal}
+                >
+                  <MultiGaugeChart chart={charts["municipal-finance"].levy_new_growth_gauge} muni={muni} />
+                </ChartDetails>
+              </div>
               <div className="tab__row">
                 <ChartDetails
                   chart={charts["municipal-finance"].bond_rating_sp}
