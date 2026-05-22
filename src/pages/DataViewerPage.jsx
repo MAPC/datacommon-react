@@ -483,18 +483,14 @@ class DataViewerClass extends React.Component {
             geographyColumn={this.state.geographyColumn}
             linkRowsToDatasetView={this.state.linkInventoryRows}
             updatePage={this.updatePage}
-            updateSelectedColumns={
-              this.state.linkInventoryRows ? undefined : this.updateSelectedColumns
-            }
+            updateSelectedColumns={this.updateSelectedColumns}
             previewColumnOrder={this.state.previewColumnOrder}
             previewRowOrder={this.state.previewRowOrder}
-            onPreviewColumnOrderChange={
-              this.state.linkInventoryRows ? undefined : this.onPreviewColumnOrderChange
-            }
+            onPreviewColumnOrderChange={this.onPreviewColumnOrderChange}
             onPreviewRowOrderChange={
               this.state.linkInventoryRows ? undefined : this.onPreviewRowOrderChange
             }
-            onResetPreviewLayout={this.state.linkInventoryRows ? undefined : this.onResetPreviewLayout}
+            onResetPreviewLayout={this.onResetPreviewLayout}
           />
         </section>
       );

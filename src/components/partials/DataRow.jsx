@@ -1,12 +1,14 @@
 import { useCallback } from "react";
 import PropTypes from "prop-types";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faTable } from "@fortawesome/free-solid-svg-icons";
 import { getInventoryRowDatasetId } from "../../utils/datasetInventoryRow";
 
 const DataRow = ({
   headers,
   rowData,
   linkRowsToDatasetView,
-  showPreviewControls,
+  showRowDragControls,
   isDragging,
   onDragHandleDragStart,
   onDragHandleDragEnd,
@@ -15,6 +17,9 @@ const DataRow = ({
 }) => {
   const targetId = getInventoryRowDatasetId(rowData);
   const canLink = Boolean(linkRowsToDatasetView && targetId != null && targetId !== "");
+  const openDatasetTooltip = canLink ? "Open dataset table in a new tab" : "";
+  const showOpenTableAction = canLink;
+  const showGutter = showRowDragControls || showOpenTableAction;
 
   const go = useCallback(() => {
     if (!canLink) {
@@ -63,25 +68,41 @@ const DataRow = ({
         .join(" ")}
       onClick={canLink ? go : undefined}
       onKeyDown={canLink ? onKeyDown : undefined}
-      onDragOver={showPreviewControls ? onRowDragOver : undefined}
-      onDrop={showPreviewControls ? onRowDrop : undefined}
+      onDragOver={showRowDragControls ? onRowDragOver : undefined}
+      onDrop={showRowDragControls ? onRowDrop : undefined}
       tabIndex={canLink ? 0 : undefined}
       role={canLink ? "link" : undefined}
-      title={canLink ? "Click to view data (open in a new tab)" : undefined}
-      aria-label={canLink ? `Open dataset table view for id ${targetId} in a new tab` : undefined}
+      title={openDatasetTooltip}
+      aria-label={openDatasetTooltip}
     >
-      {showPreviewControls && (
+      {showGutter && (
         <td className="dataset-table__gutter">
           <div className="dataset-table__row-controls">
-            <span
-              className="dataset-table__drag-grip dataset-table__drag-grip--row"
-              draggable
-              onDragStart={onDragHandleDragStart}
-              onDragEnd={onDragHandleDragEnd}
-              onClick={(e) => e.stopPropagation()}
-              title="Drag to reorder row"
-              aria-label="Drag to reorder row"
-            />
+            {showRowDragControls && (
+              <span
+                className="dataset-table__drag-grip dataset-table__drag-grip--row"
+                draggable
+                onDragStart={onDragHandleDragStart}
+                onDragEnd={onDragHandleDragEnd}
+                onClick={(e) => e.stopPropagation()}
+                title="Drag to reorder row"
+                aria-label="Drag to reorder row"
+              />
+            )}
+            {showOpenTableAction && (
+              <button
+                type="button"
+                className="dataset-table__open-table-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  go();
+                }}
+                title={openDatasetTooltip}
+                aria-label={openDatasetTooltip}
+              >
+                <FontAwesomeIcon icon={faTable} size="sm" aria-hidden />
+              </button>
+            )}
           </div>
         </td>
       )}
@@ -94,7 +115,7 @@ DataRow.propTypes = {
   headers: PropTypes.arrayOf(PropTypes.string).isRequired,
   rowData: PropTypes.object.isRequired,
   linkRowsToDatasetView: PropTypes.bool,
-  showPreviewControls: PropTypes.bool,
+  showRowDragControls: PropTypes.bool,
   isDragging: PropTypes.bool,
   onDragHandleDragStart: PropTypes.func,
   onDragHandleDragEnd: PropTypes.func,
@@ -104,7 +125,7 @@ DataRow.propTypes = {
 
 DataRow.defaultProps = {
   linkRowsToDatasetView: false,
-  showPreviewControls: false,
+  showRowDragControls: false,
   isDragging: false,
 };
 

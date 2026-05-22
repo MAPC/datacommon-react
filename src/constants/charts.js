@@ -2540,6 +2540,8 @@ export default {
     fund_revenue: {
       type: "tree-map",
       title: "Fund Revenue Breakdown",
+      // Size tiles from smallest category's text needs, then scale others by data value.
+      treemapTextAwareLayout: true,
       colors: Array.from(colors.CHART.PRIMARY.values()).slice(-4),
       valueFormatter: (v) => {
         const n = typeof v === "number" ? v : Number(v);
