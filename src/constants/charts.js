@@ -2865,6 +2865,71 @@ export default {
         },
       ],
     },
+    overrides_win_loss_bar: {
+      type: "stacked-bar",
+      title: "Override Wins and Losses",
+      xAxis: { label: "Year", format: format.string.default },
+      yAxis: { label: "Win / Loss Ammount", format: format.number.localeString },
+      tables: {
+        "tabular.muni_finance_m_override_win_loss": {
+          yearCol: "fiscal_yr",
+          years: async () => {
+            const years = await fetchYears("tabular", "muni_finance_m", "fiscal_yr");
+            return years;
+          },
+          specialFetch: async (municipality, dispatchUpdate) => {
+            const columnList = ["muni_name", "fiscal_yr", "win_amt", "loss_amt"];
+            const api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
+            const muniName = String(municipality || "").replace(/'/g, "''");
+            const selectList = columnList.join(",");
+
+            let mainDataApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
+            mainDataApi = `${mainDataApi}&columns=${selectList}`;
+            mainDataApi = `${mainDataApi}&filters=muni_name~${muniName}%`;
+
+            const response = await fetch(mainDataApi);
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const payload = (await response.json()) || {};
+            dispatchUpdate(payload.rows || []);
+          },
+        },
+      },
+      labels: {
+        win_amt: "Win Ammount",
+        loss_amt: "Loss Ammount",
+      },
+      timeframe: async () => {
+        const years = await fetchYears("tabular", "muni_finance_m", "fiscal_yr");
+        if (!years || years.length < 1) return "";
+        
+        const latest = years.length ? years[0] : 'unknown';
+        const earliest = years.length ? years[years.length - 1] : 'unknown';
+
+        return `${earliest} - ${latest}`;
+      },
+      source:"MA Dept of Revenue",
+      datasetLinks: { "Dept of Revenue Municipal Finance": 502 },
+      transformer: (tables, chart) => {
+        const overrideData = tables["tabular.muni_finance_m_override_win_loss"];
+        if (overrideData.length < 1) {
+          return [];
+        }
+       
+        return overrideData.reduce(
+          (acc, row) =>
+            acc.concat(
+              Object.keys(chart.labels).map((key) => ({
+                x: row[chart.tables["tabular.muni_finance_m_override_win_loss"].yearCol],
+                y: row[key],
+                z: chart.labels[key],
+              })),
+            ),
+          [],
+        );
+      },
+    },
     overrides_map_config: {
       mapTitleTemplate: "{year} Municipal Override Map",
       yearColumn: "fiscal_yr",
