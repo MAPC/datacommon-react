@@ -44,6 +44,7 @@ function metadataResponseToRowArray(container) {
   const rows = Object.values(container).find((v) => Array.isArray(v));
   if (rows) return rows;
 
+  // TODO: This is the old metadata format. gisdata tables now return metadata in the same format as tabular tables
   const gis = container.documentation?.metadata?.eainfo?.detailed?.attr;
   return Array.isArray(gis) ? gis : [];
 }
