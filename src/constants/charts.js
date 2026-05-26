@@ -2629,7 +2629,6 @@ export default {
             latestYearOnly: true,
             columns: columnList,
             specialFetch: async (municipality, dispatchUpdate) => {
-              const api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
               const muniName = String(municipality || "").replace(/'/g, "''");
               const selectList = columnList.join(",");
 
@@ -2713,7 +2712,6 @@ export default {
             latestYearOnly: true,
             columns: columnList,
             specialFetch: async (municipality, dispatchUpdate) => {
-              const api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
               const muniName = String(municipality || "").replace(/'/g, "''");
               const selectList = columnList.join(",");
 
@@ -2797,7 +2795,6 @@ export default {
             latestYearOnly: true,
             columns: columnList,
             specialFetch: async (municipality, dispatchUpdate) => {
-              const api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
               const muniName = String(municipality || "").replace(/'/g, "''");
               const selectList = columnList.join(",");
 
@@ -2881,7 +2878,6 @@ export default {
           },
           specialFetch: async (municipality, dispatchUpdate) => {
             const columnList = ["muni_name", "fiscal_yr", "win_amt", "loss_amt"];
-            const api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
             const muniName = String(municipality || "").replace(/'/g, "''");
             const selectList = columnList.join(",");
 
