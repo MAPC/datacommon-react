@@ -1,12 +1,19 @@
 import React from "react";
 import axios from "axios";
 import { useSelector, useDispatch } from "react-redux";
-import { useParams } from "react-router-dom";
+import { useLocation, useParams } from "react-router-dom";
 import { css } from "@emotion/react";
 import MoonLoader from "react-spinners/MoonLoader";
 import { fetchDatasets } from "../reducers/datasetSlice";
 import DatasetHeader from "../components/partials/DatasetHeader";
 import DatasetTable from "../components/partials/DatasetTable";
+import { isDatasetInventoryCatalog } from "../utils/datasetInventoryRow";
+import {
+  parseDatasetViewShareSearch,
+  resolveGeographiesFromUrl,
+  resolveYearsFromUrl,
+} from "../utils/datasetViewShareQuery";
+import { syncPreviewColumnOrder } from "../utils/datasetTablePreview";
 
 const override = css`
   height: 3.5rem;
@@ -22,9 +29,13 @@ class DataViewerClass extends React.Component {
       loading: true,
       rowsPerPage: 25,
       selectedColumns: [], // Will be initialized with all columns
+      marginColumnsByBase: {},
       availableGeographies: [],
       selectedGeographies: [],
       geographyColumn: null,
+      linkInventoryRows: false,
+      previewColumnOrder: [],
+      previewRowOrder: [],
     };
     this.updateSelectedYears = this.updateSelectedYears.bind(this);
     this.updateSelectedColumns = this.updateSelectedColumns.bind(this);
@@ -32,7 +43,152 @@ class DataViewerClass extends React.Component {
     this.updateRowsPerPage = this.updateRowsPerPage.bind(this);
     this.loadDatasetData = this.loadDatasetData.bind(this);
     this.updateSelectedGeographies = this.updateSelectedGeographies.bind(this);
+    this.onPreviewColumnOrderChange = this.onPreviewColumnOrderChange.bind(this);
+    this.onPreviewRowOrderChange = this.onPreviewRowOrderChange.bind(this);
+    this.onResetPreviewLayout = this.onResetPreviewLayout.bind(this);
     this.hasLoaded = false; // Flag to prevent duplicate API calls in StrictMode
+  }
+
+  getMarginColumnsByBase(columnKeys = []) {
+    const byName = new Set((columnKeys || []).map((c) => String(c?.name || "")));
+    const pairs = {};
+    const byAlias = {};
+    (columnKeys || []).forEach((col) => {
+      const alias = String(col?.alias || "").trim().toLowerCase();
+      if (alias) byAlias[alias] = String(col?.name || "");
+    });
+
+    const normalizeAliasMetric = (text) =>
+      String(text || "")
+        .toLowerCase()
+        .replace(/\s*;\s*(estimate|margin of error)\s*$/i, "")
+        .replace(/\s*,\s*(estimate|margin of error)\s*$/i, "")
+        .trim();
+
+    // From MOE field name → possible base names; see DatasetHeader ColumnSelectorDropdown (keep in sync).
+    // Percent MOE for *_p: either *_mep or *mep (glued), e.g. bd3u_mep↔bd3u_p and noncitzmep↔noncitz_p.
+    const getBaseCandidates = (name) => {
+      const candidates = [];
+      const n = String(name || "");
+
+      if (n.endsWith("_mep")) {
+        candidates.push(n.slice(0, -4) + "_p");
+      } else if (/mep$/i.test(n)) {
+        candidates.push(n.slice(0, -3) + "_p");
+      }
+      if (n.endsWith("_mp")) {
+        candidates.push(n.slice(0, -3) + "_p");
+        candidates.push(n.slice(0, -3));
+      }
+      if (n.endsWith("_me")) {
+        candidates.push(n.slice(0, -3));
+      } else if (/[0-9][a-z0-9_]*me$/i.test(n)) {
+        candidates.push(n.slice(0, -2));
+      }
+      if (n.endsWith("_moe")) {
+        candidates.push(n.slice(0, -4));
+      }
+      if (
+        n.endsWith("_m") &&
+        !n.endsWith("_me") &&
+        !n.endsWith("_mp") &&
+        !n.endsWith("_moe") &&
+        !n.endsWith("_mep")
+      ) {
+        candidates.push(n.slice(0, -2));
+      }
+
+      return [...new Set(candidates.filter(Boolean))];
+    };
+
+    const isMarginColumn = (col) => {
+      const name = String(col?.name || "");
+      const alias = String(col?.alias || "").toLowerCase();
+      const details = String(col?.details || "").toLowerCase();
+      const hintFromMetadata = alias.includes("margin of error") || details.includes("margin of error");
+      const suffixHint =
+        /(?:_mp|_me|_moe|_mep|_m)$/i.test(name) ||
+        /[0-9][a-z0-9_]*me$/i.test(name) ||
+        /[a-z0-9_]mep$/i.test(name);
+      if (!hintFromMetadata && !suffixHint) return { isMargin: false, base: null };
+
+      // Prefer alias-based pairing for ACS-style labels:
+      // "X; margin of error" -> "X; estimate"
+      if (alias.includes("margin of error")) {
+        const estimateAlias = alias.replace("margin of error", "estimate").replace(/\s+/g, " ").trim();
+        if (byAlias[estimateAlias]) {
+          return { isMargin: true, base: byAlias[estimateAlias] };
+        }
+        const normalized = normalizeAliasMetric(alias);
+        const matchedBase = (columnKeys || []).find((candidate) => {
+          const a = String(candidate?.alias || "").toLowerCase();
+          const isEstimate = /\bestimate\b/i.test(a) || (!/\bmargin of error\b/i.test(a) && !!a);
+          return isEstimate && normalizeAliasMetric(a) === normalized;
+        });
+        if (matchedBase?.name) {
+          return { isMargin: true, base: matchedBase.name };
+        }
+      }
+
+      const base = getBaseCandidates(name).find((candidate) => byName.has(candidate));
+      return { isMargin: true, base: base || null };
+    };
+
+    (columnKeys || []).forEach((col) => {
+      const name = String(col?.name || "");
+      const result = isMarginColumn(col);
+      if (!result?.isMargin || !result.base || !name) return;
+      if (!pairs[result.base]) pairs[result.base] = [];
+      pairs[result.base].push(name);
+    });
+
+    return pairs;
+  }
+
+  getVisibleColumnKeys(columnKeys = []) {
+    const isMarginColumn = (col) => {
+      const name = String(col?.name || "");
+      const alias = String(col?.alias || "").toLowerCase();
+      const details = String(col?.details || "").toLowerCase();
+      return (
+        alias.includes("margin of error") ||
+        details.includes("margin of error") ||
+        /(?:_mp|_me|_moe|_mep|_m)$/i.test(name) ||
+        /[0-9][a-z0-9_]*me$/i.test(name) ||
+        /[a-z0-9_]mep$/i.test(name)
+      );
+    };
+    return (columnKeys || []).filter((col) => !isMarginColumn(col));
+  }
+
+  expandSelectedWithMargins(selectedBaseColumns = [], marginColumnsByBase = {}) {
+    const next = [...selectedBaseColumns];
+    selectedBaseColumns.forEach((base) => {
+      const margins = marginColumnsByBase?.[base] || [];
+      margins.forEach((m) => {
+        if (!next.includes(m)) next.push(m);
+      });
+    });
+    return next;
+  }
+
+  /** Base + all paired margin columns when hiding either side from the table or column picker. */
+  getColumnsToRemoveWhenDeselecting(columnName, marginColumnsByBase = {}) {
+    const toRemove = new Set([columnName]);
+    const marginsForBase = marginColumnsByBase[columnName] || [];
+    marginsForBase.forEach((m) => toRemove.add(m));
+
+    if (!marginsForBase.length) {
+      for (const [base, margins] of Object.entries(marginColumnsByBase)) {
+        if (margins.includes(columnName)) {
+          toRemove.add(base);
+          margins.forEach((m) => toRemove.add(m));
+          break;
+        }
+      }
+    }
+
+    return toRemove;
   }
 
   componentDidMount() {
@@ -72,182 +228,117 @@ class DataViewerClass extends React.Component {
     }
     if (dataset.table_name === "_data_browser") {
       // filter on active datasets if viewing the data browser
-      tableQueryUrl = `${tableQueryUrl}&active=true`;
+      tableQueryUrl = `${tableQueryUrl}&filters=active:Y`;
     }
     const tableQuery = axios.get(tableQueryUrl);
 
-    const headerQuery = axios.get(
-      `/api/metadata?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=${dataset.db_name}&schema=${dataset.schemaname}&table=${dataset.table_name}`,
+    const metadataQuery = axios.get(
+      `/api/metadata?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=${dataset.db_name}&schema=${dataset.schemaname}&table=${dataset.table_name}&useNewMetadata=true`,
     );
 
-    if (dataset.schemaname === "tabular") {
-      if (dataset.yearcolumn) {
-        const yearQuery = axios.get(
-          `/api/?token=${import.meta.env.VITE_MAPC_API_TOKEN}&distinctColumn=${dataset.yearcolumn}&database=${dataset.db_name}&schema=${dataset.schemaname}&table=${dataset.table_name}&limit=50`,
-        );
-        axios
-          .all([yearQuery, tableQuery, headerQuery])
-          .then((response) => {
-            const yearResults = response[0];
-            const tableResults = response[1];
-            const metadata = Object.values(response[2].data)[0];
-            // Validate metadata structure
-            const universeData = metadata.find((row) => row.name === "universe");
-            const descriptionData = metadata.find((row) => row.name === "descriptn");
-            const columnKeys = metadata
-              .filter((object) => tableResults.data.rows[0] && Object.keys(tableResults.data.rows[0]).includes(object.name))
-              .filter((header) => header.name !== "seq_id");
-
-            // Initialize geography filter for municipal (_m) tables
-            let geographyColumn = null;
-            let availableGeographies = [];
-            if (dataset.table_name && dataset.table_name.endsWith("_m")) {
-              const candidateColumns = ["muni_name", "municipal", "muni"];
-              geographyColumn = candidateColumns.find((col) => tableResults.data.rows[0] && col in tableResults.data.rows[0]) || null;
-              if (geographyColumn) {
-                const geoSet = new Set();
-                tableResults.data.rows.forEach((row) => {
-                  if (row[geographyColumn]) {
-                    geoSet.add(row[geographyColumn]);
-                  }
-                });
-                availableGeographies = Array.from(geoSet).sort((a, b) => String(a).localeCompare(String(b)));
-              }
-            }
-
-            this.setState({
-              availableYears: yearResults.data.rows
-                .map((year) => Object.values(year)[0])
-                .sort()
-                .reverse(),
-              rows: tableResults.data.rows,
-              universe: universeData ? universeData.details : "",
-              description: descriptionData ? descriptionData.details : "",
-              columnKeys: columnKeys,
-              selectedColumns: columnKeys.map((col) => col.name), // Initialize with all columns
-              metadata,
-              selectedYears: [
-                yearResults.data.rows
-                  .map((year) => Object.values(year)[0])
-                  .sort()
-                  .reverse()[0],
-              ],
-              table: dataset.table_name,
-              schema: dataset.schemaname,
-              database: dataset.db_name,
-              title: dataset.menu3,
-              source: dataset.source,
-              queryYearColumn: dataset.yearcolumn,
-              updatedAt: dataset.updated,
-              geographyColumn,
-              availableGeographies,
-              selectedGeographies: availableGeographies, // default: show all
-              loading: false,
-            });
-          })
-          .catch((error) => {
-            this.setState({ loading: false, error: "Please try again later" });
-            console.error("Error:", error);
-          });
-      } else {
-        axios
-          .all([tableQuery, headerQuery])
-          .then((response) => {
-            const tableResults = response[0];
-            const metadata = Object.values(response[1].data)[0];
-            // Validate metadata structure
-            const universeData = metadata.find((row) => row.name === "universe");
-            const descriptionData = metadata.find((row) => row.name === "descriptn");
-
-            const columnKeys = metadata
-              .filter((object) => tableResults.data.rows[0] && Object.keys(tableResults.data.rows[0]).includes(object.name))
-              .filter((header) => header.name !== "seq_id");
-            
-            // Initialize geography filter for municipal (_m) tables
-            let geographyColumn = null;
-            let availableGeographies = [];
-            if (dataset.table_name && dataset.table_name.endsWith("_m")) {
-              const candidateColumns = ["muni_name", "municipal", "muni"];
-              geographyColumn = candidateColumns.find((col) => tableResults.data.rows[0] && col in tableResults.data.rows[0]) || null;
-              if (geographyColumn) {
-                const geoSet = new Set();
-                tableResults.data.rows.forEach((row) => {
-                  if (row[geographyColumn]) {
-                    geoSet.add(row[geographyColumn]);
-                  }
-                });
-                availableGeographies = Array.from(geoSet).sort((a, b) => String(a).localeCompare(String(b)));
-              }
-            }
-
-            this.setState({
-              rows: tableResults.data.rows,
-              universe: universeData ? universeData.details : "",
-              description: descriptionData ? descriptionData.details : "",
-              columnKeys: columnKeys,
-              selectedColumns: columnKeys.map((col) => col.name), // Initialize with all columns
-              metadata,
-              table: dataset.table_name,
-              schema: dataset.schemaname,
-              database: dataset.db_name,
-              title: dataset.menu3,
-              source: dataset.source,
-              queryYearColumn: dataset.yearcolumn,
-              updatedAt: dataset.updated,
-              geographyColumn,
-              availableGeographies,
-              selectedGeographies: availableGeographies, // default: show all
-              loading: false,
-            });
-          })
-          .catch((error) => {
-            this.setState({ loading: false, error: "Please try again later" });
-            console.error("Error:", error);
-          });
-      }
-    } else {
-      axios
-        .all([tableQuery, headerQuery])
-        .then(async (response) => {
-          const tableResults = response[0];
-          const metadata = Object.values(response[1].data)[0];
-
-          try {
-            const columns = Object.keys(tableResults.data.rows[0] || {});
-            const sortedMetadata = metadata.documentation.metadata.eainfo.detailed.attr
-              .map((attribute) => ({
-                name: attribute.attrlabl,
-                alias: attribute.attalias,
-              }))
-              .filter((header) => columns.includes(header.name))
-              .filter((header) => header.name !== "shape");
-
-            this.setState({
-              rows: tableResults.data.rows,
-              columnKeys: sortedMetadata,
-              selectedColumns: sortedMetadata.map((col) => col.name), // Initialize with all columns
-              metadata,
-              description: metadata.documentation.metadata.dataIdInfo.idPurp || "",
-              schema: dataset.schemaname,
-              source: dataset.source,
-              database: dataset.db_name,
-              table: dataset.table_name,
-              title: dataset.menu3,
-              loading: false,
-            });
-          } catch (error) {
-            this.setState({
-              loading: false,
-              error: "Error parsing metadata",
-            });
-            console.error("Error parsing metadata:", error);
-          }
-        })
-        .catch((error) => {
-          this.setState({ loading: false, error: "Error fetching datasets" });
-          console.error("Error:", error);
-        });
+    const queries = [tableQuery, metadataQuery];
+    if (dataset.yearcolumn) {
+      const yearQuery = axios.get(
+        `/api/?token=${import.meta.env.VITE_MAPC_API_TOKEN}&distinctColumn=${dataset.yearcolumn}&database=${dataset.db_name}&schema=${dataset.schemaname}&table=${dataset.table_name}&limit=50`,
+      );
+      queries.push(yearQuery);
     }
+
+    // fetch and process the data.
+    axios
+      .all(queries)
+      .then((response) => {
+        const tableResults = response[0].data.rows;
+        const metadata = Object.values(response[1].data)[0];
+        const yearResults = queries.length === 3 ? response[2].data.rows : [];
+
+        // Validate metadata structure
+        const universeData = metadata.find((row) => row.name === "universe");
+        const descriptionData = metadata.find((row) => row.name === "descriptn");
+        const columnKeys = metadata
+          .filter((object) => tableResults[0] && Object.keys(tableResults[0]).includes(object.name))
+          .filter((header) => header.name !== "seq_id") // never show seq_id even if it's in metadata
+          .filter((header) => header.name !== "shape"); // never show shape even if it's in metadata
+
+        // Process the distinct year data
+        const distinctYears = yearResults.map((year) => Object.values(year)[0]).sort().reverse();
+
+        const visibleColumnKeys = this.getVisibleColumnKeys(columnKeys);
+        const marginColumnsByBase = this.getMarginColumnsByBase(columnKeys);
+        const selectedBaseColumns = visibleColumnKeys.map((col) => col.name);
+        let selectedColumns = this.expandSelectedWithMargins(selectedBaseColumns, marginColumnsByBase);
+        let selectedYears = distinctYears.length ? [distinctYears[0]] : [];
+
+        const parsedShare = parseDatasetViewShareSearch(this.props.location?.search ?? "");
+        if (parsedShare.baseColumnNames?.length) {
+          const visibleSet = new Set(visibleColumnKeys.map((c) => c.name));
+          const validBases = parsedShare.baseColumnNames.filter((n) => visibleSet.has(n));
+          if (validBases.length) {
+            selectedColumns = this.expandSelectedWithMargins(validBases, marginColumnsByBase);
+          }
+        }
+
+        const yearOverride = resolveYearsFromUrl(parsedShare, distinctYears);
+        if (yearOverride) selectedYears = yearOverride;
+
+        // Initialize geography filter for municipal (_m) tables in the tabular schema
+        let selectedGeographies;
+        let availableGeographies;
+        let geographyColumn;
+        if (dataset.schemaname === "tabular") {
+          geographyColumn = null;
+          availableGeographies = [];
+          if (dataset.table_name && dataset.table_name.endsWith("_m")) { // TODO: switch to using the geography column from data browser
+            const candidateColumns = ["muni_name", "municipal", "muni"];
+            geographyColumn = candidateColumns.find((col) => tableResults[0] && col in tableResults[0]) || null;
+            if (geographyColumn) {
+              const geoSet = new Set();
+              tableResults.forEach((row) => {
+                if (row[geographyColumn]) {
+                  geoSet.add(row[geographyColumn]);
+                }
+              });
+              availableGeographies = Array.from(geoSet).sort((a, b) => String(a).localeCompare(String(b)));
+            }
+          }
+
+          selectedGeographies = availableGeographies;
+          const geoOverride = resolveGeographiesFromUrl(parsedShare, availableGeographies);
+          if (geoOverride) selectedGeographies = geoOverride;
+        }
+
+        const previewColumnOrder = syncPreviewColumnOrder([], selectedColumns, columnKeys);
+
+        this.setState({
+          availableYears: distinctYears,
+          rows: tableResults,
+          universe: universeData ? universeData.details : "",
+          description: descriptionData ? descriptionData.details : "",
+          columnKeys: columnKeys,
+          selectedColumns,
+          marginColumnsByBase,
+          metadata,
+          selectedYears,
+          table: dataset.table_name,
+          schema: dataset.schemaname,
+          database: dataset.db_name,
+          title: dataset.menu3,
+          source: dataset.source,
+          queryYearColumn: dataset.yearcolumn,
+          updatedAt: dataset.updated,
+          geographyColumn,
+          availableGeographies,
+          selectedGeographies,
+          linkInventoryRows: isDatasetInventoryCatalog(dataset),
+          previewColumnOrder,
+          previewRowOrder: [],
+          loading: false,
+        });
+
+      }).catch((error) => {
+        this.setState({ loading: false, error: "Please try again later" });
+        console.error("Error:", error);
+      });
   }
 
   componentWillUnmount() {
@@ -264,43 +355,51 @@ class DataViewerClass extends React.Component {
         const newArray = front.concat(back);
         return { selectedYears: newArray };
       }
-      prevState.selectedYears.push(year);
-      return { selectedYears: prevState.selectedYears };
+      return { selectedYears: [...prevState.selectedYears, year] };
     });
   }
 
   updateSelectedColumns(columnName) {
     this.setState((prevState) => {
+      const marginColumnsByBase = prevState.marginColumnsByBase || {};
+      let selectedColumns;
       if (prevState.selectedColumns.includes(columnName)) {
-        // Don't allow deselecting all columns - at least one must be selected
-        if (prevState.selectedColumns.length === 1) {
-          return prevState;
-        }
-        const index = prevState.selectedColumns.indexOf(columnName);
-        const front = prevState.selectedColumns.slice(0, index);
-        const back = prevState.selectedColumns.slice(index + 1);
-        const newArray = front.concat(back);
-        return { selectedColumns: newArray };
+        const toRemove = this.getColumnsToRemoveWhenDeselecting(columnName, marginColumnsByBase);
+        selectedColumns = prevState.selectedColumns.filter((col) => !toRemove.has(col));
+      } else {
+        const marginColumns = marginColumnsByBase[columnName] || [];
+        selectedColumns = [...prevState.selectedColumns, columnName];
+        marginColumns.forEach((col) => {
+          if (!selectedColumns.includes(col)) selectedColumns.push(col);
+        });
       }
-      prevState.selectedColumns.push(columnName);
-      return { selectedColumns: prevState.selectedColumns };
+      const previewColumnOrder = syncPreviewColumnOrder(
+        prevState.previewColumnOrder,
+        selectedColumns,
+        prevState.columnKeys,
+      );
+      return { selectedColumns, previewColumnOrder };
     });
   }
 
-  updatePage(e, action, numOfPages = 1) {
-    this.setState((prevState) => {
-      let updatedPage;
-      if (action === "Forward") {
-        updatedPage = prevState.currentPage + 1;
-      } else if (action === "Backward") {
-        updatedPage = prevState.currentPage - 1;
-      } else if (action === "Beginning") {
-        updatedPage = 1;
-      } else if (action === "End") {
-        updatedPage = numOfPages;
-      }
-      return { currentPage: updatedPage };
-    });
+  onPreviewColumnOrderChange(previewColumnOrder) {
+    this.setState({ previewColumnOrder });
+  }
+
+  onPreviewRowOrderChange(previewRowOrder) {
+    this.setState({ previewRowOrder });
+  }
+
+  onResetPreviewLayout() {
+    this.setState((prevState) => ({
+      previewColumnOrder: syncPreviewColumnOrder([], prevState.selectedColumns, prevState.columnKeys),
+      previewRowOrder: [],
+      currentPage: 1,
+    }));
+  }
+
+  updatePage(newPage) {
+    this.setState({ currentPage: newPage });
   }
 
   updateRowsPerPage(rowsPerPage) {
@@ -350,6 +449,7 @@ class DataViewerClass extends React.Component {
           <DatasetHeader
             availableYears={this.state.availableYears}
             columnKeys={this.state.columnKeys}
+            datasetId={this.props.params.id}
             database={this.state.database}
             description={this.state.description}
             metadata={this.state.metadata}
@@ -361,6 +461,8 @@ class DataViewerClass extends React.Component {
             selectedGeographies={this.state.selectedGeographies}
             updateSelectedGeographies={this.updateSelectedGeographies}
             geographyColumn={this.state.geographyColumn}
+            rowsPerPage={this.state.rowsPerPage}
+            updateRowsPerPage={this.updateRowsPerPage}
             source={this.state.source}
             table={this.state.table}
             title={this.state.title}
@@ -379,9 +481,12 @@ class DataViewerClass extends React.Component {
             selectedYears={this.state.selectedYears}
             selectedGeographies={this.state.selectedGeographies}
             geographyColumn={this.state.geographyColumn}
+            linkRowsToDatasetView={this.state.linkInventoryRows}
             updatePage={this.updatePage}
-            updateRowsPerPage={this.updateRowsPerPage}
-            metadata={this.state.metadata}
+            updateSelectedColumns={this.updateSelectedColumns}
+            previewColumnOrder={this.state.previewColumnOrder}
+            previewRowOrder={this.state.previewRowOrder}
+            onResetPreviewLayout={this.onResetPreviewLayout}
           />
         </section>
       );
@@ -393,10 +498,18 @@ class DataViewerClass extends React.Component {
 
 const DataViewerPage = () => {
   const params = useParams();
+  const location = useLocation();
   const dispatch = useDispatch();
   const datasets = useSelector((state) => state.dataset.cache);
 
-  return <DataViewerClass params={params} datasets={datasets} fetchDatasets={() => dispatch(fetchDatasets())} />;
+  return (
+    <DataViewerClass
+      params={params}
+      location={location}
+      datasets={datasets}
+      fetchDatasets={() => dispatch(fetchDatasets())}
+    />
+  );
 };
 
 export default DataViewerPage;

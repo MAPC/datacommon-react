@@ -78,14 +78,24 @@ const makeSelectAllChartsData = (allTables, muni, datatype) => {
   );
 };
 
+const getAllChartConfigs = () => {
+  return Object.values(charts).flatMap((category) => {
+    if (!category || typeof category !== "object") return [];
+    // Standard tabs: { chartKey: chartConfig, ... }
+    // Some tabs may be a direct chart object with `tables`.
+    if (category.tables && typeof category.tables === "object") {
+      return [category];
+    }
+    return Object.values(category).filter((chartInfo) => chartInfo && chartInfo.tables && typeof chartInfo.tables === "object");
+  });
+};
+
 // Get all table names from charts
 const allTables = (() => {
   const tables = new Set();
-  Object.values(charts).forEach((category) => {
-    Object.values(category).forEach((chartInfo) => {
-      Object.keys(chartInfo.tables).forEach((table) => {
-        tables.add(table);
-      });
+  getAllChartConfigs().forEach((chartInfo) => {
+    Object.keys(chartInfo.tables).forEach((table) => {
+      tables.add(table);
     });
   });
   return Array.from(tables);
@@ -106,40 +116,38 @@ export default function DownloadAllChartsButton({ muni, datatype, displayName })
     let totalToFetch = 0;
     let fetched = 0;
 
-    Object.values(charts).forEach((category) => {
-      Object.values(category).forEach((chartInfo) => {
-        const needsFetch = Object.keys(chartInfo.tables).some(
-          (tableName) => !allData[tableName] || allData[tableName].length === 0
-        );
+    getAllChartConfigs().forEach((chartInfo) => {
+      const needsFetch = Object.keys(chartInfo.tables).some(
+        (tableName) => !allData[tableName] || allData[tableName].length === 0
+      );
 
-        if (needsFetch) {
-          totalToFetch++;
-          let fetchPromise;
-          switch (datatype) {
-            case 'subregion':
-              fetchPromise = dispatch(
-                fetchSubregionChartData({ subregionId: muni, chartInfo })
-              );
-              break;
-            case 'rpa':
-              fetchPromise = dispatch(
-                fetchRPAregionChartData({ rpa_id: muni, chartInfo })
-              );
-              break;
-            default:
-              fetchPromise = dispatch(
-                fetchChartData({ chartInfo, municipality: muni })
-              );
-          }
-
-          fetchPromises.push(
-            fetchPromise.then(() => {
-              fetched++;
-              setLoadingStatus(`Fetching data (${fetched}/${totalToFetch})`);
-            })
-          );
+      if (needsFetch) {
+        totalToFetch++;
+        let fetchPromise;
+        switch (datatype) {
+          case 'subregion':
+            fetchPromise = dispatch(
+              fetchSubregionChartData({ subregionId: muni, chartInfo })
+            );
+            break;
+          case 'rpa':
+            fetchPromise = dispatch(
+              fetchRPAregionChartData({ rpa_id: muni, chartInfo })
+            );
+            break;
+          default:
+            fetchPromise = dispatch(
+              fetchChartData({ chartInfo, municipality: muni })
+            );
         }
-      });
+
+        fetchPromises.push(
+          fetchPromise.then(() => {
+            fetched++;
+            setLoadingStatus(`Fetching data (${fetched}/${totalToFetch})`);
+          })
+        );
+      }
     });
 
     if (fetchPromises.length > 0) {
@@ -154,11 +162,11 @@ export default function DownloadAllChartsButton({ muni, datatype, displayName })
     try {
       setIsLoading(true);
       await fetchMissingData();
-      
+
       setLoadingStatus("Preparing Excel file...");
       const state = store.getState();
       const excelData = {};
-    
+
       Object.values(charts).forEach((category) => {
         Object.values(category).forEach((chartInfo) => {
           Object.keys(chartInfo.tables).forEach((tableName) => {
@@ -182,9 +190,9 @@ export default function DownloadAllChartsButton({ muni, datatype, displayName })
       if (datatype === "municipality") {
         try {
           const muniName = displayName || muni;
-          const apiBase = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&query=`;
+          const apiBase = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=internet_speed_test_m`;
           const escapedName = muniName.replace(/'/g, "''");
-          const query = `${apiBase}SELECT * FROM tabular.internet_speed_test_m WHERE muni_name ilike '${escapedName}'`;
+          const query = `${apiBase}&columns=muni_name,year,med_down,med_up,d_100p,u_20p&filters=muni_name:${escapedName}`;
           const response = await fetch(query);
           if (response.ok) {
             const payload = (await response.json()) || {};
@@ -212,7 +220,14 @@ export default function DownloadAllChartsButton({ muni, datatype, displayName })
     // Create a mapping of table names to their category and chart key
     const tableMapping = {};
     Object.entries(charts).forEach(([category, categoryCharts]) => {
-      Object.entries(categoryCharts).forEach(([chartKey, chart]) => {
+      if (categoryCharts?.tables && typeof categoryCharts.tables === "object") {
+        Object.keys(categoryCharts.tables).forEach((tableName) => {
+          tableMapping[tableName] = `${category}`;
+        });
+        return;
+      }
+      Object.entries(categoryCharts || {}).forEach(([chartKey, chart]) => {
+        if (!chart?.tables) return;
         Object.keys(chart.tables).forEach((tableName) => {
           tableMapping[tableName] = `${category}_${chartKey}`;
         });

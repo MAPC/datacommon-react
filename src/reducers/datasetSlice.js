@@ -11,7 +11,7 @@ const initialState = {
 
 export const fetchDatasets = createAsyncThunk("dataset/fetchDatasets", async () => {
   const response = await fetch(
-    `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_data_browser&active=true`,
+    `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_data_browser&filters=active:Y`,
   );
   
   if (!response.ok) {

@@ -334,14 +334,14 @@ const RPAregionProfilesView = () => {
                 <h3>Governance</h3>
               </header>
               <div className="tab__row">
-                <ChartDetails 
-                  chart={charts.governance.tax_levy} 
+                <ChartDetails
+                  chart={charts.governance.tax_levy}
                   muni={rpaId}
                   onViewData={handleShowModal}
                   isRPAregion={true}
                 >
-                  <PieChart 
-                    chart={charts.governance.tax_levy} 
+                  <PieChart
+                    chart={charts.governance.tax_levy}
                     muni={rpaId}
                     isRPAregion={true}
                   />

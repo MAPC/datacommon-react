@@ -41,6 +41,41 @@
     gap: 30px;
   }
 
+  .about-overview__left {
+    max-height: 80vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 0.5rem;
+    scroll-behavior: smooth;
+
+    &::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: #f5f5f5;
+      border-radius: 4px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: #d3d3d3;
+      border-radius: 4px;
+
+      &:hover {
+        background: #c0c0c0;
+      }
+    }
+
+    scrollbar-width: thin;
+    scrollbar-color: #d3d3d3 #f5f5f5;
+
+    @include media(medium) {
+      max-height: none;
+      overflow-y: visible;
+      padding-right: 0;
+    }
+  }
+
   .about-overview__section {
     font-family: $font_family-primary;
 

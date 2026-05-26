@@ -1,10 +1,11 @@
-import React, { useEffect, useState, useMemo, useRef } from "react";
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useLocation, useNavigate } from "react-router-dom";
+import styled from 'styled-components';
 import { fetchDatasets } from '../reducers/datasetSlice';
 import MetadataModal from "../components/partials/MetadataModal";
-import { formatUpdated, parseUpdatedForSort } from '../utils/formatUpdated';
-import styled from 'styled-components';
+import { formatUpdated } from '../utils/formatUpdated';
+import { filterDatasets, highlightDatasets, sortDatasets } from "../utils/manageDatasets";
 
 const PageContainer = styled.section`
   &.route.categories {
@@ -31,6 +32,11 @@ const Sidebar = styled.div`
   top: 2rem;
 `;
 
+const SidebarTitleContainer = styled.div`
+  display: flex;
+  justify-content: space-between;
+`;
+
 const SidebarTitle = styled.h3`
   margin: 0 0 1.5rem 0;
   font-size: 1.25rem;
@@ -38,8 +44,26 @@ const SidebarTitle = styled.h3`
   color: #333;
 `;
 
+const ClearAllFiltersButton = styled.button`
+  height: 2rem;
+  display: inline;
+  text-align: center;
+  background: linear-gradient(90deg, #64c08d, #5aba8c);
+  color: white;
+  border: none;
+  padding: 0.2rem 0.5rem;
+  border-radius: 5px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+
+  &:hover {
+    background: linear-gradient(90deg, #51a477, #47a778);
+  }
+`;
+
 const FilterSection = styled.div`
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
 `;
 
 const FilterHeader = styled.div`
@@ -59,14 +83,14 @@ const FilterTitle = styled.h4`
 const ClearButton = styled.button`
   background: none;
   border: none;
-  color: #6fc68e;
+  color: #4ea56c;
   font-size: 0.875rem;
   cursor: pointer;
   padding: 0;
   text-decoration: underline;
   
   &:hover {
-    color: #5db37a;
+    color: #367a4e;
   }
 `;
 
@@ -77,21 +101,49 @@ const FilterList = styled.ul`
   max-height: 200px;
   overflow-y: auto;
   overflow-x: hidden;
-  
+
   /* Custom scrollbar styling */
   &::-webkit-scrollbar {
     width: 6px;
   }
-  
+
   &::-webkit-scrollbar-track {
     background: #f1f1f1;
     border-radius: 3px;
   }
-  
+
   &::-webkit-scrollbar-thumb {
     background: #c1c1c1;
     border-radius: 3px;
-    
+
+    &:hover {
+      background: #a8a8a8;
+    }
+  }
+`;
+
+const FilterListCategories = styled.ul`
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 400px;
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  /* Custom scrollbar styling */
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+
     &:hover {
       background: #a8a8a8;
     }
@@ -217,7 +269,7 @@ const DatasetGrid = styled.div`
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
-  max-height: 31.5em;
+  max-height: 40em;
   overflow-y: auto;
   overflow-x: hidden;
   
@@ -241,6 +293,38 @@ const DatasetGrid = styled.div`
   }
 `;
 
+const DatasetContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+`;
+
+const DatasetTabs = styled.div`
+  display: flex;
+  flex-direction: row;
+`;
+const GeographyTab = styled.div`
+  position: relative;
+  top: 5px;
+  cursor: pointer;
+  padding: 6px 12px 10px 12px;
+  background: #f9f9f9;
+  border: 1px solid #e0e0e0;
+  border-bottom: none;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+
+  &:hover {
+    background: #f1f1f1;
+    border: 1px solid #dadada;
+    border-bottom: none;
+  }
+
+  &.selected {
+    z-index: 99;
+    background: #ffffff;
+  }
+`;
+
 const DatasetBox = styled.div`
   background: white;
   border: 1px solid #e0e0e0;
@@ -253,6 +337,12 @@ const DatasetBox = styled.div`
   &:hover {
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   }
+`;
+
+const DatasetHeaderContainer = styled.div`
+  display: flex;
+  align-items: space-between;
+  justify-content: space-between;
 `;
 
 const DatasetHeader = styled.h3`
@@ -291,45 +381,27 @@ const InfoValue = styled.span`
   color: #555;
 `;
 
-const DescriptionRow = styled.div`
-  margin-top: 0.5rem;
-  font-size: 0.9375rem;
-  line-height: 1.5;
-  color: #555;
-`;
-
-const DescriptionLabel = styled.span`
-  font-weight: 600;
-  color: #333;
-  display: block;
-  margin-bottom: 0.25rem;
-`;
-
-const DescriptionText = styled.span`
-  color: #555;
-  display: block;
-`;
-
 const DatasetActions = styled.div`
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+  justify-content: end;
   gap: 1rem;
   min-width: 200px;
 `;
 
 const ViewMetadataButton = styled.button`
+  width: 10rem;
+  display: inline;
+  text-align: center;
   background: linear-gradient(90deg, #64c08d, #5aba8c);
   color: white;
   border: none;
-  padding: 0.625rem 1.25rem;
+  padding: 0.5rem 1rem;
   border-radius: 5px;
   font-size: 0.9375rem;
   font-weight: 500;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
   transition: opacity 0.2s ease;
   
   &:hover {
@@ -379,12 +451,47 @@ const DatasetCount = styled.div`
   }
 `;
 
-const SearchInputContainer = styled.div`
+const SearchAndGeoFilterContainer = styled.div`
   display: flex;
-  align-items: space-between;
-  gap: 2rem;
+  flex-direction: column;
+  gap: 1rem;
   margin-bottom: 1.5rem;
   position: relative;
+`;
+
+const GeographyBarContainer = styled.div`
+  display: flex;
+  justify-content: space-between;
+`;
+
+const GeographyFilterContainer = styled.div`
+  display: flex;
+  gap: 0.5rem;
+`;
+
+const GeographyFilterPill = styled.div`
+  display: flex;
+  gap: 10px;
+  color: #867676;
+  border: 1px solid #867676;
+  border-radius: 12px;
+  padding: 4px 8px 6px;
+  line-height: 14px;
+  cursor: pointer;
+
+  &:hover {
+    color: #463e3e;
+    border: 1px solid #463e3e;
+  }
+
+  &.selected {
+    color: #4ea56c;
+    border: 1px solid #4ea56c;
+    &:hover {
+      color: #367a4e;
+      border: 1px solid #367a4e;
+    }
+  }
 `;
 
 const SearchInput = styled.input`
@@ -432,6 +539,13 @@ const BrowserPage = () => {
     return subcategoriesParam ? subcategoriesParam.split(",").filter(Boolean) : [];
   });
 
+  const [selectedGeoFilters, setSelectedGeoFilters] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const geoFilterParams = params.get("geos");
+    return geoFilterParams ? geoFilterParams.split(",").filter(Boolean) : ['all'];
+  });
+
+  const [selectedGeographyTabs, setSelectedGeographyTabs] = useState({});
   const [categoryOptionTree, setCategoryOptionTree] = useState({});
   const [sortBy, setSortBy] = useState('Relevance');
   const [selectedDataset, setSelectedDataset] = useState(null);
@@ -496,107 +610,89 @@ const BrowserPage = () => {
     return Object.keys(categoryOptionTree).sort();
   }, [categoryOptionTree]);
 
+  // filter datasets and set highlights whenever the filter criteria change
   useEffect(() => {
-    let filtered = datasets || [];
-
     // reset the scroll height whenever the user changes the search or filter
     if (datasetGridRef.current) {
       datasetGridRef.current.scrollTop = 0;
     }
 
-    if (selectedSources.length > 0) {
-      filtered = filtered.filter(d => {
-        // check if any source in the dataset is a selected source
-        // datasets with multiple sources are separated with '; '
-        return d.source && d.source.split('; ').some(source => selectedSources.includes(source));
-      });
-    }
+    // filter based on category, subcategory, sources, and search terms. Also remove duplicates by table_name
+    const filtered = filterDatasets({
+      datasets,
+      searchQuery,
+      sources: selectedSources,
+      categories: selectedMenu1s,
+      subcategories: selectedMenu2s,
+      geographies: selectedGeoFilters,
+    });
 
-    if (selectedMenu1s.length > 0) {
-      filtered = filtered.filter(d => selectedMenu1s.includes(d.menu1));
-    }
-
-    // Subcategory filter is disabled.
-
-    let highlights = {};
-
-    if (searchQuery.trim()) {
-      // break query into individual tokens, filter empty tokens, escape special characters
-      const query = searchQuery.trim();
-      const searchTokens = query.split(" ").filter(st => !!st).map(st => st.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-
-      filtered = filtered.filter((dataset) => {
-        const tableName = dataset.table_name || '';
-        const datasetName = dataset.menu3 || '';
-
-        const tableNameMatch = searchTokens.some(searchTerm => {
-          const searchRegex = new RegExp(searchTerm, 'i');
-          return searchRegex.test(tableName);
-        });
-
-        const datasetNameMatch = searchTokens.some(searchTerm => {
-          const searchRegex = new RegExp(searchTerm, 'i');
-          return searchRegex.test(datasetName);
-        });
-
-        // manage the highlights
-        if (tableNameMatch || datasetNameMatch) {
-          const datasetId = dataset.seq_id || dataset.id;
-          highlights[datasetId] = [];
-          
-           if (tableNameMatch) {
-            searchTokens.forEach(searchTerm => {
-              const highlightRegex = new RegExp(searchTerm, 'gi');
-              tableName.replace(highlightRegex, (matched, offset) => {
-                const alreadyMatched = highlights[datasetId].find(hl => hl.key == 'table_name' && hl.indices.find(i => i[0] == offset));
-                if (!alreadyMatched) {
-                  highlights[datasetId].push({
-                    key: 'table_name',
-                    indices: [[offset, offset + matched.length - 1]]
-                  });
-                }
-              });
-            });
-          }
-          
-          if (datasetNameMatch) {
-            searchTokens.forEach(searchTerm => {
-              const highlightRegex = new RegExp(searchTerm, 'gi');
-              datasetName.replace(highlightRegex, (matched, offset) => {
-                const alreadyMatched = highlights[datasetId].find(hl => hl.key == 'menu3' && hl.indices.find(i => i[0] == offset));
-                if (!alreadyMatched) {
-                  highlights[datasetId].push({
-                    key: 'menu3',
-                    indices: [[offset, offset + matched.length - 1]]
-                  });
-                }
-              });
-            });
-          }
-        }
-
-        // return for the filter function
-        return tableNameMatch || datasetNameMatch;
-      });
-    }
-
-    // remove the duplicate datasets using table_name to identify duplicates
-    // note: don't use the noDupesDatasets here b/c we do care about having multiple category values
-    //       we want the user to be able to find the same dataset under multiple different categories which is
-    //       why we keep the dupes in the first place
-    const dupesRemoved = [];
-    const seenDatasets = new Set();
+    // "Compress" the datasets into fewer cards, datasets with the same base table but different geographies
+    // should be displayed on the same card in the search results
+    const datasetBaseTableMap = {};
     filtered.forEach(dataset => {
-      if (!seenDatasets.has(dataset.table_name)) {
-        dupesRemoved.push(dataset);
-        seenDatasets.add(dataset.table_name);
+      const tableName = dataset.table_name;
+      let trimmedTable = tableName;
+      if (tableName.endsWith("_m")) {
+        trimmedTable = tableName.slice(0, -2);
+      } else if (tableName.endsWith("_ct")) {
+        trimmedTable = tableName.slice(0, -3);
+      } else if (tableName.endsWith("_bg")) {
+        trimmedTable = tableName.slice(0, -3);
+      } else if (tableName.endsWith("_b")) {
+        trimmedTable = tableName.slice(0, -2);
+      } else if (tableName.endsWith("_blk")) {
+        trimmedTable = tableName.slice(0, -4);
+      }
+
+      if (!datasetBaseTableMap[trimmedTable]) {
+        datasetBaseTableMap[trimmedTable] = {
+          datasets: [],
+          geoIdPairs: [],
+        };
+      }
+      const geographyToTextMap = {
+        municipal: "Municipalities",
+        census_tracts: "Census Tracts",
+        block_groups: "Block Groups",
+        blocks: "Blocks",
+      }
+      datasetBaseTableMap[trimmedTable].datasets.push(dataset);
+      datasetBaseTableMap[trimmedTable].geoIdPairs.push({
+        geography: geographyToTextMap[dataset.geography],
+        id: dataset.seq_id
+      });
+    });
+
+    const compressedDatasets = Object.entries(datasetBaseTableMap).map(([baseTable, cdsInfo]) => {
+      const geoOrder = ["Municipal", "Census Tracts", "Block Groups", "Blocks"];
+      const sortedGeoIdParis = cdsInfo.geoIdPairs.sort((pair1, pair2) => geoOrder.indexOf(pair1.geography) - geoOrder.indexOf(pair2.geography));
+      
+      // use the first dataset in sort order for the top-level menu3, table_name, and updated
+      let firstDataset;
+      if (cdsInfo.datasets.length === 1) {
+        firstDataset = cdsInfo.datasets[0]
+      } else {
+        const firstId = sortedGeoIdParis[0].id;
+        firstDataset = cdsInfo.datasets.find(d => d.seq_id === firstId);
+      }
+
+      return {
+        table_name: baseTable,         // this top-level baseTable is only used during sorting
+        menu3: firstDataset.menu3,     // this top-level menu3 is only used during sorting
+        updated: firstDataset.updated, // this top-level 'updated' is only used during sorting
+        seq_id: cdsInfo.datasets.map(ds => ds.seq_id || ds.id).join(','), // this combined id is the id of the compressed dataset
+        geoIdPairs: sortedGeoIdParis,
+        ...cdsInfo,
       }
     });
-    filtered = dupesRemoved;
+
+    // set the matched search terms to be highlighted (use filtered list not compressed datasets)
+    const highlights = highlightDatasets({ searchQuery, datasets: filtered });
 
     setHighlightMatches(highlights);
-    setDisplayDatasets(filtered);
-  }, [datasets, selectedSources, selectedMenu1s, selectedMenu2s, searchQuery]);
+    setDisplayDatasets(compressedDatasets);
+  }, [datasets, selectedSources, selectedMenu1s, selectedMenu2s, selectedGeoFilters, searchQuery]);
 
   // Keep URL query parameters in sync with search and filters so users can share links
   useEffect(() => {
@@ -605,10 +701,15 @@ const BrowserPage = () => {
     const currentQ = params.get("q") || "";
     const currentSources = (params.get("source") || "").split(",").filter(Boolean);
     const currentCategories = (params.get("category") || "").split(",").filter(Boolean);
+    const currentSubcategories = (params.get("subcategory") || "").split(",").filter(Boolean);
+    const currentGeoFilters = (params.get("geos") || "").split(",").filter(Boolean);
+
     const shouldUpdate =
       currentQ !== searchQuery ||
       !arraysEqual(currentSources, selectedSources) ||
-      !arraysEqual(currentCategories, selectedMenu1s);
+      !arraysEqual(currentCategories, selectedMenu1s) ||
+      !arraysEqual(currentSubcategories, selectedMenu2s) ||
+      !arraysEqual(currentGeoFilters, selectedGeoFilters);
 
     if (!shouldUpdate) {
       return;
@@ -632,9 +733,17 @@ const BrowserPage = () => {
       params.delete("category");
     }
 
-    // Subcategory filter is disabled.
-    params.delete("subcategory");
+    if (selectedMenu2s.length > 0) {
+      params.set("subcategory", selectedMenu2s.join(","));
+    } else {
+      params.delete("subcategory");
+    }
 
+    if (selectedGeoFilters.length > 0) {
+      params.set("geos", selectedGeoFilters.join(","));
+    } else {
+      params.delete("geos");
+    }
 
     const newSearch = params.toString();
     const newUrl = `${location.pathname}${newSearch ? `?${newSearch}` : ""}`;
@@ -643,88 +752,21 @@ const BrowserPage = () => {
     if (newUrl !== currentUrl) {
       navigate(newUrl, { replace: true });
     }
-  }, [searchQuery, selectedSources, selectedMenu1s, location.pathname, location.search, navigate]);
+  }, [searchQuery, selectedSources, selectedMenu1s, selectedMenu2s, selectedGeoFilters, location.pathname, location.search, navigate]);
 
   // Sort datasets
   const sortedDatasets = useMemo(() => {
-    const sorted = [...displayDatasets];
-
-    let sortType = sortBy;
-    // default from relevance to A -> Z if no search
-    const trimmedSearch = searchQuery.trim();
-    if (!trimmedSearch && sortType === "Relevance") {
-      sortType = "A to Z";
-    }
-    
-    switch (sortType) {
-      case 'Relevance':
-        const searchTokens = trimmedSearch.split(" ").filter(st => !!st).map(st => st.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-        // Count number to tablename and datasetname matches
-        // prioritize higher number of matches and earlier avg index of terms
-        return sorted.sort((a, b) => {
-          const datasetNameA = a.menu3 || '';
-          const tableNameA = a.table_name || '';
-          let nameMatchesA = 0;
-          let totalNameIdxA = 0;
-          let tableMatchesA = 0;
-
-          const datasetNameB = b.menu3 || '';
-          const tableNameB = b.table_name || '';
-          let nameMatchesB = 0;
-          let totalNameIdxB = 0;
-          let tableMatchesB = 0;
-          searchTokens.forEach(searchTerm => {
-            const searchRegex = new RegExp(searchTerm, 'i');
-            const nameMatchA = searchRegex.exec(datasetNameA);
-            if (nameMatchA) {
-              nameMatchesA++;
-              totalNameIdxA += nameMatchA.index;
-            }
-            const tableMatchA = searchRegex.exec(tableNameA);
-            if (tableMatchA) {
-              tableMatchesA++;
-            }
-            const nameMatchB = searchRegex.exec(datasetNameB);
-            if (nameMatchB) {
-              nameMatchesB++;
-              totalNameIdxB += nameMatchB.index;
-            }
-            const tableMatchB = searchRegex.exec(tableNameB);
-            if (tableMatchB) {
-              tableMatchesB++;
-            }
-          });
-          const avgNameIdxA = nameMatchesA ? (totalNameIdxA / nameMatchesA) : datasetNameA.length;
-          const avgNameIdxB = nameMatchesB ? (totalNameIdxB / nameMatchesB) : datasetNameB.length;
-
-          if (nameMatchesA != nameMatchesB) {
-            return nameMatchesB - nameMatchesA;
-          } else if (tableMatchesA != tableMatchesB) {
-            return tableMatchesB - tableMatchesA;
-          } else {
-            return avgNameIdxA - avgNameIdxB; // earlier avg index is better
-          }
-        });
-      case 'A to Z':
-        return sorted.sort((a, b) => (a.menu3 || '').localeCompare(b.menu3 || ''));
-      case 'Z to A':
-        return sorted.sort((a, b) => (b.menu3 || '').localeCompare(a.menu3 || ''));
-      case 'Newest First':
-        return sorted.sort((a, b) => {
-          const keyA = parseUpdatedForSort(a.updated);
-          const keyB = parseUpdatedForSort(b.updated);
-          return keyB.localeCompare(keyA);
-        });
-      case 'Oldest First':
-        return sorted.sort((a, b) => {
-          const keyA = parseUpdatedForSort(a.updated);
-          const keyB = parseUpdatedForSort(b.updated);
-          return keyA.localeCompare(keyB);
-        });
-      default:
-        return sorted;
-    }
+    return sortDatasets({searchQuery, datasets: displayDatasets, sortOrder: sortBy });
   }, [displayDatasets, sortBy, searchQuery]);
+
+  // Get the count of found datasets by looking into the nested datasets under the compressed datasets
+  const foundDatasetCount = useMemo(() => {
+    let count = 0;
+    displayDatasets.forEach(compressedDataset => {
+      count += compressedDataset.datasets.length;
+    });
+    return count;
+  }, [displayDatasets]);
 
   const renderHighlightedText = (text, datasetId, key) => {
     if (!text) {
@@ -843,6 +885,29 @@ const BrowserPage = () => {
     setSelectedMenu2s(newMenu2s);
   };
 
+  const onGeoFilterClick = (geoVal, selectedGeoFilters) => {
+    let newGeoFilters = [...selectedGeoFilters];
+    const allGeos = ['municipal', 'census_tracts', 'block_groups', 'blocks', 'other'];
+
+    // if all was selected, break up into individual
+    if (newGeoFilters.includes('all')) {
+      newGeoFilters = allGeos;
+    }
+
+    if (!newGeoFilters.includes(geoVal)) {
+      newGeoFilters = [...newGeoFilters, geoVal];
+    } else {
+      newGeoFilters = newGeoFilters.filter(gf => gf !== geoVal);
+    }
+
+    // if all are now selected, replace with all
+    if (allGeos.every(geo => newGeoFilters.includes(geo))) {
+      newGeoFilters = ['all'];
+    }
+
+    setSelectedGeoFilters(newGeoFilters);
+  };
+
   const onCategoryFilterOpenClose = (menu1) => {
     const newTree = {...categoryOptionTree};
     newTree[menu1].open = !categoryOptionTree[menu1].open;
@@ -853,8 +918,9 @@ const BrowserPage = () => {
     setSelectedSources([]);
   };
 
-  const clearMenu1Filter = () => {
+  const clearCategoryFilters = () => {
     setSelectedMenu1s([]);
+    setSelectedMenu2s([]);
   };
 
   const handleViewMetadata = (dataset) => {
@@ -867,13 +933,56 @@ const BrowserPage = () => {
     setSelectedDataset(null);
   };
 
-  const toDataset = (dataset) => {
-    // open in new tab to preserve user's search & filters from the datasets landing page
-    window.open(`/browser/datasets/${dataset.seq_id}`, '_blank', 'noreferrer');
+  const onGeoTabClicked = (compressedDatasetId, geography) => {
+    const newSelectedGeoTabs = {...selectedGeographyTabs};
+
+    newSelectedGeoTabs[compressedDatasetId] = geography;
+    setSelectedGeographyTabs(newSelectedGeoTabs);
   };
 
-  const handleDatasetClick = (dataset) => {
-    toDataset(dataset);
+  const isTabSelected = (selectedGeographyTabs, compressedDataset, geography) => {
+    const compressedId = compressedDataset.id || compressedDataset.seq_id;
+    if (!selectedGeographyTabs[compressedId]) {
+      return compressedDataset.geoIdPairs.filter(pair => !!pair.geography)[0].geography === geography;
+    } else {
+      return selectedGeographyTabs[compressedId] === geography;
+    }
+  };
+
+  const getSelectedDataset = (compressedDataset) => {
+    const compressedId = compressedDataset.id || compressedDataset.seq_id;
+    if (compressedDataset.datasets.length === 1) {
+      return compressedDataset.datasets[0];
+    }
+    
+    let selectedDatasetId;
+    if (!selectedGeographyTabs[compressedId]) {
+      selectedDatasetId = compressedDataset.geoIdPairs.filter(pair => !!pair.geography)[0].id;
+    } else {
+      const selectedGeography = selectedGeographyTabs[compressedId];
+      selectedDatasetId = compressedDataset.geoIdPairs.find(geoIdPair => geoIdPair.geography === selectedGeography).id;
+    }
+
+    return compressedDataset.datasets.find(d => d.seq_id === selectedDatasetId);
+  };
+
+  const areFiltersPresent = () => {
+    const categoryFiltersPresent = selectedMenu1s.length > 0 || selectedMenu2s.length > 0;
+    const geographyFiltersPresent = selectedGeoFilters.length > 0 && !selectedGeoFilters.includes('all');
+    return (searchQuery.trim() || selectedSources.length > 0 || categoryFiltersPresent || geographyFiltersPresent);
+  };
+
+  const clearAllFilters = () => {
+    setSelectedMenu1s([]);
+    setSelectedMenu2s([]);
+    setSelectedSources([]);
+    setSelectedGeoFilters(['all']);
+    setSearchQuery('');
+  };
+
+  const toDataset = (datasetId) => {
+    // open in new tab to preserve user's search & filters from the datasets landing page
+    window.open(`/browser/datasets/${datasetId}`, '_blank', 'noreferrer');
   };
 
   return (
@@ -890,40 +999,23 @@ const BrowserPage = () => {
       </PageHeader>
       <MainContent>
         <Sidebar>
-          <SidebarTitle>Filters</SidebarTitle>
-          
-          <FilterSection>
-            <FilterHeader>
-              <FilterTitle>Data Source</FilterTitle>
-              {selectedSources.length > 0 && (
-                <ClearButton onClick={clearSourceFilter}>Clear</ClearButton>
-              )}
-            </FilterHeader>
-            <FilterList>
-              {sources.map((source) => (
-                <FilterItem key={source}>
-                  <CheckboxInput
-                    type="checkbox"
-                    id={`source-${source}`}
-                    checked={selectedSources.includes(source)}
-                    onChange={() => handleSourceChange(source)}
-                  />
-                  <CheckboxLabel htmlFor={`source-${source}`}>
-                    {source}
-                  </CheckboxLabel>
-                </FilterItem>
-              ))}
-            </FilterList>
-          </FilterSection>
+          <SidebarTitleContainer>
+            <SidebarTitle>Filters</SidebarTitle>
+            {areFiltersPresent() && (
+              <ClearAllFiltersButton onClick={() => clearAllFilters()}>
+                Clear All Filters
+              </ClearAllFiltersButton>
+            )}
+          </SidebarTitleContainer>
 
           <FilterSection>
             <FilterHeader>
               <FilterTitle>Category</FilterTitle>
-              {selectedMenu1s.length > 0 && (
-                <ClearButton onClick={clearMenu1Filter}>Clear</ClearButton>
+              {(selectedMenu1s.length > 0 || selectedMenu2s.length > 0) && (
+                <ClearButton onClick={clearCategoryFilters}>Clear</ClearButton>
               )}
             </FilterHeader>
-            <FilterList>
+            <FilterListCategories>
               {menu1OptionList.map(menu1 => (
                 <div key={menu1}>
                   <FilterItem>
@@ -952,7 +1044,7 @@ const BrowserPage = () => {
                             menu1, menu2, categoryOptionTree[menu1].children, selectedMenu1s, selectedMenu2s
                           )}
                         />
-                        <CheckboxLabel htmlFor={`menu1-${menu2}`}>
+                        <CheckboxLabel htmlFor={`menu2-${menu2}`}>
                           {menu2}
                         </CheckboxLabel>
                       </FilterItem>
@@ -961,23 +1053,95 @@ const BrowserPage = () => {
                   */}
                 </div>
               ))}
+            </FilterListCategories>
+          </FilterSection>
+
+          <FilterSection>
+            <FilterHeader>
+              <FilterTitle>Data Source</FilterTitle>
+              {selectedSources.length > 0 && (
+                <ClearButton onClick={clearSourceFilter}>Clear</ClearButton>
+              )}
+            </FilterHeader>
+            <FilterList>
+              {sources.map((source) => (
+                <FilterItem key={source}>
+                  <CheckboxInput
+                    type="checkbox"
+                    id={`source-${source}`}
+                    checked={selectedSources.includes(source)}
+                    onChange={() => handleSourceChange(source)}
+                  />
+                  <CheckboxLabel htmlFor={`source-${source}`}>
+                    {source}
+                  </CheckboxLabel>
+                </FilterItem>
+              ))}
             </FilterList>
           </FilterSection>
+
         </Sidebar>
 
         <ContentArea>
-          <SearchInputContainer>
+          <SearchAndGeoFilterContainer>
             <SearchInput
-              type="text"
               placeholder="Search by table name or title..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
-          </SearchInputContainer>
+            <GeographyBarContainer>
+              <GeographyFilterContainer>
+                <GeographyFilterPill
+                  onClick={() => onGeoFilterClick('municipal', selectedGeoFilters)}
+                  className={(selectedGeoFilters.includes('municipal') || selectedGeoFilters.includes('all')) ? 'selected' : ''}
+                >
+                  Municipalities
+                  {(selectedGeoFilters.includes('municipal') || selectedGeoFilters.includes('all')) && <span>✓</span>}
+                </GeographyFilterPill>
+                <GeographyFilterPill
+                  onClick={() => onGeoFilterClick('census_tracts', selectedGeoFilters)}
+                  className={(selectedGeoFilters.includes('census_tracts') || selectedGeoFilters.includes('all')) ? 'selected' : ''}
+                >
+                  Census Tracts
+                  {(selectedGeoFilters.includes('census_tracts') || selectedGeoFilters.includes('all')) && <span>✓</span>}
+                </GeographyFilterPill>
+                <GeographyFilterPill
+                  onClick={() => onGeoFilterClick('block_groups', selectedGeoFilters)}
+                  className={(selectedGeoFilters.includes('block_groups') || selectedGeoFilters.includes('all')) ? 'selected' : ''}
+                >
+                  Block Groups
+                  {(selectedGeoFilters.includes('block_groups') || selectedGeoFilters.includes('all')) && <span>✓</span>}
+                </GeographyFilterPill>
+                <GeographyFilterPill
+                  onClick={() => onGeoFilterClick('blocks', selectedGeoFilters)}
+                  className={(selectedGeoFilters.includes('blocks') || selectedGeoFilters.includes('all')) ? 'selected' : ''}
+                >
+                  Blocks
+                  {(selectedGeoFilters.includes('blocks') || selectedGeoFilters.includes('all')) && <span>✓</span>}
+                </GeographyFilterPill>
+                <GeographyFilterPill
+                  onClick={() => onGeoFilterClick('other', selectedGeoFilters)}
+                  className={(selectedGeoFilters.includes('other') || selectedGeoFilters.includes('all')) ? 'selected' : ''}
+                >
+                  Other
+                  {(selectedGeoFilters.includes('other') || selectedGeoFilters.includes('all')) && <span>✓</span>}
+                </GeographyFilterPill>
+              </GeographyFilterContainer>
+              <GeographyFilterPill
+                onClick={() => selectedGeoFilters.length === 0 ? setSelectedGeoFilters(['all']) : setSelectedGeoFilters([])}
+                className={selectedGeoFilters.length === 0 ? 'selected' : ''}
+              >
+                <>
+                  {selectedGeoFilters.length === 0 ? "Select all geographies" : "Clear all geographies"}
+                </>
+                <span>{selectedGeoFilters.length !== 0 ? "X" : "✓"}</span>
+              </GeographyFilterPill>
+            </GeographyBarContainer>
+          </SearchAndGeoFilterContainer>
           
           <ContentHeader>
             <div>
-              <strong>{sortedDatasets.length}</strong> {sortedDatasets.length === 1 ? 'dataset' : 'datasets'} found
+              <strong>{foundDatasetCount}</strong> {foundDatasetCount === 1 ? 'dataset' : 'datasets'} found
             </div>
             <HeaderControls>
               <SortContainer>
@@ -994,7 +1158,7 @@ const BrowserPage = () => {
                   <option value="Oldest First">Oldest First</option>
                 </SortSelect>
               </SortContainer>
-              {(searchQuery.trim() || selectedSources.length > 0 || selectedMenu1s.length > 0) && (
+              {areFiltersPresent() && (
                 <ShareLinkContainer>
                   <ShareLinkButton type="button" onClick={handleCopyShareLink}>
                     Share Search Result
@@ -1006,53 +1170,61 @@ const BrowserPage = () => {
           </ContentHeader>
 
           <DatasetGrid ref={datasetGridRef}>
-            {sortedDatasets.map((dataset) => {
-              const datasetId = dataset.seq_id || dataset.id;
+            {sortedDatasets.map((compressedDataset) => {
+              const compressedDatasetId = compressedDataset.seq_id || compressedDataset.id;
+              const selectedDatasetFromTab = getSelectedDataset(compressedDataset);
               return (
-                <DatasetBox 
-                  key={datasetId}
-                  onClick={() => handleDatasetClick(dataset)}
-                >
-                  <DatasetHeader>
-                    {renderHighlightedText(dataset.menu3, datasetId, 'menu3')}
-                  </DatasetHeader>
-                  <DatasetBody>
-                    <DatasetInfo>
-                      <InfoRow>
-                        <InfoLabel>Table:</InfoLabel>
-                        <InfoValue>
-                          {renderHighlightedText(dataset.table_name, datasetId, 'table_name')}
-                        </InfoValue>
-                      </InfoRow>
-                      <InfoRow>
-                        <InfoLabel>Source:</InfoLabel>
-                        <InfoValue>{dataset.source}</InfoValue>
-                      </InfoRow>
-                      {dataset.descriptn && (
-                        <DescriptionRow>
-                          <DescriptionLabel>Description:</DescriptionLabel>
-                          <DescriptionText>
-                            {renderHighlightedText(dataset.descriptn, datasetId, 'descriptn')}
-                          </DescriptionText>
-                        </DescriptionRow>
-                      )}
-                    </DatasetInfo>
-                    <DatasetActions>
+                <DatasetContainer>
+                  <DatasetTabs>
+                    {compressedDataset.geoIdPairs.filter(pair => !!pair.geography).map(geoIdPair =>
+                      <GeographyTab
+                        key={`${compressedDataset.id}_${geoIdPair.geography}`}
+                        className={isTabSelected(selectedGeographyTabs, compressedDataset, geoIdPair.geography) ? "selected" : ""}
+                        onClick={() => onGeoTabClicked(compressedDatasetId, geoIdPair.geography)}
+                      >
+                        {geoIdPair.geography}
+                      </GeographyTab>
+                    )}
+                  </DatasetTabs>
+                  <DatasetBox
+                    key={selectedDatasetFromTab.seq_id}
+                    onClick={() => toDataset(selectedDatasetFromTab.seq_id)}
+                  >
+                    <DatasetHeaderContainer>
+                      <DatasetHeader>
+                        {renderHighlightedText(selectedDatasetFromTab.menu3, selectedDatasetFromTab.seq_id, 'menu3')}
+                      </DatasetHeader>
                       <ViewMetadataButton
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleViewMetadata(dataset);
+                          handleViewMetadata(selectedDatasetFromTab);
                         }}
                       >
                         View Metadata
                       </ViewMetadataButton>
-                      <LastUpdated>
-                        <LastUpdatedLabel>Last updated:</LastUpdatedLabel>
-                        {formatUpdated(dataset.updated)}
-                      </LastUpdated>
-                    </DatasetActions>
-                  </DatasetBody>
-                </DatasetBox>
+                    </DatasetHeaderContainer>
+                    <DatasetBody>
+                      <DatasetInfo>
+                        <InfoRow>
+                          <InfoLabel>Table:</InfoLabel>
+                          <InfoValue>
+                            {renderHighlightedText(selectedDatasetFromTab.table_name, selectedDatasetFromTab.seq_id, 'table_name')}
+                          </InfoValue>
+                        </InfoRow>
+                        <InfoRow>
+                          <InfoLabel>Source:</InfoLabel>
+                          <InfoValue>{selectedDatasetFromTab.source}</InfoValue>
+                        </InfoRow>
+                      </DatasetInfo>
+                      <DatasetActions>
+                        <LastUpdated>
+                          <LastUpdatedLabel>Last updated:</LastUpdatedLabel>
+                          {formatUpdated(selectedDatasetFromTab.updated)}
+                        </LastUpdated>
+                      </DatasetActions>
+                    </DatasetBody>
+                  </DatasetBox>
+                </DatasetContainer>
               );
             })}
           </DatasetGrid>

@@ -80,6 +80,7 @@ const Home = () => {
 
       <section className="page-section container">
         <div className="gallery-spotlight__info container">
+       
           <p>
             Find and explore data visualizations about the region. Check back
             monthly or sign up for our newsletter to receive maps and data

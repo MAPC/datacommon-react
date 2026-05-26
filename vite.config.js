@@ -20,7 +20,7 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      // Proxy requests starting with /api to your local server
+   // Proxy requests starting with /api to your local server
       '/api': {
         target: 'http://localhost:3000',
         changeOrigin: true,

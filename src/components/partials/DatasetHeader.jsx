@@ -1,151 +1,15 @@
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import PropTypes from "prop-types";
+import { useLocation } from "react-router-dom";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faEllipsisVertical, faShareNodes, faTable } from "@fortawesome/free-solid-svg-icons";
+import { faMessage } from "@fortawesome/free-regular-svg-icons";
+
 import { formatUpdated } from "../../utils/formatUpdated";
-
-const formats = {
-  csv: {
-    extension: ".csv",
-    isGeospatial: true,
-    isTabular: true,
-    zoningAtlas: "https://mapc365.sharepoint.com/:x:/s/DataServicesSP/Efonrnmw_kdMhmG3Dw2BkTcBIpe2sC_2ADWTWfUjOs4JhQ?e=K65BCE",
-    displayName: "CSV",
-  },
-  json: {
-    extension: ".json",
-    isGeospatial: false,
-    isTabular: true,
-    zoningAtlas: "",
-    displayName: "JSON",
-  },
-  shapefile: {
-    extension: ".shp",
-    isGeospatial: true,
-    isTabular: false,
-    zoningAtlas: "https://mapc365.sharepoint.com/:f:/s/DataServicesSP/ErKkXSLH_iBOlDhJrTXldrYBIIZ4ZXe4Bkw7OyVapVpX3Q?e=iRkWVB",
-    displayName: "ESRI Shapefile",
-  },
-  geojson: {
-    extension: ".geojson",
-    isGeospatial: true,
-    isTabular: false,
-    zoningAtlas: "",
-    displayName: "GeoJSON",
-  },
-};
-
-/**
- * Downloads metadata in CSV format
- * @param {Event} e - The event object
- * @param {string} database - The database name
- * @param {Object} metadata - The metadata object
- * @param {string} title - The title of the dataset
- * @param {string} table - The table name
- * @param {string} description - The description of the dataset
- */
-const downloadMetadata = (e, database, metadata, title, table = "", description = "") => {
-  // TODO: Make this a cached download from the server as well
-  e.preventDefault();
-  const documentHeader = ["name", "alias", "details"];
-  let rows;
-  if (database === "towndata" || database === "gisdata") {
-    const metadataName = metadata.documentation.metadata.eainfo.detailed.attr.map((attr) => (attr.attrlabl ? attr.attrlabl : "undefined"));
-    const metadataAlias = metadata.documentation.metadata.eainfo.detailed.attr.map((attr) => attr.attalias);
-    const metadataDescription = metadata.documentation.metadata.eainfo.detailed.attr.map((attr) => (attr.attrdef ? attr.attrdef : "undefined"));
-    rows = [
-      ["title", "Title", title],
-      ["tbl_table", "Table", table],
-      ["descriptn", "Description", description],
-    ].concat(metadataName.map((item, i) => [item, metadataAlias[i], metadataDescription[i]]));
-  } else {
-    const values = metadata.map((row) => documentHeader.map((key) => row[key]));
-    rows = values.map((row) => row.reduce((a, b) => `${a},${b}`));
-  }
-  const csvHeader = "data:text/csv;charset=utf-8,";
-  const documentRows = rows.reduce((a, b) => `${a}\n${b}`);
-
-  const documentStructure = [[documentHeader], documentRows].reduce((a, b) => a.concat(b));
-  const documentBody = documentStructure.reduce((a, b) => `${a}\n${b}`);
-
-  const csvFile = csvHeader + documentBody;
-  const encoded = encodeURI(csvFile);
-  const fileName = `${title}-metadata.csv`;
-
-  const link = document.createElement("a");
-  link.setAttribute("href", encoded);
-  link.setAttribute("download", fileName);
-
-  document.body.appendChild(link);
-  link.click();
-};
-
-const urlForDownload = (
-  schema, table, database, selectedYears, queryYearColumn, selectedColumns, columnKeys, selectedGeographies, availableGeographies, geographyColumn, filterExportData, format
-) => {
-  let url = "#";
-
-  // Handle zoning atlas special case
-  if (table === "zoning_atlas") {
-    return formats[format].zoningAtlas || "#";
-  }
-
-  // Build query and fetch data based on whether years are selected
-  url = `/api/export?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=${database}&schema=${schema}&table=${table}&format=${format}`;
-  // TODO: Should the filter export checkbox apply to years too?
-  if (selectedYears.length > 0 && queryYearColumn !== "") {
-    url = `${url}&years=${selectedYears.join(",")}`;
-  }
-
-  // Include all columns by default if the users hasn't de-selected any
-  // Respect the checkbox for if data should be filtered
-  if (selectedColumns.length && selectedColumns.length !== columnKeys.length && filterExportData) {
-    url = `${url}&columns=${selectedColumns.join(',')}`
-  }
-
-  // Include all geographies by default if the users hasn't de-selected any
-  // Respect the checkbox for if data should be filtered
-  if (selectedGeographies.length && selectedGeographies.length !== availableGeographies.length && geographyColumn && filterExportData) {
-    // Some geographies have the "&" character, need to be encoded
-    const mappedGeos = selectedGeographies.map(col => encodeURIComponent(col));
-    url = `${url}&geographies=${mappedGeos.join(',')}&geoColumn=${geographyColumn}`
-  }
-
-  return url;
-};
-
-const setDownloadButton = (
-  metadata, schema, table, title, description, selectedYears, queryYearColumn, selectedColumns, columnKeys, selectedGeographies, availableGeographies, geographyColumn, filterExportData, database
-) => {
-  const tableIsGeospatial = database === "towndata" || database === "gisdata";
-  return (
-    <div className="details-content-column download-links">
-      Download:
-      <div className="download-buttons">
-        <div className="button file-button" onClick={(e) => downloadMetadata(e, database, metadata, title, table, description)}>
-          .metadata
-        </div>
-        {Object.entries(formats)
-          .filter(([format, config]) => config.isGeospatial === tableIsGeospatial || (!tableIsGeospatial && config.isTabular)) // eslint-disable-line no-unused-vars
-          .map(([format, config]) => (
-            <a
-              key={format}
-              target="_blank"
-              rel="noopener noreferrer"
-              title={`Download data as ${config.displayName}`}
-              download
-              className="button file-button"
-              href={
-                urlForDownload(
-                  schema, table, database, selectedYears, queryYearColumn, selectedColumns, columnKeys, selectedGeographies, availableGeographies, geographyColumn, filterExportData, format
-                )
-              }
-            >
-              {config.extension}
-            </a>
-          ))}
-      </div>
-    </div>
-  );
-};
+import ExportDataModal from "./ExportDataModal";
+import EmbedTableModal from "./EmbedTableModal";
+import MetadataModal from "./MetadataModal";
+import { buildDatasetViewShareSearchParams, DATASET_VIEW_SHARE_MAX_URL_LENGTH } from "../../utils/datasetViewShareQuery";
 
 const setSelectYears = (availableYears, updateSelectedYears, selectedYears) => {
   if (availableYears.length > 0) {
@@ -222,33 +86,41 @@ const GeographyFilter = ({ availableGeographies = [], selectedGeographies = [], 
         <span className="dropdown-arrow">{isOpen ? "▲" : "▼"}</span>
       </button>
       {isOpen && (
-        <div className="column-dropdown-menu">
+        <div className="column-dropdown-menu column-dropdown-menu--geography">
           <div className="column-dropdown-header">
             <span>{displayText}</span>
-            <button
-              type="button"
-              className="select-all-button"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (selectedCount === totalCount) {
-                  // Deselect all
-                  availableGeographies.forEach((geo) => {
-                    if (selectedGeographies.includes(geo)) {
-                      updateSelectedGeographies(geo);
-                    }
-                  });
-                } else {
-                  // Select all
+            <div className="column-dropdown-bulk-actions" role="group" aria-label="Geography bulk selection">
+              <button
+                type="button"
+                className="select-all-button"
+                disabled={selectedCount === totalCount}
+                onClick={(e) => {
+                  e.stopPropagation();
                   availableGeographies.forEach((geo) => {
                     if (!selectedGeographies.includes(geo)) {
                       updateSelectedGeographies(geo);
                     }
                   });
-                }
-              }}
-            >
-              {selectedCount === totalCount ? "Deselect All" : "Select All"}
-            </button>
+                }}
+              >
+                Select All
+              </button>
+              <button
+                type="button"
+                className="select-all-button column-dropdown-clear-button"
+                disabled={selectedCount === 0}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  availableGeographies.forEach((geo) => {
+                    if (selectedGeographies.includes(geo)) {
+                      updateSelectedGeographies(geo);
+                    }
+                  });
+                }}
+              >
+                Clear All
+              </button>
+            </div>
           </div>
 
           {selectedCount > 0 && (
@@ -422,42 +294,181 @@ const GeographyFilter = ({ availableGeographies = [], selectedGeographies = [], 
   );
 };
 
+
+function columnDropdownVisibleLabel(column) {
+  return String(column?.alias ?? "").trim();
+}
+
+const CENSUS_ACS_MOE_WEBINAR_URL =
+  "https://www.census.gov/data/academy/webinars/2026/using-acs-estimates-margins-of-error.html";
+
 const ColumnSelectorDropdown = ({ columnKeys, updateSelectedColumns, selectedColumns }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [columnSearchQuery, setColumnSearchQuery] = useState("");
   const dropdownRef = useRef(null);
+
+  // Mirrors DataViewerPage.getMarginColumnsByBase so checkbox expansion and counts agree.
+  const getMarginColumnsByBase = (columnKeysArg = []) => {
+    const byName = new Set((columnKeysArg || []).map((c) => String(c?.name || "")));
+    const pairs = {};
+    const byAlias = {};
+    (columnKeysArg || []).forEach((col) => {
+      const alias = String(col?.alias || "").trim().toLowerCase();
+      if (alias) byAlias[alias] = String(col?.name || "");
+    });
+
+    const normalizeAliasMetric = (text) =>
+      String(text || "")
+        .toLowerCase()
+        .replace(/\s*;\s*(margin of error)\s*$/i, "")
+        .trim();
+
+   
+    const getBaseCandidates = (name) => {
+      const candidates = [];
+      const n = String(name || "");
+
+      if (n.endsWith("_mep")) {
+        candidates.push(n.slice(0, -4) + "_p");
+      } else if (/mep$/i.test(n)) {
+        candidates.push(n.slice(0, -3) + "_p");
+      }
+      if (n.endsWith("_mp")) {
+        candidates.push(n.slice(0, -3) + "_p");
+        candidates.push(n.slice(0, -3));
+      }
+      if (n.endsWith("_me")) {
+        candidates.push(n.slice(0, -3));
+      } else if (/[0-9][a-z0-9_]*me$/i.test(n)) {
+        candidates.push(n.slice(0, -2));
+      }
+      if (n.endsWith("_moe")) {
+        candidates.push(n.slice(0, -4));
+      }
+      if (
+        n.endsWith("_m") &&
+        !n.endsWith("_me") &&
+        !n.endsWith("_mp") &&
+        !n.endsWith("_moe") &&
+        !n.endsWith("_mep")
+      ) {
+        candidates.push(n.slice(0, -2));
+      }
+
+      return [...new Set(candidates.filter(Boolean))];
+    };
+
+    const isMarginColumnForPairing = (col) => {
+      const name = String(col?.name || "");
+      const alias = String(col?.alias || "").toLowerCase();
+      const details = String(col?.details || "").toLowerCase();
+      const hintFromMetadata = alias.includes("margin of error") || details.includes("margin of error");
+      const suffixHint =
+        /(?:_mp|_me|_moe|_mep|_m)$/i.test(name) ||
+        /[0-9][a-z0-9_]*me$/i.test(name) ||
+        /[a-z0-9_]mep$/i.test(name);
+      if (!hintFromMetadata && !suffixHint) return { isMargin: false, base: null };
+
+      if (alias.includes("margin of error")) {
+        const baseAlias = normalizeAliasMetric(alias).replace(/\s+/g, " ").trim();
+        if (byAlias[baseAlias]) {
+          return { isMargin: true, base: byAlias[baseAlias] };
+        }
+        const normalized = normalizeAliasMetric(alias);
+        const matchedBase = (columnKeysArg || []).find((candidate) => {
+          const a = String(candidate?.alias || "").toLowerCase();
+          const isBaseAlias = !/\bmargin of error\b/i.test(a) && !!a;
+          return isBaseAlias && normalizeAliasMetric(a) === normalized;
+        });
+        if (matchedBase?.name) {
+          return { isMargin: true, base: matchedBase.name };
+        }
+      }
+
+      const base = getBaseCandidates(name).find((candidate) => byName.has(candidate));
+      return { isMargin: true, base: base || null };
+    };
+
+    (columnKeysArg || []).forEach((col) => {
+      const name = String(col?.name || "");
+      const result = isMarginColumnForPairing(col);
+      if (!result?.isMargin || !result.base || !name) return;
+      if (!pairs[result.base]) pairs[result.base] = [];
+      pairs[result.base].push(name);
+    });
+
+    return pairs;
+  };
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+      const raw = event.target;
+      const target =
+        raw instanceof Element ? raw : raw && raw.parentElement instanceof Element ? raw.parentElement : null;
+      if (!target) return;
+      if (dropdownRef.current && !dropdownRef.current.contains(target)) {
         setIsOpen(false);
       }
     };
 
     if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener("mousedown", handleClickOutside);
     }
 
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setColumnSearchQuery("");
+    }
   }, [isOpen]);
 
   if (!columnKeys || columnKeys.length === 0) {
     return null;
   }
 
-  // Sort columns alphabetically by alias (or name if no alias)
-  const sortedColumnKeys = [...columnKeys].sort((a, b) => {
-    const aName = (a.alias || a.name).toLowerCase();
-    const bName = (b.alias || b.name).toLowerCase();
-    return aName.localeCompare(bName);
+  const marginColumnsByBase = getMarginColumnsByBase(columnKeys);
+  const isMarginColumn = (col) => {
+    const name = String(col?.name || "");
+    const alias = String(col?.alias || "").toLowerCase();
+    const details = String(col?.details || "").toLowerCase();
+    return (
+      alias.includes("margin of error") ||
+      details.includes("margin of error") ||
+      /(?:_mp|_me|_moe|_mep|_m)$/i.test(name) ||
+      /[0-9][a-z0-9_]*me$/i.test(name) ||
+      /[a-z0-9_]mep$/i.test(name)
+    );
+  };
+  const visibleColumnKeys = columnKeys.filter((col) => !isMarginColumn(col));
+
+  // Same order as metadata / columnKeys (non-MOE rows only)
+  const sortedColumnKeys = [...visibleColumnKeys];
+  const filteredColumnKeys = sortedColumnKeys.filter((column) => {
+    const query = columnSearchQuery.trim().toLowerCase();
+    if (!query) return true;
+    const aliasLabel = columnDropdownVisibleLabel(column).toLowerCase();
+    return aliasLabel.includes(query);
   });
 
-  const selectedCount = selectedColumns.length;
-  const totalCount = sortedColumnKeys.length;
-  const displayText = selectedCount === totalCount 
-    ? `All Columns (${totalCount})` 
-    : `${selectedCount} of ${totalCount} Columns Selected`;
+  const fullColumnCount = columnKeys.length;
+  const visibleSelectableCount = sortedColumnKeys.length;
+  const visibleSelectedCount = sortedColumnKeys.filter((col) => selectedColumns.includes(col.name)).length;
+  const tableColumnDisplayCount = sortedColumnKeys
+    .filter((col) => selectedColumns.includes(col.name))
+    .reduce((sum, col) => {
+      const margins = marginColumnsByBase[col.name] || [];
+      return sum + 1 + margins.length;
+    }, 0);
+  const allVisibleSelected =
+    visibleSelectableCount > 0 && visibleSelectedCount === visibleSelectableCount;
+  const fmt = (n) => Number(n).toLocaleString();
+  const displayText = allVisibleSelected
+    ? `All Columns (${fmt(fullColumnCount)})`
+    : `${fmt(tableColumnDisplayCount)} of ${fmt(fullColumnCount)} Columns Selected`;
 
   return (
     <div className="column-filter-dropdown" ref={dropdownRef}>
@@ -475,47 +486,89 @@ const ColumnSelectorDropdown = ({ columnKeys, updateSelectedColumns, selectedCol
         <div className="column-dropdown-menu">
           <div className="column-dropdown-header">
             <span>Select Columns:</span>
-            <button
-              type="button"
-              className="select-all-button"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (selectedCount === totalCount) {
-                  // Deselect all except first (keep at least one selected)
-                  const firstColumn = sortedColumnKeys[0].name;
-                  sortedColumnKeys.forEach((col) => {
-                    if (col.name !== firstColumn && selectedColumns.includes(col.name)) {
-                      updateSelectedColumns(col.name);
-                    }
-                  });
-                } else {
-                  // Select all columns that aren't currently selected
+            <div className="column-dropdown-bulk-actions" role="group" aria-label="Column bulk selection">
+              <button
+                type="button"
+                className="select-all-button"
+                disabled={visibleSelectedCount >= visibleSelectableCount || visibleSelectableCount === 0}
+                onClick={(e) => {
+                  e.stopPropagation();
                   sortedColumnKeys.forEach((col) => {
                     if (!selectedColumns.includes(col.name)) {
                       updateSelectedColumns(col.name);
                     }
                   });
-                }
+                }}
+              >
+                Select All
+              </button>
+              <button
+                type="button"
+                className="select-all-button column-dropdown-clear-button"
+                disabled={visibleSelectedCount === 0}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  sortedColumnKeys.forEach((col) => {
+                    if (selectedColumns.includes(col.name)) {
+                      updateSelectedColumns(col.name);
+                    }
+                  });
+                }}
+              >
+                Clear All
+              </button>
+            </div>
+          </div>
+          <div
+            className="column-dropdown-moe-help"
+            role="note"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <p>
+              Selecting an estimate column will also add the corresponding margin of error column to your table. For
+              more information on what a margin of error is and why it is important you can watch{" "}
+              <a href={CENSUS_ACS_MOE_WEBINAR_URL} target="_blank" rel="noopener noreferrer">
+                this webinar from the US Census Bureau
+              </a>
+              .
+            </p>
+          </div>
+          <div style={{ padding: "8px 0 10px 0" }}>
+            <input
+              type="text"
+              placeholder="Search columns..."
+              value={columnSearchQuery}
+              onChange={(e) => setColumnSearchQuery(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              style={{
+                width: "100%",
+                padding: "8px 10px",
+                border: "1px solid #ccc",
+                borderRadius: 4,
+                fontSize: "12px",
               }}
-            >
-              {selectedCount === totalCount ? 'Deselect All' : 'Select All'}
-            </button>
+            />
           </div>
           <div className="column-checkboxes">
-            {sortedColumnKeys.map((column) => (
-              <label key={column.name} className="column-checkbox-label">
-              <input
-                type="checkbox"
-                checked={selectedColumns.includes(column.name)}
-                onChange={(e) => {
-                  e.stopPropagation();
-                  updateSelectedColumns(column.name);
-                }}
-                className="column-checkbox"
-              />
-                <span>{column.alias || column.name}</span>
-              </label>
-            ))}
+            {filteredColumnKeys.length === 0 ? (
+              <div style={{ padding: "8px 0", fontSize: "12px", color: "#777" }}>No matches</div>
+            ) : (
+              filteredColumnKeys.map((column) => (
+                <label key={column.name} className="column-checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={selectedColumns.includes(column.name)}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      updateSelectedColumns(column.name);
+                    }}
+                    className="column-checkbox"
+                  />
+                  <span>{columnDropdownVisibleLabel(column)}</span>
+                </label>
+              ))
+            )}
           </div>
         </div>
       )}
@@ -554,6 +607,7 @@ function DatasetHeader({
   source = "",
   universe = "",
   description = "",
+  datasetId,
   availableYears = [],
   columnKeys = [],
   metadata = [],
@@ -569,18 +623,117 @@ function DatasetHeader({
   selectedGeographies = [],
   updateSelectedGeographies,
   geographyColumn,
+  rowsPerPage,
+  updateRowsPerPage,
 }) {
-  const [filterExportData, setFilterExportData] = useState(true);
+  const location = useLocation();
+  const isEmbedView = new URLSearchParams(location.search).get("embed") === "1";
+  const [downloadModalOpen, setDownloadModalOpen] = useState(false);
+  const [embedModalOpen, setEmbedModalOpen] = useState(false);
+  const [metadataModalOpen, setMetadataModalOpen] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const actionsDropdownRef = useRef(null);
 
-  const showFilterExportCheckbox = useMemo(() => {
-    return columnKeys.length !== selectedColumns.length || availableGeographies.length !== selectedGeographies.length;
-  }, [columnKeys, selectedColumns, selectedColumns.length, availableGeographies, selectedGeographies, selectedGeographies.length]);
+  const { sharePageUrl, embedPageUrl, shareUrlTooLong } = useMemo(() => {
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const basePath = `${origin}/browser/datasets/${datasetId}`;
+    const shareArgs = {
+      columnKeys,
+      selectedColumns,
+      availableGeographies,
+      selectedGeographies,
+      availableYears,
+      selectedYears,
+      queryYearColumn,
+    };
+    const shareParams = buildDatasetViewShareSearchParams({ embed: false, ...shareArgs });
+    const embedParams = buildDatasetViewShareSearchParams({ embed: true, ...shareArgs });
+    const qsShare = shareParams.toString();
+    const qsEmbed = embedParams.toString();
+    const sharePageUrl = qsShare ? `${basePath}?${qsShare}` : basePath;
+    const embedPageUrl = qsEmbed ? `${basePath}?${qsEmbed}` : `${basePath}?embed=1`;
+    const shareUrlTooLong =
+      sharePageUrl.length > DATASET_VIEW_SHARE_MAX_URL_LENGTH ||
+      embedPageUrl.length > DATASET_VIEW_SHARE_MAX_URL_LENGTH;
+    return { sharePageUrl, embedPageUrl, shareUrlTooLong };
+  }, [
+    datasetId,
+    columnKeys,
+    selectedColumns,
+    selectedGeographies,
+    availableGeographies,
+    selectedYears,
+    availableYears,
+    queryYearColumn,
+  ]);
+
+  const embedModalAdjustFilters = useMemo(
+    () => (
+      <>
+        {setSelectYears(availableYears, updateSelectedYears, selectedYears)}
+        <div style={{ marginTop: "12px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
+          <ColumnSelectorDropdown
+            columnKeys={columnKeys}
+            updateSelectedColumns={updateSelectedColumns}
+            selectedColumns={selectedColumns}
+          />
+          <GeographyFilter
+            availableGeographies={availableGeographies}
+            selectedGeographies={selectedGeographies}
+            updateSelectedGeographies={updateSelectedGeographies}
+          />
+        </div>
+      </>
+    ),
+    [
+      availableYears,
+      updateSelectedYears,
+      selectedYears,
+      columnKeys,
+      updateSelectedColumns,
+      selectedColumns,
+      availableGeographies,
+      selectedGeographies,
+      updateSelectedGeographies,
+    ],
+  );
+
+  useEffect(() => {
+    if (!actionsOpen) {
+      return undefined;
+    }
+
+    const handleClickOutside = (event) => {
+      if (actionsDropdownRef.current && !actionsDropdownRef.current.contains(event.target)) {
+        setActionsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [actionsOpen]);
 
   return (
-    <div className="page-header">
+    <div className={isEmbedView ? "page-header page-header-embed" : "page-header"}>
       <div className="container tight">
+        {isEmbedView && (
+          <div className="page-header-embed-top-row" role="group" aria-label="Embed actions">
+            <button
+              type="button"
+              className="embed-view-source-icon-btn"
+              onClick={() => {
+                const url = new URL(`/browser/datasets/${datasetId}`, window.location.origin);
+                window.open(url.href, "_blank", "noopener,noreferrer");
+              }}
+              title="View source data"
+              aria-label="View source data in DataCommon in a new tab"
+            >
+              <FontAwesomeIcon icon={faEllipsisVertical} />
+            </button>
+          </div>
+        )}
         <h2>{title}</h2>
-        <div className="dataset-details-content">
+        <div className={isEmbedView ? "dataset-details-content dataset-details-content--embed" : "dataset-details-content"}>
           <div className="details-content-column">
             <ul className="table-meta">
               <li>
@@ -612,38 +765,130 @@ function DatasetHeader({
               />
             </div>
           </div>
-          <div className="details-content-column download-section">
-            {setDownloadButton(
-              metadata, schema, table, title, description, selectedYears, queryYearColumn, selectedColumns, columnKeys, selectedGeographies, availableGeographies, geographyColumn, filterExportData, database
-            )}
-            {showFilterExportCheckbox && <div className="download-should-filter-checkbox-container">
-              <label title="Should the exported data be filtered using the current selections?">
-                Filter export data
-              </label>
-              <input
-                className="download-should-filter-checkbox"
-                type="checkbox"
-                checked={filterExportData}
-                onChange={(e) => {
-                  e.stopPropagation();
-                  setFilterExportData(e.target.checked);
-                }}
-              />
-            </div>}
-            <div style={{ marginTop: "10px", textAlign: "right" }}>
-              <a
-                href="https://airtable.com/appqSr3MqAkN1GCfb/pagdcSeY2bc4rblam/form"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="button feedback-button"
-                style={{ fontSize: "12px" }}
-              >
-                Submit Data Feedback
-              </a>
+          {!isEmbedView && (
+            <div className="details-content-column download-section">
+              <div className="details-content-column download-links">
+                <div className="dataset-actions-dropdown" ref={actionsDropdownRef}>
+                  <button
+                    type="button"
+                    className="button file-button dataset-actions-trigger"
+                    onClick={() => setActionsOpen((open) => !open)}
+                    aria-expanded={actionsOpen}
+                    aria-haspopup="menu"
+                  >
+                    Actions <span className="dropdown-arrow">{actionsOpen ? "▲" : "▼"}</span>
+                  </button>
+                  {actionsOpen && (
+                    <div className="dataset-actions-menu" role="menu" aria-label="Dataset actions">
+                      <button
+                        type="button"
+                        className="dataset-actions-item"
+                        onClick={() => {
+                          setMetadataModalOpen(true);
+                          setActionsOpen(false);
+                        }}
+                      >
+                        <span className="dataset-actions-item-icon" aria-hidden="true">
+                          <FontAwesomeIcon icon={faTable} size="sm" />
+                        </span>
+                        View Metadata
+                      </button>
+                      <button
+                        type="button"
+                        className="dataset-actions-item"
+                        onClick={() => {
+                          setEmbedModalOpen(true);
+                          setActionsOpen(false);
+                        }}
+                      >
+                        <span className="dataset-actions-item-icon" aria-hidden="true">
+                          <FontAwesomeIcon icon={faShareNodes} size="sm" />
+                        </span>
+                        Share and embed
+                      </button>
+                      <button
+                        type="button"
+                        className="dataset-actions-item"
+                        onClick={() => {
+                          window.open(
+                            "https://airtable.com/appqSr3MqAkN1GCfb/pagdcSeY2bc4rblam/form",
+                            "_blank",
+                            "noopener,noreferrer",
+                          );
+                          setActionsOpen(false);
+                        }}
+                      >
+                        <span className="dataset-actions-item-icon" aria-hidden="true">
+                          <FontAwesomeIcon icon={faMessage} size="sm" />
+                        </span>
+                        Submit data feedback
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <button type="button" className="button file-button" onClick={() => setDownloadModalOpen(true)}>
+                  Export
+                </button>
+              </div>
+              <div className="rows-per-page-selector">
+                <label htmlFor="rows-per-page" className="rows-per-page-label">
+                  Rows per page:
+                </label>
+                <select
+                  id="rows-per-page"
+                  className="rows-per-page-dropdown"
+                  value={rowsPerPage}
+                  onChange={(e) => updateRowsPerPage(Number(e.target.value))}
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                  <option value={500}>500</option>
+                </select>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
+      <ExportDataModal
+        isOpen={downloadModalOpen}
+        onClose={() => setDownloadModalOpen(false)}
+        datasetId={datasetId}
+        title={title}
+        table={table}
+        database={database}
+        schema={schema}
+        metadata={metadata}
+        columnKeys={columnKeys}
+        selectedColumns={selectedColumns}
+        selectedYears={selectedYears}
+        queryYearColumn={queryYearColumn}
+        selectedGeographies={selectedGeographies}
+        availableGeographies={availableGeographies}
+        geographyColumn={geographyColumn}
+        availableYears={availableYears}
+      />
+      <EmbedTableModal
+        isOpen={embedModalOpen}
+        onClose={() => setEmbedModalOpen(false)}
+        datasetId={datasetId}
+        title={title}
+        shareUrl={sharePageUrl}
+        embedUrl={embedPageUrl}
+        urlTooLong={shareUrlTooLong}
+        adjustUrlFiltersSlot={embedModalAdjustFilters}
+      />
+      <MetadataModal
+        show={metadataModalOpen}
+        handleClose={() => setMetadataModalOpen(false)}
+        dataset={{
+          db_name: database,
+          schemaname: schema,
+          table_name: table,
+          menu3: title,
+        }}
+      />
     </div>
   );
 }
@@ -652,6 +897,7 @@ DatasetHeader.propTypes = {
   availableYears: PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.string, PropTypes.number])),
   columnKeys: PropTypes.arrayOf(PropTypes.object),
   database: PropTypes.string,
+  datasetId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   description: PropTypes.string,
   metadata: PropTypes.oneOfType([PropTypes.arrayOf(PropTypes.object), PropTypes.objectOf(PropTypes.object)]),
   queryYearColumn: PropTypes.string,
@@ -669,6 +915,8 @@ DatasetHeader.propTypes = {
   geographyColumn: PropTypes.string,
   universe: PropTypes.string,
   updatedAt: PropTypes.string,
+  rowsPerPage: PropTypes.number,
+  updateRowsPerPage: PropTypes.func,
 };
 
 export default DatasetHeader;

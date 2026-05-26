@@ -13,23 +13,55 @@
   &__row {
     display: flex;
     padding: 2em 8em;
+
+    &--full-width-map {
+      > .municipal-finance-overrides-map {
+        flex: 1 1 100%;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+      }
+
+      .municipal-finance-overrides-map__hint {
+        margin-top: 0.5rem;
+        font-size: 1rem !important;
+        line-height: 1.35;
+        font-style: italic;
+        color: #64748b;
+      }
+
+      @media print {
+        display: none !important;
+      }
+    }
     
     // For 3 charts in a row (digital equity tab)
     &:has(.chart-wrapper:nth-child(3)) {
+      align-items: stretch;
+
       .chart-wrapper {
         max-width: calc(33.333% - 2em);
-        flex: 0 0 calc(33.333% - 2em);
-        height: 200px; // Ensure all charts have same minimum height
+        flex: 1 1 calc(33.333% - 2em);
+        min-width: 0;
+        height: 200px;
+
+        &.chart-wrapper--stat-tile {
+          height: auto;
+          display: flex;
+          flex-direction: column;
+        }
 
         // Gauges are compact; let wrapper shrink to content to avoid big gap below
-        &:has(.chart.GaugeChart) {
+        &:has(.chart.GaugeChart),
+        &:has(.chart.ProfileMetricChart):not(.chart-wrapper--stat-tile) {
           height: auto;
         }
-        
+
         &:not(:last-child) {
           margin-right: 3em;
         }
-        
+
         &:first-child {
           margin-right: 3em;
         }
@@ -81,5 +113,154 @@
         break-after: page;
       }
     }
+  }
+
+  .chart-wrapper--stat-tile {
+    text-align: left;
+
+    .gauge-header {
+      align-items: flex-start !important;
+    }
+
+    .chart-header--stat-toolbar {
+      justify-content: flex-end;
+    }
+
+    h3.chart__title {
+      text-align: left;
+      width: 100%;
+    }
+
+    .chart-details-buttons {
+      justify-content: flex-end;
+    }
+
+    /* Equal-height cards: grow chart area between header and metadata */
+    > .ProfileMetricChart {
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+  }
+
+  .ProfileMetricChart {
+    width: 100%;
+
+    /* Dashboard-style metric card (reference: white tile, slate label, squircle icon) */
+    .profile-metric__panel {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      justify-content: flex-start;
+      flex: 1 1 auto;
+      min-height: 11.5rem;
+      padding: 1.5rem 1.5rem 1.375rem;
+      border-radius: 12px;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      box-shadow:
+        0 1px 3px 0 rgb(15 23 42 / 0.06),
+        0 1px 2px -1px rgb(15 23 42 / 0.06);
+      transition:
+        box-shadow 0.22s ease,
+        transform 0.22s ease,
+        border-color 0.22s ease;
+
+      @media (prefers-reduced-motion: reduce) {
+        transition:
+          border-color 0.15s ease,
+          box-shadow 0.15s ease;
+      }
+
+      @media (hover: hover) and (pointer: fine) {
+        &:hover {
+          border-color: #cbd5e1;
+          box-shadow:
+            0 12px 28px -8px rgb(15 23 42 / 0.14),
+            0 4px 8px -3px rgb(15 23 42 / 0.08);
+
+          @media (prefers-reduced-motion: no-preference) {
+            transform: translateY(-3px);
+          }
+        }
+      }
+    }
+
+    .profile-metric__panel--stat-card .profile-metric__stat-header {
+      display: flex;
+      align-items: flex-start;
+      margin-bottom: 0.75rem;
+    }
+
+    .profile-metric__label {
+      font-family: "skolar-sans-latin", Helvetica, sans-serif;
+      font-size: 0.9375rem;
+      font-weight: 500;
+      line-height: 1.4;
+      color: #64748b;
+      letter-spacing: -0.01em;
+      padding-top: 2px;
+      max-width: 100%;
+
+      @media print {
+        font-weight: 500 !important;
+      }
+    }
+  }
+
+  .profile-metric__body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    width: 100%;
+    min-height: 0;
+    padding: 0;
+    text-align: left;
+  }
+
+  .profile-metric__value {
+    margin: 0;
+    width: 100%;
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings: "lnum" 1, "tnum" 1;
+    color: #1e293b;
+    text-align: left;
+    word-break: break-word;
+
+    @media print {
+      font-size: 1rem !important;
+      line-height: 1.25;
+      font-weight: 700 !important;
+    }
+  }
+
+  .profile-metric__empty {
+    margin: 0;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: #64748b;
+    font-style: normal;
+    letter-spacing: -0.01em;
+    opacity: 1;
+    text-align: left;
+
+    @media print {
+      font-weight: 500 !important;
+    }
+  }
+
+  .profile-metric__loader {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    min-height: 5rem;
+    width: 100%;
   }
 }

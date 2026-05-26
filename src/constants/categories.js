@@ -9,6 +9,9 @@ import region from '../assets/images/region.svg';
 import risingLine from '../assets/images/rising-line.svg';
 import thumbsUp from '../assets/images/thumbs-up.svg';
 import timeTurner from '../assets/images/time-turner.svg';
+import digitalEquity from '../assets/images/digital-equity.svg';
+import regionalIndicators from '../assets/images/regional-indicators.svg';
+import climateChangeEnvironment from '../assets/images/climate-change-environment.svg';
 
 const prioritized = new Map([
   ['Recently Updated', timeTurner],
@@ -18,6 +21,9 @@ const prioritized = new Map([
   ['Education', bookWithApple],
   ['Transportation', bus],
   ['Land Use', region],
+  ['Digital Equity', digitalEquity],
+  ['Regional Indicators', regionalIndicators],
+  ['Climate Change & Environment', climateChangeEnvironment],
   ['Economy', risingLine],
   ['Clean Energy', lightbulb],
   ['Housing', house],

@@ -59,6 +59,14 @@ const Header = () => {
                 About
               </a>
             </li>
+            <li>
+              <a
+                className={handleActivePage(location.pathname, "/developers")}
+                href="/developers"
+              >
+                API
+              </a>
+            </li>
           </ul>
         </div>
       </nav>

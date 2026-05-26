@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { fetchTableColumnAliases } from '../visualizations/MunicipalFinanceOverridesMap';
 import PropTypes from 'prop-types';
 import styled, { keyframes } from 'styled-components';
 
@@ -71,17 +72,19 @@ const CloseButton = styled.button`
   background: none;
   border: none;
   font-size: 1.5rem;
-  padding-bottom: 0.33em;
+  line-height: 1;
+  padding: 0;
   cursor: pointer;
   color: #666;
   width: 32px;
   height: 32px;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   border-radius: 4px;
   transition: all 0.2s ease;
-  
+
   &:hover {
     background: rgba(0, 0, 0, 0.05);
     color: #333;
@@ -284,9 +287,7 @@ const DataTableModal = ({ show, handleClose, data, title, muni, tableKey }) => {
 
       try {
         const res = await fetch(
-          `/api/metadata?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=${encodeURIComponent(schema)}&table=${encodeURIComponent(
-            table,
-          )}`,
+          `/api/metadata?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=${encodeURIComponent(schema)}&table=${encodeURIComponent(table)}&useNewMetadata=true`,
         );
         if (!res.ok) {
           throw new Error(`Metadata HTTP error: ${res.status}`);
@@ -303,13 +304,7 @@ const DataTableModal = ({ show, handleClose, data, title, muni, tableKey }) => {
           metadataArray = Array.isArray(maybeFirst) ? maybeFirst : [];
         }
 
-        // Fallback for nested metadata shapes (defensive)
-        if ((!metadataArray || metadataArray.length === 0) && metadataContainer?.documentation?.metadata?.eainfo?.detailed?.attr) {
-          metadataArray = metadataContainer.documentation.metadata.eainfo.detailed.attr;
-        }
-
         const next = {};
-        console.log("metadataArray", metadataArray);
         metadataArray.forEach((col) => {
           const alias = col?.alias ?? "";
             
@@ -393,7 +388,7 @@ const DataTableModal = ({ show, handleClose, data, title, muni, tableKey }) => {
         )
       ].join('\n');
 
-      const fileName = `${title}_${muni || 'data'}.csv`.replace(/[^a-z0-9-_\.]/gi, '_');
+      const fileName = `${title}_${muni || 'data'}.csv`.replace(/[^a-z0-9._-]/gi, '_');
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
