@@ -34,7 +34,18 @@ const SubTitle = styled.p`
   margin: 0 0 1.5rem 0;
   color: #555;
   line-height: 1.5;
-  max-width: 72ch;
+  max-width: 100%;
+
+  a {
+    color: #1b5c36;
+    font-weight: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+
+    &:hover {
+      color: #2a6b45;
+    }
+  }
 `;
 
 const ControlsRow = styled.div`
@@ -1553,8 +1564,21 @@ summary(data)
       <Inner>
         <Title>API</Title>
         <SubTitle>
-          Choose a dataset to build export and query URLs you can paste into a browser or your own code.
-         
+          Choose a dataset to build export and query URLs you can paste into a browser or your own code. If you
+          don't know what data you're looking for, you can explore our datasets with additional filtering
+          options on our "Datasets" search and access a custom API link through each unique dataset page.
+          <br />
+          <br />
+          We're interested in hearing how you're using our API and if it's meeting your needs, if you have
+          any feedback to share, please{" "}
+          <a
+            href="https://airtable.com/app3LpG05CtIRpj7q/pagutpBlODNBc2Lwr/form"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            share it here
+          </a>
+          .
         </SubTitle>
 
         <ControlsRow>
