@@ -1030,9 +1030,10 @@ const BrowserPage = () => {
                     <CheckboxLabel htmlFor={`menu1-${menu1}`}>
                       {menu1}
                     </CheckboxLabel>
-                    {/* Subcategory expand/collapse is disabled while subcategory filter is hidden. */}
+                    <FilterTreeChevron onClick={() => onCategoryFilterOpenClose(menu1)}>
+                      {categoryOptionTree[menu1].open ? "▲" : "▼"}
+                    </FilterTreeChevron>
                   </FilterItem>
-                  {/* Subcategory filter is currently disabled.
                   {categoryOptionTree[menu1].open && <FilterItemChildren>
                     {categoryOptionTree[menu1].children.map(menu2 => (
                       <FilterItem key={menu2}>
@@ -1050,7 +1051,6 @@ const BrowserPage = () => {
                       </FilterItem>
                     ))}
                   </FilterItemChildren>}
-                  */}
                 </div>
               ))}
             </FilterListCategories>
