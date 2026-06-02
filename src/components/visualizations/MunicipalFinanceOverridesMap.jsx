@@ -18,35 +18,20 @@ export async function fetchTableColumnAliases(params) {
   if (!schema || !table) return {};
 
   const res = await fetch(
-    `/api/metadata?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=${encodeURIComponent(database)}&schema=${encodeURIComponent(schema)}&table=${encodeURIComponent(table)}`,
+    `/api/metadata?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=${encodeURIComponent(database)}&schema=${encodeURIComponent(schema)}&table=${encodeURIComponent(table)}&useNewMetadata=true`,
   );
   if (!res.ok) {
     throw new Error(`Metadata HTTP error: ${res.status}`);
   }
   const json = await res.json();
-  
-  const metadataArray = metadataResponseToRowArray(json);
+  const metadataArray = json.muni_finance_m;
 
-  const next = {};
+  const metadataMap = {};
   metadataArray.forEach((col) => {
-    const name =col.name
-    next[name] = col.alias
+    const name = col.name
+    metadataMap[name] = col.alias
   });
-  return next;
-}
-
-
-function metadataResponseToRowArray(container) {
-  if (!container) return [];
-  if (Array.isArray(container)) return container;
-  if (typeof container !== "object") return [];
-
-  const rows = Object.values(container).find((v) => Array.isArray(v));
-  if (rows) return rows;
-
-  // TODO: This is the old metadata format. gisdata tables now return metadata in the same format as tabular tables
-  const gis = container.documentation?.metadata?.eainfo?.detailed?.attr;
-  return Array.isArray(gis) ? gis : [];
+  return metadataMap;
 }
 
 mapboxgl.accessToken = MAP_CONFIG.accessToken;
