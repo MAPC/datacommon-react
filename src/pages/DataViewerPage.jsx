@@ -27,7 +27,7 @@ class DataViewerClass extends React.Component {
     this.state = {
       currentPage: 1,
       loading: true,
-      rowsPerPage: 25,
+      rowsPerPage: 10,
       selectedColumns: [], // Will be initialized with all columns
       marginColumnsByBase: {},
       availableGeographies: [],

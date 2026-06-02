@@ -285,7 +285,7 @@ class DatasetTable extends React.Component {
       currentPage = 1,
       queryYearColumn = "",
       rows = [],
-      rowsPerPage = 25,
+      rowsPerPage = 10,
       selectedColumns = [],
       selectedYears = [],
       selectedGeographies = [],
