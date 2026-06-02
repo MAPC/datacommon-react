@@ -1,12 +1,19 @@
 import React from "react";
 import PropTypes from "prop-types";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faArrowDown, faArrowUp, faArrowsUpDown, faEyeSlash } from "@fortawesome/free-solid-svg-icons";
+import {
+  faArrowDown,
+  faArrowUp,
+  faChevronDown,
+  faEyeSlash,
+} from "@fortawesome/free-solid-svg-icons";
 import DataRow from "./DataRow";
 import DatasetTableContextMenu from "./DatasetTableContextMenu";
 import {
   applyPreviewRowOrder,
   getDatasetRowKey,
+  isVisibleColumnOrderCustom,
+  mergeVisibleColumnReorder,
   orderColumnKeys,
   reorderList,
 } from "../../utils/datasetTablePreview";
@@ -26,7 +33,7 @@ class DatasetTable extends React.Component {
     this.onPageNumberUpdate = this.onPageNumberUpdate.bind(this);
     this.onPageNumberBlur = this.onPageNumberBlur.bind(this);
     this.closeContextMenu = this.closeContextMenu.bind(this);
-    this.openColumnContextMenu = this.openColumnContextMenu.bind(this);
+    this.openColumnHeaderMenu = this.openColumnHeaderMenu.bind(this);
   }
 
   componentDidUpdate(prevProps) {
@@ -39,25 +46,39 @@ class DatasetTable extends React.Component {
     this.setState({ contextMenu: null });
   }
 
-  openColumnContextMenu(e, column) {
+  openColumnHeaderMenu(e, column) {
     e.preventDefault();
     e.stopPropagation();
-    const { updateSelectedColumns } = this.props;
-    if (!updateSelectedColumns) return;
+    const { sortColumn, sortDirection } = this.state;
+    const { updateSelectedColumns, selectedColumns } = this.props;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const isSorted = sortColumn === column.name;
+    const sortAscendingNext = !isSorted || sortDirection === "desc";
+
+    const items = [
+      {
+        label: sortAscendingNext
+          ? "Sort this column in ascending order"
+          : "Sort this column in descending order",
+        icon: sortAscendingNext ? faArrowUp : faArrowDown,
+        onSelect: () => this.handleSort(column.name),
+      },
+    ];
+
+    if (updateSelectedColumns && selectedColumns.includes(column.name)) {
+      items.push({
+        label: "Hide this column",
+        icon: faEyeSlash,
+        onSelect: () => updateSelectedColumns(column.name),
+      });
+    }
+
     this.setState({
       contextMenu: {
-        x: e.clientX,
-        y: e.clientY,
-        items: [
-          {
-            label: "Hide column",
-            onSelect: () => {
-              if (this.props.selectedColumns.includes(column.name)) {
-                updateSelectedColumns(column.name);
-              }
-            },
-          },
-        ],
+        x: rect.left,
+        y: rect.bottom + 4,
+        columnName: column.name,
+        items,
       },
     });
   }
@@ -79,28 +100,12 @@ class DatasetTable extends React.Component {
     });
   }
 
-  getSortIcon(columnName) {
+  getHeaderMenuIcon(columnName) {
     const { sortColumn, sortDirection } = this.state;
     if (sortColumn !== columnName) {
-      return <FontAwesomeIcon icon={faArrowsUpDown} className="sort-icon sort-icon--inactive" size="sm" aria-hidden />;
+      return faChevronDown;
     }
-    return sortDirection === "asc" ? (
-      <FontAwesomeIcon icon={faArrowUp} className="sort-icon sort-icon--active" size="sm" aria-hidden />
-    ) : (
-      <FontAwesomeIcon icon={faArrowDown} className="sort-icon sort-icon--active" size="sm" aria-hidden />
-    );
-  }
-
-  getSortTooltip(columnName, columnAlias) {
-    const { sortColumn, sortDirection } = this.state;
-    const label = columnAlias || columnName;
-    if (sortColumn !== columnName) {
-      return `Sort ascending by ${label}`;
-    }
-    if (sortDirection === "asc") {
-      return `Sorted ascending by ${label}. Click to sort descending.`;
-    }
-    return `Sorted descending by ${label}. Click to sort ascending.`;
+    return sortDirection === "asc" ? faArrowUp : faArrowDown;
   }
 
   getAriaSort(columnName) {
@@ -109,12 +114,53 @@ class DatasetTable extends React.Component {
     return sortDirection === "asc" ? "ascending" : "descending";
   }
 
-  handleHideColumnClick(e, column) {
-    e.preventDefault();
-    e.stopPropagation();
-    const { updateSelectedColumns, selectedColumns } = this.props;
-    if (!updateSelectedColumns || !selectedColumns.includes(column.name)) return;
-    updateSelectedColumns(column.name);
+  renderVisibleHeader(header, visibleIndex, columnNames) {
+    const { sortColumn } = this.state;
+    const isSorted = sortColumn === header.name;
+
+    return (
+      <th
+        className={`ui table sortable-header dataset-table__header${this.state.dragColumnIndex === visibleIndex ? " dataset-table__header--dragging" : ""}`}
+        key={header.name}
+        aria-sort={this.getAriaSort(header.name)}
+        onDragOver={this.handleColumnDragOver}
+        onDrop={(e) => this.handleColumnDrop(e, visibleIndex, columnNames)}
+      >
+        <div className="header-content">
+          <span
+            className="dataset-table__drag-grip"
+            draggable
+            onDragStart={(e) => this.handleColumnDragStart(e, visibleIndex)}
+            onDragEnd={() => this.setState({ dragColumnIndex: null })}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+            title="Drag to reorder column"
+            aria-label="Drag to reorder column"
+          />
+          <span className="dataset-table__header-label">{header.alias}</span>
+          <div className="dataset-table__header-actions">
+            <button
+              type="button"
+              className={`dataset-table__header-menu-btn${isSorted ? " dataset-table__header-menu-btn--sorted" : ""}`}
+              title={`Column options for ${header.alias}`}
+              aria-label={`Column options for ${header.alias}`}
+              aria-haspopup="menu"
+              aria-expanded={this.state.contextMenu?.columnName === header.name}
+              onClick={(e) => this.openColumnHeaderMenu(e, header)}
+            >
+              <FontAwesomeIcon icon={this.getHeaderMenuIcon(header.name)} size="sm" aria-hidden />
+            </button>
+          </div>
+        </div>
+      </th>
+    );
+  }
+
+  setTableHeaders(orderedColumnKeys) {
+    const columnNames = orderedColumnKeys.map((col) => col.name);
+    return orderedColumnKeys.map((header, index) =>
+      this.renderVisibleHeader(header, index, columnNames),
+    );
   }
 
   handleColumnDragStart(e, index) {
@@ -134,14 +180,18 @@ class DatasetTable extends React.Component {
     const { previewColumnOrder, onPreviewColumnOrderChange } = this.props;
     if (dragColumnIndex == null || !onPreviewColumnOrderChange || !columnNames?.length) return;
 
-    const order = previewColumnOrder?.length
+    const visibleOrder = previewColumnOrder?.length
       ? previewColumnOrder.filter((name) => columnNames.includes(name))
       : [...columnNames];
     columnNames.forEach((name) => {
-      if (!order.includes(name)) order.push(name);
+      if (!visibleOrder.includes(name)) visibleOrder.push(name);
     });
 
-    onPreviewColumnOrderChange(reorderList(order, dragColumnIndex, toIndex));
+    const reorderedVisible = reorderList(visibleOrder, dragColumnIndex, toIndex);
+    const fullOrder = previewColumnOrder?.length ? previewColumnOrder : [...columnNames];
+    const nextOrder = mergeVisibleColumnReorder(fullOrder, columnNames, reorderedVisible);
+
+    onPreviewColumnOrderChange(nextOrder);
     this.setState({ dragColumnIndex: null });
   }
 
@@ -171,50 +221,6 @@ class DatasetTable extends React.Component {
     this.setState({ dragRowIndex: null });
   }
 
-  setTableHeaders(orderedColumnKeys) {
-    const columnNames = orderedColumnKeys.map((col) => col.name);
-    return orderedColumnKeys.map((header, index) => (
-      <th
-        className={`ui table sortable-header dataset-table__header${this.state.dragColumnIndex === index ? " dataset-table__header--dragging" : ""}`}
-        key={header.name}
-        title={this.getSortTooltip(header.name, header.alias)}
-        aria-sort={this.getAriaSort(header.name)}
-        onClick={() => this.handleSort(header.name)}
-        onContextMenu={(e) => this.openColumnContextMenu(e, header)}
-        onDragOver={this.handleColumnDragOver}
-        onDrop={(e) => this.handleColumnDrop(e, index, columnNames)}
-        style={{ cursor: "pointer" }}
-      >
-        <div className="header-content">
-          <span
-            className="dataset-table__drag-grip"
-            draggable
-            onDragStart={(e) => this.handleColumnDragStart(e, index)}
-            onDragEnd={() => this.setState({ dragColumnIndex: null })}
-            onMouseDown={(e) => e.stopPropagation()}
-            onClick={(e) => e.stopPropagation()}
-            title="Drag to reorder column"
-            aria-label="Drag to reorder column"
-          />
-          <span className="dataset-table__header-label">{header.alias}</span>
-          <div className="dataset-table__header-actions">
-            <span className="sort-icon-wrap" title={this.getSortTooltip(header.name, header.alias)} aria-hidden>
-              {this.getSortIcon(header.name)}
-            </span>
-            <button
-              type="button"
-              className="dataset-table__hide-btn"
-              title="Hide column"
-              aria-label={`Hide column ${header.alias}`}
-              onClick={(e) => this.handleHideColumnClick(e, header)}
-            >
-              <FontAwesomeIcon icon={faEyeSlash} size="sm" aria-hidden />
-            </button>
-          </div>
-        </div>
-      </th>
-    ));
-  }
 
   sortData(data, columnName, direction) {
     if (!columnName) return data;
@@ -302,29 +308,15 @@ class DatasetTable extends React.Component {
     const { sortColumn, sortDirection, inputPageNum, contextMenu, dragRowIndex } = this.state;
 
     const orderedColumnKeys = orderColumnKeys(columnKeys, selectedColumns, previewColumnOrder);
+    const hasVisibleColumns = orderedColumnKeys.length > 0;
 
     // Avoid a broken table (row drag gutter only) when all columns are deselected.
-    if (columnKeys.length > 0 && orderedColumnKeys.length === 0) {
-      const showRowPreviewControls = Boolean(updateSelectedColumns || onPreviewRowOrderChange);
-    const canCustomizeLayout = Boolean(
-        showRowPreviewControls || onPreviewColumnOrderChange,
-      );
-      const defaultColumnNames = orderedColumnKeys.map((col) => col.name);
-      const columnOrderCustom =
-        previewColumnOrder.length > 0 && previewColumnOrder.join("|") !== defaultColumnNames.join("|");
-      const hasPreviewCustomization = columnOrderCustom || previewRowOrder.length > 0;
+    if (columnKeys.length > 0 && !hasVisibleColumns) {
       const isEmbedView = new URLSearchParams(location.search).get("embed") === "1";
 
       return (
         <div className="table-wrapper">
           <DatasetTableContextMenu menu={contextMenu} onClose={this.closeContextMenu} />
-          {canCustomizeLayout && hasPreviewCustomization && onResetPreviewLayout ? (
-            <div className="dataset-table-preview-toolbar">
-              <button type="button" className="dataset-table-preview-toolbar__reset" onClick={onResetPreviewLayout}>
-                Reset table layout
-              </button>
-            </div>
-          ) : null}
           <div className="container tight">
             <div className="scroll-horizontal-rotated ui lift">
               <div className="cancel-rotate">
@@ -352,6 +344,7 @@ class DatasetTable extends React.Component {
       );
     }
 
+    const visibleColumnNames = orderedColumnKeys.map((col) => col.name);
     const renderedHeaders = this.setTableHeaders(orderedColumnKeys);
     const selectedYearsSet = new Set(selectedYears);
 
@@ -391,7 +384,7 @@ class DatasetTable extends React.Component {
       <DataRow
         key={rowKeysInView[i]}
         rowData={row}
-        headers={orderedColumnKeys.map((key) => key.name)}
+        headers={visibleColumnNames}
         linkRowsToDatasetView={linkRowsToDatasetView}
         showRowDragControls={showRowDragControls}
         isDragging={dragRowIndex === i}
@@ -409,15 +402,17 @@ class DatasetTable extends React.Component {
     const backButtonClasses = currentPage === 1 ? "button-wrapper lift disabled" : "button-wrapper lift";
     const forwardButtonClasses = currentPage === numOfPages ? "button-wrapper list disabled" : "button-wrapper lift";
     const isEmbedView = new URLSearchParams(location.search).get("embed") === "1";
-    const defaultColumnNames = orderedColumnKeys.map((col) => col.name);
-    const columnOrderCustom =
-      previewColumnOrder.length > 0 && previewColumnOrder.join("|") !== defaultColumnNames.join("|");
+    const columnOrderCustom = isVisibleColumnOrderCustom(
+      previewColumnOrder,
+      visibleColumnNames,
+      columnKeys,
+    );
     const hasPreviewCustomization = columnOrderCustom || previewRowOrder.length > 0;
 
     return (
       <div className="table-wrapper">
         <DatasetTableContextMenu menu={contextMenu} onClose={this.closeContextMenu} />
-        {canCustomizeLayout && hasPreviewCustomization && onResetPreviewLayout ? (
+        {hasVisibleColumns && canCustomizeLayout && hasPreviewCustomization && onResetPreviewLayout ? (
           <div className="dataset-table-preview-toolbar">
             <button type="button" className="dataset-table-preview-toolbar__reset" onClick={onResetPreviewLayout}>
               Reset table layout

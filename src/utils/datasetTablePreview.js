@@ -35,21 +35,70 @@ export function getDatasetRowKey(row, fallbackIndex = 0) {
   }
 }
 
-/** Keep custom column order in sync when selection changes. */
-export function syncPreviewColumnOrder(prevOrder, selectedColumns, columnKeys) {
-  const selectedSet = new Set(selectedColumns || []);
-  const kept = (prevOrder || []).filter((name) => selectedSet.has(name));
-  const keptSet = new Set(kept);
-  const added = (columnKeys || [])
+/**
+ * user selected column(includes hidden/deselected columns).
+ * Deselected columns stay in place so re-adding restores their prior position.
+ */
+export function syncPreviewColumnOrder(prevOrder, _selectedColumns, columnKeys) {
+  const allColumnNames = columnKeys.map((col) => col.name);
+  const columnKeySet = new Set(allColumnNames);
+  // Filter out columns that are not in the columnKeys
+  const order = prevOrder.filter((name) => columnKeySet.has(name));
+
+  allColumnNames.forEach((name) => {
+    if (!order.includes(name)) {
+      order.push(name);
+    }
+  });
+
+  return order;
+}
+
+/**
+ * Apply a reorder of visible columns while keeping hidden columns at their slots.
+ */
+export function mergeVisibleColumnReorder(fullOrder, visibleColumnNames, reorderedVisible) {
+  const visibleSet = new Set(visibleColumnNames);
+  const queue = [...reorderedVisible];
+  const merged = [];
+
+  fullOrder.forEach((name) => {
+    if (visibleSet.has(name)) {
+      if (queue.length) merged.push(queue.shift());
+    } else {
+      merged.push(name);
+    }
+  });
+
+  queue.forEach((name) => merged.push(name));
+  return merged;
+}
+
+/**
+ * True when visible columns are ordered differently than metadata default.
+ * Compares layout (previewColumnOrder) to columnKeys order — not to the already-rendered order.
+ */
+export function isVisibleColumnOrderCustom(previewColumnOrder, visibleColumnNames, columnKeys) {
+  if (!visibleColumnNames?.length) return false;
+
+  const visibleSet = new Set(visibleColumnNames);
+  const defaultVisibleOrder = (columnKeys || [])
     .map((col) => col.name)
-    .filter((name) => selectedSet.has(name) && !keptSet.has(name));
-  return [...kept, ...added];
+    .filter((name) => visibleSet.has(name));
+
+  const layoutVisibleOrder = (previewColumnOrder || []).filter((name) => visibleSet.has(name));
+  const currentVisibleOrder =
+    layoutVisibleOrder.length === defaultVisibleOrder.length
+      ? layoutVisibleOrder
+      : defaultVisibleOrder;
+
+  return currentVisibleOrder.join("|") !== defaultVisibleOrder.join("|");
 }
 
 export function orderColumnKeys(columnKeys, selectedColumns, previewColumnOrder) {
   const selectedSet = new Set(selectedColumns || []);
-  const visible = (columnKeys || []).filter((col) => selectedSet.has(col.name));
-  if (!previewColumnOrder?.length) return visible;
+  const visible = columnKeys.filter((col) => selectedSet.has(col.name));
+  if (!previewColumnOrder.length) return visible;
 
   const byName = new Map(visible.map((col) => [col.name, col]));
   const ordered = [];
@@ -65,9 +114,9 @@ export function orderColumnKeys(columnKeys, selectedColumns, previewColumnOrder)
 
 /** Merge custom row order with filtered rows; append rows not yet in order. */
 export function applyPreviewRowOrder(rows, previewRowOrder) {
-  const visible = (rows || []).map((row, i) => ({ row, key: getDatasetRowKey(row, i) }));
+  const visible = (rows).map((row, i) => ({ row, key: getDatasetRowKey(row, i) }));
 
-  if (!previewRowOrder?.length) return visible.map(({ row }) => row);
+  if (!previewRowOrder.length) return visible.map(({ row }) => row);
 
   const buckets = new Map();
   visible.forEach(({ row, key }) => {
@@ -89,7 +138,7 @@ export function applyPreviewRowOrder(rows, previewRowOrder) {
 }
 
 export function reorderList(list, fromIndex, toIndex) {
-  if (!list?.length || fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return list;
+  if (!list.length || fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return list;
   const next = [...list];
   if (fromIndex >= next.length || toIndex >= next.length) return list;
   const [item] = next.splice(fromIndex, 1);

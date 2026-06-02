@@ -1,4 +1,5 @@
 import PropTypes from "prop-types";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
 export default function DatasetTableContextMenu({ menu, onClose }) {
   if (!menu) return null;
@@ -25,15 +26,20 @@ export default function DatasetTableContextMenu({ menu, onClose }) {
         style={{ top: menu.y, left: menu.x }}
         role="menu"
       >
-        {menu.items.map((item) => (
+        {menu.items.map((item, index) => (
           <button
-            key={item.label}
+            key={`${item.label}-${index}`}
             type="button"
             role="menuitem"
             className="dataset-table-context-menu__item"
             onClick={() => handleAction(item.onSelect)}
           >
-            {item.label}
+            {item.icon ? (
+              <span className="dataset-table-context-menu__icon" aria-hidden>
+                <FontAwesomeIcon icon={item.icon} size="sm" />
+              </span>
+            ) : null}
+            <span className="dataset-table-context-menu__label">{item.label}</span>
           </button>
         ))}
       </div>
@@ -48,6 +54,7 @@ DatasetTableContextMenu.propTypes = {
     items: PropTypes.arrayOf(
       PropTypes.shape({
         label: PropTypes.string.isRequired,
+        icon: PropTypes.object,
         onSelect: PropTypes.func.isRequired,
       }),
     ).isRequired,
