@@ -82,11 +82,11 @@ export function isVisibleColumnOrderCustom(previewColumnOrder, visibleColumnName
   if (!visibleColumnNames?.length) return false;
 
   const visibleSet = new Set(visibleColumnNames);
-  const defaultVisibleOrder = (columnKeys || [])
+  const defaultVisibleOrder = columnKeys
     .map((col) => col.name)
     .filter((name) => visibleSet.has(name));
 
-  const layoutVisibleOrder = (previewColumnOrder || []).filter((name) => visibleSet.has(name));
+  const layoutVisibleOrder = previewColumnOrder.filter((name) => visibleSet.has(name));
   const currentVisibleOrder =
     layoutVisibleOrder.length === defaultVisibleOrder.length
       ? layoutVisibleOrder
@@ -95,52 +95,126 @@ export function isVisibleColumnOrderCustom(previewColumnOrder, visibleColumnName
   return currentVisibleOrder.join("|") !== defaultVisibleOrder.join("|");
 }
 
+/**
+ * Get the column segments for the preview table.
+ */
+export function getPreviewTableColumnSegments(previewColumnOrder, columnKeys, selectedColumns) {
+  const selectedSet = new Set(selectedColumns);
+  const columnNameToColumn = new Map((columnKeys).map((col) => [col.name, col]));
+  const layoutOrder = previewColumnOrder?.length
+    ? previewColumnOrder.filter((name) => columnNameToColumn.has(name))
+    : columnKeys.map((col) => col.name);
+
+  const segments = [];
+  let hiddenColumns = [];
+  
+  const flushHiddenColumns = () => {
+    if (!hiddenColumns.length) return;
+    segments.push({ type: "hidden", columnNames: [...hiddenColumns] });
+    hiddenColumns = [];
+  };
+
+  layoutOrder.forEach((name) => {
+    if (selectedSet.has(name)) {
+      flushHiddenColumns();
+      const col = columnNameToColumn.get(name);
+      if (col) segments.push({ type: "visible", column: col });
+    } else {
+      hiddenColumns.push(name);
+    }
+  });
+  flushHiddenColumns();
+
+  return segments;
+}
+
+export function getHiddenColumnMarkerLabel(hiddenColumnNames, columnKeys) {
+  const aliases = hiddenColumnNames.map((name) => {
+    const col = columnKeys.find((c) => c.name === name);
+    return col?.alias || name;
+  });
+  if (!aliases.length) return "Show hidden columns";
+  if (aliases.length === 1) return `Show hidden column: ${aliases[0]}`;
+  return `Show ${aliases.length} hidden columns (${aliases.join(", ")})`;
+}
+
 export function orderColumnKeys(columnKeys, selectedColumns, previewColumnOrder) {
-  const selectedSet = new Set(selectedColumns || []);
+  const selectedSet = new Set(selectedColumns);
   const visible = columnKeys.filter((col) => selectedSet.has(col.name));
   if (!previewColumnOrder.length) return visible;
 
-  const byName = new Map(visible.map((col) => [col.name, col]));
+  const columnNameToColumnMap = new Map(visible.map((col) => [col.name, col]));
   const ordered = [];
   previewColumnOrder.forEach((name) => {
-    if (byName.has(name)) {
-      ordered.push(byName.get(name));
-      byName.delete(name);
+    if (columnNameToColumnMap.has(name)) {
+      ordered.push(columnNameToColumnMap.get(name));
+      columnNameToColumnMap.delete(name);
     }
   });
-  byName.forEach((col) => ordered.push(col));
+  columnNameToColumnMap.forEach((col) => ordered.push(col));
   return ordered;
 }
 
 /** Merge custom row order with filtered rows; append rows not yet in order. */
 export function applyPreviewRowOrder(rows, previewRowOrder) {
-  const visible = (rows).map((row, i) => ({ row, key: getDatasetRowKey(row, i) }));
+  const rowsWithStableKeys = rows.map((row, rowIndex) => ({
+    row,
+    stableRowKey: getDatasetRowKey(row, rowIndex),
+  }));
 
-  if (!previewRowOrder.length) return visible.map(({ row }) => row);
+  if (!previewRowOrder.length) {
+    return rowsWithStableKeys.map(({ row }) => row);
+  }
 
-  const buckets = new Map();
-  visible.forEach(({ row, key }) => {
-    if (!buckets.has(key)) buckets.set(key, []);
-    buckets.get(key).push(row);
+  // Group rows by drag key; multiple rows can share the same key.
+  const rowQueuesByStableKey = new Map();
+  rowsWithStableKeys.forEach(({ row, stableRowKey }) => {
+    if (!rowQueuesByStableKey.has(stableRowKey)) {
+      rowQueuesByStableKey.set(stableRowKey, []);
+    }
+    rowQueuesByStableKey.get(stableRowKey).push(row);
   });
 
-  const ordered = [];
-  previewRowOrder.forEach((key) => {
-    const bucket = buckets.get(key);
-    if (!bucket?.length) return;
-    ordered.push(bucket.shift());
-    if (!bucket.length) buckets.delete(key);
+  const rowsInSavedOrder = [];
+  previewRowOrder.forEach((savedRowKey) => {
+    const queuedRowsForKey = rowQueuesByStableKey.get(savedRowKey);
+    if (!queuedRowsForKey?.length) {
+      return;
+    }
+    rowsInSavedOrder.push(queuedRowsForKey.shift());
+    if (!queuedRowsForKey.length) {
+      rowQueuesByStableKey.delete(savedRowKey);
+    }
   });
-  buckets.forEach((bucket) => {
-    bucket.forEach((row) => ordered.push(row));
+
+  rowQueuesByStableKey.forEach((remainingRowsForKey) => {
+    remainingRowsForKey.forEach((row) => rowsInSavedOrder.push(row));
   });
-  return ordered;
+
+  return rowsInSavedOrder;
 }
 
 export function reorderList(list, fromIndex, toIndex) {
-  if (!list.length || fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return list;
+  if (!list.length) {
+    return list;
+  }
+  // No change
+  if (fromIndex === toIndex) {
+    return list;
+  }
+  if (fromIndex < 0 || toIndex < 0) {
+    return list;
+  }
+
   const next = [...list];
-  if (fromIndex >= next.length || toIndex >= next.length) return list;
+  
+  if (fromIndex >= next.length) {
+    return list;
+  }
+  if (toIndex >= next.length) {
+    return list;
+  }
+
   const [item] = next.splice(fromIndex, 1);
   next.splice(toIndex, 0, item);
   return next;

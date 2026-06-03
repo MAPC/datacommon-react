@@ -12,6 +12,8 @@ import DatasetTableContextMenu from "./DatasetTableContextMenu";
 import {
   applyPreviewRowOrder,
   getDatasetRowKey,
+  getHiddenColumnMarkerLabel,
+  getPreviewTableColumnSegments,
   isVisibleColumnOrderCustom,
   mergeVisibleColumnReorder,
   orderColumnKeys,
@@ -114,6 +116,41 @@ class DatasetTable extends React.Component {
     return sortDirection === "asc" ? "ascending" : "descending";
   }
 
+  handleUnhideHiddenColumns(e, hiddenColumnNames) {
+    e.preventDefault();
+    e.stopPropagation();
+    const { showHiddenColumns } = this.props;
+    if (!showHiddenColumns || !hiddenColumnNames?.length) return;
+    showHiddenColumns(hiddenColumnNames);
+  }
+
+  renderHiddenColumnsMarker(segment, segmentIndex) {
+    const { columnKeys } = this.props;
+    const { columnNames } = segment;
+    const label = getHiddenColumnMarkerLabel(columnNames, columnKeys);
+    const markerKey = `hidden-${segmentIndex}-${columnNames.join("|")}`;
+
+    return (
+      <th
+        key={markerKey}
+        className="dataset-table__hidden-columns-marker"
+        title={label}
+        aria-label={label}
+        data-hidden-count={columnNames.length > 1 ? columnNames.length : undefined}
+        tabIndex={0}
+        onClick={(e) => this.handleUnhideHiddenColumns(e, columnNames)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            this.handleUnhideHiddenColumns(e, columnNames);
+          }
+        }}
+      >
+        <span className="dataset-table__hidden-columns-marker__line" aria-hidden />
+      </th>
+    );
+  }
+
   renderVisibleHeader(header, visibleIndex, columnNames) {
     const { sortColumn } = this.state;
     const isSorted = sortColumn === header.name;
@@ -156,11 +193,19 @@ class DatasetTable extends React.Component {
     );
   }
 
-  setTableHeaders(orderedColumnKeys) {
-    const columnNames = orderedColumnKeys.map((col) => col.name);
-    return orderedColumnKeys.map((header, index) =>
-      this.renderVisibleHeader(header, index, columnNames),
-    );
+  buildTableHeaderCells(columnSegments, columnNames, showHiddenColumnMarkers) {
+    let visibleIndex = 0;
+
+    return columnSegments.flatMap((segment, segmentIndex) => {
+      if (segment.type === "hidden") {
+        if (!showHiddenColumnMarkers) return [];
+        return [this.renderHiddenColumnsMarker(segment, segmentIndex)];
+      }
+
+      const cell = this.renderVisibleHeader(segment.column, visibleIndex, columnNames);
+      visibleIndex += 1;
+      return [cell];
+    });
   }
 
   handleColumnDragStart(e, index) {
@@ -299,6 +344,7 @@ class DatasetTable extends React.Component {
       linkRowsToDatasetView = false,
       updatePage,
       updateSelectedColumns,
+      showHiddenColumns,
       previewColumnOrder = [],
       previewRowOrder = [],
       onPreviewColumnOrderChange,
@@ -308,6 +354,10 @@ class DatasetTable extends React.Component {
     const { sortColumn, sortDirection, inputPageNum, contextMenu, dragRowIndex } = this.state;
 
     const orderedColumnKeys = orderColumnKeys(columnKeys, selectedColumns, previewColumnOrder);
+    const columnSegments = getPreviewTableColumnSegments(previewColumnOrder, columnKeys, selectedColumns);
+    const showHiddenColumnMarkers = Boolean(
+      showHiddenColumns && columnSegments.some((segment) => segment.type === "hidden"),
+    );
     const hasVisibleColumns = orderedColumnKeys.length > 0;
 
     // Avoid a broken table (row drag gutter only) when all columns are deselected.
@@ -345,7 +395,11 @@ class DatasetTable extends React.Component {
     }
 
     const visibleColumnNames = orderedColumnKeys.map((col) => col.name);
-    const renderedHeaders = this.setTableHeaders(orderedColumnKeys);
+    const renderedHeaders = this.buildTableHeaderCells(
+      columnSegments,
+      visibleColumnNames,
+      showHiddenColumnMarkers,
+    );
     const selectedYearsSet = new Set(selectedYears);
 
     let allRows;
@@ -384,7 +438,8 @@ class DatasetTable extends React.Component {
       <DataRow
         key={rowKeysInView[i]}
         rowData={row}
-        headers={visibleColumnNames}
+        columnSegments={columnSegments}
+        showHiddenColumnMarkers={showHiddenColumnMarkers}
         linkRowsToDatasetView={linkRowsToDatasetView}
         showRowDragControls={showRowDragControls}
         isDragging={dragRowIndex === i}
@@ -527,6 +582,7 @@ DatasetTable.propTypes = {
   linkRowsToDatasetView: PropTypes.bool,
   updatePage: PropTypes.func.isRequired,
   updateSelectedColumns: PropTypes.func,
+  showHiddenColumns: PropTypes.func,
   previewColumnOrder: PropTypes.arrayOf(PropTypes.string),
   previewRowOrder: PropTypes.arrayOf(PropTypes.string),
   onPreviewColumnOrderChange: PropTypes.func,
