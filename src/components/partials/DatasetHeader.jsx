@@ -400,6 +400,15 @@ const ColumnSelectorDropdown = ({ columnKeys, updateSelectedColumns, selectedCol
     return pairs;
   };
 
+  // sort selected columns to the top, but only when isOpen changes
+  // only re-order columns in the dropdown when it opens/closes to prevent jumping on select/deselect
+  const sortedColumnsBySelected = useMemo(() => {
+    const selected = columnKeys.filter(col => selectedColumns.includes(col.name));
+    const notSelected = columnKeys.filter(col => !selectedColumns.includes(col.name));
+
+    return [...selected, ...notSelected];
+  }, [isOpen])
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       const raw = event.target;
@@ -443,7 +452,7 @@ const ColumnSelectorDropdown = ({ columnKeys, updateSelectedColumns, selectedCol
       /[a-z0-9_]mep$/i.test(name)
     );
   };
-  const visibleColumnKeys = columnKeys.filter((col) => !isMarginColumn(col));
+  const visibleColumnKeys = sortedColumnsBySelected.filter((col) => !isMarginColumn(col));
 
   // Same order as metadata / columnKeys (non-MOE rows only)
   const sortedColumnKeys = [...visibleColumnKeys];
