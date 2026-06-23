@@ -5,7 +5,8 @@ import { faTable } from "@fortawesome/free-solid-svg-icons";
 import { getInventoryRowDatasetId } from "../../utils/datasetInventoryRow";
 
 const DataRow = ({
-  headers,
+  columnSegments,
+  showHiddenColumnMarkers,
   rowData,
   linkRowsToDatasetView,
   showRowDragControls,
@@ -54,9 +55,23 @@ const DataRow = ({
     return value;
   };
 
-  const renderedRow = headers
-    .filter((header) => header !== "seq_id")
-    .map((header) => <td key={header}>{formatValue(rowData[header])}</td>);
+  const renderedRow = columnSegments.flatMap((segment, segmentIndex) => {
+    if (segment.type === "hidden") {
+      if (!showHiddenColumnMarkers) return [];
+      return [
+        <td
+          key={`hidden-${segmentIndex}-${segment.columnNames.join("|")}`}
+          className="dataset-table__hidden-columns-marker dataset-table__hidden-columns-marker--body"
+          aria-hidden
+        />,
+      ];
+    }
+
+    const { column } = segment;
+    if (column.name === "seq_id") return [];
+
+    return [<td key={column.name}>{formatValue(rowData[column.name])}</td>];
+  });
 
   return (
     <tr
@@ -112,7 +127,14 @@ const DataRow = ({
 };
 
 DataRow.propTypes = {
-  headers: PropTypes.arrayOf(PropTypes.string).isRequired,
+  columnSegments: PropTypes.arrayOf(
+    PropTypes.shape({
+      type: PropTypes.oneOf(["visible", "hidden"]).isRequired,
+      column: PropTypes.object,
+      columnNames: PropTypes.arrayOf(PropTypes.string),
+    }),
+  ).isRequired,
+  showHiddenColumnMarkers: PropTypes.bool,
   rowData: PropTypes.object.isRequired,
   linkRowsToDatasetView: PropTypes.bool,
   showRowDragControls: PropTypes.bool,
@@ -124,6 +146,7 @@ DataRow.propTypes = {
 };
 
 DataRow.defaultProps = {
+  showHiddenColumnMarkers: false,
   linkRowsToDatasetView: false,
   showRowDragControls: false,
   isDragging: false,

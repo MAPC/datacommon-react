@@ -39,6 +39,7 @@ class DataViewerClass extends React.Component {
     };
     this.updateSelectedYears = this.updateSelectedYears.bind(this);
     this.updateSelectedColumns = this.updateSelectedColumns.bind(this);
+    this.showHiddenColumns = this.showHiddenColumns.bind(this);
     this.updatePage = this.updatePage.bind(this);
     this.updateRowsPerPage = this.updateRowsPerPage.bind(this);
     this.loadDatasetData = this.loadDatasetData.bind(this);
@@ -382,6 +383,30 @@ class DataViewerClass extends React.Component {
     });
   }
 
+  showHiddenColumns(columnNames) {
+    if (!columnNames?.length) return;
+
+    this.setState((prevState) => {
+      const marginColumnsByBase = prevState.marginColumnsByBase || {};
+      let selectedColumns = [...prevState.selectedColumns];
+
+      columnNames.forEach((columnName) => {
+        if (selectedColumns.includes(columnName)) return;
+        selectedColumns.push(columnName);
+        (marginColumnsByBase[columnName] || []).forEach((col) => {
+          if (!selectedColumns.includes(col)) selectedColumns.push(col);
+        });
+      });
+
+      const previewColumnOrder = syncPreviewColumnOrder(
+        prevState.previewColumnOrder,
+        selectedColumns,
+        prevState.columnKeys,
+      );
+      return { selectedColumns, previewColumnOrder };
+    });
+  }
+
   onPreviewColumnOrderChange(previewColumnOrder) {
     this.setState({ previewColumnOrder });
   }
@@ -484,6 +509,7 @@ class DataViewerClass extends React.Component {
             linkRowsToDatasetView={this.state.linkInventoryRows}
             updatePage={this.updatePage}
             updateSelectedColumns={this.updateSelectedColumns}
+            showHiddenColumns={this.showHiddenColumns}
             previewColumnOrder={this.state.previewColumnOrder}
             previewRowOrder={this.state.previewRowOrder}
             onPreviewColumnOrderChange={this.onPreviewColumnOrderChange}
