@@ -355,6 +355,10 @@
     }
   }
 
+  .page-header {
+    padding-bottom: 1rem; // override the default here, smaller padding looks better
+  }
+
   // Embed (`?embed=1`): one row above the title, kebab right-aligned; h2 and details unchanged below.
   .page-header-embed-top-row {
     display: flex;
@@ -426,6 +430,15 @@
         font-size: $font_size-xsmall;
       }
     }
+  }
+
+  .truncated-table-warning {
+    width: 100%;
+    background-color: #1F4E46;
+    color: white;
+    border-radius: 8px;
+    margin-top: 12px;
+    padding: 4px 12px;
   }
 
   .details-content-column.download-links {
