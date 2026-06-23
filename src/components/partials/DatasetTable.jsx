@@ -6,9 +6,12 @@ import {
   faArrowUp,
   faChevronDown,
   faEyeSlash,
+  faFilter,
 } from "@fortawesome/free-solid-svg-icons";
+
 import DataRow from "./DataRow";
 import DatasetTableContextMenu from "./DatasetTableContextMenu";
+import FilterCreationModal from "./FilterCreationModal"
 import {
   applyPreviewRowOrder,
   getDatasetRowKey,
@@ -30,6 +33,8 @@ class DatasetTable extends React.Component {
       contextMenu: null,
       dragColumnIndex: null,
       dragRowIndex: null,
+      filterModalOpen: false,
+      filterModalColumn: null,
     };
     this.handleSort = this.handleSort.bind(this);
     this.onPageNumberUpdate = this.onPageNumberUpdate.bind(this);
@@ -74,6 +79,15 @@ class DatasetTable extends React.Component {
         onSelect: () => updateSelectedColumns(column.name),
       });
     }
+
+    items.push({
+      label: "Filter by this column",
+      icon: faFilter,
+      onSelect: () => this.setState({ 
+        filterModalOpen: true,
+        filterModalColumn: column,
+      }),
+    });
 
     this.setState({
       contextMenu: {
@@ -564,6 +578,11 @@ class DatasetTable extends React.Component {
             </div>
           </div>
         </div>
+        <FilterCreationModal
+          isOpen={this.state.filterModalOpen}
+          filterModalColumn={this.state.filterModalColumn}
+          handleClose={() => this.setState({ filterModalOpen: false})}
+        />
       </div>
     );
   }
