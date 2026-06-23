@@ -487,6 +487,7 @@ class DataViewerClass extends React.Component {
             updateSelectedGeographies={this.updateSelectedGeographies}
             geographyColumn={this.state.geographyColumn}
             rowsPerPage={this.state.rowsPerPage}
+            numberOfRows={this.state.rows.length}
             updateRowsPerPage={this.updateRowsPerPage}
             source={this.state.source}
             table={this.state.table}

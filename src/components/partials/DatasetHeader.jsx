@@ -634,6 +634,7 @@ function DatasetHeader({
   geographyColumn,
   rowsPerPage,
   updateRowsPerPage,
+  numberOfRows,
 }) {
   const location = useLocation();
   const isEmbedView = new URLSearchParams(location.search).get("embed") === "1";
@@ -859,6 +860,9 @@ function DatasetHeader({
             </div>
           )}
         </div>
+        {numberOfRows === 15000 && <div className="truncated-table-warning">
+          This data has been truncated for viewing in the browser. Only the first 15,000 rows are available. Please download the full dataset to see all available data.
+        </div>}
       </div>
       <ExportDataModal
         isOpen={downloadModalOpen}
@@ -926,6 +930,7 @@ DatasetHeader.propTypes = {
   updatedAt: PropTypes.string,
   rowsPerPage: PropTypes.number,
   updateRowsPerPage: PropTypes.func,
+  numberOfRows: PropTypes.number,
 };
 
 export default DatasetHeader;
