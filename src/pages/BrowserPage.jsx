@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, Link } from "react-router-dom";
 import styled from 'styled-components';
 import { fetchDatasets } from '../reducers/datasetSlice';
 import MetadataModal from "../components/partials/MetadataModal";
@@ -448,6 +448,19 @@ const DatasetCount = styled.div`
   strong {
     color: #333;
     font-weight: 600;
+  }
+`;
+
+const BulkDownloadLink = styled(Link)`
+  display: inline-block;
+  margin-top: 1rem;
+  color: #5aba8c;
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
   }
 `;
 
@@ -996,6 +1009,9 @@ const BrowserPage = () => {
         <DatasetCount>
           <strong>{noDupesDatasets?.length || 0}</strong> {noDupesDatasets?.length === 1 ? 'dataset' : 'datasets'} available
         </DatasetCount>
+        <BulkDownloadLink to="/browser/bulk-download">
+          Download datasets by topic →
+        </BulkDownloadLink>
       </PageHeader>
       <MainContent>
         <Sidebar>
