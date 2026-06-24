@@ -441,6 +441,35 @@
     padding: 4px 12px;
   }
 
+  .filter-display-container {
+    width: 100%;
+    padding: 4px 12px;
+    margin-top: 12px;
+    border-radius: 8px;
+    background-color: #e5e5e5;
+  }
+
+  .filter-pill-list-container {
+    margin: 4px 0px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+
+    .dataset-filter-pill {
+      background-color: white;
+      border-radius: 12px;
+      padding: 2px 8px 4px;
+      font-size: 15px;
+
+      .filter-pill-close {
+        font-size: 14px;
+        font-weight: bolder;
+        cursor: pointer;
+        margin-left: 16px;
+      }
+    }
+  }
+
   .details-content-column.download-links {
     display: flex;
     gap: 8px;

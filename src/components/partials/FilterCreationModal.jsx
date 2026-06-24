@@ -85,19 +85,93 @@ const CloseButton = styled.button`
 `;
 
 const ModalBody = styled.div`
-  padding: 1.5rem;
+  padding: 3rem 1.5rem;
   overflow-y: auto;
   flex: 1;
 `;
 
+const FilterCreationRow = styled.div`
+  display: flex;
+  gap: 12px;
+`;
 
-const FilterCreationModal = ({ isOpen, handleClose, filterModalColumn }) => {
+const ModalFooter = styled.div`
+  border-top: 1px solid #dee2e6;
+  padding: 12px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+`;
+
+const CancelButton = styled.button`
+  border-radius: 5px;
+  padding: 6px 12px;
+  border: 1px solid rgba(149, 152, 154, 0.4);
+  background: #fff;
+  cursor: pointer;
+
+  &:hover {
+    border-color: rgba(68, 173, 137, 0.6);
+    background: rgba(68, 173, 137, 0.08);
+    color: rgb(57.8, 147.05, 116.45);
+  }
+`;
+
+const CreateButton = styled.button`
+  border: none;
+  border-radius: 5px;
+  padding: 6px 12px;
+  color: #fff;
+  background-color: #64c08d;
+
+  &:hover {
+    background-color: #4fa676
+  }
+
+  &.disabled {
+    background-color: #9a9a9a;
+    cursor: not-allowed;
+  }
+`;
+
+const FilterCreationModal = ({ isOpen, handleClose, filterModalColumn, addNewColumnFilter }) => {
+
+  const [filterType, setFilterType] = useState('contains');
+  const [textValue, setTextValue] = useState('');
 
   const handleOverlayClick = (e) => {
     if (e.target === e.currentTarget) {
-      handleClose();
+      closeModal();
     }
   };
+
+  const buildFilterThenClose = () => {
+    const filter = {
+      columnKey: filterModalColumn.name,
+      columnAlias: filterModalColumn.alias,
+      filterType,
+      textValue,
+    }
+
+    addNewColumnFilter(filter)
+    closeModal();
+  }
+
+  const closeModal = () => {
+    setFilterType('contains');
+    setTextValue('');
+    handleClose();
+  }
+
+  const isTextNeeded = () => {
+    return filterType !== 'isEmpty' && filterType !== 'isNotEmpty';
+  }
+
+  const isCreateEnabled = () => {
+    const textRequired = isTextNeeded()
+    return textRequired ? !!filterType && !!textValue : !!filterType; 
+  }
 
   if (!isOpen) {
     return null;
@@ -107,14 +181,47 @@ const FilterCreationModal = ({ isOpen, handleClose, filterModalColumn }) => {
     <ModalOverlay data-prevent-dataset-search-clear onClick={handleOverlayClick}>
       <ModalContainer data-prevent-dataset-search-clear onClick={(e) => e.stopPropagation()}>
         <ModalHeader>
-          <ModalTitle>Create Filter for {filterModalColumn.name}</ModalTitle>
-          <CloseButton onClick={handleClose} aria-label="Close">
+          <ModalTitle>Create Filter for: {filterModalColumn.alias}</ModalTitle>
+          <CloseButton onClick={closeModal} aria-label="Close">
             ×
           </CloseButton>
         </ModalHeader>
         <ModalBody>
-
+          <FilterCreationRow>
+            <span>Where {filterModalColumn.alias}</span>
+            <select
+              value={filterType}
+              onChange={e => {
+                setFilterType(e.target.value);
+                setTextValue('');
+              }}
+            >
+              {/* TODO: More options? Options by column type? */}
+              <option value="contains">contains...</option>
+              <option value="is">is...</option>
+              <option value="isEmpty">is empty</option>
+              <option value="isNotEmpty">is not empty</option>
+            </select>
+            {isTextNeeded() && (
+              <input
+                placeholder="Enter a value..."
+                value={textValue}
+                onChange={e => setTextValue(e.target.value)}
+              />
+            )}
+          </FilterCreationRow>
         </ModalBody>
+        <ModalFooter>
+          <CancelButton onClick={() => handleClose()}>
+            Close
+          </CancelButton>
+          <CreateButton
+            className={isCreateEnabled() ? '' : 'disabled'}
+            onClick={() => buildFilterThenClose()}
+          >
+            Create Filter
+          </CreateButton>
+        </ModalFooter>
       </ModalContainer>
     </ModalOverlay>
   );

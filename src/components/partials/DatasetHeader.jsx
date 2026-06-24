@@ -610,6 +610,26 @@ const setUpdatedAt = (updatedAt) => (
   </li>
 );
 
+const FilterPill = ({ filter, removeColumnFilter }) => {
+  const typeToDisplayName = {
+    contains: 'contains',
+    is: 'is',
+    isEmpty: 'is empty',
+    isNotEmpty: 'is not empty',
+  }
+
+  const key = `${filter.columnName}.${filter.filterType}.${filter.textValue || ''}`
+
+  return (
+    <div className="dataset-filter-pill">
+      {filter.columnAlias} {typeToDisplayName[filter.filterType]} {filter.textValue ? `'${filter.textValue}'` : ''}
+      <span className="filter-pill-close" onClick={() => removeColumnFilter(filter)}>
+        X
+      </span>
+    </div>
+  )
+}
+
 function DatasetHeader({
   title = "",
   table = "",
@@ -630,6 +650,8 @@ function DatasetHeader({
   updatedAt = "",
   availableGeographies = [],
   selectedGeographies = [],
+  columnFilters = [],
+  removeColumnFilter,
   updateSelectedGeographies,
   geographyColumn,
   rowsPerPage,
@@ -860,6 +882,18 @@ function DatasetHeader({
             </div>
           )}
         </div>
+        {columnFilters.length > 0 && <div className="filter-display-container">
+          <div>Filters:</div>
+          <div className="filter-pill-list-container">
+            {columnFilters.map(filter => (
+              <FilterPill 
+                key={`${filter.columnName}.${filter.filterType}.${filter.textValue || ''}`}
+                filter={filter}
+                removeColumnFilter={removeColumnFilter}
+              />
+            ))}
+          </div>
+        </div>}
         {numberOfRows === 15000 && <div className="truncated-table-warning">
           This data has been truncated for viewing in the browser. Only the first 15,000 rows are available. Please download the full dataset to see all available data.
         </div>}
@@ -920,6 +954,8 @@ DatasetHeader.propTypes = {
   source: PropTypes.string,
   table: PropTypes.string,
   title: PropTypes.string,
+  columnFilters: PropTypes.arrayOf(PropTypes.object),
+  removeColumnFilter: PropTypes.func,
   updateSelectedColumns: PropTypes.func,
   updateSelectedYears: PropTypes.func.isRequired,
   availableGeographies: PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.string, PropTypes.number])),

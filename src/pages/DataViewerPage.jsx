@@ -36,6 +36,7 @@ class DataViewerClass extends React.Component {
       linkInventoryRows: false,
       previewColumnOrder: [],
       previewRowOrder: [],
+      columnFilters: [],
     };
     this.updateSelectedYears = this.updateSelectedYears.bind(this);
     this.updateSelectedColumns = this.updateSelectedColumns.bind(this);
@@ -47,6 +48,8 @@ class DataViewerClass extends React.Component {
     this.onPreviewColumnOrderChange = this.onPreviewColumnOrderChange.bind(this);
     this.onPreviewRowOrderChange = this.onPreviewRowOrderChange.bind(this);
     this.onResetPreviewLayout = this.onResetPreviewLayout.bind(this);
+    this.addFilterToList = this.addFilterToList.bind(this);
+    this.removeFilterFromList = this.removeFilterFromList.bind(this);
     this.hasLoaded = false; // Flag to prevent duplicate API calls in StrictMode
   }
 
@@ -452,6 +455,23 @@ class DataViewerClass extends React.Component {
     });
   }
 
+  addFilterToList(filter) {
+    const newFilters = [...this.state.columnFilters];
+    newFilters.push(filter);
+
+    this.setState({ columnFilters: newFilters });
+  }
+
+  removeFilterFromList(filter) {
+    const newFilters = this.state.columnFilters.filter(f => {
+      return f.columnKey !== filter.columnKey ||
+        f.filterType !== filter.filterType ||
+        f.textValue !== filter.textValue;
+    });
+
+    this.setState({ columnFilters: newFilters });
+  }
+
   render() {
     let pageContents;
 
@@ -492,6 +512,8 @@ class DataViewerClass extends React.Component {
             source={this.state.source}
             table={this.state.table}
             title={this.state.title}
+            columnFilters={this.state.columnFilters}
+            removeColumnFilter={this.removeFilterFromList}
             updateSelectedColumns={this.updateSelectedColumns}
             updateSelectedYears={this.updateSelectedYears}
             universe={this.state.universe}
@@ -511,6 +533,8 @@ class DataViewerClass extends React.Component {
             updatePage={this.updatePage}
             updateSelectedColumns={this.updateSelectedColumns}
             showHiddenColumns={this.showHiddenColumns}
+            addNewColumnFilter={this.addFilterToList}
+            columnFilters={this.state.columnFilters}
             previewColumnOrder={this.state.previewColumnOrder}
             previewRowOrder={this.state.previewRowOrder}
             onPreviewColumnOrderChange={this.onPreviewColumnOrderChange}
