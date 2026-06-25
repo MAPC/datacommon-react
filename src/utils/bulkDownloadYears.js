@@ -39,8 +39,11 @@ export async function fetchAvailableYearsForTable(tableConfig, datasets) {
   );
 
   const rows = response?.data?.rows || [];
-  // return the years in descending order
-  return rows.map((row) => Object.values(row)[0]).sort().reverse();
+  return rows // return the years in descending order
+    .map((row) => String(Object.values(row)[0]))
+    .filter(Boolean)
+    // some years are strings, some are numbers, so we need to sort them as numbers
+    .sort((a, b) => Number(b) - Number(a) || b.localeCompare(a));
 }
 
 /**
@@ -49,8 +52,10 @@ export async function fetchAvailableYearsForTable(tableConfig, datasets) {
  * @param {string[]} availableYears
  */
 export function resolveDefaultSelectedYears(defaultSelectedYears, availableYears) {
+  const defaults = (defaultSelectedYears || []).map((year) => String(year));
   if (!availableYears.length) {
-    return [...defaultSelectedYears];
+    return defaults;
   }
-  return defaultSelectedYears.filter((year) => availableYears.includes(year));
+  const availableSet = new Set(availableYears.map((year) => String(year)));
+  return defaults.filter((year) => availableSet.has(year));
 }
