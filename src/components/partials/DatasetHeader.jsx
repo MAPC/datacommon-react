@@ -614,15 +614,20 @@ const FilterPill = ({ filter, removeColumnFilter }) => {
   const typeToDisplayName = {
     contains: 'contains',
     is: 'is',
+    greaterThan: '>',
+    lessThan: '<',
+    equals: '=',
     isEmpty: 'is empty',
     isNotEmpty: 'is not empty',
   }
 
-  const key = `${filter.columnName}.${filter.filterType}.${filter.textValue || ''}`
+  const numericTypes = ['greaterThan', 'lessThan', 'equals'];
 
+  const key = `${filter.columnName}.${filter.filterType}.${filter.textValue || ''}`
+  const valueText = numericTypes.includes(filter.filterType) ? filter.textValue : `'${filter.textValue}'`;
   return (
     <div className="dataset-filter-pill">
-      {filter.columnAlias} {typeToDisplayName[filter.filterType]} {filter.textValue ? `'${filter.textValue}'` : ''}
+      {filter.columnAlias} {typeToDisplayName[filter.filterType]} {filter.textValue ? valueText : ''}
       <span className="filter-pill-close" onClick={() => removeColumnFilter(filter)}>
         X
       </span>
