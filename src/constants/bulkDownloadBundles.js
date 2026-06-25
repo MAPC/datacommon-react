@@ -201,7 +201,7 @@ export const HOUSING_BUNDLE_TABLES = [
     geoColumn: "municipal",
     source: "ES-202 — Employment by NAICS (2-digit)",
     defaultSelectedYears: ["2024", "2023", "2022", "2021", "2020", "2015", "2010", "2005"],
-    yearColumn: "years",
+    yearColumn: "cal_year",
   },
   {
     table: "educ_enrollment_by_year_districts",
