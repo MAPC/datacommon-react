@@ -6,9 +6,12 @@ import {
   faArrowUp,
   faChevronDown,
   faEyeSlash,
+  faFilter,
 } from "@fortawesome/free-solid-svg-icons";
+
 import DataRow from "./DataRow";
 import DatasetTableContextMenu from "./DatasetTableContextMenu";
+import FilterCreationModal from "./FilterCreationModal"
 import {
   applyPreviewRowOrder,
   getDatasetRowKey,
@@ -30,6 +33,8 @@ class DatasetTable extends React.Component {
       contextMenu: null,
       dragColumnIndex: null,
       dragRowIndex: null,
+      filterModalOpen: false,
+      filterModalColumn: null,
     };
     this.handleSort = this.handleSort.bind(this);
     this.onPageNumberUpdate = this.onPageNumberUpdate.bind(this);
@@ -74,6 +79,15 @@ class DatasetTable extends React.Component {
         onSelect: () => updateSelectedColumns(column.name),
       });
     }
+
+    items.push({
+      label: "Filter by this column",
+      icon: faFilter,
+      onSelect: () => this.setState({ 
+        filterModalOpen: true,
+        filterModalColumn: column,
+      }),
+    });
 
     this.setState({
       contextMenu: {
@@ -345,6 +359,8 @@ class DatasetTable extends React.Component {
       updatePage,
       updateSelectedColumns,
       showHiddenColumns,
+      addNewColumnFilter,
+      columnFilters,
       previewColumnOrder = [],
       previewRowOrder = [],
       onPreviewColumnOrderChange,
@@ -416,6 +432,34 @@ class DatasetTable extends React.Component {
       } else {
         allRows = [];
       }
+    }
+
+    if (columnFilters.length > 0) {
+      columnFilters.forEach(filter => {
+        allRows = allRows.filter(row => {
+          const columnValue = row[filter.columnKey];
+
+          if (filter.filterType === 'contains') {
+            if (columnValue === null || columnValue === undefined) {
+              return false;
+            } else {
+              const asString = columnValue.toString();
+              return asString.includes(filter.textValue.toString());
+            }
+          } else if (filter.filterType === 'is') {
+            if (columnValue === null || columnValue === undefined) {
+              return false;
+            } else {
+              const asString = columnValue.toString();
+              return asString === filter.textValue.toString();
+            }
+          } else if (filter.filterType === 'isEmpty') {
+            return columnValue === null || columnValue === undefined || columnValue === '';
+          } else if (filter.filterType === 'isNotEmpty') {
+            return columnValue == 0 || !!columnValue;
+          }
+        });
+      });
     }
 
     const defaultMunicipalitySortColumn = this.getDefaultMunicipalitySortColumn(allRows, geographyColumn);
@@ -564,6 +608,12 @@ class DatasetTable extends React.Component {
             </div>
           </div>
         </div>
+        <FilterCreationModal
+          isOpen={this.state.filterModalOpen}
+          filterModalColumn={this.state.filterModalColumn}
+          handleClose={() => this.setState({ filterModalOpen: false})}
+          addNewColumnFilter={addNewColumnFilter}
+        />
       </div>
     );
   }
@@ -583,6 +633,8 @@ DatasetTable.propTypes = {
   updatePage: PropTypes.func.isRequired,
   updateSelectedColumns: PropTypes.func,
   showHiddenColumns: PropTypes.func,
+  addNewColumnFilter: PropTypes.func,
+  columnFilters: PropTypes.arrayOf(PropTypes.object),
   previewColumnOrder: PropTypes.arrayOf(PropTypes.string),
   previewRowOrder: PropTypes.arrayOf(PropTypes.string),
   onPreviewColumnOrderChange: PropTypes.func,
