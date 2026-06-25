@@ -5,6 +5,8 @@ import { createBrowserRouter, RouterProvider, useParams, Navigate } from "react-
 import App from "./App";
 import Home from "./pages/HomePage";
 import BrowserPage from "./pages/BrowserPage";
+import BulkDownloadIntroPage from "./pages/BulkDownloadIntroPage";
+import BulkDownloadBundlePage from "./pages/BulkDownloadBundlePage";
 import DataViewerPage from "./pages/DataViewerPage";
 import CommunitySelectorPage from "./pages/CommunitySelectorPage";
 import GalleryPage from "./pages/GalleryPage";
@@ -103,6 +105,14 @@ const router = createBrowserRouter([
           {
             path: "datasets/:id",
             element: <DataViewerPage />,
+          },
+          {
+            path: "bulk-download",
+            element: <BulkDownloadIntroPage />,
+          },
+          {
+            path: "bulk-download/:bundleId",
+            element: <BulkDownloadBundlePage />,
           },
         ],
       },
