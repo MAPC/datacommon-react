@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import styled, { keyframes } from 'styled-components';
 
 const fadeIn = keyframes`
@@ -135,10 +135,47 @@ const CreateButton = styled.button`
   }
 `;
 
-const FilterCreationModal = ({ isOpen, handleClose, filterModalColumn, addNewColumnFilter }) => {
+const NUMERIC_COLUMN_TYPES = [
+  'numeric',
+  'smallint',
+  'integer',
+  'bigint',
+  'smallserial',
+  'serial',
+  'bigserial',
+  'decimal',
+  'real',
+  'double precision',
+];
 
-  const [filterType, setFilterType] = useState('contains');
+const FilterCreationModal = ({ isOpen, handleClose, filterModalColumn, addNewColumnFilter }) => {
+  const [filterType, setFilterType] = useState('isNotEmpty');
   const [textValue, setTextValue] = useState('');
+
+  // When the input column changes, determine the available filter types
+  const filterTypeOptions = useMemo(() => {
+    const options = [];
+    if (!filterModalColumn) {
+      return options;
+    }
+
+    // column is numeric
+    if (NUMERIC_COLUMN_TYPES.includes(filterModalColumn.data_type)) {
+      options.push(<option value="greaterThan">is greater than...</option>);
+      options.push(<option value="lessThan">is less than...</option>);
+      options.push(<option value="equals">is exactly...</option>);
+    // column is text based
+    } else {
+      options.push(<option value="contains">contains...</option>);
+      options.push(<option value="is">is...</option>);
+    }
+
+    // finally, all data types have is null / is not null
+    options.push(<option value="isEmpty">is empty</option>);
+    options.push(<option value="isNotEmpty">is not empty</option>);
+
+    return options;
+  }, [filterModalColumn]);
 
   const handleOverlayClick = (e) => {
     if (e.target === e.currentTarget) {
@@ -159,7 +196,7 @@ const FilterCreationModal = ({ isOpen, handleClose, filterModalColumn, addNewCol
   }
 
   const closeModal = () => {
-    setFilterType('contains');
+    setFilterType('isNotEmpty');
     setTextValue('');
     handleClose();
   }
@@ -196,11 +233,7 @@ const FilterCreationModal = ({ isOpen, handleClose, filterModalColumn, addNewCol
                 setTextValue('');
               }}
             >
-              {/* TODO: More options? Options by column type? */}
-              <option value="contains">contains...</option>
-              <option value="is">is...</option>
-              <option value="isEmpty">is empty</option>
-              <option value="isNotEmpty">is not empty</option>
+              {...filterTypeOptions}
             </select>
             {isTextNeeded() && (
               <input

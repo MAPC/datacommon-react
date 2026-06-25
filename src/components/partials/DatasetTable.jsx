@@ -438,7 +438,6 @@ class DatasetTable extends React.Component {
       columnFilters.forEach(filter => {
         allRows = allRows.filter(row => {
           const columnValue = row[filter.columnKey];
-
           if (filter.filterType === 'contains') {
             if (columnValue === null || columnValue === undefined) {
               return false;
@@ -452,6 +451,24 @@ class DatasetTable extends React.Component {
             } else {
               const asString = columnValue.toString();
               return asString === filter.textValue.toString();
+            }
+          } else if (filter.filterType === 'greaterThan') {
+            if (columnValue === null || columnValue === undefined) {
+              return false;
+            } else {
+              return columnValue > filter.textValue;
+            }
+          } else if (filter.filterType === 'lessThan') {
+            if (columnValue === null || columnValue === undefined) {
+              return false;
+            } else {
+              return columnValue < filter.textValue;
+            }
+          } else if (filter.filterType === 'equals') {
+            if (columnValue === null || columnValue === undefined) {
+              return false;
+            } else {
+              return Math.abs(columnValue - filter.textValue) < 0.005;
             }
           } else if (filter.filterType === 'isEmpty') {
             return columnValue === null || columnValue === undefined || columnValue === '';
