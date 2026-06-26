@@ -5,9 +5,15 @@ import PropTypes from "prop-types";
 import SearchBar from "../components/partials/SearchBar";
 import capitalize from "../utils/capitalize";
 import { fetchDatasets } from "../reducers/datasetSlice";
-import { BULK_DOWNLOAD_BUNDLES, buildInitialYearsByTable, getTableDisplayInfo, tableHasYearFilter } from "../constants/bulkDownloadBundles";
-import { downloadBlob, requestBulkExport, BULK_DOWNLOAD_EXPORT_FAILED, BULK_DOWNLOAD_EXPORT_FAILED_MESSAGE } from "../utils/bulkDownloadApi";
-import { fetchAvailableYearsForTable, resolveDefaultSelectedYears } from "../utils/bulkDownloadYears";
+import { getTableDisplayInfo, tableHasYearFilter } from "../constants/bulkDownloadBundles";
+import {
+  downloadBlob,
+  requestBulkExport,
+  fetchBulkDownloadBundle,
+  BULK_DOWNLOAD_EXPORT_FAILED,
+  BULK_DOWNLOAD_EXPORT_FAILED_MESSAGE,
+} from "../utils/bulkDownloadApi";
+import { resolveDefaultSelectedYears } from "../utils/bulkDownloadYears";
 
 const YearPill = ({ year, selected, onToggle, disabled = false }) => (
   <button
@@ -105,14 +111,13 @@ const BulkDownloadBundlePage = () => {
   const dispatch = useDispatch();
   const { cache: datasets, status } = useSelector((state) => state.dataset);
 
-  const bundle = BULK_DOWNLOAD_BUNDLES[bundleId];
-
+  const [bundle, setBundle] = useState(null);
+  const [bundleLoading, setBundleLoading] = useState(true);
   const [municipalities, setMunicipalities] = useState([]);
-  const [selectedTableNames, setSelectedTableNames] = useState(() => (bundle ? bundle.tables.map((t) => t.table) : []));
+  const [selectedTableNames, setSelectedTableNames] = useState([]);
   const [availableYearsByTable, setAvailableYearsByTable] = useState({});
-  const [selectedYearsByTable, setSelectedYearsByTable] = useState(() => (bundle ? buildInitialYearsByTable(bundle.tables) : {}));
+  const [selectedYearsByTable, setSelectedYearsByTable] = useState({});
   const [yearsLoading, setYearsLoading] = useState(true);
-  const [yearsError, setYearsError] = useState("");
   const [downloadFormat, setDownloadFormat] = useState("zip");
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState("");
@@ -125,65 +130,55 @@ const BulkDownloadBundlePage = () => {
   }, [dispatch, status]);
 
   useEffect(() => {
-    if (!bundle || status !== "succeeded") {
-      return undefined;
-    }
-
     let cancelled = false;
 
-    const loadYears = async () => {
-      setYearsLoading(true);
-      setYearsError("");
-      setSelectedTableNames(bundle.tables.map((t) => t.table));
+    const loadBundle = async () => {
+      setBundleLoading(true);
+      setBundle(null);
 
       try {
-        const results = await Promise.all(
-          bundle.tables.map(async (tableConfig) => {
-            if (!tableHasYearFilter(tableConfig)) {
-              return { table: tableConfig.table, years: [], error: null };
-            }
-            try {
-              const years = await fetchAvailableYearsForTable(tableConfig, datasets);
-              return { table: tableConfig.table, years, error: null };
-            } catch (err) {
-              return { table: tableConfig.table, years: [], error: err };
-            }
-          }),
-        );
-
+        const result = await fetchBulkDownloadBundle(bundleId);
         if (cancelled) return;
 
-        const available = {};
-        const selected = {};
-        results.forEach(({ table, years }) => {
-          available[table] = years;
-        });
-        bundle.tables.forEach((tableConfig) => {
-          if (!tableHasYearFilter(tableConfig)) {
-            selected[tableConfig.table] = [];
-            return;
-          }
-          selected[tableConfig.table] = resolveDefaultSelectedYears(tableConfig.defaultSelectedYears, available[tableConfig.table] || []);
-        });
+        if (!result) {
+          setBundle(null);
+        } else {
+          const available = {};
+          const selected = {};
+          result.tables.forEach((tableConfig) => {
+            available[tableConfig.table] = tableConfig.availableYears || [];
+            if (!tableHasYearFilter(tableConfig)) {
+              selected[tableConfig.table] = [];
+              return;
+            }
+            selected[tableConfig.table] = resolveDefaultSelectedYears(
+              tableConfig.defaultSelectedYears,
+              available[tableConfig.table],
+            );
+          });
 
-        setAvailableYearsByTable(available);
-        setSelectedYearsByTable(selected);
+          setBundle(result);
+          setSelectedTableNames(result.tables.map((t) => t.table));
+          setAvailableYearsByTable(available);
+          setSelectedYearsByTable(selected);
+          setYearsLoading(false);
+        }
       } catch {
         if (!cancelled) {
-          setYearsError("Could not load available years for some tables.");
+          setBundle(null);
         }
       } finally {
         if (!cancelled) {
-          setYearsLoading(false);
+          setBundleLoading(false);
         }
       }
     };
 
-    loadYears();
+    loadBundle();
     return () => {
       cancelled = true;
     };
-  }, [bundle, bundleId, datasets, status]);
+  }, [bundleId]);
 
   const selectedTableConfigs = useMemo(() => {
     if (!bundle) return [];
@@ -194,6 +189,24 @@ const BulkDownloadBundlePage = () => {
         years: selectedYearsByTable[t.table] || [],
       }));
   }, [bundle, selectedTableNames, selectedYearsByTable]);
+
+  if (bundleLoading) {
+    return (
+      <section className="route BulkDownload">
+        <div className="bulk-download__header container tight">
+          <nav className="bulk-download__breadcrumb" aria-label="Breadcrumb">
+            <Link to="/browser">Data Browser</Link>
+            <span aria-hidden="true"> / </span>
+            <Link to="/browser/bulk-download">Download by Topic</Link>
+          </nav>
+          <h1>Download by Topic</h1>
+        </div>
+        <div className="bulk-download__layout container tight">
+          <BulkDownloadBundleSkeleton />
+        </div>
+      </section>
+    );
+  }
 
   if (!bundle) {
     return <Navigate to="/browser/bulk-download" replace />;
@@ -320,11 +333,6 @@ const BulkDownloadBundlePage = () => {
                 <button type="button" className="bulk-download__download-btn" disabled={!canDownload || isDownloading} onClick={handleDownload}>
                   {isDownloading ? "Preparing…" : "Download"}
                 </button>
-                {yearsError && (
-                  <p className="bulk-download__error" role="alert">
-                    {yearsError}
-                  </p>
-                )}
                 {!municipalities.length && <p className="bulk-download__validation">Select at least one municipality to continue.</p>}
                 {municipalities.length > 0 && selectedTableNames.length === 0 && <p className="bulk-download__validation">Select at least one table.</p>}
                 {downloadStatus && <p className="bulk-download__status">{downloadStatus}</p>}
