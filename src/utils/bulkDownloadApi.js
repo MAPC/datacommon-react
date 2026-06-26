@@ -9,6 +9,10 @@ export const BULK_DOWNLOAD_EXPORT_FAILED_MESSAGE = {
   formLabel: "form",
 };
 
+// _bulk_download_bundle.id = bundle_id in _bulk_download_bundle_table_list (e.g. "housing")
+const BULK_DOWNLOAD_BUNDLE_LIST = "_bulk_download_bundle";
+const BULK_DOWNLOAD_BUNDLE_TABLE_LIST_VIEW = "_bulk_download_bundle_table_list";
+const BULK_DOWNLOAD_BUNDLE_TABLES_STORED_PROCEDURE = "bulk-download-bundle-tables";
 
 function formatDateStamp(date = new Date()) {
   const year = date.getFullYear();
@@ -17,12 +21,163 @@ function formatDateStamp(date = new Date()) {
   return `${year}${month}${day}`;
 }
 
-/** One municipality → use its name; multiple → "Municipalities {bundle} data.{ext}". */
-export function buildBulkDownloadFilename(municipalities, bundleSlug, extension) {
-  const muniLabel =
-    municipalities.length === 1 ? municipalities[0] : "municipalities";
-  const dateStamp = formatDateStamp();
+function parseYearList(value) {
+  if (Array.isArray(value)) {
+    return value.map((year) => String(year)).filter(Boolean);
+  }
 
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed || trimmed === "{}") {
+      return [];
+    }
+
+    if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+      return trimmed
+        .slice(1, -1)
+        .split(",")
+        .map((year) => year.trim().replace(/^"|"$/g, ""))
+        .filter(Boolean);
+    }
+  }
+
+  return [];
+}
+
+/** Map one _bulk_download_bundle_table_list row to a frontend table config. */
+function toBundleTableConfig(row, availableYears = []) {
+  return {
+    table: row.table_name,
+    database: row.db_name || "ds",
+    schema: row.schema_name || "tabular",
+    geoColumn: row.geo_column || "municipal",
+    source: row.source || "",
+    yearColumn: row.year_column || "",
+    defaultSelectedYears: parseYearList(row.default_selected_years),
+    availableYears,
+  };
+}
+
+/** Combine table config rows with available years from the named query. */
+function mergeBundleTableConfigs(tableRows, availableYearsByTable) {
+  return tableRows.map((row) =>
+    toBundleTableConfig(row, availableYearsByTable[row.table_name] ?? []),
+  );
+}
+
+function groupBundleListFromRows(bundleRows, tableRows) {
+  const tablesByBundleId = tableRows.reduce((acc, row) => {
+    if (!acc[row.bundle_id]) {
+      acc[row.bundle_id] = [];
+    }
+    acc[row.bundle_id].push(toBundleTableConfig(row));
+    return acc;
+  }, {});
+
+  return bundleRows.reduce((acc, row) => {
+    const bundleId = row.bundle_id ?? row.id;
+    acc[bundleId] = {
+      id: bundleId,
+      title: row.title,
+      description: row.description,
+      geographyType: row.geography_type || row.geographyType || "municipality",
+      tables: tablesByBundleId[bundleId] || [],
+    };
+    return acc;
+  }, {});
+}
+
+async function fetchBundleListApiRows(bundleId) {
+  const token = import.meta.env.VITE_MAPC_API_TOKEN;
+  const apiBase = `${locations.BROWSER_API}?token=${token}&database=ds&schema=tabular`;
+
+  // Bundle table column is `id`; table list view column is `bundle_id` (same slug, e.g. "housing")
+  let bundleUrl = `${apiBase}&table=${BULK_DOWNLOAD_BUNDLE_LIST}`;
+  let tableUrl = `${apiBase}&table=${BULK_DOWNLOAD_BUNDLE_TABLE_LIST_VIEW}`;
+
+  if (bundleId) {
+    bundleUrl = `${bundleUrl}&filters=id:${bundleId}`;
+    tableUrl = `${tableUrl}&filters=bundle_id:${bundleId}`;
+  } else {
+    bundleUrl = `${bundleUrl}&filters=active:Y`;
+  }
+
+  const [bundleResponse, tableResponse] = await Promise.all([
+    fetch(bundleUrl),
+    fetch(tableUrl),
+  ]);
+
+  if (!bundleResponse.ok) {
+    throw new Error(`HTTP error! status: ${bundleResponse.status}`);
+  }
+
+  if (!tableResponse.ok) {
+    throw new Error(`HTTP error! status: ${tableResponse.status}`);
+  }
+
+  const [bundleData, tableData] = await Promise.all([
+    bundleResponse.json(),
+    tableResponse.json(),
+  ]);
+
+  return [bundleData.rows || [], tableData.rows || []];
+}
+
+export async function fetchBulkDownloadBundles() {
+  const [bundleRows, tableRows] = await fetchBundleListApiRows();
+  return groupBundleListFromRows(bundleRows, tableRows);
+}
+
+export async function fetchBulkDownloadBundle(bundleId) {
+  const token = import.meta.env.VITE_MAPC_API_TOKEN;
+  const apiBase = `${locations.BROWSER_API}?token=${token}&database=ds&schema=tabular`;
+
+  const [yearsResponse, tableResponse, metaResponse] = await Promise.all([
+    fetch(
+      `${locations.BROWSER_API}/named-query?token=${token}&queryName=${BULK_DOWNLOAD_BUNDLE_TABLES_STORED_PROCEDURE}&bundleId=${encodeURIComponent(bundleId)}`,
+    ),
+    fetch(`${apiBase}&table=${BULK_DOWNLOAD_BUNDLE_TABLE_LIST_VIEW}&filters=bundle_id:${encodeURIComponent(bundleId)}`),
+    fetch(`${apiBase}&table=${BULK_DOWNLOAD_BUNDLE_LIST}&filters=id:${encodeURIComponent(bundleId)}`),
+  ]);
+
+  if (!yearsResponse.ok) {
+    throw new Error(`HTTP error! status: ${yearsResponse.status}`);
+  }
+
+  if (!tableResponse.ok) {
+    throw new Error(`HTTP error! status: ${tableResponse.status}`);
+  }
+
+  const [yearsData, tableData, metaData] = await Promise.all([
+    yearsResponse.json(),
+    tableResponse.json(),
+    metaResponse.ok ? metaResponse.json() : Promise.resolve({ rows: [] }),
+  ]);
+
+  const tableRows = tableData.rows || [];
+  if (!tableRows.length) {
+    return null;
+  }
+
+  const availableYearsByTable = (yearsData.rows || []).reduce((acc, row) => {
+    acc[row.table_name] = parseYearList(row.available_years);
+    return acc;
+  }, {});
+
+  const meta = metaData.rows?.[0];
+
+  return {
+    id: bundleId,
+    title: meta?.title ?? "",
+    description: meta?.description ?? "",
+    geographyType: meta?.geography_type || meta?.geographyType || "municipality",
+    tables: mergeBundleTableConfigs(tableRows, availableYearsByTable),
+  };
+}
+
+export function buildBulkDownloadFilename(municipalities, bundleSlug, extension) {
+  const muniLabel = municipalities.length === 1 ? municipalities[0] : "municipalities";
+  const dateStamp = formatDateStamp();
   return `${muniLabel} ${bundleSlug} data ${dateStamp}.${extension}`;
 }
 
@@ -73,7 +228,6 @@ export async function requestBulkExport({
   return { blob, filename };
 }
 
-/** Trigger a browser download from a Blob. */
 export function downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
