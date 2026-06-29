@@ -313,6 +313,7 @@
       li {
         margin-bottom: 0.25rem;
         a {
+          font-size: $font_size-small;
           color: $color_font-medium;
           text-decoration: underline;
           &:hover {
