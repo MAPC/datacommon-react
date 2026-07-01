@@ -345,14 +345,18 @@
 
 .bulk-download__table-label {
   align-items: flex-start;
-  cursor: pointer;
   display: flex;
   gap: 0.75rem;
   padding: 0;
+}
+
+.bulk-download__table-checkbox {
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-top: 0.2rem;
 
   input[type="checkbox"] {
-    flex-shrink: 0;
-    margin-top: 0.2rem;
+    margin: 0;
   }
 }
 
@@ -405,6 +409,15 @@
   color: #222;
   font-size: 0.95rem;
   line-height: 1.35;
+
+  &--link {
+    color: $color_brand-secondary;
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
 }
 
 .bulk-download__table-source {
