@@ -380,16 +380,35 @@ const BulkDownloadBundlePage = () => {
                   const availableYears = availableYearsByTable[tableConfig.table];
                   return (
                     <li key={tableConfig.table} className={`bulk-download__table-item${checked ? " bulk-download__table-item--selected" : ""}`}>
-                      <label className="bulk-download__table-label">
-                        <input type="checkbox" checked={checked} onChange={() => toggleTable(tableConfig.table)} />
+                      <div className="bulk-download__table-label">
+                        <label className="bulk-download__table-checkbox">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleTable(tableConfig.table)}
+                            aria-label={`Include ${title} in download`}
+                          />
+                        </label>
                         <span className="bulk-download__table-info">
-                          <span className="bulk-download__table-title">{title}</span>
+                          {tableConfig.datasetId ? (
+                            <Link
+                              to={`/browser/datasets/${tableConfig.datasetId}`}
+                              className="bulk-download__table-title bulk-download__table-title--link"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="View table in Data Browser"
+                            >
+                              {title}
+                            </Link>
+                          ) : (
+                            <span className="bulk-download__table-title">{title}</span>
+                          )}
                           {source && <span className="bulk-download__table-source">{source}</span>}
                           <span className="bulk-download__table-meta">
                             <code>{tableConfig.table}</code>
                           </span>
                         </span>
-                      </label>
+                      </div>
                       <div className={`bulk-download__table-years${checked ? "" : " bulk-download__table-years--disabled"}`}>
                         {tableConfig.yearColumn && (
                           <>

@@ -46,8 +46,10 @@ function parseYearList(value) {
 
 /** Map one _bulk_download_bundle_table_list row to a frontend table config. */
 function toBundleTableConfig(row, availableYears = []) {
+  const datasetId = row.dataset_id;
   return {
     table: row.table_name,
+    datasetId: datasetId != null && datasetId !== "" ? String(datasetId) : null,
     database: row.db_name || "ds",
     schema: row.schema_name || "tabular",
     geoColumn: row.geo_column || "municipal",
