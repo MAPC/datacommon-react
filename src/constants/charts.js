@@ -66,6 +66,15 @@ const getFormattedYearRange = async (schema, table, yearCol, limit, orderDir) =>
   return formatYearRange(latestYear);
 };
 
+const formatMuniName = (muniName) => {
+  // manchester-by-the-sea includes hyphens, all other munis should replace hyphens with spaces
+  if (muniName.toLowerCase() === 'manchester-by-the-sea') {
+    return 'Manchester-by-the-Sea';
+  } else {
+    return muniName.replace("-", " ");
+  }
+}
+
 const eduAttainmentByRaceColumns = [
   "acs_year",
   "nhwlh",
@@ -1894,7 +1903,7 @@ export default {
           columns: ["acs_year", "muni_id", "municipal", "nocmp_p", "nocmp_mp"],
           specialFetch: async (municipality, dispatchUpdate) => {
             // TODO: Maybe make backend improvement to prevent 3 requests here
-            const municipalityFormatted = municipality.replace("-", " ");
+            const municipalityFormatted = formatMuniName(municipality);
             let countyIdsApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&columns=county_id`;
             countyIdsApi = `${countyIdsApi}&filters=muni_name~${municipalityFormatted}`;
             const countyIdResp = await fetch(countyIdsApi);
@@ -1981,7 +1990,7 @@ export default {
           columns: ["acs_year", "muni_id", "municipal", "noint_p", "noint_mp"],
           specialFetch: async (municipality, dispatchUpdate) => {
             // TODO: Maybe make backend improvement to prevent 3 requests here
-            const municipalityFormatted = municipality.replace("-", " ");
+            const municipalityFormatted = formatMuniName(municipality);
             let countyIdsApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&columns=county_id`;
             countyIdsApi = `${countyIdsApi}&filters=muni_name~${municipalityFormatted}`;
             const countyIdResp = await fetch(countyIdsApi);
@@ -2066,7 +2075,7 @@ export default {
           columns: ["acs_year", "muni_id", "municipal", "moblo_p", "moblo_mp"],
           specialFetch: async (municipality, dispatchUpdate) => {
             // TODO: Maybe make backend improvement to prevent 3 requests here
-            const municipalityFormatted = municipality.replace("-", " ");
+            const municipalityFormatted = formatMuniName(municipality);
             let countyIdsApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&columns=county_id`;
             countyIdsApi = `${countyIdsApi}&filters=muni_name~${municipalityFormatted}`;
             const countyIdResp = await fetch(countyIdsApi);
@@ -2159,7 +2168,7 @@ export default {
           latestYearOnly: true,
           columns: internetUsageByIncomeColumns,
           specialFetch: async (municipality, dispatchUpdate) => {
-            const municipalityFormatted = municipality.replace("-", " ");
+            const municipalityFormatted = formatMuniName(municipality);;
             const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
             const year = years.length ? years[0] : "unknown";
 
@@ -2305,7 +2314,7 @@ export default {
           },
           columns: internetSubscriptionTypesColumns,
           specialFetch: async (municipality, dispatchUpdate) => {
-            const municipalityFormatted = municipality.replace("-", " ");
+            const municipalityFormatted = formatMuniName(municipality);;
 
             let mainDataApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=s2801_computer_internet_acs_m`;
             mainDataApi = `${mainDataApi}&columns=${internetSubscriptionTypesColumns.join(",")}`;

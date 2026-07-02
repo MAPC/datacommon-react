@@ -32,16 +32,24 @@ export const fetchChartData = createAsyncThunk("chart/fetchData", async ({ chart
       );
     };
 
+    // manchester-by-the-sea includes hyphens, all other munis should replace hyphens with spaces
+    let apiMuniName;
+    if (municipality.toLowerCase() === 'manchester-by-the-sea') {
+      apiMuniName = 'Manchester-by-the-Sea';
+    } else {
+      apiMuniName = municipality.replace("-", " ");
+    }
+
     if (specialFetch) {
       // Return early if using specialFetch
-      return await specialFetch(municipality.replace("-", " "), dispatchUpdate);
+      return await specialFetch(apiMuniName, dispatchUpdate);
     }
 
     const schema = fullTableName.split('.')[0];
     const tableName = fullTableName.split('.')[1];
     const api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=${schema}&table=${tableName}`;
     let query = `${api}&columns=${columns.join(',')}`;
-    let filters = `&filters=municipal~${municipality.replace("-", " ")}`;
+    let filters = `&filters=municipal~${apiMuniName}`;
 
     if (yearCol && latestYearOnly && !years) {
       const yearResponse = await fetch(`${api}&columns=${yearCol}&orderByColumn=${yearCol}&orderByDirection=DESC&limit=1`);
