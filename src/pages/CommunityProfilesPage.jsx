@@ -5,6 +5,12 @@ import CommunityProfilesView from '../components/CommunityProfilesView';
 
 const capitalize = (string) => {
   if (!string) return '';
+
+  // Manchester is a special case that breaks standard formatting
+  if (string.toLowerCase() === 'manchester-by-the-sea') {
+    return 'Manchester-by-the-Sea';
+  }
+
   return string
     .split(' ')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
