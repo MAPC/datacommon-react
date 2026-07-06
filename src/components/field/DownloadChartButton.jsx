@@ -1,8 +1,10 @@
-import React from "react";
 import PropTypes from "prop-types";
+import React from "react";
 import { useSelector } from "react-redux";
 import { createSelector } from "@reduxjs/toolkit";
 import styled from "styled-components";
+
+import { SUBREGIONS } from "../../constants/subregions";
 
 const StyledButton = styled.button`
   background: transparent;
@@ -25,16 +27,6 @@ const StyledButton = styled.button`
     font-size: 14px;
   }
 `;
-const SUBREGIONS = {
-  355: 'Inner Core Committee [ICC]',
-  356: 'Minuteman Advisory Group on Interlocal Coordination [MAGIC]',
-  357: 'MetroWest Regional Collaborative [MWRC]',
-  358: 'North Shore Task Force [NSTF]',
-  359: 'North Suburban Planning Council [NSPC]',
-  360: 'South Shore Coalition [SSC]',
-  361: 'South West Advisory Planning Committee [SWAP]',
-  362: 'Three Rivers Interlocal Council [TRIC]'
-};
 
 const makeSelectChartData = (tables, muni) =>
   createSelector([(state) => state.chart.cache], (cache) =>

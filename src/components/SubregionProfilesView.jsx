@@ -2,20 +2,22 @@ import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import styled, { createGlobalStyle } from 'styled-components';
+
 import Tab from "./Tab";
 import Dropdown from "./field/Dropdown";
-import tabs from "../constants/tabs";
 import charts from "../constants/charts";
-import { fetchSubregionChartData, fetchSubregionData, selectSubregionData } from "../reducers/subregionSlice";
+import { SUBREGIONS } from "../constants/subregions";
+import tabs from "../constants/tabs";
 import StackedBarChart from "../containers/visualizations/StackedBarChart";
 import StackedAreaChart from "../containers/visualizations/StackedAreaChart";
-import ChartDetails from "./visualizations/ChartDetails";
 import PieChart from "../containers/visualizations/PieChart";
 import LineChart from "../containers/visualizations/LineChart";
 import GaugeChart from "../containers/visualizations/GaugeChart";
 import GroupedBarChart from "../containers/visualizations/GroupedBarChart";
-import DownloadAllChartsButton from './field/DownloadAllChartsButton';
 import DataTableModal from './field/DataTableModal';
+import DownloadAllChartsButton from './field/DownloadAllChartsButton';
+import { fetchSubregionChartData, fetchSubregionData, selectSubregionData } from "../reducers/subregionSlice";
+import ChartDetails from "./visualizations/ChartDetails";
 
 // Global Print Styles
 const PrintStyles = createGlobalStyle`
@@ -93,7 +95,7 @@ const MunicipalitiesRow = styled.div`
 `;
 
 const MunicipalityLinkWrapper = styled.div`
-  flex: 0 0 calc((100% - 72px) / 10); /* (100% - (9 * 8px gaps)) / 10 items */
+  flex: 0 0 calc((100% - 64px) / 8); /* (100% - (9 * 8px gaps)) / 10 items */
   min-width: 90px;
 `;
 
@@ -104,18 +106,17 @@ const StyledLink = styled(Link)`
   border-radius: 4px;
   background-color: #f5f5f5;
   font-size: 12px;
-  white-space: nowrap;
   border: 1px solid #e0e0e0;
   transition: all 0.2s ease;
   text-align: center;
   width: 100%;
   height: 35px;
-  display: flex;
+  display: inline-block;
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  white-space: nowrap;
   text-overflow: ellipsis;
-  position: relative;
 
   &::after {
     content: "↗";
@@ -144,17 +145,6 @@ const StyledLink = styled(Link)`
     }
   }
 `;
-
-const SUBREGIONS = {
-  355: 'Inner Core Committee [ICC]',
-  356: 'Minuteman Advisory Group on Interlocal Coordination [MAGIC]',
-  357: 'MetroWest Regional Collaborative [MWRC]',
-  358: 'North Shore Task Force [NSTF]',
-  359: 'North Suburban Planning Council [NSPC]',
-  360: 'South Shore Coalition [SSC]',
-  361: 'South West Advisory Planning Committee [SWAP]',
-  362: 'Three Rivers Interlocal Council [TRIC]'
-};
 
 const chunkArray = (array, size) => {
   const chunked = [];
@@ -257,7 +247,7 @@ const SubregionProfilesView = () => {
                 This subregion contains {municipalities.length} municipalities. The charts below show aggregated data for all municipalities in this subregion.
               </p>
               <MunicipalitiesList>
-                {chunkArray(municipalities, 10).map((row, rowIndex) => (
+                {chunkArray(municipalities, 8).map((row, rowIndex) => (
                   <MunicipalitiesRow key={rowIndex}>
                     {row.map(muni => (
                       <MunicipalityLinkWrapper key={muni.muni_id}>

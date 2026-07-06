@@ -2,6 +2,8 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import styled from 'styled-components';
 
+import { SUBREGIONS } from '../../constants/subregions';
+
 const DownloadButton = styled.button`
   background: transparent;
   border: 1px solid #555555;
@@ -29,17 +31,6 @@ const DownloadButton = styled.button`
     font-size: 14px;
   }
 `;
-
-const SUBREGIONS = {
-  355: 'Inner Core Committee [ICC]',
-  356: 'Minuteman Advisory Group on Interlocal Coordination [MAGIC]',
-  357: 'MetroWest Regional Collaborative [MWRC]',
-  358: 'North Shore Task Force [NSTF]',
-  359: 'North Suburban Planning Council [NSPC]',
-  360: 'South Shore Coalition [SSC]',
-  361: 'South West Advisory Planning Committee [SWAP]',
-  362: 'Three Rivers Interlocal Council [TRIC]'
-};
 
 const DownloadChartImageButton = ({ chartRef, chartTitle, muni, isSubregion, isRPAregion, displayName, hideTitle }) => {
   const [isDownloading, setIsDownloading] = React.useState(false);

@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
+import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
+
 import MapBox from './MapBox';
 import SearchBar from './partials/SearchBar';
 import { fetchSubregionData, selectSubregionData, selectSubregionLoading } from '../reducers/subregionSlice';
 import { fetchRPAregionData, selectRPAregionData, selectRPAregionLoading } from '../reducers/rparegionSlice';
+import { SUBREGIONS } from '../constants/subregions';
 
 const styles = {
   subregionSelector: {
@@ -37,18 +39,6 @@ const styles = {
     background: 'linear-gradient(to right, #6FC68E, #44aD89)',
     pointerEvents: 'none'
   }
-};
-
-// TODO: Get subregions from the muni datakeys table? 
-const SUBREGIONS = {
-  355: 'Inner Core Committee [ICC]',
-  356: 'Minuteman Advisory Group on Interlocal Coordination [MAGIC]',
-  357: 'MetroWest Regional Collaborative [MWRC]',
-  358: 'North Suburban Planning Council [NSPC]',
-  359: 'North Shore Task Force [NSTF]',
-  360: 'South Shore Coalition [SSC]',
-  361: 'South West Advisory Planning Committee [SWAP]',
-  362: 'Three Rivers Interlocal Council [TRIC]'
 };
 
 // TODO: Get RPA regions from the muni datakeys table?
