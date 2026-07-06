@@ -5,6 +5,7 @@ import { useSelector } from "react-redux";
 import { createSelector } from "@reduxjs/toolkit";
 import DownloadChartButton from "../field/DownloadChartButton";
 import DownloadChartImageButton from "../field/DownloadChartImageButton";
+import CopyChartImageButton from "../field/CopyChartImageButton";
 
 const ChartHeader = styled.div`
   display: flex;
@@ -235,6 +236,11 @@ const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAreg
               isSubregion={isSubregion}
               isRPAregion={isRPAregion}
               displayName={displayName}
+              hideTitle={hideOuterTitle}
+            />
+            <CopyChartImageButton
+              chartRef={chartWrapperRef}
+              chartTitle={chart.title || 'Chart'}
               hideTitle={hideOuterTitle}
             />
           </ButtonGroup>

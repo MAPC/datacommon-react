@@ -4,6 +4,7 @@ import styled from "styled-components";
 import locations from "../../constants/locations";
 import { fetchDatasets } from "../../reducers/datasetSlice";
 import DownloadChartImageButton from "../field/DownloadChartImageButton";
+import CopyChartImageButton from "../field/CopyChartImageButton";
 
 const ButtonGroup = styled.div`
   display: flex;
@@ -408,6 +409,11 @@ const InternetSpeedTest = ({ municipalityName, onViewData }) => {
             chartTitle="Internet Speed Test (Municipal)"
             hideTitle
             muni={municipalityName}
+          />
+          <CopyChartImageButton
+            chartRef={chartWrapperRef}
+            chartTitle="Internet Speed Test (Municipal)"
+            hideTitle
           />
         </ButtonGroup>
         <div className="digital-equity-speed-stat-grid">
