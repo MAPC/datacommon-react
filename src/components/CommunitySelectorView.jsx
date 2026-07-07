@@ -6,8 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import MapBox from './MapBox';
 import SearchBar from './partials/SearchBar';
 import { fetchSubregionData, selectSubregionData, selectSubregionLoading } from '../reducers/subregionSlice';
-import { fetchRPAregionData, selectRPAregionData, selectRPAregionLoading } from '../reducers/rparegionSlice';
-import { SUBREGIONS } from '../constants/subregions';
+// import { fetchRPAregionData, selectRPAregionData, selectRPAregionLoading } from '../reducers/rparegionSlice';
 
 const styles = {
   subregionSelector: {
@@ -54,43 +53,38 @@ const CommunitySelectorView = ({ muniLines, muniFill, municipalityPoly, toProfil
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const subregionData = useSelector(selectSubregionData);
-  const rparegionData = useSelector(selectRPAregionData);
+  // const rparegionData = useSelector(selectRPAregionData);
   const isLoading = useSelector(selectSubregionLoading);
+
   const [selectedSubregion, setSelectedSubregion] = useState('');
-  const [selectedRPAregion, setSelectedRPAregion] = useState('');
+  // const [selectedRPAregion, setSelectedRPAregion] = useState('');
   const [isFocused, setIsFocused] = useState(false);
 
   useEffect(() => {
     dispatch(fetchSubregionData());
-    dispatch(fetchRPAregionData());
+    // dispatch(fetchRPAregionData());
   }, [dispatch]);
 
   const handleSubregionChange = (event) => {
     const subregionId = event.target.value;
     setSelectedSubregion(subregionId);
-    setSelectedRPAregion('');
+    // setSelectedRPAregion('');
     if (subregionId) {
       navigate(`/profile/subregion/${subregionId}`);
     }
   };
 
-  const handleRPAregionChange = (event) => {
-    const rpaId = event.target.value;
-    setSelectedRPAregion(rpaId);
-    setSelectedSubregion('');
-    if (rpaId) {
-      navigate(`/profile/rpa/${rpaId}`);
-    }
-  };
+  // const handleRPAregionChange = (event) => {
+  //   const rpaId = event.target.value;
+  //   setSelectedRPAregion(rpaId);
+  //   setSelectedSubregion('');
+  //   if (rpaId) {
+  //     navigate(`/profile/rpa/${rpaId}`);
+  //   }
+  // };
 
   const handleMuniSelect = (muni) => {
-    if (selectedSubregion) {
-      navigate(`/profile/subregion/${selectedSubregion}/${muni.toLowerCase().replace(/\s+/g, '-')}`);
-    } else if (selectedRPAregion) {
-      navigate(`/profile/rparegion/${selectedRPAregion}/${muni.toLowerCase().replace(/\s+/g, '-')}`);
-    } else {
-      toProfile(muni);
-    }
+    toProfile(muni);
   };
 
   return (
@@ -111,8 +105,8 @@ const CommunitySelectorView = ({ muniLines, muniFill, municipalityPoly, toProfil
             disabled={isLoading}
           >
             <option value="">Select a Subregion</option>
-            {Object.entries(SUBREGIONS).map(([id, name]) => (
-              <option key={id} value={id}>{name}</option>
+            {Object.entries(subregionData).map(([id, subregionData]) => (
+              <option key={id} value={id}>{subregionData.subregionName}</option>
             ))}
           </select>
           <div style={styles.gradientBorder}></div>
@@ -150,10 +144,6 @@ const CommunitySelectorView = ({ muniLines, muniFill, municipalityPoly, toProfil
         layers={[muniLines, muniFill]}
         muniPoly={municipalityPoly}
         toProfile={handleMuniSelect}
-        selectedSubregion={selectedSubregion}
-        subregionData={subregionData}
-        selectedRPAregion={selectedRPAregion}
-        rparegionData={rparegionData}
       />
     </section>
   );

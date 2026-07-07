@@ -130,7 +130,6 @@ export async function exportChartImageBlob(chartWrapper, { chartTitle = 'Chart T
     } else {
       // Get the SVG element: prefer the main chart SVG, not small icon SVGs
       let svg = chartWrapper.querySelector('.chart svg');
-      console.log('svg', svg);
       if (!svg) {
         svg = chartWrapper.querySelector('svg');
       }
