@@ -1,9 +1,10 @@
-import React from 'react';
 import PropTypes from 'prop-types';
+import React from 'react';
+import { useSelector } from 'react-redux';
 import styled from 'styled-components';
-import { exportChartImageBlob } from '../../utils/exportChartImage';
 
-import { SUBREGIONS } from '../../constants/subregions';
+import { selectSubregionData } from '../../reducers/subregionSlice';
+import { exportChartImageBlob } from '../../utils/exportChartImage';
 
 const DownloadButton = styled.button`
   background: transparent;
@@ -41,6 +42,7 @@ const DownloadButton = styled.button`
 
 const DownloadChartImageButton = ({ chartRef, chartTitle, muni, isSubregion, isRPAregion, displayName, hideTitle }) => {
   const [isDownloading, setIsDownloading] = React.useState(false);
+  const subregionData = useSelector(selectSubregionData);
 
   const downloadChartImage = async () => {
     if (!chartRef.current || isDownloading) return;
@@ -56,9 +58,9 @@ const DownloadChartImageButton = ({ chartRef, chartTitle, muni, isSubregion, isR
       if (displayName) {
         nameSuffix = displayName;
       } else if (isSubregion) {
-        nameSuffix = SUBREGIONS[muni]?.match(/\[([^\]]+)\]/)?.[1] || muni;
-      } else if (isRPAregion) {
-        nameSuffix = 'MAPC';
+        nameSuffix = subregionData[muni]?.subregionName?.match(/\[([^\]]+)\]/)?.[1] || muni;
+      // } else if (isRPAregion) {
+      //   nameSuffix = 'MAPC';
       } else {
         nameSuffix = muni;
       }

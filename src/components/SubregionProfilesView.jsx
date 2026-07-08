@@ -6,7 +6,6 @@ import styled, { createGlobalStyle } from 'styled-components';
 import Tab from "./Tab";
 import Dropdown from "./field/Dropdown";
 import charts from "../constants/charts";
-import { SUBREGIONS } from "../constants/subregions";
 import tabs from "../constants/tabs";
 import StackedBarChart from "../containers/visualizations/StackedBarChart";
 import StackedAreaChart from "../containers/visualizations/StackedAreaChart";
@@ -171,8 +170,6 @@ const SubregionProfilesView = () => {
   const subregionData = useSelector(selectSubregionData);
   const subregionCache = useSelector(state => state.subregion.cache);
   const municipalities = subregionData[subregionId]?.municipalities || [];
-  
-  const subregionName = SUBREGIONS[subregionId] || subregionId;
 
   useEffect(() => {
     setActiveTab(sanitizeTab(tab));
@@ -239,7 +236,7 @@ const SubregionProfilesView = () => {
         <div className="page-header">
         <div className="container">
           <header>
-            <h2>{SUBREGIONS[subregionId]}</h2>
+            <h2>{subregionData[subregionId]?.subregionName || ''}</h2>
           </header>
           <section className="about">
             <div className="description-wrapper">
@@ -272,10 +269,11 @@ const SubregionProfilesView = () => {
                   Print charts
                 </button>
                 <div className="hide-on-print">
+                  {/* TODO: This doesn't work for subregions, need to fix */}
                   <DownloadAllChartsButton 
                     muni={subregionId} 
                     datatype={'subregion'}
-                    displayName={subregionName}
+                    displayName={subregionData[subregionId]?.subregionName || subregionId}
                   />
                 </div>
               </div>
