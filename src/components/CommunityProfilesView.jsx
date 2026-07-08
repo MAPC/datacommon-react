@@ -474,7 +474,7 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 >
                   <MultiGaugeChart chart={charts["municipal-finance"].levy_share_gauge} muni={muni} />
                 </ChartDetails>
-                {/* TODO: Add this back in once Zoe has updated the underlying data in the table. data has issues for now */}
+                {/* TODO: add this back in when we understand what from the data needs to be displayed */}
                 {/* <ChartDetails
                   chart={charts["municipal-finance"].levy_ceiling_gauge}
                   muni={muni}
@@ -482,13 +482,14 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 >
                   <MultiGaugeChart chart={charts["municipal-finance"].levy_ceiling_gauge} muni={muni} />
                 </ChartDetails> */}
-                <ChartDetails
+                {/* TODO: add this back in when we understand what from the data needs to be displayed */}
+                {/* <ChartDetails
                   chart={charts["municipal-finance"].levy_new_growth_gauge}
                   muni={muni}
                   onViewData={handleShowModal}
                 >
                   <MultiGaugeChart chart={charts["municipal-finance"].levy_new_growth_gauge} muni={muni} />
-                </ChartDetails>
+                </ChartDetails> */}
               </div>
               <div className="tab__row">
                 <ChartDetails chart={charts["municipal-finance"].overrides_win_loss_bar} muni={muni} onViewData={handleShowModal}>
@@ -522,20 +523,20 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 </ChartDetails>
               </div>
               <div className="tab__row">
-                <ChartDetails
+                {/* <ChartDetails
                   chart={charts["municipal-finance"].fund_revenue}
                   muni={muni}
                   onViewData={handleShowModal}
                   wrapperClassName="chart-wrapper--fund-revenue-breakdown"
                 >
                   <TreeMap chart={charts["municipal-finance"].fund_revenue} muni={muni} />
-                </ChartDetails>
+                </ChartDetails> */}
               </div>
               <div className="tab__row tab__row--full-width-map">
-                <MunicipalFinanceOverridesMap
+                {/* <MunicipalFinanceOverridesMap
                   config={charts["municipal-finance"].overrides_map_config}
                   municipalFeature={municipalFeature}
-                />
+                /> */}
               </div>
               <div className="tab__row municipal-finances-resources">
                 <div className="chart-wrapper" style={{ maxWidth: "100%", flex: "0 0 100%" }}>
