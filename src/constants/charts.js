@@ -2404,18 +2404,18 @@ export default {
         "tabular.muni_finance_m_bond_rating": {
           yearCol: "fiscal_yr",
           latestYearOnly: false,
-          columns: ["fiscal_yr", "muni_name", "sp_rating"],
+          columns: ["fiscal_yr", "municipal", "bnd_sprt"],
           specialFetch: async (municipality, dispatchUpdate) => {
-            const years = await fetchYears("tabular", "muni_finance_m", "fiscal_yr", 1, "DESC");
-            const latestYear = years[0];
-            if (latestYear == null) {
-              dispatchUpdate([]);
-              return;
-            }
-            const fiscalYear = Number(latestYear) - 1;
-            const columns = ["fiscal_yr", "muni_name", "sp_rating"];
+            let latestYearUrl = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
+            latestYearUrl =` ${latestYearUrl}&columns=fiscal_yr&orderByColumn=fiscal_yr&orderByDirection=DESC&limit=1`;
+            latestYearUrl =` ${latestYearUrl}&filters=bnd_sprt!!&municipal~${municipality}`;
+            const yearResp = await fetch(latestYearUrl);
+            const yearPayload = (await yearResp.json()) || {};
+            const latestYear = yearPayload.rows.length === 1 ? yearPayload.rows[0].fiscal_yr : 2023;
+
+            const columns = ["fiscal_yr", "municipal", "bnd_sprt"];
             let url = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
-            url = `${url}&columns=${columns.join(",")}&filters=muni_name~${municipality},fiscal_yr:${fiscalYear}&limit=1`;
+            url = `${url}&columns=${columns.join(",")}&filters=municipal~${municipality},fiscal_yr:${latestYear}&limit=1`;
             const response = await fetch(url);
             if (!response.ok) {
               throw new Error(`HTTP error! status: ${response.status}`);
@@ -2428,20 +2428,25 @@ export default {
       source: "MA Dept of Revenue",
       datasetLinks: { "Dept of Revenue Municipal Finance": 502 },
       timeframe: async () => {
-        const years = await fetchYears("tabular", "muni_finance_m", "fiscal_yr", 1, "DESC");
-        return years[0] - 1;
+        let latestYearUrl = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
+        latestYearUrl =` ${latestYearUrl}&columns=fiscal_yr&orderByColumn=fiscal_yr&orderByDirection=DESC&limit=1`;
+        latestYearUrl =` ${latestYearUrl}&filters=bnd_sprt!!`;
+        const yearResp = await fetch(latestYearUrl);
+        const yearPayload = (await yearResp.json()) || {};
+        const latestYear = yearPayload.rows.length === 1 ? yearPayload.rows[0].fiscal_yr : 2023;
+        return latestYear;
       },
       transformer: (tables) => {
         const data = tables["tabular.muni_finance_m_bond_rating"];
         if (!data?.length) return [{ displayValue: "" }];
-        const raw = data[0].sp_rating;
+        const raw = data[0].bnd_sprt;
         if (raw == null || String(raw).trim() === "") return [{ displayValue: "" }];
         return [{ displayValue: String(raw).trim() }];
       },
       subregionDataQuery: async (subregionId) => {
         const years = await fetchYears("tabular", "muni_finance_m", "fiscal_yr", 1, "DESC");
         const fiscalYear = years[0] != null ? Number(years[0]) - 1 : "";
-        return `&schema=tabular&table=muni_finance_m&columns=fiscal_yr,muni_name,sp_rating&filters=muni_id:${subregionId},fiscal_yr:${fiscalYear}&limit=1`;
+        return `&schema=tabular&table=muni_finance_m&columns=fiscal_yr,municipal,bnd_sprt&filters=muni_id:${subregionId},fiscal_yr:${fiscalYear}&limit=1`;
       },
     },
     cpa_annual_spending: {
@@ -2452,17 +2457,18 @@ export default {
         "tabular.muni_finance_m_cpa_spending": {
           yearCol: "fiscal_yr",
           latestYearOnly: false,
-          columns: ["fiscal_yr", "muni_name", "ent_cpafnd"],
+          columns: ["fiscal_yr", "municipal", "src_entcpa"],
           specialFetch: async (municipality, dispatchUpdate) => {
-            const years = await fetchYears("tabular", "muni_finance_m", "fiscal_yr", 1, "DESC");
-            const fiscalYear = years[0];
-            if (fiscalYear == null) {
-              dispatchUpdate([]);
-              return;
-            }
-            const columns = ["fiscal_yr", "muni_name", "ent_cpafnd"];
+            let latestYearUrl = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
+            latestYearUrl =` ${latestYearUrl}&columns=fiscal_yr&orderByColumn=fiscal_yr&orderByDirection=DESC&limit=1`;
+            latestYearUrl =` ${latestYearUrl}&filters=src_entcpa!!&municipal~${municipality}`;
+            const yearResp = await fetch(latestYearUrl);
+            const yearPayload = (await yearResp.json()) || {};
+            const latestYear = yearPayload.rows.length === 1 ? yearPayload.rows[0].fiscal_yr : 2023;
+
+            const columns = ["fiscal_yr", "municipal", "src_entcpa"];
             let url = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
-            url = `${url}&columns=${columns.join(",")}&filters=muni_name~${municipality},fiscal_yr:${fiscalYear}&limit=1`;
+            url = `${url}&columns=${columns.join(",")}&filters=municipal~${municipality},fiscal_yr:${latestYear}&limit=1`;
             const response = await fetch(url);
             if (!response.ok) {
               throw new Error(`HTTP error! status: ${response.status}`);
@@ -2475,13 +2481,18 @@ export default {
       source: "MA Dept of Revenue",
       datasetLinks: { "Dept of Revenue Municipal Finance": 502 },
       timeframe: async () => {
-        const years = await fetchYears("tabular", "muni_finance_m", "fiscal_yr", 1, "DESC");
-        return years[0] != null ? String(years[0]) : "";
+        let latestYearUrl = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
+        latestYearUrl =` ${latestYearUrl}&columns=fiscal_yr&orderByColumn=fiscal_yr&orderByDirection=DESC&limit=1`;
+        latestYearUrl =` ${latestYearUrl}&filters=src_entcpa!!`;
+        const yearResp = await fetch(latestYearUrl);
+        const yearPayload = (await yearResp.json()) || {};
+        const latestYear = yearPayload.rows.length === 1 ? yearPayload.rows[0].fiscal_yr : 2023;
+        return latestYear;
       },
       transformer: (tables) => {
         const data = tables["tabular.muni_finance_m_cpa_spending"];
         if (!data?.length) return [{ displayValue: "" }];
-        const n = Number(data[0].ent_cpafnd);
+        const n = Number(data[0].src_entcpa);
         if (!Number.isFinite(n)) return [{ displayValue: "" }];
         return [
           {
@@ -2496,7 +2507,7 @@ export default {
       subregionDataQuery: async (subregionId) => {
         const years = await fetchYears("tabular", "muni_finance_m", "fiscal_yr", 1, "DESC");
         const fiscalYear = years[0] ?? "";
-        return `&schema=tabular&table=muni_finance_m&columns=fiscal_yr,muni_name,ent_cpafnd&filters=muni_id:${subregionId},fiscal_yr:${fiscalYear}&limit=1`;
+        return `&schema=tabular&table=muni_finance_m&columns=fiscal_yr,municipal,src_entcpa&filters=muni_id:${subregionId},fiscal_yr:${fiscalYear}&limit=1`;
       },
     },
     total_employees_finance: {
@@ -2507,17 +2518,18 @@ export default {
         "tabular.muni_finance_m_total_employees": {
           yearCol: "fiscal_yr",
           latestYearOnly: false,
-          columns: ["fiscal_yr", "muni_name", "tot_empl"],
+          columns: ["fiscal_yr", "municipal", "fte_employ"],
           specialFetch: async (municipality, dispatchUpdate) => {
-            const years = await fetchYears("tabular", "muni_finance_m", "fiscal_yr", 1, "DESC");
-            const fiscalYear = years[0];
-            if (fiscalYear == null) {
-              dispatchUpdate([]);
-              return;
-            }
-            const columns = ["fiscal_yr", "muni_name", "tot_empl"];
+            let latestYearUrl = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
+            latestYearUrl =` ${latestYearUrl}&columns=fiscal_yr&orderByColumn=fiscal_yr&orderByDirection=DESC&limit=1`;
+            latestYearUrl =` ${latestYearUrl}&filters=fte_employ!!&municipal~${municipality}`;
+            const yearResp = await fetch(latestYearUrl);
+            const yearPayload = (await yearResp.json()) || {};
+            const latestYear = yearPayload.rows.length === 1 ? yearPayload.rows[0].fiscal_yr : 2023;
+
+            const columns = ["fiscal_yr", "municipal", "fte_employ"];
             let url = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
-            url = `${url}&columns=${columns.join(",")}&filters=muni_name~${municipality},fiscal_yr:${fiscalYear}&limit=1`;
+            url = `${url}&columns=${columns.join(",")}&filters=municipal~${municipality},fiscal_yr:${latestYear}&limit=1`;
             const response = await fetch(url);
             if (!response.ok) {
               throw new Error(`HTTP error! status: ${response.status}`);
@@ -2530,20 +2542,30 @@ export default {
       source: "MA Dept of Revenue",
       datasetLinks: { "Dept of Revenue Municipal Finance": 502 },
       timeframe: async () => {
-        const years = await fetchYears("tabular", "muni_finance_m", "fiscal_yr", 1, "DESC");
-        return years[0] != null ? String(years[0]) : "";
+        let latestYearUrl = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
+        latestYearUrl =` ${latestYearUrl}&columns=fiscal_yr&orderByColumn=fiscal_yr&orderByDirection=DESC&limit=1`;
+        latestYearUrl =` ${latestYearUrl}&filters=fte_employ!!`;
+        const yearResp = await fetch(latestYearUrl);
+        const yearPayload = (await yearResp.json()) || {};
+        const latestYear = yearPayload.rows.length === 1 ? yearPayload.rows[0].fiscal_yr : 2023;
+        return latestYear;
       },
       transformer: (tables) => {
         const data = tables["tabular.muni_finance_m_total_employees"];
         if (!data?.length) return [{ displayValue: "" }];
-        const n = Number(data[0].tot_empl);
+        const n = Number(data[0].fte_employ);
         if (!Number.isFinite(n)) return [{ displayValue: "" }];
         return [{ displayValue: new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(n) }];
       },
       subregionDataQuery: async (subregionId) => {
-        const years = await fetchYears("tabular", "muni_finance_m", "fiscal_yr", 1, "DESC");
-        const fiscalYear = years[0] ?? "";
-        return `&schema=tabular&table=muni_finance_m&columns=fiscal_yr,muni_name,tot_empl&filters=muni_id:${subregionId},fiscal_yr:${fiscalYear}&limit=1`;
+       let latestYearUrl = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
+        latestYearUrl =` ${latestYearUrl}&columns=fiscal_yr&orderByColumn=fiscal_yr&orderByDirection=DESC&limit=1`;
+        latestYearUrl =` ${latestYearUrl}&filters=fte_employ!!&municipal~${municipality}`;
+        const yearResp = await fetch(latestYearUrl);
+        const yearPayload = (await yearResp.json()) || {};
+        const latestYear = yearPayload.rows.length === 1 ? yearPayload.rows[0].fiscal_yr : 2023;
+
+        return `&schema=tabular&table=muni_finance_m&columns=fiscal_yr,municipal,fte_employ&filters=muni_id:${subregionId},fiscal_yr:${latestYear}&limit=1`;
       },
     },
     fund_revenue: {
@@ -2619,7 +2641,7 @@ export default {
     },
     levy_share_gauge: {
       type: "gauge",
-      title: "Levy Share",
+      title: "Percentage of Total New Growth",
       minValue: 0,
       maxValue: 100,
       backgroundColor: "#e0e0e0",
@@ -2632,7 +2654,7 @@ export default {
       tooltip: { type: "percentAndCount" },
       tables: {
         "tabular.muni_finance_m_levy_share": (() => {
-          const columnList = ["muni_name", "fiscal_yr", "ro_lvypct", "cip_lvypct"];
+          const columnList = ["municipal", "fiscal_yr", "nwg_res_p", "nwg_cip_p"];
           return {
             yearCol: "fiscal_yr",
             latestYearOnly: true,
@@ -2641,12 +2663,16 @@ export default {
               const muniName = String(municipality || "").replace(/'/g, "''");
               const selectList = columnList.join(",");
 
-              const years = await fetchYears('tabular', 'muni_finance_m', 'fiscal_yr', 1, 'DESC');
-              const year = years.length ? years[0] : 'unknown';
+              let latestYearUrl = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
+              latestYearUrl =` ${latestYearUrl}&columns=fiscal_yr&orderByColumn=fiscal_yr&orderByDirection=DESC&limit=1`;
+              latestYearUrl =` ${latestYearUrl}&filters=nwg_res_p!!,nwg_cip_p!!&municipal~${municipality}`;
+              const yearResp = await fetch(latestYearUrl);
+              const yearPayload = (await yearResp.json()) || {};
+              const latestYear = yearPayload.rows.length === 1 ? yearPayload.rows[0].fiscal_yr : 2023;
 
               let mainDataApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
               mainDataApi = `${mainDataApi}&columns=${selectList}`;
-              mainDataApi = `${mainDataApi}&filters=fiscal_yr:${year},muni_name~${muniName}%`;
+              mainDataApi = `${mainDataApi}&filters=fiscal_yr:${latestYear},municipal~${muniName}%`;
 
               const response = await fetch(mainDataApi);
               if (!response.ok) {
@@ -2659,8 +2685,13 @@ export default {
         })(),
       },
       timeframe: async () => {
-        const years = await fetchYears("tabular", "muni_finance_m", "fiscal_yr", 1, "DESC");
-        return years && years[0] ? String(years[0]) : "";
+        let latestYearUrl = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
+        latestYearUrl =` ${latestYearUrl}&columns=fiscal_yr&orderByColumn=fiscal_yr&orderByDirection=DESC&limit=1`;
+        latestYearUrl =` ${latestYearUrl}&filters=nwg_res_p!!,nwg_cip_p!!`;
+        const yearResp = await fetch(latestYearUrl);
+        const yearPayload = (await yearResp.json()) || {};
+        const latestYear = yearPayload.rows.length === 1 ? yearPayload.rows[0].fiscal_yr : 2023;
+        return latestYear;
       },
       transformer: (tables) => {
         const data = tables["tabular.muni_finance_m_levy_share"];
@@ -2669,33 +2700,33 @@ export default {
         }
         const row = data[0];
         const resAndOpenSpaceLevyPct =
-          row.ro_lvypct !== null && row.ro_lvypct !== undefined
-            ? parseFloat(row.ro_lvypct)
+          row.ro_lvypct !== null && row.nwg_res_p !== undefined
+            ? parseFloat(row.nwg_res_p)
             : 0;
         const comercialResIndLevyPct =
-          row.cip_lvypct !== null && row.cip_lvypct !== undefined
-            ? parseFloat(row.cip_lvypct)
+          row.cip_lvypct !== null && row.nwg_cip_p !== undefined
+            ? parseFloat(row.nwg_cip_p)
             : 0;
 
         const roValue = isNaN(resAndOpenSpaceLevyPct) ? 0 : Math.max(0, Math.min(100, resAndOpenSpaceLevyPct));
         const criValue = isNaN(comercialResIndLevyPct) ? 0 : Math.max(0, Math.min(100, comercialResIndLevyPct));
         
         return [
-          { value: roValue, label: "Residential & Open Space Levy Percent" },
-          { value: criValue, label: "Commercial, Industrial, & Personal Levy Percent" },
+          { value: roValue, label: "Residential & Open Space New Growth" },
+          { value: criValue, label: "Commercial, Industrial, & Personal New Growth" },
         ];
       },
       source:"MA Dept of Revenue",
       datasetLinks: { "Dept of Revenue Municipal Finance": 502 },
       legend: [
         {
-          key: "ro_lvypct",
-          label: "Residential & Open Space Levy Percent",
+          key: "nwg_res_p",
+          label: "Residential & Open Space New Growth Percent",
           color: colors.CHART.PRIMARY.get("DARK_GREEN"),
         },
         {
-          key: "cip_lvypct",
-          label: "Commercial, Industrial, & Personal Levy Percent",
+          key: "nwg_cip_p",
+          label: "Commercial, Industrial, & Personal New Growth Percent",
           color: colors.CHART.PRIMARY.get("TEAL_GREEN"),
         },
       ],
@@ -2881,35 +2912,36 @@ export default {
       tables: {
         "tabular.muni_finance_m_override_win_loss": {
           yearCol: "fiscal_yr",
-          years: async () => {
-            const years = await fetchYears("tabular", "muni_finance_m", "fiscal_yr");
-            return years;
-          },
           specialFetch: async (municipality, dispatchUpdate) => {
-            const columnList = ["muni_name", "fiscal_yr", "win_amt", "loss_amt"];
+            const columnList = ["municipal", "fiscal_yr", "ovr_winamt", "ovr_losamt"];
             const muniName = String(municipality || "").replace(/'/g, "''");
             const selectList = columnList.join(",");
 
             let mainDataApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
             mainDataApi = `${mainDataApi}&columns=${selectList}`;
-            mainDataApi = `${mainDataApi}&filters=muni_name~${muniName}%`;
+            mainDataApi = `${mainDataApi}&filters=municipal~${muniName}%`;
 
             const response = await fetch(mainDataApi);
             if (!response.ok) {
               throw new Error(`HTTP error! status: ${response.status}`);
             }
             const payload = (await response.json()) || {};
-            dispatchUpdate(payload.rows || []);
+            const rows = payload.rows.filter(row => row.fiscal_yr >= 2000); // always start chart in 2000
+            dispatchUpdate(rows || []);
           },
         },
       },
       labels: {
-        win_amt: "Win Ammount",
-        loss_amt: "Loss Ammount",
+        ovr_winamt: "Win Ammount",
+        ovr_losamt: "Loss Ammount",
       },
       timeframe: async () => {
-        const years = await fetchYears("tabular", "muni_finance_m", "fiscal_yr");
-        if (!years || years.length < 1) return "";
+        let yearsUrl = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
+        yearsUrl =` ${yearsUrl}&columns=DISTINCT(fiscal_yr)&orderByColumn=fiscal_yr&orderByDirection=DESC`;
+        yearsUrl =` ${yearsUrl}&filters=ovr_winamt!!,ovr_losamt!!`;
+        const yearResp = await fetch(yearsUrl);
+        const yearPayload = (await yearResp.json()) || {};
+        const years = yearPayload.rows.filter(row => row.fiscal_yr >= 2000).map(row => row.fiscal_yr); // always start chart in 2000
         
         const latest = years.length ? years[0] : 'unknown';
         const earliest = years.length ? years[years.length - 1] : 'unknown';
