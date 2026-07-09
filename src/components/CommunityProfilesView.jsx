@@ -523,14 +523,14 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 </ChartDetails>
               </div>
               <div className="tab__row">
-                {/* <ChartDetails
+                <ChartDetails
                   chart={charts["municipal-finance"].fund_revenue}
                   muni={muni}
                   onViewData={handleShowModal}
                   wrapperClassName="chart-wrapper--fund-revenue-breakdown"
                 >
                   <TreeMap chart={charts["municipal-finance"].fund_revenue} muni={muni} />
-                </ChartDetails> */}
+                </ChartDetails>
               </div>
               <div className="tab__row tab__row--full-width-map">
                 {/* <MunicipalFinanceOverridesMap
