@@ -2594,7 +2594,7 @@ export default {
             specialFetch: async (municipality, dispatchUpdate) => {
               let latestYearUrl = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
               latestYearUrl =` ${latestYearUrl}&columns=fiscal_yr&orderByColumn=fiscal_yr&orderByDirection=DESC&limit=1`;
-              latestYearUrl =` ${latestYearUrl}&filters=src_entcpa!!,rev_total!!,src_taxlvy!!,municipal~${municipality}`;
+              latestYearUrl =` ${latestYearUrl}&filters=src_entcpa!!,src_taxlvy!!,municipal~${municipality}`;
               const yearResp = await fetch(latestYearUrl);
               const yearPayload = (await yearResp.json()) || {};
               const latestYear = yearPayload.rows.length === 1 ? yearPayload.rows[0].fiscal_yr : 2023;
@@ -2614,7 +2614,7 @@ export default {
       timeframe: async () => {
         let latestYearUrl = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
         latestYearUrl =` ${latestYearUrl}&columns=fiscal_yr&orderByColumn=fiscal_yr&orderByDirection=DESC&limit=1`;
-        latestYearUrl =` ${latestYearUrl}&filters=src_entcpa!!,rev_total!!,src_taxlvy!!`;
+        latestYearUrl =` ${latestYearUrl}&filters=src_entcpa!!,src_taxlvy!!`;
         const yearResp = await fetch(latestYearUrl);
         const yearPayload = (await yearResp.json()) || {};
         const latestYear = yearPayload.rows.length === 1 ? yearPayload.rows[0].fiscal_yr : 2023;
@@ -2626,7 +2626,9 @@ export default {
           return [];
         }
         const row = data[0];
-        const totRev = row.rev_total != null && row.rev_total !== "" ? Number(row.rev_total) : NaN;
+        // const totRev = row.rev_total != null && row.rev_total !== "" ? Number(row.rev_total) : NaN;
+        // calculate total rev ourselves, we're using the "src" columns which don't have a total
+        const totRev = (row.src_taxlvy || 0) + (row.src_state || 0) + (row.src_locrpt || 0) + (row.src_entcpa || 0) + (row.src_other || 0);
         const summaryRow = Number.isFinite(totRev)
           ? [{ summaryOnly: true, key: "tot_rev_display", label: "Total Revenue", value: totRev, group: "Fund Revenue" }]
           : [];
