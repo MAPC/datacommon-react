@@ -533,10 +533,10 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 </ChartDetails>
               </div>
               <div className="tab__row tab__row--full-width-map">
-                {/* <MunicipalFinanceOverridesMap
+                <MunicipalFinanceOverridesMap
                   config={charts["municipal-finance"].overrides_map_config}
                   municipalFeature={municipalFeature}
-                /> */}
+                />
               </div>
               <div className="tab__row municipal-finances-resources">
                 <div className="chart-wrapper" style={{ maxWidth: "100%", flex: "0 0 100%" }}>

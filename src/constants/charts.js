@@ -2983,7 +2983,7 @@ export default {
       yearColumn: "fiscal_yr",
       tableSchema: "tabular",
       tableName: "muni_finance_m",
-      mapColumns: ["muni_name", "fiscal_yr", "tot_rev", "total_exp", "win_amt", "loss_amt"],
+      mapColumns: ["municipal", "fiscal_yr", "rev_total", "exp_total", "ovr_winamt", "ovr_losamt"],
       legend: [
         {
           key: "success",

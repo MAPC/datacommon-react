@@ -55,14 +55,14 @@ function isNullLikeAmt(v) {
 }
 
 function classifyRow(row) {
-  const winNull = isNullLikeAmt(row.win_amt);
-  const lossNull = isNullLikeAmt(row.loss_amt);
-  const win = winNull ? NaN : Number(row.win_amt);
-  const loss = lossNull ? NaN : Number(row.loss_amt);
+  const winNull = isNullLikeAmt(row.ovr_winamt);
+  const lossNull = isNullLikeAmt(row.ovr_losamt);
+  const win = winNull ? NaN : Number(row.ovr_winamt);
+  const loss = lossNull ? NaN : Number(row.ovr_losamt);
   const winPositive = Number.isFinite(win) && win > 0;
   const lossPositive = Number.isFinite(loss) && loss > 0;
 
-  // success = at least one successful override (win_amt > 0), including when loss_amt > 0 as well.
+  // success = at least one successful override (ovr_winamt > 0), including when ovr_losamt > 0 as well.
   if (winPositive) return "success";
   if (winNull && lossPositive) return "loss_only";
   if (winNull && lossNull) return "no_overrides_attempted";
@@ -131,7 +131,7 @@ function buildRowLookup(rows, yearColumn, mapFiscalYear) {
 
   const map = new Map();
   candidates.forEach((row) => {
-    const key = normalizeTownName(row.muni_name);
+    const key = normalizeTownName(row.municipal);
     if (!key) return;
     const prev = map.get(key);
     if (!prev) {
@@ -195,7 +195,7 @@ function buildOverridePopupHtml(p) {
   const order = parsePopupColumnOrder(p);
   const labelByCol = parsePopupColumnLabels(p);
   const dl = order
-    .filter((col) => col && col !== "muni_name")
+    .filter((col) => col && col !== "municipal")
     .map((col) => {
       const alias = labelByCol[col];
       const label = alias != null && String(alias).trim() !== "" ? String(alias).trim() : popupColumnLabel(col);
@@ -442,9 +442,14 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
       setLoadError(null);
       const yearCol = config.yearColumn || "fiscal_yr";
       try {
-        const years = await fetchYears(config.tableSchema, config.tableName, yearCol, 1, "DESC");
-        const raw = years?.[0];
-        const y = raw != null && raw !== "" ? Number(raw) : NaN;
+        let yearsUrl = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
+        yearsUrl =` ${yearsUrl}&columns=DISTINCT(fiscal_yr)&orderByColumn=fiscal_yr&orderByDirection=DESC`;
+        yearsUrl =` ${yearsUrl}&filters=ovr_winamt!!,ovr_losamt!!,rev_total!!,exp_total!!`;
+        const yearResp = await fetch(yearsUrl);
+        const yearPayload = (await yearResp.json()) || {};
+        const latestYear = yearPayload.rows.length === 1 ? yearPayload.rows[0].fiscal_yr : 2023;
+        const y = latestYear;
+
         if (!Number.isFinite(y)) {
           if (!cancelled) {
             setFiscalYear(null);
@@ -456,7 +461,8 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
         if (!cancelled) setFiscalYear(y);
 
         const cols = config.mapColumns.join(",");
-        const url = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=${config.tableSchema}&table=${config.tableName}&columns=${cols}&filters=${yearCol}:${y}&limit=${config.fetchLimit || 500}`;
+        let url = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=${config.tableSchema}&table=${config.tableName}&columns=${cols}`;
+        url = `${url}&filters=${yearCol}:${y}&limit=${config.fetchLimit || 500}`;
         const res = await fetch(url);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const payload = (await res.json()) || {};
