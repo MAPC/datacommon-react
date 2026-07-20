@@ -188,7 +188,7 @@ export async function requestBulkExport({
   tables,
   format = "zip",
   bundleSlug = "housing",
-  useMetadataColumns = false,
+  useMetadataColumns = true,
 }) {
   if (municipalities.length === 0) {
     throw new Error("Select at least one municipality.");

@@ -1125,7 +1125,7 @@ const BrowserPage = () => {
           <strong>{noDupesDatasets?.length || 0}</strong> {noDupesDatasets?.length === 1 ? 'dataset' : 'datasets'} available
         </DatasetCount>
         <BulkDownloadLink to="/browser/bulk-download">
-          Download datasets by topic →
+          Download data for planning 
         </BulkDownloadLink>
       </PageHeader>
       <MainContent>

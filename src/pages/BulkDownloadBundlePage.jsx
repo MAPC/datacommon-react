@@ -197,9 +197,9 @@ const BulkDownloadBundlePage = () => {
           <nav className="bulk-download__breadcrumb" aria-label="Breadcrumb">
             <Link to="/browser">Data Browser</Link>
             <span aria-hidden="true"> / </span>
-            <Link to="/browser/bulk-download">Download by Topic</Link>
+            <Link to="/browser/bulk-download">Download data for planning</Link>
           </nav>
-          <h1>Download by Topic</h1>
+          <h1>Download data for planning</h1>
         </div>
         <div className="bulk-download__layout container tight">
           <BulkDownloadBundleSkeleton />
@@ -278,7 +278,7 @@ const BulkDownloadBundlePage = () => {
         <nav className="bulk-download__breadcrumb" aria-label="Breadcrumb">
           <Link to="/browser">Data Browser</Link>
           <span aria-hidden="true"> / </span>
-          <Link to="/browser/bulk-download">Download by Topic</Link>
+          <Link to="/browser/bulk-download">Download data for planning</Link>
           <span aria-hidden="true"> / </span>
           <span>{bundle.title}</span>
         </nav>
