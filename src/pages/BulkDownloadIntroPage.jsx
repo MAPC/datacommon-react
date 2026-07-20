@@ -51,13 +51,12 @@ const BulkDownloadIntroPage = () => {
         <nav className="bulk-download__breadcrumb" aria-label="Breadcrumb">
           <Link to="/browser">Data Browser</Link>
           <span aria-hidden="true"> / </span>
-          <span>Download by Topic</span>
+          <span>Download data for planning</span>
         </nav>
-        <h1>Download by Topic</h1>
+        <h1>Download data for planning</h1>
         <p className="bulk-download__intro">
           Download curated sets of related tables for one or more Massachusetts municipalities.
-          Choose a topic, select your community and years, then download multiple
-          related tables in one Excel workbook or ZIP of CSV files.
+          Browse planning and research datasets, select your community and years, then download multiple related tables in one Excel workbook or ZIP of CSV files.
         </p>
       </div>
 
