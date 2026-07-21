@@ -468,32 +468,24 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
               </header>
               <div className="tab__row">
                 <ChartDetails
+                  chart={charts["municipal-finance"].fund_revenue}
+                  muni={muni}
+                  onViewData={handleShowModal}
+                  wrapperClassName="chart-wrapper--fund-revenue-breakdown"
+                >
+                  <TreeMap chart={charts["municipal-finance"].fund_revenue} muni={muni} />
+                </ChartDetails>
+              </div>
+              <div className="tab__row">
+                <ChartDetails chart={charts["municipal-finance"].overrides_win_loss_bar} muni={muni} onViewData={handleShowModal}>
+                  <StackedBarChart chart={charts["municipal-finance"].overrides_win_loss_bar} muni={muni} />
+                </ChartDetails>
+                <ChartDetails
                   chart={charts["municipal-finance"].levy_share_gauge}
                   muni={muni}
                   onViewData={handleShowModal}
                 >
                   <MultiGaugeChart chart={charts["municipal-finance"].levy_share_gauge} muni={muni} />
-                </ChartDetails>
-                {/* TODO: add this back in when we understand what from the data needs to be displayed */}
-                {/* <ChartDetails
-                  chart={charts["municipal-finance"].levy_ceiling_gauge}
-                  muni={muni}
-                  onViewData={handleShowModal}
-                >
-                  <MultiGaugeChart chart={charts["municipal-finance"].levy_ceiling_gauge} muni={muni} />
-                </ChartDetails> */}
-                {/* TODO: add this back in when we understand what from the data needs to be displayed */}
-                {/* <ChartDetails
-                  chart={charts["municipal-finance"].levy_new_growth_gauge}
-                  muni={muni}
-                  onViewData={handleShowModal}
-                >
-                  <MultiGaugeChart chart={charts["municipal-finance"].levy_new_growth_gauge} muni={muni} />
-                </ChartDetails> */}
-              </div>
-              <div className="tab__row">
-                <ChartDetails chart={charts["municipal-finance"].overrides_win_loss_bar} muni={muni} onViewData={handleShowModal}>
-                  <StackedBarChart chart={charts["municipal-finance"].overrides_win_loss_bar} muni={muni} />
                 </ChartDetails>
               </div>
               <div className="tab__row">
@@ -520,16 +512,6 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                   wrapperClassName="chart-wrapper--stat-tile"
                 >
                   <ProfileMetricChart chart={charts["municipal-finance"].total_employees_finance} muni={muni} />
-                </ChartDetails>
-              </div>
-              <div className="tab__row">
-                <ChartDetails
-                  chart={charts["municipal-finance"].fund_revenue}
-                  muni={muni}
-                  onViewData={handleShowModal}
-                  wrapperClassName="chart-wrapper--fund-revenue-breakdown"
-                >
-                  <TreeMap chart={charts["municipal-finance"].fund_revenue} muni={muni} />
                 </ChartDetails>
               </div>
               <div className="tab__row tab__row--full-width-map">

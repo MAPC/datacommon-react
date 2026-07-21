@@ -131,10 +131,6 @@
       width: 100%;
     }
 
-    .chart-details-buttons {
-      justify-content: flex-end;
-    }
-
     /* Equal-height cards: grow chart area between header and metadata */
     > .ProfileMetricChart {
       flex: 1 1 auto;
@@ -142,6 +138,10 @@
       flex-direction: column;
       min-height: 0;
     }
+  }
+
+  .chart-details-buttons {
+    justify-content: flex-end;
   }
 
   .ProfileMetricChart {
