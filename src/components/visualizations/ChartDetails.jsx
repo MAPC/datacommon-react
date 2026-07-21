@@ -42,7 +42,7 @@ const ScreenReaderOnlyTitle = styled.h3`
 
 const ChartTitle = styled.h3`
   margin: 0;
-  flex: 2;
+  flex: 3;
   ${props => props.hideButtons ? 'min-height: 60px;' : ''};
   ${props => props.isGauge ? 'min-height: 52px;' : ''};
 `;
