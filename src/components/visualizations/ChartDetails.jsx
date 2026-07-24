@@ -105,6 +105,12 @@ const normalizeDigitalEquityTableKeyForMetadata = (tableKey) => {
 
 const normalizeMuniFinanceTableKeyForMetadata = (tableKey) => {
   if (!tableKey || typeof tableKey !== "string") return tableKey;
+
+  // handle the case where data comes from econ_municipal_taxes_revenue_m not muni_finance_m
+  if (tableKey.includes('econ_municipal_taxes_revenue_m')){
+    return 'tabular.econ_municipal_taxes_revenue_m'
+  }
+
   const m = tableKey.match(/^([^.\s]+)\.(muni_finance_m)(?:_.+)?$/);
   if (!m) return tableKey;
   return `${m[1]}.${m[2]}`;
