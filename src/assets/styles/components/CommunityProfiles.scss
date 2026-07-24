@@ -301,7 +301,7 @@
     .digital-equity-resources__title,
     .municipal-finances-resources__title {
       margin: 0 0 0.5rem 0;
-      font-size: $font_size-small;
+      font-size: $font_size-medium;
       font-weight: 700;
       color: $color_font-dark;
     }
@@ -313,7 +313,7 @@
       li {
         margin-bottom: 0.25rem;
         a {
-          font-size: $font_size-small;
+          font-size: $font_size-medium;
           color: $color_font-medium;
           text-decoration: underline;
           &:hover {

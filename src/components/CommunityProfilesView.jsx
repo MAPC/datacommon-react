@@ -477,15 +477,24 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 </ChartDetails>
               </div>
               <div className="tab__row">
-                <ChartDetails chart={charts["municipal-finance"].overrides_win_loss_bar} muni={muni} onViewData={handleShowModal}>
-                  <StackedBarChart chart={charts["municipal-finance"].overrides_win_loss_bar} muni={muni} />
-                </ChartDetails>
                 <ChartDetails
                   chart={charts["municipal-finance"].levy_share_gauge}
                   muni={muni}
                   onViewData={handleShowModal}
                 >
                   <MultiGaugeChart chart={charts["municipal-finance"].levy_share_gauge} muni={muni} />
+                </ChartDetails>
+                <ChartDetails
+                  chart={charts["municipal-finance"].taxes_share_gauge}
+                  muni={muni}
+                  onViewData={handleShowModal}
+                >
+                  <MultiGaugeChart chart={charts["municipal-finance"].taxes_share_gauge} muni={muni} />
+                </ChartDetails>
+              </div>
+              <div className="tab__row">
+                <ChartDetails chart={charts["municipal-finance"].overrides_win_loss_bar} muni={muni} onViewData={handleShowModal}>
+                  <StackedBarChart chart={charts["municipal-finance"].overrides_win_loss_bar} muni={muni} />
                 </ChartDetails>
               </div>
               <div className="tab__row">

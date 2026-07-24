@@ -2709,11 +2709,11 @@ export default {
         }
         const row = data[0];
         const resAndOpenSpaceLevyPct =
-          row.ro_lvypct !== null && row.nwg_res_p !== undefined
+          row.nwg_res_p !== null && row.nwg_res_p !== undefined
             ? parseFloat(row.nwg_res_p)
             : 0;
         const comercialResIndLevyPct =
-          row.cip_lvypct !== null && row.nwg_cip_p !== undefined
+          row.nwg_cip_p !== null && row.nwg_cip_p !== undefined
             ? parseFloat(row.nwg_cip_p)
             : 0;
 
@@ -2736,6 +2736,97 @@ export default {
         {
           key: "nwg_cip_p",
           label: "Commercial, Industrial, & Personal New Growth Percent",
+          color: colors.CHART.PRIMARY.get("DARK_RED"),
+        },
+      ],
+    },
+    taxes_share_gauge: {
+      type: "multi-gauge",
+      title: "Share of Tax Revenue",
+      minValue: 0,
+      maxValue: 100,
+      backgroundColor: "#e0e0e0",
+      showUnit: true,
+      unit: "%",
+      showLabels: true,
+      valueFormat: (d) => d.toFixed(1),
+      width: 500,
+      height: 400,
+      tooltip: { type: "percentAndCount" },
+      tables: {
+        "tabular.econ_municipal_taxes_revenue_m_tax_share": (() => {
+          const columnList = ["municipal", "fy", "res_os_p", "cip_p"];
+          return {
+            yearCol: "fy",
+            latestYearOnly: true,
+            columns: columnList,
+            specialFetch: async (municipality, dispatchUpdate) => {
+              const muniName = String(municipality || "").replace(/'/g, "''");
+              const selectList = columnList.join(",");
+
+              let latestYearUrl = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=econ_municipal_taxes_revenue_m`;
+              latestYearUrl =` ${latestYearUrl}&columns=fy&orderByColumn=fy&orderByDirection=DESC&limit=1`;
+              latestYearUrl =` ${latestYearUrl}&filters=res_os_p!!,cip_p!!&municipal~${municipality}`;
+              const yearResp = await fetch(latestYearUrl);
+              const yearPayload = (await yearResp.json()) || {};
+              const latestYear = yearPayload.rows.length === 1 ? yearPayload.rows[0].fy : 2023;
+
+              let mainDataApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=econ_municipal_taxes_revenue_m`;
+              mainDataApi = `${mainDataApi}&columns=${selectList}`;
+              mainDataApi = `${mainDataApi}&filters=fy:${latestYear},municipal~${muniName}%`;
+
+              const response = await fetch(mainDataApi);
+              if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+              }
+              const payload = (await response.json()) || {};
+              dispatchUpdate(payload.rows || []);
+            },
+          };
+        })(),
+      },
+      timeframe: async () => {
+        let latestYearUrl = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=econ_municipal_taxes_revenue_m`;
+        latestYearUrl =` ${latestYearUrl}&columns=fy&orderByColumn=fy&orderByDirection=DESC&limit=1`;
+        latestYearUrl =` ${latestYearUrl}&filters=res_os_p!!,cip_p!!`;
+        const yearResp = await fetch(latestYearUrl);
+        const yearPayload = (await yearResp.json()) || {};
+        const latestYear = yearPayload.rows.length === 1 ? yearPayload.rows[0].fy : 2023;
+        return latestYear;
+      },
+      transformer: (tables) => {
+        const data = tables["tabular.econ_municipal_taxes_revenue_m_tax_share"];
+        if (!data || data.length < 1) {
+          return [{ value: 0, }];
+        }
+        const row = data[0];
+        const resAndOpenSpaceTaxPct =
+          row.res_os_p !== null && row.res_os_p !== undefined
+            ? parseFloat(row.res_os_p)
+            : 0;
+        const comercialResIndTaxPct =
+          row.cip_p !== null && row.cip_p !== undefined
+            ? parseFloat(row.cip_p)
+            : 0;
+
+        const roValue = isNaN(resAndOpenSpaceTaxPct) ? 0 : Math.max(0, Math.min(100, resAndOpenSpaceTaxPct));
+        const criValue = isNaN(comercialResIndTaxPct) ? 0 : Math.max(0, Math.min(100, comercialResIndTaxPct));
+        return [
+          { value: roValue, label: "Residential & Open Space Tax Percentage" },
+          { value: criValue, label: "Commercial, Industrial, & Personal Tax Percentage" },
+        ];
+      },
+      source:"MA Dept of Revenue",
+      datasetLinks: { "Dept of Revenue Municipal Finance": 502 },
+      legend: [
+        {
+          key: "res_os_p",
+          label: "Residential & Open Space Tax Percentage",
+          color: colors.CHART.PRIMARY.get("YELLOW"),
+        },
+        {
+          key: "cip_p",
+          label: "Commercial, Industrial, & Personal Tax Percentage",
           color: colors.CHART.PRIMARY.get("DARK_RED"),
         },
       ],
