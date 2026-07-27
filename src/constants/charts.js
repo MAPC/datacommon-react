@@ -2571,9 +2571,11 @@ export default {
     fund_revenue: {
       type: "tree-map",
       title: "Fund Revenue Breakdown",
-      // Size tiles from smallest category's text needs, then scale others by data value.
+      // Size tiles from smallest category's text needs, scale others by value,
+      // and compress extreme gaps so tiny tiles stay readable without inverting sizes.
       treemapTextAwareLayout: true,
-      colors: Array.from(colors.CHART.PRIMARY.values()).slice(-4),
+      // Five revenue categories need five distinct colors (ordinal scales wrap otherwise).
+      colors: Array.from(colors.CHART.PRIMARY.values()).slice(-5),
       valueFormatter: (v) => {
         const n = typeof v === "number" ? v : Number(v);
         if (!Number.isFinite(n)) return v == null || v === "" ? "" : String(v);
