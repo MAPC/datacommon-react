@@ -2875,7 +2875,7 @@ export default {
 
         return `${earliest} - ${latest}`;
       },
-      source:"MA Dept of Revenue",
+      source: "MA Dept of Revenue",
       datasetLinks: { "Dept of Revenue Municipal Finance": 502 },
       transformer: (tables, chart) => {
         const overrideData = tables["tabular.muni_finance_m_override_win_loss"];
@@ -2894,6 +2894,78 @@ export default {
             ),
           [],
         );
+      },
+    },
+    excess_levy_capacity_stacked_area: {
+      type: "stacked-area",
+      title: "Excess Levy Capacity",
+      xAxis: { label: "Year", format: format.string.default },
+      yAxis: {
+        label: "USD",
+        format: format.number.localeString,
+      },
+      tables: {
+        "tabular.muni_finance_m_excess_capacity_area": {
+          yearCol: "fiscal_yr",
+          columns: ["municipal", "fiscal_yr", "p2h_taxlvy", "p2h_exlvyc", "p2h_ovrcap", "p2h_lc"],
+          specialFetch: async (municipality, dispatchUpdate) => {
+            const columnList = ["municipal", "fiscal_yr", "p2h_taxlvy", "p2h_exlvyc", "p2h_ovrcap", "p2h_lc"];
+            const muniName = String(municipality || "").replace(/'/g, "''");
+            const selectList = columnList.join(",");
+
+            let mainDataApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
+            mainDataApi = `${mainDataApi}&columns=${selectList}`;
+            mainDataApi = `${mainDataApi}&filters=municipal~${muniName}%`;
+
+            const response = await fetch(mainDataApi);
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const payload = (await response.json()) || {};
+            const rows = payload.rows.filter(row => row.fiscal_yr >= 2000); // always start chart in 2000
+            dispatchUpdate(rows || []);
+          },
+        },
+      },
+      source: "MA Dept of Revenue",
+      timeframe: async () => {
+        let yearsUrl = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
+        yearsUrl =` ${yearsUrl}&columns=DISTINCT(fiscal_yr)&orderByColumn=fiscal_yr&orderByDirection=DESC`;
+        yearsUrl =` ${yearsUrl}&filters=p2h_taxlvy!!,p2h_lc!!`;
+        const yearResp = await fetch(yearsUrl);
+        const yearPayload = (await yearResp.json()) || {};
+        const years = yearPayload.rows.filter(row => row.fiscal_yr >= 2000).map(row => row.fiscal_yr); // always start chart in 2000
+        
+        const latest = years.length ? years[0] : 'unknown';
+        const earliest = years.length ? years[years.length - 1] : 'unknown';
+
+        return `${earliest} - ${latest}`;
+      },
+      datasetLinks: { "Dept of Revenue Municipal Finance": 502 },
+      transformer: (tables, chart) => {
+        const respData = tables["tabular.muni_finance_m_excess_capacity_area"];
+        if (respData.length < 1) {
+          return [];
+        }
+
+        const keyToNameMap = {
+          "p2h_taxlvy": "Total Tax Levy",
+          "p2h_exlvyc": "Excess Levy Limit",
+          "p2h_ovrcap": "Override Capacity",
+          // "p2h_lc": "Levy Ceiling",
+        }
+
+        const filtered = respData.filter(row => row.p2h_taxlvy || row.p2h_exlvyc || row.p2h_ovrcap || row.p2h_lc)
+
+        const mappedData = [];
+        filtered.forEach(row => {
+          mappedData.push({ x: row.fiscal_yr, y: row.p2h_taxlvy, z: "Total Tax Levy", order: 1});
+          mappedData.push({ x: row.fiscal_yr, y: row.p2h_exlvyc, z: "Excess Levy Limit", order: 2});
+          mappedData.push({ x: row.fiscal_yr, y: row.p2h_ovrcap, z: "Override Capacity", order: 3});
+          // mappedData.push({ x: row.fiscal_yr, y: row.p2h_lc, z: "Levy Ceiling", order: 4});
+        });
+        
+        return mappedData;
       },
     },
     overrides_map_config: {

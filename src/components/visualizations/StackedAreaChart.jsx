@@ -99,7 +99,17 @@ class StackedAreaChart extends React.Component {
     const g = this.chart.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
 
     // Process data
-    const keys = [...new Set(this.props.data.map((d) => d.z))].sort();
+    const sortByOrder = this.props.data.length && !!this.props.data[0].order;
+    let keys = [...new Set(this.props.data.map((d) => d.z))];
+    if (sortByOrder) {
+      const orderMapping = {};
+      this.props.data.forEach(row => {
+        orderMapping[row.z] = row.order;
+      });
+      keys = keys.sort((a, b) => orderMapping[a] - orderMapping[b]);
+    } else {
+      keys = keys.sort();
+    }
 
     // Set up color scale to match original ordinal colors
     this.color = d3

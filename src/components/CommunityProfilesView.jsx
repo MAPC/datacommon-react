@@ -496,6 +496,9 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 <ChartDetails chart={charts["municipal-finance"].overrides_win_loss_bar} muni={muni} onViewData={handleShowModal}>
                   <StackedBarChart chart={charts["municipal-finance"].overrides_win_loss_bar} muni={muni} />
                 </ChartDetails>
+                <ChartDetails chart={charts["municipal-finance"].excess_levy_capacity_stacked_area} muni={muni} onViewData={handleShowModal}>
+                  <StackedAreaChart chart={charts["municipal-finance"].excess_levy_capacity_stacked_area} muni={muni} />
+                </ChartDetails>
               </div>
               <div className="tab__row">
                 <ChartDetails
