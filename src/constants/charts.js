@@ -452,6 +452,7 @@ export default {
       subregionDataQuery: async (subregionId) => {
         const maxYear = await fetchYears("tabular", "b03002_race_ethnicity_acs_m", "acs_year", 1);
         const columns = [
+          "municipal",
           "acs_year",
           "nhwhi",
           "nhwhi_me",
@@ -495,6 +496,7 @@ export default {
       rparegionDataQuery: async (rpaId) => {
         const maxYear = await fetchYears("tabular", "b03002_race_ethnicity_acs_m", "acs_year", 1);
         const columns = [
+          "municipal",
           "acs_year",
           "nhwhi",
           "nhwhi_me",
@@ -681,7 +683,7 @@ export default {
         const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
         const year = years.length ? years[0] : "unknown";
 
-        const columns = ["acs_year", "muni_id", "municipal", "nocmp", "nocmpm", "nocmp_p", "nocmp_mp"];
+        const columns = ["municipal", "acs_year", "nocmp", "nocmpm", "nocmp_p", "nocmp_mp"];
         let queryString = `&schema=tabular&table=s2801_computer_internet_acs_m&columns=${columns.join(",")}`;
         queryString = `${queryString}&filters=acs_year:${year},muni_id:${subregionId}`;
         return queryString;
@@ -765,7 +767,7 @@ export default {
         const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
         const year = years.length ? years[0] : "unknown";
 
-        const columns = ["acs_year", "muni_id", "municipal", "noint", "nointm", "noint_p", "noint_mp"];
+        const columns = ["municipal", "acs_year", "noint", "nointm", "noint_p", "noint_mp"];
         let queryString = `&schema=tabular&table=s2801_computer_internet_acs_m&columns=${columns.join(",")}`;
         queryString = `${queryString}&filters=acs_year:${year},muni_id:${subregionId}`;
         return queryString;
@@ -850,7 +852,7 @@ export default {
         const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
         const year = years.length ? years[0] : "unknown";
 
-        const columns = ["acs_year", "muni_id", "municipal", "moblo", "moblom", "moblo_p", "moblo_mp"];
+        const columns = ["municipal", "acs_year", "moblo", "moblom", "moblo_p", "moblo_mp"];
         let queryString = `&schema=tabular&table=s2801_computer_internet_acs_m&columns=${columns.join(",")}`;
         queryString = `${queryString}&filters=acs_year:${year},muni_id:${subregionId}`;
         return queryString;
@@ -1166,7 +1168,7 @@ export default {
         );
       },
       subregionDataQuery: (subregionId) => {
-        const columns = ["acs_year", "emp", "emp_me", "emp_p", "emp_mep", "unemp", "unemp_me", "unemp_p", "unemp_mep", "clf", "clf_me", "clf_p", "clf_mep"];
+        const columns = ["municipal", "acs_year", "emp", "emp_me", "emp_p", "emp_mep", "unemp", "unemp_me", "unemp_p", "unemp_mep", "clf", "clf_me", "clf_p", "clf_mep"];
         let urlQueryParams = `&schema=tabular&table=b23025_employment_acs_m&columns=${columns.join(",")}`;
         urlQueryParams = `${urlQueryParams}&orderByColumn=acs_year&orderByDirection=DESC&limit=2`;
         urlQueryParams = `${urlQueryParams}&filters=muni_id:${subregionId}`;
@@ -1253,14 +1255,14 @@ export default {
         return data;
       },
       subregionDataQuery: (subregionId) => {
-        const columns = ["cal_year", "naicstitle", "naicscode", "avgemp"];
+        const columns = ["municipal", "cal_year", "naicstitle", "naicscode", "avgemp"];
         let urlQueryParams = `&schema=tabular&table=econ_es202_naics_2d_m&columns=${columns.join(",")}`;
         urlQueryParams = `${urlQueryParams}&orderByColumn=cal_year&orderByDirection=ASC`;
         urlQueryParams = `${urlQueryParams}&filters=muni_id:${subregionId}`;
         return urlQueryParams;
       },
       rparegionDataQuery: (rpaId) => {
-        const columns = ["cal_year", "naicstitle", "naicscode", "avgemp"];
+        const columns = ["municipal", "cal_year", "naicstitle", "naicscode", "avgemp"];
         let urlQueryParams = `&schema=tabular&table=econ_es202_naics_2d_m&columns=${columns.join(",")}`;
         urlQueryParams = `${urlQueryParams}&orderByColumn=cal_year&orderByDirection=ASC`;
         urlQueryParams = `${urlQueryParams}&filters=muni_id:${rpaId}`;
@@ -1626,7 +1628,7 @@ export default {
         const muniIdData = (await muniIdsResp.json()) || {};
         const muniIdsList = muniIdData.rows.map((row) => `muni_id:${row.muni_id}`);
 
-        const columns = ["rgpcd2009", "rgpcd2010", "rgpcd2011", "rgpcd2012", "rgpcd2013", "rgpcd2014", "rgpcd2015"];
+        const columns = ["municipal", "rgpcd2009", "rgpcd2010", "rgpcd2011", "rgpcd2012", "rgpcd2013", "rgpcd2014", "rgpcd2015"];
         let urlQueryParams = `&schema=tabular&table=env_dep_reviewed_water_demand_m&columns=${columns.join(",")}`;
         urlQueryParams = `${urlQueryParams}&filters=${muniIdsList.join(",")}`;
         return urlQueryParams;
@@ -1696,7 +1698,7 @@ export default {
         const muniIdData = (await muniIdsResp.json()) || {};
         const muniIdsList = muniIdData.rows.map((row) => `muni_id:${row.muni_id}`);
 
-        const columns = ["cal_year", "sector", "mwh_use", "therm_use"];
+        const columns = ["municipal", "cal_year", "sector", "mwh_use", "therm_use"];
         let url1QueryParams = `&schema=tabular&table=energy_masssave_elec_gas_ci_consumption_m&columns=${columns.join(",")}`;
         url1QueryParams = `${url1QueryParams}&filters=${muniIdsList.join(",")}`;
 
@@ -1770,7 +1772,7 @@ export default {
         const muniIdData = (await muniIdsResp.json()) || {};
         const muniIdsList = muniIdData.rows.map((row) => `muni_id:${row.muni_id}`);
 
-        const columns = ["cal_year", "sector", "mwh_use", "therm_use"];
+        const columns = ["municipal", "cal_year", "sector", "mwh_use", "therm_use"];
         let url1QueryParams = `&schema=tabular&table=energy_masssave_elec_gas_ci_consumption_m&columns=${columns.join(",")}`;
         url1QueryParams = `${url1QueryParams}&filters=${muniIdsList.join(",")}`;
 
@@ -1968,7 +1970,7 @@ export default {
         );
       },
       subregionDataQuery: (subregionId) => {
-        const columns = ["cal_year", "12 as months_rep", "sf_units", "mf_units"];
+        const columns = ["municipal", "cal_year", "12 as months_rep", "sf_units", "mf_units"];
         let urlQueryParams = `&schema=tabular&table=hous_building_permits_m&columns=${columns.join(",")}`;
         urlQueryParams = `${urlQueryParams}&filters=muni_id:${subregionId}`;
         return urlQueryParams;
@@ -2106,7 +2108,7 @@ export default {
         const years = await fetchYears("tabular", "health_premature_mortality_race_m", "years", 1);
         const year = years.length ? years[0] : "unknown";
 
-        const columns = ["years", "whi_art", "aa_art", "api_art", "na_art", "oth_art", "lat_art"];
+        const columns = ["municipal", "years", "whi_art", "aa_art", "api_art", "na_art", "oth_art", "lat_art"];
         let urlQueryParams = `&schema=tabular&table=health_premature_mortality_race_m&columns=${columns.join(",")}`;
         urlQueryParams = `${urlQueryParams}&filters=${muniIdsList.join(",")},years:${year}`;
         return urlQueryParams;
@@ -2239,7 +2241,7 @@ export default {
         const years = await fetchYears("tabular", "health_hospitalizations_hypertension_m", "cal_years", 1);
         const year = years.length ? years[0] : "unknown";
 
-        const columns = ["cal_years", "whi_arte", "aa_arte", "api_arte", "na_arte", "oth_arte", "lat_arte"];
+        const columns = ["municipal", "cal_years", "whi_arte", "aa_arte", "api_arte", "na_arte", "oth_arte", "lat_arte"];
         let urlQueryParams = `&schema=tabular&table=health_hospitalizations_hypertension_m&columns=${columns.join(",")}`;
         urlQueryParams = `${urlQueryParams}&filters=${muniIdsList.join(",")},cal_years:${year}`;
         return urlQueryParams;
@@ -2324,7 +2326,7 @@ export default {
         const muniIdData = (await muniIdsResp.json()) || {};
         const muniIdsList = muniIdData.rows.map((row) => `muni_id:${row.muni_id}`);
 
-        const columns = ["quarter", "hh_est", "pass_vmt", "comm_vmt"];
+        const columns = ["municipal", "quarter", "hh_est", "pass_vmt", "comm_vmt"];
         let urlQueryParams = `&schema=tabular&table=trans_mavc_public_summary_m&columns=${columns.join(",")}`;
         urlQueryParams = `${urlQueryParams}&filters=${muniIdsList.join(",")}`;
         return urlQueryParams;
