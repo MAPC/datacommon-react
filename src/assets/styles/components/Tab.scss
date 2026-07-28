@@ -43,6 +43,8 @@
         min-width: 220px;
         max-width: 320px;
         box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
         padding: 0.85rem 1rem;
         border: 1px solid rgba(0, 0, 0, 0.12);
         border-radius: 4px;
@@ -50,6 +52,10 @@
         font-family: skolar-sans-latin, Helvetica, sans-serif;
         line-height: 1.45;
         color: #333;
+      }
+
+      .municipal-finance-overrides-map__sidebar-body {
+        flex: 1 1 auto;
       }
 
       .municipal-finance-overrides-map__sidebar-title {
@@ -90,6 +96,25 @@
         font-size: 0.8125rem;
         line-height: 1.4;
         color: #64748b;
+      }
+
+      .municipal-finance-overrides-map__source {
+        margin-top: 1rem;
+        padding-top: 0.75rem;
+        border-top: 1px solid rgba(0, 0, 0, 0.08);
+        font-size: 0.75rem;
+
+        .source-timeframe {
+          display: block;
+        }
+
+        .link {
+          margin-top: 0.35rem;
+
+          a {
+            text-decoration: underline;
+          }
+        }
       }
 
       .municipal-finance-overrides-map__hint {

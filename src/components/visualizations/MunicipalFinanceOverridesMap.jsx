@@ -237,7 +237,7 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
     : "";
 
   const selectedProfileUrl = selectedDisplayName
-    ? `/profile/${muniProfileSlug(selectedDisplayName)}`
+    ? `/profile/${muniProfileSlug(selectedDisplayName)}/municipal-finance`
     : null;
 
   const latestDataRef = useRef({
@@ -368,7 +368,7 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
         yearsUrl = `${yearsUrl}&filters=ovr_winamt!!,ovr_losamt!!,rev_total!!,exp_total!!`;
         const yearResp = await fetch(yearsUrl);
         const yearPayload = (await yearResp.json()) || {};
-        const latestYear = yearPayload.rows.length === 1 ? yearPayload.rows[0].fiscal_yr : 2023;
+        const latestYear = yearPayload.rows[0].fiscal_yr 
         const y = latestYear;
 
         if (!Number.isFinite(y)) {
@@ -690,33 +690,64 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
           aria-live="polite"
           aria-label="Municipality override details"
         >
-          {selectedProperties ? (
-            <>
-              <strong className="municipal-finance-overrides-map__sidebar-title">{selectedDisplayName}</strong>
-              <dl className="municipal-finance-overrides-map__sidebar-fields">
-                {sidebarFields.map((field) => (
-                  <div key={field.key} className="municipal-finance-overrides-map__sidebar-row">
-                    <dt>{field.label}</dt>
-                    <dd>{field.value}</dd>
-                  </div>
+          <div className="municipal-finance-overrides-map__sidebar-body">
+            {selectedProperties ? (
+              <>
+                <strong className="municipal-finance-overrides-map__sidebar-title">{selectedDisplayName}</strong>
+                <dl className="municipal-finance-overrides-map__sidebar-fields">
+                  {sidebarFields.map((field) => (
+                    <div key={field.key} className="municipal-finance-overrides-map__sidebar-row">
+                      <dt>{field.label}</dt>
+                      <dd>{field.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+                {selectedProfileUrl ? (
+                  <a
+                    className="municipal-finance-overrides-map__sidebar-link"
+                    href={selectedProfileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    View community profile
+                  </a>
+                ) : null}
+              </>
+            ) : (
+              <p className="municipal-finance-overrides-map__sidebar-empty">
+                Click a municipality on the map to see total revenue, expenditures, and override amounts.
+              </p>
+            )}
+          </div>
+          <div className="metadata municipal-finance-overrides-map__source">
+            <div className="source-timeframe">
+              <div className="source">
+                Source:
+                {" "}
+                {config.source || "Unknown"}
+              </div>
+              <div className="timeframe">
+                Years:
+                {" "}
+                {fiscalYear != null ? String(fiscalYear) : "…"}
+              </div>
+            </div>
+            {config.datasetLinks ? (
+              <div className="link">
+                <span>Link to: </span>
+                {Object.keys(config.datasetLinks).map((label) => (
+                  <a
+                    key={label}
+                    href={`${window.location.origin}/browser/datasets/${config.datasetLinks[label]}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {label}
+                  </a>
                 ))}
-              </dl>
-              {selectedProfileUrl ? (
-                <a
-                  className="municipal-finance-overrides-map__sidebar-link"
-                  href={selectedProfileUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  View community profile
-                </a>
-              ) : null}
-            </>
-          ) : (
-            <p className="municipal-finance-overrides-map__sidebar-empty">
-              Click a municipality on the map to see total revenue, expenditures, and override amounts.
-            </p>
-          )}
+              </div>
+            ) : null}
+          </div>
         </aside>
       </div>
       {loading ? (
@@ -776,6 +807,8 @@ MunicipalFinanceOverridesMap.propTypes = {
     tableName: PropTypes.string.isRequired,
     mapColumns: PropTypes.arrayOf(PropTypes.string).isRequired,
     fetchLimit: PropTypes.number,
+    source: PropTypes.string,
+    datasetLinks: PropTypes.objectOf(PropTypes.oneOfType([PropTypes.string, PropTypes.number])),
     legend: PropTypes.arrayOf(
       PropTypes.shape({
         key: PropTypes.string.isRequired,

@@ -2976,6 +2976,8 @@ export default {
       tableSchema: "tabular",
       tableName: "muni_finance_m",
       mapColumns: ["municipal", "fiscal_yr", "rev_total", "exp_total", "ovr_winamt", "ovr_losamt"],
+      source: "MA Dept of Revenue",
+      datasetLinks: { "Dept of Revenue Municipal Finance": 502 },
       legend: [
         {
           key: "success",
@@ -2985,12 +2987,12 @@ export default {
         {
           key: "loss_only",
           label: "No successful override",
-          color: colors.CHART.EXTENDED.get("LIGHT_PINK"),
+          color: "#D81B60",
         },
         {
           key: "no_overrides_attempted",
           label: "No overrides attempted",
-          color: "#cdcdcd",
+          color: "#E0E0E0",
         },
       ],
     },
