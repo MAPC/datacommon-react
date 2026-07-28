@@ -67,6 +67,7 @@ const getFormattedYearRange = async (schema, table, yearCol, limit, orderDir) =>
 };
 
 const eduAttainmentByRaceColumns = [
+  "municipal",
   "acs_year",
   "nhwlh",
   "nhwlh_me",
@@ -197,6 +198,7 @@ const eduAttainmentByRaceColumns = [
 ];
 
 const costBurdenColumns = [
+  "municipal",
   "acs_year",
   "o_notcb",
   "o_notcbme",
@@ -229,6 +231,7 @@ const costBurdenColumns = [
 ];
 
 const commuteToWorkColumns = [
+  "municipal",
   "acs_year",
   "ctvsngl",
   "ctvsnglme",
@@ -249,8 +252,8 @@ const commuteToWorkColumns = [
 ];
 
 const internetUsageByIncomeColumns = [
-  "acs_year",
   "municipal",
+  "acs_year",
   "lt20dia",
   "lt20diam",
   "lt20dia_p",
@@ -278,8 +281,8 @@ const internetUsageByIncomeColumns = [
 ];
 
 const internetSubscriptionTypesColumns = [
-  "acs_year",
   "municipal",
+  "acs_year",
   "dialo",
   "dialom",
   "dialo_p",
@@ -295,6 +298,7 @@ const internetSubscriptionTypesColumns = [
 ];
 
 const demoRaceByAgeGenderColumns = [
+  "municipal",
   "years",
   "race_eth",
   "pop",
@@ -337,6 +341,7 @@ export default {
           yearCol: "acs_year",
           latestYearOnly: true,
           columns: [
+            "municipal",
             "acs_year",
             "nhwhi",
             "nhwhi_me",
@@ -447,6 +452,7 @@ export default {
       subregionDataQuery: async (subregionId) => {
         const maxYear = await fetchYears("tabular", "b03002_race_ethnicity_acs_m", "acs_year", 1);
         const columns = [
+          "municipal",
           "acs_year",
           "nhwhi",
           "nhwhi_me",
@@ -490,6 +496,7 @@ export default {
       rparegionDataQuery: async (rpaId) => {
         const maxYear = await fetchYears("tabular", "b03002_race_ethnicity_acs_m", "acs_year", 1);
         const columns = [
+          "municipal",
           "acs_year",
           "nhwhi",
           "nhwhi_me",
@@ -595,1284 +602,6 @@ export default {
       },
     },
   },
-  economy: {
-    resident_employment: {
-      type: "stacked-bar",
-      title: "Employment of Residents",
-      tooltip: { type: "countAndPercent", showTotals: true },
-      xAxis: { label: "5-Year Estimates", format: format.string.default },
-      yAxis: { label: "Population", format: format.number.localeString },
-      tables: {
-        "tabular.b23025_employment_acs_m": {
-          yearCol: "acs_year",
-          years: async () => {
-            const years = await fetchYears("tabular", "b23025_employment_acs_m", "acs_year", 2);
-            return years;
-          },
-          columns: ["acs_year", "emp", "emp_me", "emp_p", "emp_mep", "unemp", "unemp_me", "unemp_p", "unemp_mep", "clf", "clf_me", "clf_p", "clf_mep"],
-        },
-      },
-      labels: {
-        emp: "Employed",
-        unemp: "Unemployed",
-      },
-      source: "American Community Survey",
-      timeframe: async () => {
-        const years = await fetchYears("tabular", "b23025_employment_acs_m", "acs_year", 2);
-        if (!years || years.length < 2) return "";
-        const [latest, previous] = years;
-
-        // Convert year ranges from '2019-23' format to '2019-2023 5-Year Estimates' format
-        const formatYearRange = (yearStr) => {
-          const [start, end] = yearStr.split("-");
-          return `${start}-20${end}`;
-        };
-
-        return `${formatYearRange(previous)} and ${formatYearRange(latest)} 5-Year Estimates`;
-      },
-      datasetLinks: { "Labor Force (Municipal)": 129 },
-      transformer: (tables, chart) => {
-        const empData = tables["tabular.b23025_employment_acs_m"];
-        if (empData.length < 1) {
-          return [];
-        }
-        return empData.reduce(
-          (acc, row) =>
-            acc.concat(
-              Object.keys(chart.labels).map((key) => ({
-                x: row[chart.tables["tabular.b23025_employment_acs_m"].yearCol],
-                y: row[key],
-                z: chart.labels[key],
-                me: row[`${key}_me`],
-                pct: row[`${key}_p`],
-                pct_me: row[`${key}_mep`],
-                totpop: row.clf,
-                totpop_me: row.clf_me,
-              })),
-            ),
-          [],
-        );
-      },
-      subregionDataQuery: (subregionId) => {
-        const columns = ["acs_year", "emp", "emp_me", "emp_p", "emp_mep", "unemp", "unemp_me", "unemp_p", "unemp_mep", "clf", "clf_me", "clf_p", "clf_mep"];
-        let urlQueryParams = `&schema=tabular&table=b23025_employment_acs_m&columns=${columns.join(",")}`;
-        urlQueryParams = `${urlQueryParams}&orderByColumn=acs_year&orderByDirection=DESC&limit=2`;
-        urlQueryParams = `${urlQueryParams}&filters=muni_id:${subregionId}`;
-        return urlQueryParams;
-      },
-    },
-    emp_by_sector: {
-      type: "stacked-area",
-      title: "Employment by Industry",
-      xAxis: { label: "Year", format: format.string.default },
-      yAxis: {
-        label: "Employment by Industry",
-        format: format.number.localeString,
-      },
-      tables: {
-        "tabular.econ_es202_naics_2d_m": {
-          yearCol: "cal_year",
-          columns: ["cal_year", "naicstitle", "naicscode", "avgemp"],
-        },
-      },
-      labels: {
-        "11+21": "Agriculture, Forestry, Fishing, Hunting, and Mining",
-        22: "Construction",
-        "31-33": "Manufacturing",
-        "42+44-45": "Wholesale and Retail Trade",
-        "22+48-49": "Transportation, warehousing, and utilities",
-        51: "Information",
-        "52+53": "Finance, Insurance, Real Estate, and Rental and Leasing",
-        "54+55+56": "Professional, technical, management, administrative, and waste management services",
-        "61+62": "Education, health, and social services",
-        "71+72": "Arts, entertainment, recreation, accommodation, and food services",
-        81: "Other services (other than public administration)",
-        92: "Public administration",
-      },
-      source: "Executive Office of Labor and Workforce Development (EOLWD)",
-      timeframe: async () => {
-        const years = await fetchYears("tabular", "econ_es202_naics_2d_m", "cal_year", null, "ASC");
-        if (!years || years.length === 0) return "";
-        return `${years[0]}-${years[years.length - 1]}`;
-      },
-      datasetLinks: {
-        "2 Digit Sector: Employment & Avg Wkly Wages (Municipal)": 387,
-      },
-      transformer: (tables, chart) => {
-        const indData = tables["tabular.econ_es202_naics_2d_m"];
-        if (indData.length < 1) {
-          return [];
-        }
-        const mapping = {};
-        indData.forEach((row) => {
-          if (!mapping[row.cal_year]) {
-            mapping[row.cal_year] = {};
-          }
-          mapping[row.cal_year][row.naicscode] = row.avgemp || 0;
-        });
-
-        const combineCategories = (year) => {
-          const getOrZero = (obj, key) => obj[key] || 0;
-          return {
-            "11+21": getOrZero(year, "11") + getOrZero(year, "21"),
-            22: getOrZero(year, "22"),
-            "31-33": getOrZero(year, "31-33"),
-            "42+44-45": getOrZero(year, "42") + getOrZero(year, "44-45"),
-            "22+48-49": getOrZero(year, "22") + getOrZero(year, "48-49"),
-            51: getOrZero(year, "51"),
-            "52+53": getOrZero(year, "52") + getOrZero(year, "53"),
-            "54+55+56": getOrZero(year, "54") + getOrZero(year, "55") + getOrZero(year, "56"),
-            "61+62": getOrZero(year, "61") + getOrZero(year, "62"),
-            "71+72": getOrZero(year, "71") + getOrZero(year, "72"),
-            81: getOrZero(year, "81"),
-            92: getOrZero(year, "92"),
-          };
-        };
-        const data = Object.keys(mapping).reduce((acc, year) => {
-          const yearData = combineCategories(mapping[year]);
-          return acc.concat(
-            Object.keys(yearData).map((key) => ({
-              x: parseInt(year),
-              y: yearData[key],
-              z: chart.labels[key],
-            })),
-          );
-        }, []);
-        return data;
-      },
-      subregionDataQuery: (subregionId) => {
-        const columns = ["cal_year", "naicstitle", "naicscode", "avgemp"];
-        let urlQueryParams = `&schema=tabular&table=econ_es202_naics_2d_m&columns=${columns.join(",")}`;
-        urlQueryParams = `${urlQueryParams}&orderByColumn=cal_year&orderByDirection=ASC`;
-        urlQueryParams = `${urlQueryParams}&filters=muni_id:${subregionId}`;
-        return urlQueryParams;
-      },
-      rparegionDataQuery: (rpaId) => {
-        const columns = ["cal_year", "naicstitle", "naicscode", "avgemp"];
-        let urlQueryParams = `&schema=tabular&table=econ_es202_naics_2d_m&columns=${columns.join(",")}`;
-        urlQueryParams = `${urlQueryParams}&orderByColumn=cal_year&orderByDirection=ASC`;
-        urlQueryParams = `${urlQueryParams}&filters=muni_id:${rpaId}`;
-        return urlQueryParams;
-      },
-    },
-  },
-  education: {
-    school_enrollment: {
-      type: "stacked-bar",
-      title: "School Enrollment",
-      xAxis: { label: "Year", format: format.string.default },
-      yAxis: { label: "Enrollment", format: format.string.default },
-      tables: {
-        "tabular.educ_enrollment_by_year_districts": {
-          specialFetch: async (municipality, dispatchUpdate) => {
-            const gis_query =
-              // Use a hardcoded named query on the backend for a complex gis spatial query
-              `${locations.BROWSER_API}/named-query?token=${import.meta.env.VITE_MAPC_API_TOKEN}&queryName=enrolment-by-districts-gis&municipality=${municipality}`;
-
-            const gis_response = await fetch(gis_query);
-            if (!gis_response.ok) {
-              throw new Error(`HTTP error! status: ${gis_response.status}`);
-            }
-
-            const gis_payload = (await gis_response.json()) || {};
-            if (!gis_payload.rows || gis_payload.rows.length < 1) {
-              return dispatchUpdate([]);
-            }
-            const districtIds = gis_payload.rows.map((district) => district.districtid);
-            const districtIdsAsFilters = districtIds.map((did) => `districtid:${did}`);
-
-            const columns = [
-              "district",
-              "districtid",
-              "schoolyear",
-              "grade_k",
-              "grade_1",
-              "grade_2",
-              "grade_3",
-              "grade_4",
-              "grade_5",
-              "grade_6",
-              "grade_7",
-              "grade_8",
-              "grade_9",
-              "grade_10",
-              "grade_11",
-              "grade_12",
-            ];
-            let mainQuery = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=educ_enrollment_by_year_districts`;
-            mainQuery = `${mainQuery}&columns=${columns.join(",")}&filters=${districtIdsAsFilters.join(",")}`;
-            const response = await fetch(mainQuery);
-
-            if (!response.ok) {
-              throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const payload = (await response.json()) || {};
-            return dispatchUpdate(payload.rows);
-          },
-        },
-      },
-      labels: {
-        grade_k: { label: "Kindergarden", order: 0 },
-        grade_1: { label: "1st Grade", order: 1 },
-        grade_2: { label: "2nd Grade", order: 2 },
-        grade_3: { label: "3rd Grade", order: 3 },
-        grade_4: { label: "4th Grade", order: 4 },
-        grade_5: { label: "5th Grade", order: 5 },
-        grade_6: { label: "6th Grade", order: 6 },
-        grade_7: { label: "7th Grade", order: 7 },
-        grade_8: { label: "8th Grade", order: 8 },
-        grade_9: { label: "9th Grade", order: 9 },
-        grade_10: { label: "10th Grade", order: 10 },
-        grade_11: { label: "11th Grade", order: 11 },
-        grade_12: { label: "12th Grade", order: 12 },
-      },
-      source: "MA Department of Elementary and Secondary Education",
-      timeframe: async () => {
-        const years = await fetchYears("tabular", "educ_enrollment_by_year_districts", "schoolyear");
-        if (!years || years.length === 0) return "";
-
-        const oldestYear = years[years.length - 1];
-        const latestYear = years[0];
-        return `${oldestYear.split("-")[0]}-${"20" + latestYear.split("-")[1]}`;
-      },
-      datasetLinks: { "Enrollment by School Year (School Districts)": 320 },
-      transformer: (tables, chart) => {
-        const rows = tables["tabular.educ_enrollment_by_year_districts"];
-        if (rows.length < 1) {
-          return [];
-        }
-        const data = rows.reduce(
-          (acc, district) =>
-            acc.concat(
-              Object.keys(district).reduce(
-                (group, key) =>
-                  key == "district" || key == "districtid" || key == "schoolyear"
-                    ? group
-                    : group.concat([
-                        {
-                          x: `${district.schoolyear} ${district.district}`,
-                          y: district[key],
-                          z: chart.labels[key].label,
-                          order: chart.labels[key].order,
-                        },
-                      ]),
-                [],
-              ),
-            ),
-          [],
-        );
-        return data;
-      },
-      subregionDataQuery: (subregionId) => {
-        // School enrollment data is complex - it requires spatial joins to get districts
-        // For now, returning empty query as this needs special handling for subregions
-        const queryString = ``;
-        return queryString;
-      },
-      rparegionDataQuery: (rpaId) => {
-        // School enrollment data is complex - it requires spatial joins to get districts
-        // For now, returning empty query as this needs special handling for RPA regions
-        const queryString = ``;
-        return queryString;
-      },
-    },
-    edu_attainment_by_race: {
-      type: "grouped-bar",
-      title: "Educational Attainment by Race",
-      tooltip: { type: "percentAndCount" },
-      xAxis: {
-        label: "Level of Education",
-        format: format.string.default,
-        sort: (a, b) => {
-          const order = ["Less than high school diploma", "High school diploma", "Some college or associate degree", "Bachelor degree or higher"];
-          return order.indexOf(a) - order.indexOf(b);
-        },
-      },
-      yAxis: {
-        label: "Attainment (%)",
-        format: (d) => {
-          if (d == null || isNaN(d)) return "";
-          const num = Number(d);
-          return `${num.toFixed(1)}%`;
-        },
-      },
-      tables: {
-        "tabular.c15002_educational_attainment_by_race_acs_m": {
-          yearCol: "acs_year",
-          columns: eduAttainmentByRaceColumns,
-        },
-      },
-      labels: {
-        lh: "Less than high school diploma",
-        hs: "High school diploma",
-        sc: "Some college or associate degree",
-        bd: "Bachelor degree or higher",
-        nhw: "Non-Hispanic White",
-        aa: "Black or African American",
-        na: "American Indian and Alaska Native",
-        as: "Asian",
-        pi: "Pacific Islander",
-        oth: "Other race",
-        mlt: "Multi-race",
-        lat: "Hispanic or Latino",
-      },
-      colors: {
-        nhw: colors.CHART.EXTENDED.get("YELLOW"),
-        aa: colors.CHART.EXTENDED.get("DARK_RED"),
-        na: colors.CHART.EXTENDED.get("BLUE"),
-        as: colors.CHART.EXTENDED.get("TEAL_GREEN"),
-        pi: colors.CHART.EXTENDED.get("LIGHT_GREEN"),
-        oth: colors.CHART.EXTENDED.get("CYAN"),
-        mlt: colors.CHART.EXTENDED.get("LIGHT_BLUE"),
-        lat: colors.CHART.EXTENDED.get("PINK"),
-      },
-      source: "American Community Survey",
-      timeframe: async () => {
-        const years = await fetchYears("tabular", "c15002_educational_attainment_by_race_acs_m", "acs_year", 1);
-        return formatYearRange(years);
-      },
-      datasetLinks: { "Educational Attainment by Race (Municipal)": 202 },
-      transformer: (tables, chart) => {
-        const eduData = tables["tabular.c15002_educational_attainment_by_race_acs_m"];
-        if (!eduData || eduData.length < 1) return [];
-
-        const row = eduData[eduData.length - 1];
-        const raceKeys = ["nhw", "aa", "na", "as", "pi", "oth", "mlt", "lat"];
-        const eduKeys = ["lh", "hs", "sc", "bd"];
-
-        const toNumber = (v) => {
-          if (v == null || v === "") return 0;
-          const n = Number(v);
-          return Number.isFinite(n) ? n : 0;
-        };
-
-        const toMeNumber = (v) => {
-          if (v == null || v === "") return undefined;
-          const n = Number(v);
-          return Number.isFinite(n) ? n : undefined;
-        };
-
-        // One bar per (education level, race). Bars are colored by race.
-        return raceKeys.reduce((raceAcc, race, raceIdx) => {
-          return raceAcc.concat(
-            eduKeys.reduce((eduAcc, edu) => {
-              return eduAcc.concat([
-                {
-                  x: chart.labels[edu],
-                  y: toNumber(row[`${race}${edu}_p`]), // attainment percent (0-100)
-                  z: chart.labels[race],
-                  me: toMeNumber(row[`${race}${edu}_mep`]), // percent margin of error
-                  count: toNumber(row[`${race}${edu}`]),
-                  countMarginOfError: toMeNumber(row[`${race}${edu}_me`]),
-                  color: chart.colors?.[race],
-                  order: raceIdx,
-                },
-              ]);
-            }, []),
-          );
-        }, []);
-      },
-      subregionDataQuery: (subregionId) => {
-        const selectList = eduAttainmentByRaceColumns.join(",");
-        let urlQueryParams = `&schema=tabular&table=c15002_educational_attainment_by_race_acs_m&columns=${selectList}`;
-        urlQueryParams = `${urlQueryParams}&orderByColumn=acs_year&orderByDirection=DESC&limit=1`;
-        urlQueryParams = `${urlQueryParams}&filters=muni_id:${subregionId}`;
-        return urlQueryParams;
-      },
-      rparegionDataQuery: (rpaId) => {
-        // TODO: Enable this without passing SQL to the backend if we enable RPA views in the future.
-        return "";
-      },
-    },
-  },
-  governance: {
-    tax_levy: {
-      type: "pie",
-      title: "Share of Tax Revenue by Source",
-      xAxis: { label: "Year" },
-      yAxis: { label: "Attainment" },
-      tables: {
-        "tabular.econ_municipal_taxes_revenue_m": {
-          yearCol: "fy",
-          latestYearOnly: true,
-          columns: ["fy", "res_taxes", "os_taxes", "comm_taxes", "ind_taxes", "p_prop_tax", "tot_rev"],
-        },
-      },
-      labels: {
-        res_taxes: "Residential",
-        os_taxes: "Open Space",
-        comm_taxes: "Commercial",
-        ind_taxes: "Industrial",
-        p_prop_tax: "Personal Property",
-        other: "Non-Property",
-      },
-      source: "MA Dept. of Revenue",
-      timeframe: async () => {
-        const years = await fetchYears("tabular", "econ_municipal_taxes_revenue_m", "fy", 1);
-        return years[0];
-      },
-      datasetLinks: {
-        "Municipal General Fund Revenue and Taxes (Municipal)": 383,
-      },
-      transformer: (tables, chart) => {
-        const taxData = tables["tabular.econ_municipal_taxes_revenue_m"];
-        if (taxData.length < 1) {
-          return [];
-        }
-        const row = taxData[0];
-        const directRev = ["res_taxes", "os_taxes", "comm_taxes", "ind_taxes", "p_prop_tax"];
-        const withImplied = Object.assign({}, row, {
-          other: row.tot_rev - directRev.reduce((sum, k) => sum + (row[k] || 0), 0),
-        });
-        return Object.keys(chart.labels).map((key) => ({
-          value: withImplied[key],
-          label: chart.labels[key],
-        }));
-      },
-      subregionDataQuery: async (subregionId) => {
-        // TODO: Maybe make backend improvement to prevent 3 requests here
-        let muniIdsApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&columns=muni_id`;
-        muniIdsApi = `${muniIdsApi}&filters=subrg_id:${subregionId}`;
-        const muniIdsResp = await fetch(muniIdsApi);
-        const muniIdData = (await muniIdsResp.json()) || {};
-        const muniIdsList = muniIdData.rows.map((row) => `muni_id:${row.muni_id}`);
-
-        let maxFyApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=econ_municipal_taxes_revenue_m&columns=fy`;
-        maxFyApi = `${maxFyApi}&orderByColumn=fy&orderByDirection=DESC&limit=1`;
-        maxFyApi = `${maxFyApi}&filters=${muniIdsList.join(",")}`;
-        const maxFyResp = await fetch(maxFyApi);
-        const maxFyData = (await maxFyResp.json()) || {};
-        const maxFy = maxFyData.rows[0].fy;
-
-        const columns = ["fy", "res_taxes", "os_taxes", "comm_taxes", "ind_taxes", "p_prop_tax", "tot_rev"];
-        let urlQueryParams = `&schema=tabular&table=econ_municipal_taxes_revenue_m&columns=${columns.join(",")}`;
-        urlQueryParams = `${urlQueryParams}&filters=muni_id:${subregionId},fy:${maxFy}`;
-        return urlQueryParams;
-      },
-    },
-  },
-  environment: {
-    water_usage_per_cap: {
-      type: "line",
-      title: "Water Usage per Capita",
-      xAxis: { label: "Year", format: format.number.integer, ticks: 7 },
-      yAxis: {
-        label: "Resident Gallons per Capita Day",
-        format: format.number.nearestTenth,
-        min: 0,
-      },
-      tables: {
-        "tabular.env_dep_reviewed_water_demand_m": {
-          columns: ["rgpcd2009", "rgpcd2010", "rgpcd2011", "rgpcd2012", "rgpcd2013", "rgpcd2014", "rgpcd2015"],
-        },
-      },
-      labels: {},
-      source: "MassDEP",
-      timeframe: "2009-15",
-      datasetLinks: { "Annual Average Residential Water Use (Municipal)": 260 },
-      transformer: (tables, chart) => {
-        const waterData = tables["tabular.env_dep_reviewed_water_demand_m"];
-        if (waterData.length < 1) {
-          return [{ label: "Water Useage per Capita", values: [] }];
-        }
-        const totals = {
-          rgpcd2009: 0,
-          rgpcd2010: 0,
-          rgpcd2011: 0,
-          rgpcd2012: 0,
-          rgpcd2013: 0,
-          rgpcd2014: 0,
-          rgpcd2015: 0,
-        };
-        waterData.forEach((row) => {
-          Object.entries(row).forEach(([key, value]) => {
-            totals[key] += value;
-          });
-        });
-        const pairs = [
-          [2009, "rgpcd2009"],
-          [2010, "rgpcd2010"],
-          [2011, "rgpcd2011"],
-          [2012, "rgpcd2012"],
-          [2013, "rgpcd2013"],
-          [2014, "rgpcd2014"],
-          [2015, "rgpcd2015"],
-        ];
-        return [
-          {
-            label: "Water Usage per Capita",
-            values: pairs.reduce((acc, [year, key]) => (totals[key] ? acc.concat([[year, totals[key]]]) : acc), []),
-          },
-        ];
-      },
-      subregionDataQuery: async (subregionId) => {
-        // TODO: Maybe make backend improvement to prevent 2 requests here?
-        let muniIdsApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&columns=muni_id`;
-        muniIdsApi = `${muniIdsApi}&filters=subrg_id:${subregionId}`;
-        const muniIdsResp = await fetch(muniIdsApi);
-        const muniIdData = (await muniIdsResp.json()) || {};
-        const muniIdsList = muniIdData.rows.map((row) => `muni_id:${row.muni_id}`);
-
-        const columns = ["rgpcd2009", "rgpcd2010", "rgpcd2011", "rgpcd2012", "rgpcd2013", "rgpcd2014", "rgpcd2015"];
-        let urlQueryParams = `&schema=tabular&table=env_dep_reviewed_water_demand_m&columns=${columns.join(",")}`;
-        urlQueryParams = `${urlQueryParams}&filters=${muniIdsList.join(",")}`;
-        return urlQueryParams;
-      },
-      rparegionDataQuery: (rpaId) => {
-        // TODO: Enable this without passing SQL to the backend if we support RPA regions in the future.
-        return "";
-      },
-    },
-    energy_usage_gas: {
-      type: "stacked-area",
-      title: "Thermal Energy Usage (Gas, oil, etc.)",
-      xAxis: { label: "Year", format: format.number.ignoreFloat, ticks: 3 },
-      yAxis: { label: "Energy Costs ($)" },
-      tables: {
-        "tabular.energy_masssave_elec_gas_ci_consumption_m": {
-          yearCol: "cal_year",
-          columns: ["cal_year", "sector", "mwh_use", "therm_use"],
-        },
-        "tabular.energy_masssave_elec_gas_res_li_consumption_m": {
-          yearCol: "cal_year",
-          columns: ["cal_year", "sector", "mwh_use", "therm_use"],
-        },
-      },
-      labels: {
-        therm_use: "Annual Therm Usage",
-      },
-      source: "MassSave",
-      timeframe: async () => {
-        const years = await fetchYears("tabular", "energy_masssave_elec_gas_ci_consumption_m", "cal_year");
-        const earliestyear = years.length ? years[years.length - 1] : "unknown";
-        const latestYear = years.length ? years[0] : "unknown";
-        return `${earliestyear}-${latestYear}`;
-      },
-      datasetLinks: {
-        "MassSave Comm & Industrial Incentives and Savings (Municipal)": 251,
-        "MassSave Res & Low Income Incentives and Savings (Municipal)": 252,
-      },
-      transformer: (tables, chart) => {
-        const commData = tables["tabular.energy_masssave_elec_gas_ci_consumption_m"];
-        const resData = tables["tabular.energy_masssave_elec_gas_res_li_consumption_m"];
-        const rows = commData.concat(resData);
-        if (rows.length < 1) {
-          return [];
-        }
-        const totals = {}; // map of "cal_year.sector" to the sector and totals for mwh_use and therm_use
-        rows.forEach((row) => {
-          const key = `${row.cal_year}.${row.sector}`;
-          if (!totals[key] && row.cal_year && row.sector) {
-            totals[key] = { mwh_use: 0, therm_use: 0 };
-          }
-          totals[key].mwh_use += row.mwh_use;
-          totals[key].therm_use += row.therm_use;
-        });
-
-        const data = Object.entries(totals).map(([key, data]) => {
-          const [year, sector] = key.split(".");
-          return { x: year, y: data.therm_use, z: `${sector} ${chart.labels.therm_use}` };
-        });
-        return data;
-      },
-      subregionDataQuery: async (subregionId) => {
-        // TODO: Maybe make backend improvement to prevent 2 requests here?
-        let muniIdsApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&columns=muni_id`;
-        muniIdsApi = `${muniIdsApi}&filters=subrg_id:${subregionId}`;
-        const muniIdsResp = await fetch(muniIdsApi);
-        const muniIdData = (await muniIdsResp.json()) || {};
-        const muniIdsList = muniIdData.rows.map((row) => `muni_id:${row.muni_id}`);
-
-        const columns = ["cal_year", "sector", "mwh_use", "therm_use"];
-        let url1QueryParams = `&schema=tabular&table=energy_masssave_elec_gas_ci_consumption_m&columns=${columns.join(",")}`;
-        url1QueryParams = `${url1QueryParams}&filters=${muniIdsList.join(",")}`;
-
-        let url2QueryParams = `&schema=tabular&table=energy_masssave_elec_gas_res_li_consumption_m&columns=${columns.join(",")}`;
-        url2QueryParams = `${url2QueryParams}&filters=${muniIdsList.join(",")}`;
-
-        return [url1QueryParams, url2QueryParams];
-      },
-      rparegionDataQuery: (rpaId) => {
-        // TODO: Enable this without passing SQL to the backend if we support RPA regions in the future.
-        return ["", ""];
-      },
-    },
-    energy_usage_electricity: {
-      type: "stacked-area",
-      title: "Electrical Energy Usage",
-      xAxis: { label: "Year", format: format.number.ignoreFloat },
-      yAxis: { label: "Energy Costs ($)" },
-      tables: {
-        "tabular.energy_masssave_elec_gas_ci_consumption_m": {
-          yearCol: "cal_year",
-          columns: ["cal_year", "sector", "mwh_use", "therm_use"],
-        },
-        "tabular.energy_masssave_elec_gas_res_li_consumption_m": {
-          yearCol: "cal_year",
-          columns: ["cal_year", "sector", "mwh_use", "therm_use"],
-        },
-      },
-      labels: {
-        mwh_use: "Annual MWh Usage",
-      },
-      source: "MassSave",
-      timeframe: async () => {
-        const years = await fetchYears("tabular", "energy_masssave_elec_gas_ci_consumption_m", "cal_year");
-        const earliestyear = years.length ? years[years.length - 1] : "unknown";
-        const latestYear = years.length ? years[0] : "unknown";
-        return `${earliestyear}-${latestYear}`;
-      },
-      datasetLinks: {
-        "MassSave Comm & Industrial Incentives and Savings (Municipal)": 251,
-        "MassSave Res & Low Income Incentives and Savings (Municipal)": 252,
-      },
-      transformer: (tables, chart) => {
-        const commData = tables["tabular.energy_masssave_elec_gas_ci_consumption_m"];
-        const resData = tables["tabular.energy_masssave_elec_gas_res_li_consumption_m"];
-        const rows = commData.concat(resData);
-        if (rows.length < 1) {
-          return [];
-        }
-        const totals = {}; // map of "cal_year.sector" to the sector and totals for mwh_use and therm_use
-        rows.forEach((row) => {
-          const key = `${row.cal_year}.${row.sector}`;
-          if (!totals[key] && row.cal_year && row.sector) {
-            totals[key] = { mwh_use: 0, therm_use: 0 };
-          }
-          totals[key].mwh_use += row.mwh_use;
-          totals[key].therm_use += row.therm_use;
-        });
-
-        const data = Object.entries(totals).map(([key, data]) => {
-          const [year, sector] = key.split(".");
-          return { x: year, y: data.mwh_use, z: `${sector} ${chart.labels.mwh_use}` };
-        });
-        return data;
-      },
-      subregionDataQuery: async (subregionId) => {
-        // TODO: Maybe make backend improvement to prevent 2 requests here?
-        let muniIdsApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&columns=muni_id`;
-        muniIdsApi = `${muniIdsApi}&filters=subrg_id:${subregionId}`;
-        const muniIdsResp = await fetch(muniIdsApi);
-        const muniIdData = (await muniIdsResp.json()) || {};
-        const muniIdsList = muniIdData.rows.map((row) => `muni_id:${row.muni_id}`);
-
-        const columns = ["cal_year", "sector", "mwh_use", "therm_use"];
-        let url1QueryParams = `&schema=tabular&table=energy_masssave_elec_gas_ci_consumption_m&columns=${columns.join(",")}`;
-        url1QueryParams = `${url1QueryParams}&filters=${muniIdsList.join(",")}`;
-
-        let url2QueryParams = `&schema=tabular&table=energy_masssave_elec_gas_res_li_consumption_m&columns=${columns.join(",")}`;
-        url2QueryParams = `${url2QueryParams}&filters=${muniIdsList.join(",")}`;
-
-        return [url1QueryParams, url2QueryParams];
-      },
-      rparegionDataQuery: (rpaId) => {
-        // TODO: Enable this without passing SQL to the backend if we support RPA regions in the future
-        return ["", ""];
-      },
-    },
-  },
-  housing: {
-    cost_burden: {
-      type: "grouped-bar",
-      title: "Housing Cost Burden",
-      tooltip: { type: "percentAndCount" },
-      xAxis: { label: "Cost Burden Categories" },
-      yAxis: {
-        label: "Owner-Renter Ratio",
-        format: format.number.integerPercent,
-      },
-      tables: {
-        "tabular.b25091_b25070_costburden_acs_m": {
-          yearCol: "acs_year",
-          years: async () => {
-            const years = await fetchYears("tabular", "b25091_b25070_costburden_acs_m", "acs_year", 1);
-            return years;
-          },
-          columns: costBurdenColumns,
-        },
-      },
-      labels: {
-        not_cb: "Not Cost Burdened",
-        p3050: "Paying 30-50% of Income",
-        "p50+": "Paying 50%+ of Income",
-        owner: "Owner Occupied",
-        renter: "Renter Occupied",
-      },
-      source: "American Community Survey",
-      timeframe: async () => {
-        const years = await fetchYears("tabular", "b25091_b25070_costburden_acs_m", "acs_year", 1);
-        return formatYearRange(years);
-      },
-      datasetLinks: { "Cost Burdened Households (Municipal)": 185 },
-      transformer: (tables, chart) => {
-        const costData = tables["tabular.b25091_b25070_costburden_acs_m"];
-        if (costData.length < 1) {
-          return [];
-        }
-        const row = costData[0];
-        return [
-          {
-            // % of Owner not cost burdened
-            x: chart.labels.not_cb,
-            y: row.o_notcb_p,
-            // Percentage MOE
-            me: row.o_notcbmep,
-            count: row.o_notcb,
-            // Count MOE
-            countMarginOfError: row.o_notcbme,
-            z: chart.labels.owner,
-          },
-          {
-            // % of Renter not cost burdened
-            x: chart.labels.not_cb,
-            y: row.r_notcb_p,
-            me: row.r_notcbmep,
-            count: row.r_notcb,
-            countMarginOfError: row.r_notcbme,
-            z: chart.labels.renter,
-          },
-          {
-            // %  of Owner paying 30-50% of income
-            x: chart.labels.p3050,
-            y: row.ocb3050_p,
-            me: row.ocb3050mep,
-            count: row.ocb3050,
-            countMarginOfError: row.ocb3050me,
-            z: chart.labels.owner,
-          },
-          {
-            // % of Renter paying 30-50% of income
-            x: chart.labels.p3050,
-            y: row.rcb3050_p,
-            me: row.rcb3050mep,
-            count: row.rcb3050,
-            countMarginOfError: row.rcb3050me,
-            z: chart.labels.renter,
-          },
-          {
-            // % of Owner paying 50%+ of income
-            x: chart.labels["p50+"],
-            y: row.o_cb50_p,
-            me: row.o_cb50_mep,
-            count: row.o_cb50,
-            countMarginOfError: row.o_cb50me,
-            z: chart.labels.owner,
-          },
-          {
-            // % of Renter paying 50%+ of income
-            x: chart.labels["p50+"],
-            y: row.r_cb50_p,
-            me: row.r_cb50_mep,
-            count: row.r_cb50,
-            countMarginOfError: row.r_cb50me,
-            z: chart.labels.renter,
-          },
-        ];
-      },
-      subregionDataQuery: async (subregionId) => {
-        const yearResp = await fetchYears("tabular", "b25091_b25070_costburden_acs_m", "acs_year", 1);
-        const maxYear = yearResp.length ? yearResp[0] : "unknown";
-
-        const selectList = costBurdenColumns.join(",");
-        let urlQueryParams = `&schema=tabular&table=b25091_b25070_costburden_acs_m&columns=${selectList}`;
-        urlQueryParams = `${urlQueryParams}&filters=muni_id:${subregionId},acs_year:${maxYear}`;
-        return urlQueryParams;
-      },
-    },
-    units_permitted: {
-      type: "stacked-area",
-      title: "Housing Units Permitted",
-      xAxis: {
-        label: "Year",
-        format: format.string.default,
-        sort: (a, b) => parseInt(a) - parseInt(b),
-      },
-      yAxis: { label: "Units Permitted" },
-      tables: {
-        "tabular.hous_building_permits_m": {
-          yearCol: "cal_year",
-          columns: ["cal_year", "months_rep", "sf_units", "mf_units"],
-        },
-      },
-      labels: {
-        sf_units: "Single Family Units",
-        mf_units: "Multi Family Units",
-      },
-      source: "Census Building Permit Survey",
-      caveat: "*Ignoring years for which the municipality did not report all 12 months.",
-      timeframe: async () => {
-        const years = await fetchYears("tabular", "hous_building_permits_m", "cal_year");
-        const yearsPost2000 = years.filter((y) => y > 2000);
-        const latestYear = yearsPost2000.length ? yearsPost2000[0] : "unknown";
-        const earliestYear = yearsPost2000.length ? yearsPost2000[yearsPost2000.length - 1] : "unknown";
-        return `${earliestYear}-${latestYear}`;
-      },
-      datasetLinks: { "Building Permits by Type and Year (Municipal)": 384 },
-      transformer: (tables, chart) => {
-        const permitData = tables["tabular.hous_building_permits_m"].filter((row) => row.months_rep === 12);
-        const tableDef = chart.tables["tabular.hous_building_permits_m"];
-        if (permitData.length < 1) {
-          return [];
-        }
-
-        const allData = [];
-        let expectedYear = 2001; // start in 2001, go until most recent data
-        const currentYear = new Date().getFullYear();
-        const recentPermitData = permitData.filter((pd) => pd[tableDef.yearCol] > 2000);
-        recentPermitData.forEach((permitData) => {
-          // add 0's for missing years
-          while (permitData[tableDef.yearCol] !== expectedYear) {
-            if (expectedYear > currentYear) {
-              break; // for safety to prevent inifnite loop.
-            }
-            allData.push({
-              [tableDef.yearCol]: `${expectedYear}*`,
-              mf_units: 0,
-              sf_units: 0,
-            });
-            expectedYear++;
-          }
-          // year is not missing:
-          allData.push(permitData);
-          expectedYear++;
-        });
-        return allData.reduce(
-          (acc, year) =>
-            acc.concat([
-              {
-                x: String(year[tableDef.yearCol]),
-                y: year.mf_units,
-                z: chart.labels.mf_units,
-              },
-              {
-                x: String(year[tableDef.yearCol]),
-                y: year.sf_units,
-                z: chart.labels.sf_units,
-              },
-            ]),
-          [],
-        );
-      },
-      subregionDataQuery: (subregionId) => {
-        const columns = ["cal_year", "12 as months_rep", "sf_units", "mf_units"];
-        let urlQueryParams = `&schema=tabular&table=hous_building_permits_m&columns=${columns.join(",")}`;
-        urlQueryParams = `${urlQueryParams}&filters=muni_id:${subregionId}`;
-        return urlQueryParams;
-      },
-      rparegionDataQuery: (rpaId) => {
-        // TODO: enable this without passing SQL to the backend if we support RPA regions in the future
-        return "";
-      },
-    },
-  },
-  "public-health": {
-    premature_mortality_rate: {
-      type: "stacked-bar",
-      title: "Premature Mortality Rate by Race",
-      xAxis: { label: "Race" },
-      yAxis: {
-        label: "Age Adjusted Rate per 100,000",
-        format: (d) => {
-          if (d == null || d === "") return d;
-          const num = Number(d);
-          if (isNaN(num)) return d;
-          // Only show 2 decimals if there is a decimal part
-          return num % 1 === 0 ? num.toString() : num.toFixed(2);
-        },
-      },
-      tables: {
-        "tabular.health_premature_mortality_race_m": {
-          yearCol: "years",
-          years: async () => {
-            const years = await fetchYears("tabular", "health_premature_mortality_race_m", "years", 1);
-            return years;
-          },
-          columns: [
-            "years",
-            "whi_art",
-            "whi_artlci",
-            "whi_artuci",
-            "aa_art",
-            "aa_artlci",
-            "aa_artuci",
-            "api_art",
-            "api_artlci",
-            "api_artuci",
-            "na_art",
-            "na_artlci",
-            "na_artuci",
-            "oth_art",
-            "oth_artlci",
-            "oth_artuci",
-            "lat_art",
-            "lat_artlci",
-            "lat_artuci",
-          ],
-        },
-      },
-      abbreviations: {
-        whi_art: "W",
-        aa_art: "B & AA",
-        api_art: "A & PA",
-        na_art: "NA",
-        oth_art: "Other",
-        lat_art: "H & L",
-      },
-      labels: {
-        whi_art: "White (W)",
-        aa_art: "Black and African American (B & AA)",
-        api_art: "Asian and Pacific Islander (A & PA)",
-        na_art: "Native American (NA)",
-        oth_art: "Other (Other)",
-        lat_art: "Hispanic and Latino (H & L)",
-      },
-      colors: {
-        whi_art: colors.CHART.EXTENDED.get("YELLOW"),
-        aa_art: colors.CHART.EXTENDED.get("DARK_RED"),
-        api_art: colors.CHART.EXTENDED.get("TEAL_GREEN"),
-        na_art: colors.CHART.EXTENDED.get("CYAN"),
-        oth_art: colors.CHART.EXTENDED.get("BLUE"),
-        lat_art: colors.CHART.EXTENDED.get("PINK"),
-      },
-      source: "MA Dept. of Public Health",
-      timeframe: async () => {
-        const years = await fetchYears("tabular", "health_premature_mortality_race_m", "years", 1);
-        const year = years.length ? years[0] : "unknown";
-        return year + " 5-year averages";
-      },
-      datasetLinks: { "Premature Mortality (Municipal)": 386 },
-      transformer: (tables, chart) => {
-        const premoData = tables["tabular.health_premature_mortality_race_m"];
-        if (premoData.length < 1) {
-          return [];
-        }
-
-        const totals = {
-          // to calculate averages.
-          whi_art: { total: 0, count: 0 },
-          aa_art: { total: 0, count: 0 },
-          api_art: { total: 0, count: 0 },
-          na_art: { total: 0, count: 0 },
-          oth_art: { total: 0, count: 0 },
-          lat_art: { total: 0, count: 0 },
-        };
-        const raceKeys = ["whi_art", "aa_art", "api_art", "na_art", "oth_art", "lat_art"];
-        premoData.forEach((row) => {
-          Object.entries(row).forEach(([key, value]) => {
-            if (value && raceKeys.includes(key)) {
-              // TODO should we count rows where value is 0 instead of null??
-              totals[key].total += value;
-              totals[key].count += 1;
-            }
-          });
-        });
-
-        return raceKeys.reduce(
-          (acc, key) =>
-            acc.concat([
-              {
-                x: chart.abbreviations[key],
-                y: totals[key].total / (totals[key].count || 1) || 0, // prevent div by 0
-                z: chart.labels[key],
-                color: chart.colors[key],
-              },
-            ]),
-          [],
-        );
-      },
-      subregionDataQuery: async (subregionId) => {
-        // TODO: Maybe make backend improvement to prevent 3 requests here
-        let muniIdsApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&columns=muni_id`;
-        muniIdsApi = `${muniIdsApi}&filters=subrg_id:${subregionId}`;
-        const muniIdsResp = await fetch(muniIdsApi);
-        const muniIdData = (await muniIdsResp.json()) || {};
-        const muniIdsList = muniIdData.rows.map((row) => `muni_id:${row.muni_id}`);
-
-        const years = await fetchYears("tabular", "health_premature_mortality_race_m", "years", 1);
-        const year = years.length ? years[0] : "unknown";
-
-        const columns = ["years", "whi_art", "aa_art", "api_art", "na_art", "oth_art", "lat_art"];
-        let urlQueryParams = `&schema=tabular&table=health_premature_mortality_race_m&columns=${columns.join(",")}`;
-        urlQueryParams = `${urlQueryParams}&filters=${muniIdsList.join(",")},years:${year}`;
-        return urlQueryParams;
-      },
-      rparegionDataQuery: (rpaId) => {
-        // TODO: Enable this without passing SQL to the backend if we support RPA regions in the future
-        return "";
-      },
-    },
-    hospitalizations: {
-      type: "stacked-bar",
-      title: "Hypertension Hospitalizations by Race",
-      xAxis: { label: "Race", format: format.string.default },
-      yAxis: {
-        label: "Age Adjusted Rate per 100,000",
-        format: (d) => {
-          if (d == null || d === "") return "";
-          const num = parseFloat(d);
-          if (isNaN(num)) return d;
-          // Only show 2 decimals if there is a decimal part
-          if (num % 1 === 0) {
-            return num.toFixed(0);
-          }
-          return num.toFixed(2);
-        },
-      },
-      tables: {
-        // TODO: Heart failure data not loaded at this time.
-        // 'tabular.health_hospitalizations_heart_failure_m': {
-        //   yearCol: 'cal_years',
-        //   columns: [
-        //     'cal_years',
-        //     'whi_num',
-        //     'aa_num',
-        //     'api_num',
-        //     'na_num',
-        //     'oth_num',
-        //     'lat_num',
-        //   ],
-        // },
-        "tabular.health_hospitalizations_hypertension_m": {
-          yearCol: "cal_years",
-          years: async () => {
-            const years = await fetchYears("tabular", "health_hospitalizations_hypertension_m", "cal_years", 1);
-            return years;
-          },
-          columns: ["cal_years", "whi_arte", "aa_arte", "api_arte", "na_arte", "oth_arte", "lat_arte"],
-        },
-      },
-      abbreviations: {
-        whi_arte: "W",
-        aa_arte: "B & AA",
-        api_arte: "A & PA",
-        na_arte: "NA",
-        oth_arte: "Other",
-        lat_arte: "H & L",
-      },
-      labels: {
-        whi_arte: "White (W)",
-        aa_arte: "Black and African American (B & AA)",
-        api_arte: "Asian and Pacific Islander (A & PA)",
-        na_arte: "Native American (NA)",
-        oth_arte: "Other (Other)",
-        lat_arte: "Hispanic and Latino (H & L)",
-      },
-      colors: {
-        whi_arte: colors.CHART.EXTENDED.get("YELLOW"),
-        aa_arte: colors.CHART.EXTENDED.get("DARK_RED"),
-        api_arte: colors.CHART.EXTENDED.get("TEAL_GREEN"),
-        na_arte: colors.CHART.EXTENDED.get("CYAN"),
-        oth_arte: colors.CHART.EXTENDED.get("BLUE"),
-        lat_arte: colors.CHART.EXTENDED.get("PINK"),
-      },
-      source: "MA Dept. of Public Health",
-      timeframe: async () => {
-        const years = await fetchYears("tabular", "health_hospitalizations_hypertension_m", "cal_years", 1);
-        const year = years.length ? years[0] : "unknown";
-        return year + " 5-year averages";
-      },
-      datasetLinks: {
-        "Hypertension Related Hospitalizations (Municipal)": 385,
-      },
-      transformer: (tables, chart) => {
-        const hyperData = tables["tabular.health_hospitalizations_hypertension_m"];
-        if (hyperData.length < 1) {
-          return [];
-        }
-
-        const totals = {
-          // to calculate averages.
-          whi_arte: { total: 0, count: 0 },
-          aa_arte: { total: 0, count: 0 },
-          api_arte: { total: 0, count: 0 },
-          na_arte: { total: 0, count: 0 },
-          oth_arte: { total: 0, count: 0 },
-          lat_arte: { total: 0, count: 0 },
-        };
-        const raceKeys = ["whi_arte", "aa_arte", "api_arte", "na_arte", "oth_arte", "lat_arte"];
-        hyperData.forEach((row) => {
-          Object.entries(row).forEach(([key, value]) => {
-            if (value && raceKeys.includes(key)) {
-              // TODO should we count rows where value is 0 instead of null??
-              totals[key].total += value;
-              totals[key].count += 1;
-            }
-          });
-        });
-
-        return raceKeys.reduce(
-          (acc, key) =>
-            acc.concat([
-              {
-                x: chart.abbreviations[key],
-                y: totals[key].total / (totals[key].count || 1) || 0,
-                z: chart.labels[key],
-                color: chart.colors[key],
-              },
-            ]),
-          [],
-        );
-      },
-      subregionDataQuery: async (subregionId) => {
-        // TODO: Maybe make backend improvement to prevent 3 requests here
-        let muniIdsApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&columns=muni_id`;
-        muniIdsApi = `${muniIdsApi}&filters=subrg_id:${subregionId}`;
-        const muniIdsResp = await fetch(muniIdsApi);
-        const muniIdData = (await muniIdsResp.json()) || {};
-        const muniIdsList = muniIdData.rows.map((row) => `muni_id:${row.muni_id}`);
-
-        const years = await fetchYears("tabular", "health_hospitalizations_hypertension_m", "cal_years", 1);
-        const year = years.length ? years[0] : "unknown";
-
-        const columns = ["cal_years", "whi_arte", "aa_arte", "api_arte", "na_arte", "oth_arte", "lat_arte"];
-        let urlQueryParams = `&schema=tabular&table=health_hospitalizations_hypertension_m&columns=${columns.join(",")}`;
-        urlQueryParams = `${urlQueryParams}&filters=${muniIdsList.join(",")},cal_years:${year}`;
-        return urlQueryParams;
-      },
-      rparegionDataQuery: (rpaId) => {
-        // TODO: enable this without passing SQL to the backend if we supprot RPA regions in the future
-        return "";
-      },
-    },
-  },
-  transportation: {
-    daily_vmt: {
-      type: "stacked-area",
-      title: "Daily Vehicle Miles Traveled per Household",
-      xAxis: { label: "Year", format: format.string.default, ticks: 3 },
-      yAxis: { label: "Daily household vehicle miles traveled" },
-      tables: {
-        "tabular.trans_mavc_public_summary_m": {
-          columns: ["quarter", "hh_est", "pass_vmt", "comm_vmt"],
-        },
-      },
-      labels: {
-        pass_vmt_hh: "Passenger vehicles",
-        comm_vmt_hh: "Commercial vehicles",
-      },
-      source: "MAPC and MA RMV",
-      timeframe: async () => {
-        const years = await fetchYears("tabular", "trans_mavc_public_summary_m", "quarter");
-        const latestYear = years.length ? years[0].substring(0, 4) : "unknown";
-        const earliersYear = years.length ? years[years.length - 1].substring(0, 4) : "unknown";
-        return `${earliersYear}-${latestYear}`;
-      },
-      datasetLinks: {
-        "Massachusetts Vehicle Municipal Summary Statistics (Municipal)": 330,
-      },
-      transformer: (tables, chart) => {
-        const vmtData = tables["tabular.trans_mavc_public_summary_m"];
-        if (vmtData.length < 1) {
-          return [];
-        }
-
-        const quarterToYear = (quarter) => {
-          const [year, fourth] = quarter.split("_q");
-          return parseInt(year) + parseInt(fourth) / 4;
-        };
-
-        const totalsByYear = {};
-        vmtData.forEach((vmtRow) => {
-          const rowYear = quarterToYear(vmtRow.quarter);
-          if (!totalsByYear[rowYear]) {
-            totalsByYear[rowYear] = { pass_vmt: 0, hh_est: 0, comm_vmt: 0 };
-          }
-          totalsByYear[rowYear].pass_vmt += vmtRow.pass_vmt;
-          totalsByYear[rowYear].comm_vmt += vmtRow.comm_vmt;
-          totalsByYear[rowYear].hh_est += vmtRow.hh_est;
-        });
-        const vmtDataTotals = Object.entries(totalsByYear).map(([year, totals]) => {
-          return { year: year, ...totals };
-        });
-        return vmtDataTotals.reduce(
-          (acc, row) =>
-            acc.concat([
-              {
-                x: row.year,
-                y: row.pass_vmt / row.hh_est,
-                z: chart.labels.pass_vmt_hh,
-              },
-              {
-                x: row.year,
-                y: row.comm_vmt / row.hh_est,
-                z: chart.labels.comm_vmt_hh,
-              },
-            ]),
-          [],
-        );
-      },
-      subregionDataQuery: async (subregionId) => {
-        // TODO: Maybe make backend improvement to prevent 2 requests here
-        let muniIdsApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&columns=muni_id`;
-        muniIdsApi = `${muniIdsApi}&filters=subrg_id:${subregionId}`;
-        const muniIdsResp = await fetch(muniIdsApi);
-        const muniIdData = (await muniIdsResp.json()) || {};
-        const muniIdsList = muniIdData.rows.map((row) => `muni_id:${row.muni_id}`);
-
-        const columns = ["quarter", "hh_est", "pass_vmt", "comm_vmt"];
-        let urlQueryParams = `&schema=tabular&table=trans_mavc_public_summary_m&columns=${columns.join(",")}`;
-        urlQueryParams = `${urlQueryParams}&filters=${muniIdsList.join(",")}`;
-        return urlQueryParams;
-      },
-      rparegionDataQuery: (rpaId) => {
-        // TODO: enable without passing SQL to the backend if we support RPA regions in the future
-        return "";
-      },
-    },
-    commute_to_work: {
-      type: "pie",
-      title: "Commute to Work",
-      tables: {
-        "tabular.b08301_means_transportation_to_work_by_residence_acs_m": {
-          yearCol: "acs_year",
-          latestYearOnly: true,
-          columns: commuteToWorkColumns,
-        },
-      },
-      labels: {
-        ctvsngl: "Drive alone to work",
-        carpool: "Carpool",
-        pub: "Public transportation",
-        taxi: "Taxi",
-        mcycle: "Motorcycle",
-        bicycle: "Bicycle",
-        walk: "Walk",
-        other: "Other",
-      },
-      source: "American Community Survey",
-      timeframe: async () => {
-        const years = await fetchYears("tabular", "b08301_means_transportation_to_work_by_residence_acs_m", "acs_year", 1);
-        return formatYearRange(years);
-      },
-      datasetLinks: { "Transportation to Work from Residence (Municpal)": 38 },
-      transformer: (tables, chart) => {
-        const commData = tables["tabular.b08301_means_transportation_to_work_by_residence_acs_m"];
-        if (commData.length < 1) {
-          return [];
-        }
-        const row = commData[0];
-
-        return Object.keys(chart.labels).map((key) => ({
-          value: row[key],
-          label: chart.labels[key],
-          count: row[key],
-          countMarginOfError: row[`${key}me`] !== undefined ? row[`${key}me`] : row[`${key}_me`],
-        }));
-      },
-      subregionDataQuery: (subregionId) => {
-        const selectList = commuteToWorkColumns.join(", ");
-        let urlQueryParams = `&schema=tabular&table=b08301_means_transportation_to_work_by_residence_acs_m&columns=${selectList}`;
-        urlQueryParams = `${urlQueryParams}&filters=muni_id:${subregionId}&orderByColumn=acs_year&orderbyDirection=DESC&limit=1`;
-        return urlQueryParams;
-      },
-      rparegionDataQuery: (rpaId) => {
-        // Enable this without passing SQL to the backend if we decide to support RPA regions in the future
-        return "";
-      },
-    },
-  },
   "digital-equity": {
     no_computer_access: {
       type: "gauge",
@@ -1891,7 +620,7 @@ export default {
         "tabular.s2801_computer_internet_acs_m_noint": {
           yearCol: "acs_year",
           latestYearOnly: true,
-          columns: ["acs_year", "muni_id", "municipal", "nocmp_p", "nocmp_mp"],
+          columns: [ "municipal", "acs_year", "nocmp_p", "nocmp_mp"],
           specialFetch: async (municipality, dispatchUpdate) => {
             // TODO: Maybe make backend improvement to prevent 3 requests here
             let countyIdsApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&columns=county_id`;
@@ -1903,7 +632,7 @@ export default {
             const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
             const year = years.length ? years[0] : "unknown";
 
-            const columns = ["acs_year", "muni_id", "municipal", "nocmp", "nocmpm", "nocmp_p", "nocmp_mp"];
+            const columns = ["municipal", "acs_year", "nocmp", "nocmpm", "nocmp_p", "nocmp_mp"];
             let mainDataApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=s2801_computer_internet_acs_m`;
             mainDataApi = `${mainDataApi}&columns=${columns.join(",")}`;
             mainDataApi = `${mainDataApi}&filters=acs_year:${year}`;
@@ -1954,7 +683,7 @@ export default {
         const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
         const year = years.length ? years[0] : "unknown";
 
-        const columns = ["acs_year", "muni_id", "municipal", "nocmp", "nocmpm", "nocmp_p", "nocmp_mp"];
+        const columns = ["municipal", "acs_year", "nocmp", "nocmpm", "nocmp_p", "nocmp_mp"];
         let queryString = `&schema=tabular&table=s2801_computer_internet_acs_m&columns=${columns.join(",")}`;
         queryString = `${queryString}&filters=acs_year:${year},muni_id:${subregionId}`;
         return queryString;
@@ -1977,7 +706,7 @@ export default {
         "tabular.s2801_computer_internet_acs_m_no_internet": {
           yearCol: "acs_year",
           latestYearOnly: true,
-          columns: ["acs_year", "muni_id", "municipal", "noint_p", "noint_mp"],
+          columns: ["municipal", "acs_year", "noint_p", "noint_mp"],
           specialFetch: async (municipality, dispatchUpdate) => {
             // TODO: Maybe make backend improvement to prevent 3 requests here
             let countyIdsApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&columns=county_id`;
@@ -1989,7 +718,7 @@ export default {
             const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
             const year = years.length ? years[0] : "unknown";
 
-            const columns = ["acs_year", "muni_id", "municipal", "noint", "nointm", "noint_p", "noint_mp"];
+            const columns = ["municipal", "acs_year", "noint", "nointm", "noint_p", "noint_mp"];
             let mainDataApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=s2801_computer_internet_acs_m`;
             mainDataApi = `${mainDataApi}&columns=${columns.join(",")}`;
             mainDataApi = `${mainDataApi}&filters=acs_year:${year}`;
@@ -2038,7 +767,7 @@ export default {
         const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
         const year = years.length ? years[0] : "unknown";
 
-        const columns = ["acs_year", "muni_id", "municipal", "noint", "nointm", "noint_p", "noint_mp"];
+        const columns = ["municipal", "acs_year", "noint", "nointm", "noint_p", "noint_mp"];
         let queryString = `&schema=tabular&table=s2801_computer_internet_acs_m&columns=${columns.join(",")}`;
         queryString = `${queryString}&filters=acs_year:${year},muni_id:${subregionId}`;
         return queryString;
@@ -2061,7 +790,7 @@ export default {
         "tabular.s2801_computer_internet_acs_m_smartphone": {
           yearCol: "acs_year",
           latestYearOnly: true,
-          columns: ["acs_year", "muni_id", "municipal", "moblo_p", "moblo_mp"],
+          columns: ["municipal", "acs_year", "moblo_p", "moblo_mp"],
           specialFetch: async (municipality, dispatchUpdate) => {
             // TODO: Maybe make backend improvement to prevent 3 requests here
             let countyIdsApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&columns=county_id`;
@@ -2073,7 +802,7 @@ export default {
             const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
             const year = years.length ? years[0] : "unknown";
 
-            const columns = ["acs_year", "muni_id", "municipal", "moblo", "moblom", "moblo_p", "moblo_mp"];
+            const columns = ["municipal", "acs_year", "moblo", "moblom", "moblo_p", "moblo_mp"];
             let mainDataApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=s2801_computer_internet_acs_m`;
             mainDataApi = `${mainDataApi}&columns=${columns.join(",")}`;
             mainDataApi = `${mainDataApi}&filters=acs_year:${year}`;
@@ -2123,7 +852,7 @@ export default {
         const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
         const year = years.length ? years[0] : "unknown";
 
-        const columns = ["acs_year", "muni_id", "municipal", "moblo", "moblom", "moblo_p", "moblo_mp"];
+        const columns = ["municipal", "acs_year", "moblo", "moblom", "moblo_p", "moblo_mp"];
         let queryString = `&schema=tabular&table=s2801_computer_internet_acs_m&columns=${columns.join(",")}`;
         queryString = `${queryString}&filters=acs_year:${year},muni_id:${subregionId}`;
         return queryString;
@@ -2380,6 +1109,1285 @@ export default {
       },
     },
   },
+  economy: {
+    resident_employment: {
+      type: "stacked-bar",
+      title: "Employment of Residents",
+      tooltip: { type: "countAndPercent", showTotals: true },
+      xAxis: { label: "5-Year Estimates", format: format.string.default },
+      yAxis: { label: "Population", format: format.number.localeString },
+      tables: {
+        "tabular.b23025_employment_acs_m": {
+          yearCol: "acs_year",
+          years: async () => {
+            const years = await fetchYears("tabular", "b23025_employment_acs_m", "acs_year", 2);
+            return years;
+          },
+          columns: ["municipal", "acs_year", "emp", "emp_me", "emp_p", "emp_mep", "unemp", "unemp_me", "unemp_p", "unemp_mep", "clf", "clf_me", "clf_p", "clf_mep"],
+        },
+      },
+      labels: {
+        emp: "Employed",
+        unemp: "Unemployed",
+      },
+      source: "American Community Survey",
+      timeframe: async () => {
+        const years = await fetchYears("tabular", "b23025_employment_acs_m", "acs_year", 2);
+        if (!years || years.length < 2) return "";
+        const [latest, previous] = years;
+
+        // Convert year ranges from '2019-23' format to '2019-2023 5-Year Estimates' format
+        const formatYearRange = (yearStr) => {
+          const [start, end] = yearStr.split("-");
+          return `${start}-20${end}`;
+        };
+
+        return `${formatYearRange(previous)} and ${formatYearRange(latest)} 5-Year Estimates`;
+      },
+      datasetLinks: { "Labor Force (Municipal)": 129 },
+      transformer: (tables, chart) => {
+        const empData = tables["tabular.b23025_employment_acs_m"];
+        if (empData.length < 1) {
+          return [];
+        }
+        return empData.reduce(
+          (acc, row) =>
+            acc.concat(
+              Object.keys(chart.labels).map((key) => ({
+                x: row[chart.tables["tabular.b23025_employment_acs_m"].yearCol],
+                y: row[key],
+                z: chart.labels[key],
+                me: row[`${key}_me`],
+                pct: row[`${key}_p`],
+                pct_me: row[`${key}_mep`],
+                totpop: row.clf,
+                totpop_me: row.clf_me,
+              })),
+            ),
+          [],
+        );
+      },
+      subregionDataQuery: (subregionId) => {
+        const columns = ["municipal", "acs_year", "emp", "emp_me", "emp_p", "emp_mep", "unemp", "unemp_me", "unemp_p", "unemp_mep", "clf", "clf_me", "clf_p", "clf_mep"];
+        let urlQueryParams = `&schema=tabular&table=b23025_employment_acs_m&columns=${columns.join(",")}`;
+        urlQueryParams = `${urlQueryParams}&orderByColumn=acs_year&orderByDirection=DESC&limit=2`;
+        urlQueryParams = `${urlQueryParams}&filters=muni_id:${subregionId}`;
+        return urlQueryParams;
+      },
+    },
+    emp_by_sector: {
+      type: "stacked-area",
+      title: "Employment by Industry",
+      xAxis: { label: "Year", format: format.string.default },
+      yAxis: {
+        label: "Employment by Industry",
+        format: format.number.localeString,
+      },
+      tables: {
+        "tabular.econ_es202_naics_2d_m": {
+          yearCol: "cal_year",
+          columns: ["municipal", "cal_year", "naicstitle", "naicscode", "avgemp"],
+        },
+      },
+      labels: {
+        "11+21": "Agriculture, Forestry, Fishing, Hunting, and Mining",
+        22: "Construction",
+        "31-33": "Manufacturing",
+        "42+44-45": "Wholesale and Retail Trade",
+        "22+48-49": "Transportation, warehousing, and utilities",
+        51: "Information",
+        "52+53": "Finance, Insurance, Real Estate, and Rental and Leasing",
+        "54+55+56": "Professional, technical, management, administrative, and waste management services",
+        "61+62": "Education, health, and social services",
+        "71+72": "Arts, entertainment, recreation, accommodation, and food services",
+        81: "Other services (other than public administration)",
+        92: "Public administration",
+      },
+      source: "Executive Office of Labor and Workforce Development (EOLWD)",
+      timeframe: async () => {
+        const years = await fetchYears("tabular", "econ_es202_naics_2d_m", "cal_year", null, "ASC");
+        if (!years || years.length === 0) return "";
+        return `${years[0]}-${years[years.length - 1]}`;
+      },
+      datasetLinks: {
+        "2 Digit Sector: Employment & Avg Wkly Wages (Municipal)": 387,
+      },
+      transformer: (tables, chart) => {
+        const indData = tables["tabular.econ_es202_naics_2d_m"];
+        if (indData.length < 1) {
+          return [];
+        }
+        const mapping = {};
+        indData.forEach((row) => {
+          if (!mapping[row.cal_year]) {
+            mapping[row.cal_year] = {};
+          }
+          mapping[row.cal_year][row.naicscode] = row.avgemp || 0;
+        });
+
+        const combineCategories = (year) => {
+          const getOrZero = (obj, key) => obj[key] || 0;
+          return {
+            "11+21": getOrZero(year, "11") + getOrZero(year, "21"),
+            22: getOrZero(year, "22"),
+            "31-33": getOrZero(year, "31-33"),
+            "42+44-45": getOrZero(year, "42") + getOrZero(year, "44-45"),
+            "22+48-49": getOrZero(year, "22") + getOrZero(year, "48-49"),
+            51: getOrZero(year, "51"),
+            "52+53": getOrZero(year, "52") + getOrZero(year, "53"),
+            "54+55+56": getOrZero(year, "54") + getOrZero(year, "55") + getOrZero(year, "56"),
+            "61+62": getOrZero(year, "61") + getOrZero(year, "62"),
+            "71+72": getOrZero(year, "71") + getOrZero(year, "72"),
+            81: getOrZero(year, "81"),
+            92: getOrZero(year, "92"),
+          };
+        };
+        const data = Object.keys(mapping).reduce((acc, year) => {
+          const yearData = combineCategories(mapping[year]);
+          return acc.concat(
+            Object.keys(yearData).map((key) => ({
+              x: parseInt(year),
+              y: yearData[key],
+              z: chart.labels[key],
+            })),
+          );
+        }, []);
+        return data;
+      },
+      subregionDataQuery: (subregionId) => {
+        const columns = ["municipal", "cal_year", "naicstitle", "naicscode", "avgemp"];
+        let urlQueryParams = `&schema=tabular&table=econ_es202_naics_2d_m&columns=${columns.join(",")}`;
+        urlQueryParams = `${urlQueryParams}&orderByColumn=cal_year&orderByDirection=ASC`;
+        urlQueryParams = `${urlQueryParams}&filters=muni_id:${subregionId}`;
+        return urlQueryParams;
+      },
+      rparegionDataQuery: (rpaId) => {
+        const columns = ["municipal", "cal_year", "naicstitle", "naicscode", "avgemp"];
+        let urlQueryParams = `&schema=tabular&table=econ_es202_naics_2d_m&columns=${columns.join(",")}`;
+        urlQueryParams = `${urlQueryParams}&orderByColumn=cal_year&orderByDirection=ASC`;
+        urlQueryParams = `${urlQueryParams}&filters=muni_id:${rpaId}`;
+        return urlQueryParams;
+      },
+    },
+  },
+  education: {
+    school_enrollment: {
+      type: "stacked-bar",
+      title: "School Enrollment",
+      xAxis: { label: "Year", format: format.string.default },
+      yAxis: { label: "Enrollment", format: format.string.default },
+      tables: {
+        "tabular.educ_enrollment_by_year_districts": {
+          specialFetch: async (municipality, dispatchUpdate) => {
+            const gis_query =
+              // Use a hardcoded named query on the backend for a complex gis spatial query
+              `${locations.BROWSER_API}/named-query?token=${import.meta.env.VITE_MAPC_API_TOKEN}&queryName=enrolment-by-districts-gis&municipality=${municipality}`;
+
+            const gis_response = await fetch(gis_query);
+            if (!gis_response.ok) {
+              throw new Error(`HTTP error! status: ${gis_response.status}`);
+            }
+
+            const gis_payload = (await gis_response.json()) || {};
+            if (!gis_payload.rows || gis_payload.rows.length < 1) {
+              return dispatchUpdate([]);
+            }
+            const districtIds = gis_payload.rows.map((district) => district.districtid);
+            const districtIdsAsFilters = districtIds.map((did) => `districtid:${did}`);
+
+            const columns = [
+              "district",
+              "districtid",
+              "schoolyear",
+              "grade_k",
+              "grade_1",
+              "grade_2",
+              "grade_3",
+              "grade_4",
+              "grade_5",
+              "grade_6",
+              "grade_7",
+              "grade_8",
+              "grade_9",
+              "grade_10",
+              "grade_11",
+              "grade_12",
+            ];
+            let mainQuery = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=educ_enrollment_by_year_districts`;
+            mainQuery = `${mainQuery}&columns=${columns.join(",")}&filters=${districtIdsAsFilters.join(",")}`;
+            const response = await fetch(mainQuery);
+
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const payload = (await response.json()) || {};
+            return dispatchUpdate(payload.rows);
+          },
+        },
+      },
+      labels: {
+        grade_k: { label: "Kindergarden", order: 0 },
+        grade_1: { label: "1st Grade", order: 1 },
+        grade_2: { label: "2nd Grade", order: 2 },
+        grade_3: { label: "3rd Grade", order: 3 },
+        grade_4: { label: "4th Grade", order: 4 },
+        grade_5: { label: "5th Grade", order: 5 },
+        grade_6: { label: "6th Grade", order: 6 },
+        grade_7: { label: "7th Grade", order: 7 },
+        grade_8: { label: "8th Grade", order: 8 },
+        grade_9: { label: "9th Grade", order: 9 },
+        grade_10: { label: "10th Grade", order: 10 },
+        grade_11: { label: "11th Grade", order: 11 },
+        grade_12: { label: "12th Grade", order: 12 },
+      },
+      source: "MA Department of Elementary and Secondary Education",
+      timeframe: async () => {
+        const years = await fetchYears("tabular", "educ_enrollment_by_year_districts", "schoolyear");
+        if (!years || years.length === 0) return "";
+
+        const oldestYear = years[years.length - 1];
+        const latestYear = years[0];
+        return `${oldestYear.split("-")[0]}-${"20" + latestYear.split("-")[1]}`;
+      },
+      datasetLinks: { "Enrollment by School Year (School Districts)": 320 },
+      transformer: (tables, chart) => {
+        const rows = tables["tabular.educ_enrollment_by_year_districts"];
+        if (rows.length < 1) {
+          return [];
+        }
+        const data = rows.reduce(
+          (acc, district) =>
+            acc.concat(
+              Object.keys(district).reduce(
+                (group, key) =>
+                  key == "district" || key == "districtid" || key == "schoolyear"
+                    ? group
+                    : group.concat([
+                        {
+                          x: `${district.schoolyear} ${district.district}`,
+                          y: district[key],
+                          z: chart.labels[key].label,
+                          order: chart.labels[key].order,
+                        },
+                      ]),
+                [],
+              ),
+            ),
+          [],
+        );
+        return data;
+      },
+      subregionDataQuery: (subregionId) => {
+        // School enrollment data is complex - it requires spatial joins to get districts
+        // For now, returning empty query as this needs special handling for subregions
+        const queryString = ``;
+        return queryString;
+      },
+      rparegionDataQuery: (rpaId) => {
+        // School enrollment data is complex - it requires spatial joins to get districts
+        // For now, returning empty query as this needs special handling for RPA regions
+        const queryString = ``;
+        return queryString;
+      },
+    },
+    edu_attainment_by_race: {
+      type: "grouped-bar",
+      title: "Educational Attainment by Race",
+      tooltip: { type: "percentAndCount" },
+      xAxis: {
+        label: "Level of Education",
+        format: format.string.default,
+        sort: (a, b) => {
+          const order = ["Less than high school diploma", "High school diploma", "Some college or associate degree", "Bachelor degree or higher"];
+          return order.indexOf(a) - order.indexOf(b);
+        },
+      },
+      yAxis: {
+        label: "Attainment (%)",
+        format: (d) => {
+          if (d == null || isNaN(d)) return "";
+          const num = Number(d);
+          return `${num.toFixed(1)}%`;
+        },
+      },
+      tables: {
+        "tabular.c15002_educational_attainment_by_race_acs_m": {
+          yearCol: "acs_year",
+          columns: eduAttainmentByRaceColumns,
+        },
+      },
+      labels: {
+        lh: "Less than high school diploma",
+        hs: "High school diploma",
+        sc: "Some college or associate degree",
+        bd: "Bachelor degree or higher",
+        nhw: "Non-Hispanic White",
+        aa: "Black or African American",
+        na: "American Indian and Alaska Native",
+        as: "Asian",
+        pi: "Pacific Islander",
+        oth: "Other race",
+        mlt: "Multi-race",
+        lat: "Hispanic or Latino",
+      },
+      colors: {
+        nhw: colors.CHART.EXTENDED.get("YELLOW"),
+        aa: colors.CHART.EXTENDED.get("DARK_RED"),
+        na: colors.CHART.EXTENDED.get("BLUE"),
+        as: colors.CHART.EXTENDED.get("TEAL_GREEN"),
+        pi: colors.CHART.EXTENDED.get("LIGHT_GREEN"),
+        oth: colors.CHART.EXTENDED.get("CYAN"),
+        mlt: colors.CHART.EXTENDED.get("LIGHT_BLUE"),
+        lat: colors.CHART.EXTENDED.get("PINK"),
+      },
+      source: "American Community Survey",
+      timeframe: async () => {
+        const years = await fetchYears("tabular", "c15002_educational_attainment_by_race_acs_m", "acs_year", 1);
+        return formatYearRange(years);
+      },
+      datasetLinks: { "Educational Attainment by Race (Municipal)": 202 },
+      transformer: (tables, chart) => {
+        const eduData = tables["tabular.c15002_educational_attainment_by_race_acs_m"];
+        if (!eduData || eduData.length < 1) return [];
+
+        const row = eduData[eduData.length - 1];
+        const raceKeys = ["nhw", "aa", "na", "as", "pi", "oth", "mlt", "lat"];
+        const eduKeys = ["lh", "hs", "sc", "bd"];
+
+        const toNumber = (v) => {
+          if (v == null || v === "") return 0;
+          const n = Number(v);
+          return Number.isFinite(n) ? n : 0;
+        };
+
+        const toMeNumber = (v) => {
+          if (v == null || v === "") return undefined;
+          const n = Number(v);
+          return Number.isFinite(n) ? n : undefined;
+        };
+
+        // One bar per (education level, race). Bars are colored by race.
+        return raceKeys.reduce((raceAcc, race, raceIdx) => {
+          return raceAcc.concat(
+            eduKeys.reduce((eduAcc, edu) => {
+              return eduAcc.concat([
+                {
+                  x: chart.labels[edu],
+                  y: toNumber(row[`${race}${edu}_p`]), // attainment percent (0-100)
+                  z: chart.labels[race],
+                  me: toMeNumber(row[`${race}${edu}_mep`]), // percent margin of error
+                  count: toNumber(row[`${race}${edu}`]),
+                  countMarginOfError: toMeNumber(row[`${race}${edu}_me`]),
+                  color: chart.colors?.[race],
+                  order: raceIdx,
+                },
+              ]);
+            }, []),
+          );
+        }, []);
+      },
+      subregionDataQuery: (subregionId) => {
+        const selectList = eduAttainmentByRaceColumns.join(",");
+        let urlQueryParams = `&schema=tabular&table=c15002_educational_attainment_by_race_acs_m&columns=${selectList}`;
+        urlQueryParams = `${urlQueryParams}&orderByColumn=acs_year&orderByDirection=DESC&limit=1`;
+        urlQueryParams = `${urlQueryParams}&filters=muni_id:${subregionId}`;
+        return urlQueryParams;
+      },
+      rparegionDataQuery: (rpaId) => {
+        // TODO: Enable this without passing SQL to the backend if we enable RPA views in the future.
+        return "";
+      },
+    },
+  },
+  governance: {
+    tax_levy: {
+      type: "pie",
+      title: "Share of Tax Revenue by Source",
+      xAxis: { label: "Year" },
+      yAxis: { label: "Attainment" },
+      tables: {
+        "tabular.econ_municipal_taxes_revenue_m": {
+          yearCol: "fy",
+          latestYearOnly: true,
+          columns: ["municipal", "fy", "res_taxes", "os_taxes", "comm_taxes", "ind_taxes", "p_prop_tax", "tot_rev"],
+        },
+      },
+      labels: {
+        res_taxes: "Residential",
+        os_taxes: "Open Space",
+        comm_taxes: "Commercial",
+        ind_taxes: "Industrial",
+        p_prop_tax: "Personal Property",
+        other: "Non-Property",
+      },
+      source: "MA Dept. of Revenue",
+      timeframe: async () => {
+        const years = await fetchYears("tabular", "econ_municipal_taxes_revenue_m", "fy", 1);
+        return years[0];
+      },
+      datasetLinks: {
+        "Municipal General Fund Revenue and Taxes (Municipal)": 383,
+      },
+      transformer: (tables, chart) => {
+        const taxData = tables["tabular.econ_municipal_taxes_revenue_m"];
+        if (taxData.length < 1) {
+          return [];
+        }
+        const row = taxData[0];
+        const directRev = ["res_taxes", "os_taxes", "comm_taxes", "ind_taxes", "p_prop_tax"];
+        const withImplied = Object.assign({}, row, {
+          other: row.tot_rev - directRev.reduce((sum, k) => sum + (row[k] || 0), 0),
+        });
+        return Object.keys(chart.labels).map((key) => ({
+          value: withImplied[key],
+          label: chart.labels[key],
+        }));
+      },
+      subregionDataQuery: async (subregionId) => {
+        // TODO: Maybe make backend improvement to prevent 3 requests here
+        let muniIdsApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&columns=muni_id`;
+        muniIdsApi = `${muniIdsApi}&filters=subrg_id:${subregionId}`;
+        const muniIdsResp = await fetch(muniIdsApi);
+        const muniIdData = (await muniIdsResp.json()) || {};
+        const muniIdsList = muniIdData.rows.map((row) => `muni_id:${row.muni_id}`);
+
+        let maxFyApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=econ_municipal_taxes_revenue_m&columns=fy`;
+        maxFyApi = `${maxFyApi}&orderByColumn=fy&orderByDirection=DESC&limit=1`;
+        maxFyApi = `${maxFyApi}&filters=${muniIdsList.join(",")}`;
+        const maxFyResp = await fetch(maxFyApi);
+        const maxFyData = (await maxFyResp.json()) || {};
+        const maxFy = maxFyData.rows[0].fy;
+
+        const columns = ["fy", "res_taxes", "os_taxes", "comm_taxes", "ind_taxes", "p_prop_tax", "tot_rev"];
+        let urlQueryParams = `&schema=tabular&table=econ_municipal_taxes_revenue_m&columns=${columns.join(",")}`;
+        urlQueryParams = `${urlQueryParams}&filters=muni_id:${subregionId},fy:${maxFy}`;
+        return urlQueryParams;
+      },
+    },
+  },
+  environment: {
+    water_usage_per_cap: {
+      type: "line",
+      title: "Water Usage per Capita",
+      xAxis: { label: "Year", format: format.number.integer, ticks: 7 },
+      yAxis: {
+        label: "Resident Gallons per Capita Day",
+        format: format.number.nearestTenth,
+        min: 0,
+      },
+      tables: {
+        "tabular.env_dep_reviewed_water_demand_m": {
+          columns: ["municipal", "rgpcd2009", "rgpcd2010", "rgpcd2011", "rgpcd2012", "rgpcd2013", "rgpcd2014", "rgpcd2015"],
+        },
+      },
+      labels: {},
+      source: "MassDEP",
+      timeframe: "2009-15",
+      datasetLinks: { "Annual Average Residential Water Use (Municipal)": 260 },
+      transformer: (tables, chart) => {
+        const waterData = tables["tabular.env_dep_reviewed_water_demand_m"];
+        if (waterData.length < 1) {
+          return [{ label: "Water Useage per Capita", values: [] }];
+        }
+        const totals = {
+          rgpcd2009: 0,
+          rgpcd2010: 0,
+          rgpcd2011: 0,
+          rgpcd2012: 0,
+          rgpcd2013: 0,
+          rgpcd2014: 0,
+          rgpcd2015: 0,
+        };
+        waterData.forEach((row) => {
+          Object.entries(row).forEach(([key, value]) => {
+            totals[key] += value;
+          });
+        });
+        const pairs = [
+          [2009, "rgpcd2009"],
+          [2010, "rgpcd2010"],
+          [2011, "rgpcd2011"],
+          [2012, "rgpcd2012"],
+          [2013, "rgpcd2013"],
+          [2014, "rgpcd2014"],
+          [2015, "rgpcd2015"],
+        ];
+        return [
+          {
+            label: "Water Usage per Capita",
+            values: pairs.reduce((acc, [year, key]) => (totals[key] ? acc.concat([[year, totals[key]]]) : acc), []),
+          },
+        ];
+      },
+      subregionDataQuery: async (subregionId) => {
+        // TODO: Maybe make backend improvement to prevent 2 requests here?
+        let muniIdsApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&columns=muni_id`;
+        muniIdsApi = `${muniIdsApi}&filters=subrg_id:${subregionId}`;
+        const muniIdsResp = await fetch(muniIdsApi);
+        const muniIdData = (await muniIdsResp.json()) || {};
+        const muniIdsList = muniIdData.rows.map((row) => `muni_id:${row.muni_id}`);
+
+        const columns = ["municipal", "rgpcd2009", "rgpcd2010", "rgpcd2011", "rgpcd2012", "rgpcd2013", "rgpcd2014", "rgpcd2015"];
+        let urlQueryParams = `&schema=tabular&table=env_dep_reviewed_water_demand_m&columns=${columns.join(",")}`;
+        urlQueryParams = `${urlQueryParams}&filters=${muniIdsList.join(",")}`;
+        return urlQueryParams;
+      },
+      rparegionDataQuery: (rpaId) => {
+        // TODO: Enable this without passing SQL to the backend if we support RPA regions in the future.
+        return "";
+      },
+    },
+    energy_usage_gas: {
+      type: "stacked-area",
+      title: "Thermal Energy Usage (Gas, oil, etc.)",
+      xAxis: { label: "Year", format: format.number.ignoreFloat, ticks: 3 },
+      yAxis: { label: "Energy Costs ($)" },
+      tables: {
+        "tabular.energy_masssave_elec_gas_ci_consumption_m": {
+          yearCol: "cal_year",
+          columns: ["municipal", "cal_year", "sector", "mwh_use", "therm_use"],
+        },
+        "tabular.energy_masssave_elec_gas_res_li_consumption_m": {
+          yearCol: "cal_year",
+          columns: ["municipal", "cal_year", "sector", "mwh_use", "therm_use"],
+        },
+      },
+      labels: {
+        therm_use: "Annual Therm Usage",
+      },
+      source: "MassSave",
+      timeframe: async () => {
+        const years = await fetchYears("tabular", "energy_masssave_elec_gas_ci_consumption_m", "cal_year");
+        const earliestyear = years.length ? years[years.length - 1] : "unknown";
+        const latestYear = years.length ? years[0] : "unknown";
+        return `${earliestyear}-${latestYear}`;
+      },
+      datasetLinks: {
+        "MassSave Comm & Industrial Incentives and Savings (Municipal)": 251,
+        "MassSave Res & Low Income Incentives and Savings (Municipal)": 252,
+      },
+      transformer: (tables, chart) => {
+        const commData = tables["tabular.energy_masssave_elec_gas_ci_consumption_m"];
+        const resData = tables["tabular.energy_masssave_elec_gas_res_li_consumption_m"];
+        const rows = commData.concat(resData);
+        if (rows.length < 1) {
+          return [];
+        }
+        const totals = {}; // map of "cal_year.sector" to the sector and totals for mwh_use and therm_use
+        rows.forEach((row) => {
+          const key = `${row.cal_year}.${row.sector}`;
+          if (!totals[key] && row.cal_year && row.sector) {
+            totals[key] = { mwh_use: 0, therm_use: 0 };
+          }
+          totals[key].mwh_use += row.mwh_use;
+          totals[key].therm_use += row.therm_use;
+        });
+
+        const data = Object.entries(totals).map(([key, data]) => {
+          const [year, sector] = key.split(".");
+          return { x: year, y: data.therm_use, z: `${sector} ${chart.labels.therm_use}` };
+        });
+        return data;
+      },
+      subregionDataQuery: async (subregionId) => {
+        // TODO: Maybe make backend improvement to prevent 2 requests here?
+        let muniIdsApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&columns=muni_id`;
+        muniIdsApi = `${muniIdsApi}&filters=subrg_id:${subregionId}`;
+        const muniIdsResp = await fetch(muniIdsApi);
+        const muniIdData = (await muniIdsResp.json()) || {};
+        const muniIdsList = muniIdData.rows.map((row) => `muni_id:${row.muni_id}`);
+
+        const columns = ["municipal", "cal_year", "sector", "mwh_use", "therm_use"];
+        let url1QueryParams = `&schema=tabular&table=energy_masssave_elec_gas_ci_consumption_m&columns=${columns.join(",")}`;
+        url1QueryParams = `${url1QueryParams}&filters=${muniIdsList.join(",")}`;
+
+        let url2QueryParams = `&schema=tabular&table=energy_masssave_elec_gas_res_li_consumption_m&columns=${columns.join(",")}`;
+        url2QueryParams = `${url2QueryParams}&filters=${muniIdsList.join(",")}`;
+
+        return [url1QueryParams, url2QueryParams];
+      },
+      rparegionDataQuery: (rpaId) => {
+        // TODO: Enable this without passing SQL to the backend if we support RPA regions in the future.
+        return ["", ""];
+      },
+    },
+    energy_usage_electricity: {
+      type: "stacked-area",
+      title: "Electrical Energy Usage",
+      xAxis: { label: "Year", format: format.number.ignoreFloat },
+      yAxis: { label: "Energy Costs ($)" },
+      tables: {
+        "tabular.energy_masssave_elec_gas_ci_consumption_m": {
+          yearCol: "cal_year",
+          columns: ["municipal", "cal_year", "sector", "mwh_use", "therm_use"],
+        },
+        "tabular.energy_masssave_elec_gas_res_li_consumption_m": {
+          yearCol: "cal_year",
+          columns: ["municipal", "cal_year", "sector", "mwh_use", "therm_use"],
+        },
+      },
+      labels: {
+        mwh_use: "Annual MWh Usage",
+      },
+      source: "MassSave",
+      timeframe: async () => {
+        const years = await fetchYears("tabular", "energy_masssave_elec_gas_ci_consumption_m", "cal_year");
+        const earliestyear = years.length ? years[years.length - 1] : "unknown";
+        const latestYear = years.length ? years[0] : "unknown";
+        return `${earliestyear}-${latestYear}`;
+      },
+      datasetLinks: {
+        "MassSave Comm & Industrial Incentives and Savings (Municipal)": 251,
+        "MassSave Res & Low Income Incentives and Savings (Municipal)": 252,
+      },
+      transformer: (tables, chart) => {
+        const commData = tables["tabular.energy_masssave_elec_gas_ci_consumption_m"];
+        const resData = tables["tabular.energy_masssave_elec_gas_res_li_consumption_m"];
+        const rows = commData.concat(resData);
+        if (rows.length < 1) {
+          return [];
+        }
+        const totals = {}; // map of "cal_year.sector" to the sector and totals for mwh_use and therm_use
+        rows.forEach((row) => {
+          const key = `${row.cal_year}.${row.sector}`;
+          if (!totals[key] && row.cal_year && row.sector) {
+            totals[key] = { mwh_use: 0, therm_use: 0 };
+          }
+          totals[key].mwh_use += row.mwh_use;
+          totals[key].therm_use += row.therm_use;
+        });
+
+        const data = Object.entries(totals).map(([key, data]) => {
+          const [year, sector] = key.split(".");
+          return { x: year, y: data.mwh_use, z: `${sector} ${chart.labels.mwh_use}` };
+        });
+        return data;
+      },
+      subregionDataQuery: async (subregionId) => {
+        // TODO: Maybe make backend improvement to prevent 2 requests here?
+        let muniIdsApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&columns=muni_id`;
+        muniIdsApi = `${muniIdsApi}&filters=subrg_id:${subregionId}`;
+        const muniIdsResp = await fetch(muniIdsApi);
+        const muniIdData = (await muniIdsResp.json()) || {};
+        const muniIdsList = muniIdData.rows.map((row) => `muni_id:${row.muni_id}`);
+
+        const columns = ["municipal", "cal_year", "sector", "mwh_use", "therm_use"];
+        let url1QueryParams = `&schema=tabular&table=energy_masssave_elec_gas_ci_consumption_m&columns=${columns.join(",")}`;
+        url1QueryParams = `${url1QueryParams}&filters=${muniIdsList.join(",")}`;
+
+        let url2QueryParams = `&schema=tabular&table=energy_masssave_elec_gas_res_li_consumption_m&columns=${columns.join(",")}`;
+        url2QueryParams = `${url2QueryParams}&filters=${muniIdsList.join(",")}`;
+
+        return [url1QueryParams, url2QueryParams];
+      },
+      rparegionDataQuery: (rpaId) => {
+        // TODO: Enable this without passing SQL to the backend if we support RPA regions in the future
+        return ["", ""];
+      },
+    },
+  },
+  housing: {
+    cost_burden: {
+      type: "grouped-bar",
+      title: "Housing Cost Burden",
+      tooltip: { type: "percentAndCount" },
+      xAxis: { label: "Cost Burden Categories" },
+      yAxis: {
+        label: "Owner-Renter Ratio",
+        format: format.number.integerPercent,
+      },
+      tables: {
+        "tabular.b25091_b25070_costburden_acs_m": {
+          yearCol: "acs_year",
+          years: async () => {
+            const years = await fetchYears("tabular", "b25091_b25070_costburden_acs_m", "acs_year", 1);
+            return years;
+          },
+          columns: costBurdenColumns,
+        },
+      },
+      labels: {
+        not_cb: "Not Cost Burdened",
+        p3050: "Paying 30-50% of Income",
+        "p50+": "Paying 50%+ of Income",
+        owner: "Owner Occupied",
+        renter: "Renter Occupied",
+      },
+      source: "American Community Survey",
+      timeframe: async () => {
+        const years = await fetchYears("tabular", "b25091_b25070_costburden_acs_m", "acs_year", 1);
+        return formatYearRange(years);
+      },
+      datasetLinks: { "Cost Burdened Households (Municipal)": 185 },
+      transformer: (tables, chart) => {
+        const costData = tables["tabular.b25091_b25070_costburden_acs_m"];
+        if (costData.length < 1) {
+          return [];
+        }
+        const row = costData[0];
+        return [
+          {
+            // % of Owner not cost burdened
+            x: chart.labels.not_cb,
+            y: row.o_notcb_p,
+            // Percentage MOE
+            me: row.o_notcbmep,
+            count: row.o_notcb,
+            // Count MOE
+            countMarginOfError: row.o_notcbme,
+            z: chart.labels.owner,
+          },
+          {
+            // % of Renter not cost burdened
+            x: chart.labels.not_cb,
+            y: row.r_notcb_p,
+            me: row.r_notcbmep,
+            count: row.r_notcb,
+            countMarginOfError: row.r_notcbme,
+            z: chart.labels.renter,
+          },
+          {
+            // %  of Owner paying 30-50% of income
+            x: chart.labels.p3050,
+            y: row.ocb3050_p,
+            me: row.ocb3050mep,
+            count: row.ocb3050,
+            countMarginOfError: row.ocb3050me,
+            z: chart.labels.owner,
+          },
+          {
+            // % of Renter paying 30-50% of income
+            x: chart.labels.p3050,
+            y: row.rcb3050_p,
+            me: row.rcb3050mep,
+            count: row.rcb3050,
+            countMarginOfError: row.rcb3050me,
+            z: chart.labels.renter,
+          },
+          {
+            // % of Owner paying 50%+ of income
+            x: chart.labels["p50+"],
+            y: row.o_cb50_p,
+            me: row.o_cb50_mep,
+            count: row.o_cb50,
+            countMarginOfError: row.o_cb50me,
+            z: chart.labels.owner,
+          },
+          {
+            // % of Renter paying 50%+ of income
+            x: chart.labels["p50+"],
+            y: row.r_cb50_p,
+            me: row.r_cb50_mep,
+            count: row.r_cb50,
+            countMarginOfError: row.r_cb50me,
+            z: chart.labels.renter,
+          },
+        ];
+      },
+      subregionDataQuery: async (subregionId) => {
+        const yearResp = await fetchYears("tabular", "b25091_b25070_costburden_acs_m", "acs_year", 1);
+        const maxYear = yearResp.length ? yearResp[0] : "unknown";
+
+        const selectList = costBurdenColumns.join(",");
+        let urlQueryParams = `&schema=tabular&table=b25091_b25070_costburden_acs_m&columns=${selectList}`;
+        urlQueryParams = `${urlQueryParams}&filters=muni_id:${subregionId},acs_year:${maxYear}`;
+        return urlQueryParams;
+      },
+    },
+    units_permitted: {
+      type: "stacked-area",
+      title: "Housing Units Permitted",
+      xAxis: {
+        label: "Year",
+        format: format.string.default,
+        sort: (a, b) => parseInt(a) - parseInt(b),
+      },
+      yAxis: { label: "Units Permitted" },
+      tables: {
+        "tabular.hous_building_permits_m": {
+          yearCol: "cal_year",
+          columns: ["municipal", "cal_year", "months_rep", "sf_units", "mf_units"],
+        },
+      },
+      labels: {
+        sf_units: "Single Family Units",
+        mf_units: "Multi Family Units",
+      },
+      source: "Census Building Permit Survey",
+      caveat: "*Ignoring years for which the municipality did not report all 12 months.",
+      timeframe: async () => {
+        const years = await fetchYears("tabular", "hous_building_permits_m", "cal_year");
+        const yearsPost2000 = years.filter((y) => y > 2000);
+        const latestYear = yearsPost2000.length ? yearsPost2000[0] : "unknown";
+        const earliestYear = yearsPost2000.length ? yearsPost2000[yearsPost2000.length - 1] : "unknown";
+        return `${earliestYear}-${latestYear}`;
+      },
+      datasetLinks: { "Building Permits by Type and Year (Municipal)": 384 },
+      transformer: (tables, chart) => {
+        const permitData = tables["tabular.hous_building_permits_m"].filter((row) => row.months_rep === 12);
+        const tableDef = chart.tables["tabular.hous_building_permits_m"];
+        if (permitData.length < 1) {
+          return [];
+        }
+
+        const allData = [];
+        let expectedYear = 2001; // start in 2001, go until most recent data
+        const currentYear = new Date().getFullYear();
+        const recentPermitData = permitData.filter((pd) => pd[tableDef.yearCol] > 2000);
+        recentPermitData.forEach((permitData) => {
+          // add 0's for missing years
+          while (permitData[tableDef.yearCol] !== expectedYear) {
+            if (expectedYear > currentYear) {
+              break; // for safety to prevent inifnite loop.
+            }
+            allData.push({
+              [tableDef.yearCol]: `${expectedYear}*`,
+              mf_units: 0,
+              sf_units: 0,
+            });
+            expectedYear++;
+          }
+          // year is not missing:
+          allData.push(permitData);
+          expectedYear++;
+        });
+        return allData.reduce(
+          (acc, year) =>
+            acc.concat([
+              {
+                x: String(year[tableDef.yearCol]),
+                y: year.mf_units,
+                z: chart.labels.mf_units,
+              },
+              {
+                x: String(year[tableDef.yearCol]),
+                y: year.sf_units,
+                z: chart.labels.sf_units,
+              },
+            ]),
+          [],
+        );
+      },
+      subregionDataQuery: (subregionId) => {
+        const columns = ["municipal", "cal_year", "12 as months_rep", "sf_units", "mf_units"];
+        let urlQueryParams = `&schema=tabular&table=hous_building_permits_m&columns=${columns.join(",")}`;
+        urlQueryParams = `${urlQueryParams}&filters=muni_id:${subregionId}`;
+        return urlQueryParams;
+      },
+      rparegionDataQuery: (rpaId) => {
+        // TODO: enable this without passing SQL to the backend if we support RPA regions in the future
+        return "";
+      },
+    },
+  },
+  "public-health": {
+    premature_mortality_rate: {
+      type: "stacked-bar",
+      title: "Premature Mortality Rate by Race",
+      xAxis: { label: "Race" },
+      yAxis: {
+        label: "Age Adjusted Rate per 100,000",
+        format: (d) => {
+          if (d == null || d === "") return d;
+          const num = Number(d);
+          if (isNaN(num)) return d;
+          // Only show 2 decimals if there is a decimal part
+          return num % 1 === 0 ? num.toString() : num.toFixed(2);
+        },
+      },
+      tables: {
+        "tabular.health_premature_mortality_race_m": {
+          yearCol: "years",
+          years: async () => {
+            const years = await fetchYears("tabular", "health_premature_mortality_race_m", "years", 1);
+            return years;
+          },
+          columns: [
+            "municipal",
+            "years",
+            "whi_art",
+            "whi_artlci",
+            "whi_artuci",
+            "aa_art",
+            "aa_artlci",
+            "aa_artuci",
+            "api_art",
+            "api_artlci",
+            "api_artuci",
+            "na_art",
+            "na_artlci",
+            "na_artuci",
+            "oth_art",
+            "oth_artlci",
+            "oth_artuci",
+            "lat_art",
+            "lat_artlci",
+            "lat_artuci",
+          ],
+        },
+      },
+      abbreviations: {
+        whi_art: "W",
+        aa_art: "B & AA",
+        api_art: "A & PA",
+        na_art: "NA",
+        oth_art: "Other",
+        lat_art: "H & L",
+      },
+      labels: {
+        whi_art: "White (W)",
+        aa_art: "Black and African American (B & AA)",
+        api_art: "Asian and Pacific Islander (A & PA)",
+        na_art: "Native American (NA)",
+        oth_art: "Other (Other)",
+        lat_art: "Hispanic and Latino (H & L)",
+      },
+      colors: {
+        whi_art: colors.CHART.EXTENDED.get("YELLOW"),
+        aa_art: colors.CHART.EXTENDED.get("DARK_RED"),
+        api_art: colors.CHART.EXTENDED.get("TEAL_GREEN"),
+        na_art: colors.CHART.EXTENDED.get("CYAN"),
+        oth_art: colors.CHART.EXTENDED.get("BLUE"),
+        lat_art: colors.CHART.EXTENDED.get("PINK"),
+      },
+      source: "MA Dept. of Public Health",
+      timeframe: async () => {
+        const years = await fetchYears("tabular", "health_premature_mortality_race_m", "years", 1);
+        const year = years.length ? years[0] : "unknown";
+        return year + " 5-year averages";
+      },
+      datasetLinks: { "Premature Mortality (Municipal)": 386 },
+      transformer: (tables, chart) => {
+        const premoData = tables["tabular.health_premature_mortality_race_m"];
+        if (premoData.length < 1) {
+          return [];
+        }
+
+        const totals = {
+          // to calculate averages.
+          whi_art: { total: 0, count: 0 },
+          aa_art: { total: 0, count: 0 },
+          api_art: { total: 0, count: 0 },
+          na_art: { total: 0, count: 0 },
+          oth_art: { total: 0, count: 0 },
+          lat_art: { total: 0, count: 0 },
+        };
+        const raceKeys = ["whi_art", "aa_art", "api_art", "na_art", "oth_art", "lat_art"];
+        premoData.forEach((row) => {
+          Object.entries(row).forEach(([key, value]) => {
+            if (value && raceKeys.includes(key)) {
+              // TODO should we count rows where value is 0 instead of null??
+              totals[key].total += value;
+              totals[key].count += 1;
+            }
+          });
+        });
+
+        return raceKeys.reduce(
+          (acc, key) =>
+            acc.concat([
+              {
+                x: chart.abbreviations[key],
+                y: totals[key].total / (totals[key].count || 1) || 0, // prevent div by 0
+                z: chart.labels[key],
+                color: chart.colors[key],
+              },
+            ]),
+          [],
+        );
+      },
+      subregionDataQuery: async (subregionId) => {
+        // TODO: Maybe make backend improvement to prevent 3 requests here
+        let muniIdsApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&columns=muni_id`;
+        muniIdsApi = `${muniIdsApi}&filters=subrg_id:${subregionId}`;
+        const muniIdsResp = await fetch(muniIdsApi);
+        const muniIdData = (await muniIdsResp.json()) || {};
+        const muniIdsList = muniIdData.rows.map((row) => `muni_id:${row.muni_id}`);
+
+        const years = await fetchYears("tabular", "health_premature_mortality_race_m", "years", 1);
+        const year = years.length ? years[0] : "unknown";
+
+        const columns = ["municipal", "years", "whi_art", "aa_art", "api_art", "na_art", "oth_art", "lat_art"];
+        let urlQueryParams = `&schema=tabular&table=health_premature_mortality_race_m&columns=${columns.join(",")}`;
+        urlQueryParams = `${urlQueryParams}&filters=${muniIdsList.join(",")},years:${year}`;
+        return urlQueryParams;
+      },
+      rparegionDataQuery: (rpaId) => {
+        // TODO: Enable this without passing SQL to the backend if we support RPA regions in the future
+        return "";
+      },
+    },
+    hospitalizations: {
+      type: "stacked-bar",
+      title: "Hypertension Hospitalizations by Race",
+      xAxis: { label: "Race", format: format.string.default },
+      yAxis: {
+        label: "Age Adjusted Rate per 100,000",
+        format: (d) => {
+          if (d == null || d === "") return "";
+          const num = parseFloat(d);
+          if (isNaN(num)) return d;
+          // Only show 2 decimals if there is a decimal part
+          if (num % 1 === 0) {
+            return num.toFixed(0);
+          }
+          return num.toFixed(2);
+        },
+      },
+      tables: {
+        // TODO: Heart failure data not loaded at this time.
+        // 'tabular.health_hospitalizations_heart_failure_m': {
+        //   yearCol: 'cal_years',
+        //   columns: [
+        //     'cal_years',
+        //     'whi_num',
+        //     'aa_num',
+        //     'api_num',
+        //     'na_num',
+        //     'oth_num',
+        //     'lat_num',
+        //   ],
+        // },
+        "tabular.health_hospitalizations_hypertension_m": {
+          yearCol: "cal_years",
+          years: async () => {
+            const years = await fetchYears("tabular", "health_hospitalizations_hypertension_m", "cal_years", 1);
+            return years;
+          },
+          columns: ["municipal", "cal_years", "whi_arte", "aa_arte", "api_arte", "na_arte", "oth_arte", "lat_arte"],
+        },
+      },
+      abbreviations: {
+        whi_arte: "W",
+        aa_arte: "B & AA",
+        api_arte: "A & PA",
+        na_arte: "NA",
+        oth_arte: "Other",
+        lat_arte: "H & L",
+      },
+      labels: {
+        whi_arte: "White (W)",
+        aa_arte: "Black and African American (B & AA)",
+        api_arte: "Asian and Pacific Islander (A & PA)",
+        na_arte: "Native American (NA)",
+        oth_arte: "Other (Other)",
+        lat_arte: "Hispanic and Latino (H & L)",
+      },
+      colors: {
+        whi_arte: colors.CHART.EXTENDED.get("YELLOW"),
+        aa_arte: colors.CHART.EXTENDED.get("DARK_RED"),
+        api_arte: colors.CHART.EXTENDED.get("TEAL_GREEN"),
+        na_arte: colors.CHART.EXTENDED.get("CYAN"),
+        oth_arte: colors.CHART.EXTENDED.get("BLUE"),
+        lat_arte: colors.CHART.EXTENDED.get("PINK"),
+      },
+      source: "MA Dept. of Public Health",
+      timeframe: async () => {
+        const years = await fetchYears("tabular", "health_hospitalizations_hypertension_m", "cal_years", 1);
+        const year = years.length ? years[0] : "unknown";
+        return year + " 5-year averages";
+      },
+      datasetLinks: {
+        "Hypertension Related Hospitalizations (Municipal)": 385,
+      },
+      transformer: (tables, chart) => {
+        const hyperData = tables["tabular.health_hospitalizations_hypertension_m"];
+        if (hyperData.length < 1) {
+          return [];
+        }
+
+        const totals = {
+          // to calculate averages.
+          whi_arte: { total: 0, count: 0 },
+          aa_arte: { total: 0, count: 0 },
+          api_arte: { total: 0, count: 0 },
+          na_arte: { total: 0, count: 0 },
+          oth_arte: { total: 0, count: 0 },
+          lat_arte: { total: 0, count: 0 },
+        };
+        const raceKeys = ["whi_arte", "aa_arte", "api_arte", "na_arte", "oth_arte", "lat_arte"];
+        hyperData.forEach((row) => {
+          Object.entries(row).forEach(([key, value]) => {
+            if (value && raceKeys.includes(key)) {
+              // TODO should we count rows where value is 0 instead of null??
+              totals[key].total += value;
+              totals[key].count += 1;
+            }
+          });
+        });
+
+        return raceKeys.reduce(
+          (acc, key) =>
+            acc.concat([
+              {
+                x: chart.abbreviations[key],
+                y: totals[key].total / (totals[key].count || 1) || 0,
+                z: chart.labels[key],
+                color: chart.colors[key],
+              },
+            ]),
+          [],
+        );
+      },
+      subregionDataQuery: async (subregionId) => {
+        // TODO: Maybe make backend improvement to prevent 3 requests here
+        let muniIdsApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&columns=muni_id`;
+        muniIdsApi = `${muniIdsApi}&filters=subrg_id:${subregionId}`;
+        const muniIdsResp = await fetch(muniIdsApi);
+        const muniIdData = (await muniIdsResp.json()) || {};
+        const muniIdsList = muniIdData.rows.map((row) => `muni_id:${row.muni_id}`);
+
+        const years = await fetchYears("tabular", "health_hospitalizations_hypertension_m", "cal_years", 1);
+        const year = years.length ? years[0] : "unknown";
+
+        const columns = ["municipal", "cal_years", "whi_arte", "aa_arte", "api_arte", "na_arte", "oth_arte", "lat_arte"];
+        let urlQueryParams = `&schema=tabular&table=health_hospitalizations_hypertension_m&columns=${columns.join(",")}`;
+        urlQueryParams = `${urlQueryParams}&filters=${muniIdsList.join(",")},cal_years:${year}`;
+        return urlQueryParams;
+      },
+      rparegionDataQuery: (rpaId) => {
+        // TODO: enable this without passing SQL to the backend if we supprot RPA regions in the future
+        return "";
+      },
+    },
+  },
+  transportation: {
+    daily_vmt: {
+      type: "stacked-area",
+      title: "Daily Vehicle Miles Traveled per Household",
+      xAxis: { label: "Year", format: format.string.default, ticks: 3 },
+      yAxis: { label: "Daily household vehicle miles traveled" },
+      tables: {
+        "tabular.trans_mavc_public_summary_m": {
+          columns: ["municipal", "quarter", "hh_est", "pass_vmt", "comm_vmt"],
+        },
+      },
+      labels: {
+        pass_vmt_hh: "Passenger vehicles",
+        comm_vmt_hh: "Commercial vehicles",
+      },
+      source: "MAPC and MA RMV",
+      timeframe: async () => {
+        const years = await fetchYears("tabular", "trans_mavc_public_summary_m", "quarter");
+        const latestYear = years.length ? years[0].substring(0, 4) : "unknown";
+        const earliersYear = years.length ? years[years.length - 1].substring(0, 4) : "unknown";
+        return `${earliersYear}-${latestYear}`;
+      },
+      datasetLinks: {
+        "Massachusetts Vehicle Municipal Summary Statistics (Municipal)": 330,
+      },
+      transformer: (tables, chart) => {
+        const vmtData = tables["tabular.trans_mavc_public_summary_m"];
+        if (vmtData.length < 1) {
+          return [];
+        }
+
+        const quarterToYear = (quarter) => {
+          const [year, fourth] = quarter.split("_q");
+          return parseInt(year) + parseInt(fourth) / 4;
+        };
+
+        const totalsByYear = {};
+        vmtData.forEach((vmtRow) => {
+          const rowYear = quarterToYear(vmtRow.quarter);
+          if (!totalsByYear[rowYear]) {
+            totalsByYear[rowYear] = { pass_vmt: 0, hh_est: 0, comm_vmt: 0 };
+          }
+          totalsByYear[rowYear].pass_vmt += vmtRow.pass_vmt;
+          totalsByYear[rowYear].comm_vmt += vmtRow.comm_vmt;
+          totalsByYear[rowYear].hh_est += vmtRow.hh_est;
+        });
+        const vmtDataTotals = Object.entries(totalsByYear).map(([year, totals]) => {
+          return { year: year, ...totals };
+        });
+        return vmtDataTotals.reduce(
+          (acc, row) =>
+            acc.concat([
+              {
+                x: row.year,
+                y: row.pass_vmt / row.hh_est,
+                z: chart.labels.pass_vmt_hh,
+              },
+              {
+                x: row.year,
+                y: row.comm_vmt / row.hh_est,
+                z: chart.labels.comm_vmt_hh,
+              },
+            ]),
+          [],
+        );
+      },
+      subregionDataQuery: async (subregionId) => {
+        // TODO: Maybe make backend improvement to prevent 2 requests here
+        let muniIdsApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&columns=muni_id`;
+        muniIdsApi = `${muniIdsApi}&filters=subrg_id:${subregionId}`;
+        const muniIdsResp = await fetch(muniIdsApi);
+        const muniIdData = (await muniIdsResp.json()) || {};
+        const muniIdsList = muniIdData.rows.map((row) => `muni_id:${row.muni_id}`);
+
+        const columns = ["municipal", "quarter", "hh_est", "pass_vmt", "comm_vmt"];
+        let urlQueryParams = `&schema=tabular&table=trans_mavc_public_summary_m&columns=${columns.join(",")}`;
+        urlQueryParams = `${urlQueryParams}&filters=${muniIdsList.join(",")}`;
+        return urlQueryParams;
+      },
+      rparegionDataQuery: (rpaId) => {
+        // TODO: enable without passing SQL to the backend if we support RPA regions in the future
+        return "";
+      },
+    },
+    commute_to_work: {
+      type: "pie",
+      title: "Commute to Work",
+      tables: {
+        "tabular.b08301_means_transportation_to_work_by_residence_acs_m": {
+          yearCol: "acs_year",
+          latestYearOnly: true,
+          columns: commuteToWorkColumns,
+        },
+      },
+      labels: {
+        ctvsngl: "Drive alone to work",
+        carpool: "Carpool",
+        pub: "Public transportation",
+        taxi: "Taxi",
+        mcycle: "Motorcycle",
+        bicycle: "Bicycle",
+        walk: "Walk",
+        other: "Other",
+      },
+      source: "American Community Survey",
+      timeframe: async () => {
+        const years = await fetchYears("tabular", "b08301_means_transportation_to_work_by_residence_acs_m", "acs_year", 1);
+        return formatYearRange(years);
+      },
+      datasetLinks: { "Transportation to Work from Residence (Municpal)": 38 },
+      transformer: (tables, chart) => {
+        const commData = tables["tabular.b08301_means_transportation_to_work_by_residence_acs_m"];
+        if (commData.length < 1) {
+          return [];
+        }
+        const row = commData[0];
+
+        return Object.keys(chart.labels).map((key) => ({
+          value: row[key],
+          label: chart.labels[key],
+          count: row[key],
+          countMarginOfError: row[`${key}me`] !== undefined ? row[`${key}me`] : row[`${key}_me`],
+        }));
+      },
+      subregionDataQuery: (subregionId) => {
+        const selectList = commuteToWorkColumns.join(", ");
+        let urlQueryParams = `&schema=tabular&table=b08301_means_transportation_to_work_by_residence_acs_m&columns=${selectList}`;
+        urlQueryParams = `${urlQueryParams}&filters=muni_id:${subregionId}&orderByColumn=acs_year&orderbyDirection=DESC&limit=1`;
+        return urlQueryParams;
+      },
+      rparegionDataQuery: (rpaId) => {
+        // Enable this without passing SQL to the backend if we decide to support RPA regions in the future
+        return "";
+      },
+    },
+  },
   "municipal-finance": {
     bond_rating_sp: {
       type: "profile-metric",
@@ -2389,7 +2397,7 @@ export default {
         "tabular.muni_finance_m_bond_rating": {
           yearCol: "fiscal_yr",
           latestYearOnly: false,
-          columns: ["fiscal_yr", "municipal", "bnd_sprt"],
+          columns: ["municipal", "fiscal_yr", "bnd_sprt"],
           specialFetch: async (municipality, dispatchUpdate) => {
             let latestYearUrl = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
             latestYearUrl =` ${latestYearUrl}&columns=fiscal_yr&orderByColumn=fiscal_yr&orderByDirection=DESC&limit=1`;
@@ -2398,7 +2406,7 @@ export default {
             const yearPayload = (await yearResp.json()) || {};
             const latestYear = yearPayload.rows.length === 1 ? yearPayload.rows[0].fiscal_yr : 2023;
 
-            const columns = ["fiscal_yr", "municipal", "bnd_sprt"];
+            const columns = ["municipal", "fiscal_yr","bnd_sprt"];
             let url = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
             url = `${url}&columns=${columns.join(",")}&filters=municipal~${municipality},fiscal_yr:${latestYear}&limit=1`;
             const response = await fetch(url);
@@ -2442,7 +2450,7 @@ export default {
         "tabular.muni_finance_m_cpa_spending": {
           yearCol: "fiscal_yr",
           latestYearOnly: false,
-          columns: ["fiscal_yr", "municipal", "src_entcpa"],
+          columns: ["municipal", "fiscal_yr", "src_entcpa"],
           specialFetch: async (municipality, dispatchUpdate) => {
             let latestYearUrl = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
             latestYearUrl =` ${latestYearUrl}&columns=fiscal_yr&orderByColumn=fiscal_yr&orderByDirection=DESC&limit=1`;
@@ -2451,7 +2459,7 @@ export default {
             const yearPayload = (await yearResp.json()) || {};
             const latestYear = yearPayload.rows.length === 1 ? yearPayload.rows[0].fiscal_yr : 2023;
 
-            const columns = ["fiscal_yr", "municipal", "src_entcpa"];
+            const columns = ["municipal", "fiscal_yr", "src_entcpa"];
             let url = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
             url = `${url}&columns=${columns.join(",")}&filters=municipal~${municipality},fiscal_yr:${latestYear}&limit=1`;
             const response = await fetch(url);
@@ -2503,7 +2511,7 @@ export default {
         "tabular.muni_finance_m_total_employees": {
           yearCol: "fiscal_yr",
           latestYearOnly: false,
-          columns: ["fiscal_yr", "municipal", "fte_employ"],
+          columns: ["municipal", "fiscal_yr", "fte_employ"],
           specialFetch: async (municipality, dispatchUpdate) => {
             let latestYearUrl = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
             latestYearUrl =` ${latestYearUrl}&columns=fiscal_yr&orderByColumn=fiscal_yr&orderByDirection=DESC&limit=1`;
@@ -2512,7 +2520,7 @@ export default {
             const yearPayload = (await yearResp.json()) || {};
             const latestYear = yearPayload.rows.length === 1 ? yearPayload.rows[0].fiscal_yr : 2023;
 
-            const columns = ["fiscal_yr", "municipal", "fte_employ"];
+            const columns = ["municipal", "fiscal_yr", "fte_employ"];
             let url = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
             url = `${url}&columns=${columns.join(",")}&filters=municipal~${municipality},fiscal_yr:${latestYear}&limit=1`;
             const response = await fetch(url);
@@ -2573,7 +2581,7 @@ export default {
       tooltip: { type: "percentAndCount" },
       tables: {
         "tabular.muni_finance_m": (() => {
-          const columnList = ["fiscal_yr", "rev_total", "src_taxlvy", "src_state", "src_locrpt", "src_other", "src_entcpa"];
+          const columnList = ["municipal", "fiscal_yr", "rev_total", "src_taxlvy", "src_state", "src_locrpt", "src_other", "src_entcpa"];
           return {
             yearCol: "fiscal_yr",
             latestYearOnly: true,
