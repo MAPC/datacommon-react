@@ -181,8 +181,8 @@ class StackedAreaChart extends React.Component {
     this.chart
       .append("text")
       .attr("class", "axis-label y-axis-label")
-      .attr("x", -height / 2 - margin.top)
-      .attr("y", margin.left / 3)
+      .attr("x", -height / 2 - margin.top )
+      .attr("y", margin.left / 3 - 10)
       .attr("transform", "rotate(-90)")
       .attr("text-anchor", "middle")
       .text(this.props.yAxis.label);

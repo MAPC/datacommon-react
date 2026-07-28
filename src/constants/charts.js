@@ -2822,7 +2822,8 @@ export default {
       type: "stacked-bar",
       title: "Override Wins and Losses",
       xAxis: { label: "Year", format: format.string.default },
-      yAxis: { label: "Win / Loss Ammount", format: format.number.localeString },
+      yAxis: { label: "Win / Loss Ammount (USD)", format: format.number.localeString },
+      noDataMessage: "No override data found in this timeframe.",
       tables: {
         "tabular.muni_finance_m_override_win_loss": {
           yearCol: "fiscal_yr",
