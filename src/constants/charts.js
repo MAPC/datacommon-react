@@ -2563,7 +2563,7 @@ export default {
       colors: Array.from(colors.CHART.PRIMARY.values()).slice(-5),
       valueFormatter: (v) => {
         const n = typeof v === "number" ? v : Number(v);
-        if (!Number.isFinite(n)) return v == null || v === "" ? "" : String(v);
+        if (!Number.isFinite(n)) return "—";
         return new Intl.NumberFormat("en-US", {
           style: "currency",
           currency: "USD",
@@ -2613,14 +2613,16 @@ export default {
           return [];
         }
         const row = data[0];
-        // const totRev = row.rev_total != null && row.rev_total !== "" ? Number(row.rev_total) : NaN;
-        // calculate total rev ourselves, we're using the "src" columns which don't have a total
-        const totRev = (row.src_taxlvy || 0) + (row.src_state || 0) + (row.src_locrpt || 0) + (row.src_entcpa || 0) + (row.src_other || 0);
-        const summaryRow = Number.isFinite(totRev)
-          ? [{ summaryOnly: true, key: "tot_rev_display", label: "Total Revenue", value: totRev, group: "Fund Revenue" }]
-          : [];
+        const totRev =
+          row.rev_total != null && row.rev_total !== "" ? Number(row.rev_total) : null;
         return [
-          ...summaryRow,
+          {
+            summaryOnly: true,
+            key: "tot_rev_display",
+            label: "Total Revenue",
+            value: Number.isFinite(totRev) ? totRev : null,
+            group: "Fund Revenue",
+          },
           { key: "src_taxlvy", value: Number(row.src_taxlvy), label: "Tax Levy", group: "Fund Revenue" },
           { key: "src_state", value: Number(row.src_state), label: "State Aid", group: "Fund Revenue" },
           { key: "src_locrpt", value: Number(row.src_locrpt), label: "Local Receipt", group: "Fund Revenue" },

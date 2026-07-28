@@ -37,7 +37,12 @@ function partitionTreeData(data) {
   const normalized = data
     .map((d) => {
       const rawValue = d.value;
-      const parsedValue = typeof rawValue === "number" ? rawValue : Number(rawValue);
+      const parsedValue =
+        rawValue == null || rawValue === ""
+          ? NaN
+          : typeof rawValue === "number"
+            ? rawValue
+            : Number(rawValue);
       return {
         key: d.key,
         label: d.label,
@@ -48,7 +53,7 @@ function partitionTreeData(data) {
     })
     .filter((d) => {
       if (d.summaryOnly) {
-        return Boolean(d.key) && Number.isFinite(d.value);
+        return Boolean(d.key);
       }
       return Boolean(d.key) && Number.isFinite(d.value) && d.value >= 0;
     });
@@ -98,6 +103,9 @@ export const TREEMAP_LAYOUT_VALUE_EXPONENT = 0.88;
 
 const TILE_LABEL_FONT = 11;
 const TILE_VALUE_FONT = 11;
+/** Floor so white text stays readable on light tiles (e.g. yellow) when space is tight. */
+const MIN_TILE_LABEL_FONT = 10;
+const MIN_TILE_VALUE_FONT = 8;
 const TILE_EDGE_PADDING = 16;
 const TEXT_AWARE_SVG_HEIGHT = 400;
 /**
@@ -109,12 +117,14 @@ export const DEFAULT_TREEMAP_MAX_VALUE_RATIO = 12;
 
 /** Pixel size needed to render full category label + exact value at standard tile fonts. */
 export function measureTileTextMinimums(label, value, formatValue) {
-  // Measure as a single-line label; wrapping is decided at render time only when needed.
-  const labelLines = [String(label || "").trim()];
+  const text = String(label || "").trim();
+  const words = text.split(/\s+/).filter(Boolean);
+  // Multi-word labels prefer two lines at full size (e.g. "Local" / "Receipt").
+  const labelLines = words.length > 1 ? splitLabelAtMid(text) : [text];
   const valueText = formatTileValueLabel(value, formatValue);
   let valueLines = [valueText];
 
-  const labelWidth = lineWidth(labelLines[0] || "", TILE_LABEL_FONT);
+  const labelWidth = Math.max(0, ...labelLines.map((line) => lineWidth(line || "", TILE_LABEL_FONT)));
   let valueWidth = lineWidth(valueText, TILE_VALUE_FONT);
   if (valueWidth > 320) {
     valueLines = splitValueIntoLines(valueText);
@@ -122,7 +132,7 @@ export function measureTileTextMinimums(label, value, formatValue) {
   }
 
   const minWidth = Math.ceil(Math.max(labelWidth, valueWidth, 72));
-  const labelBlock = Math.ceil(TILE_LABEL_FONT * 1.15);
+  const labelBlock = Math.ceil(labelLines.length * TILE_LABEL_FONT * 1.15);
   const valueBlock = valueLines.length * Math.ceil(TILE_VALUE_FONT * 1.2);
   const minHeight = Math.ceil(TILE_EDGE_PADDING + labelBlock + 6 + valueBlock + 8);
 
@@ -313,20 +323,35 @@ function splitLabelAtMid(label) {
 }
 
 /**
- * Keep labels on one line by default. Wrap only when a single line cannot fit
- * at the minimum readable font size for the available width.
+ * Prefer wrapping multi-word labels (e.g. "Local Receipt") over shrinking the font.
+ * Wrap when the full label does not fit at the preferred font size.
  */
 export function splitLabelIntoLines(label, options = {}) {
   const text = String(label || "").trim();
   if (!text) return [""];
 
-  const { availableWidth, minFontSize = 8 } = options;
+  const {
+    availableWidth,
+    preferFontSize = TILE_LABEL_FONT,
+    minFontSize = MIN_TILE_LABEL_FONT,
+  } = options;
   if (availableWidth == null) return [text];
 
-  if (lineWidth(text, minFontSize) <= availableWidth) return [text];
+  if (lineWidth(text, preferFontSize) <= availableWidth) return [text];
 
   const wrapped = splitLabelAtMid(text);
-  return wrapped.length > 1 ? wrapped : [text];
+  if (wrapped.length > 1) {
+    const longest = wrapped.reduce((a, b) => (a.length >= b.length ? a : b));
+    // Wrap when it fits at preferred size, or when a single line cannot fit at the min size.
+    if (
+      lineWidth(longest, preferFontSize) <= availableWidth ||
+      lineWidth(text, minFontSize) > availableWidth
+    ) {
+      return wrapped;
+    }
+  }
+
+  return [text];
 }
 
 function lineWidth(text, fontSize) {
@@ -337,7 +362,7 @@ function getValueDisplay(valueText, width, height, labelLineCount, labelLineHeig
   const resolvedLabelLineHeight = labelLineHeight || Math.ceil(TILE_LABEL_FONT * 1.15);
   const labelBlock = labelLineCount > 0 ? labelLineCount * resolvedLabelLineHeight + 6 : 0;
   const availableHeight = Math.max(0, height - labelBlock - 8);
-  let fontSize = fitFontSize(valueText, width, { base: TILE_VALUE_FONT, min: 7 });
+  let fontSize = fitFontSize(valueText, width, { base: TILE_VALUE_FONT, min: MIN_TILE_VALUE_FONT });
   let lines = [valueText];
 
   if (lineWidth(valueText, fontSize) > width) {
@@ -345,16 +370,16 @@ function getValueDisplay(valueText, width, height, labelLineCount, labelLineHeig
     if (split.length > 1) {
       lines = split;
       const longest = lines.reduce((a, b) => (a.length >= b.length ? a : b));
-      fontSize = fitFontSize(longest, width, { base: TILE_VALUE_FONT, min: 7 });
+      fontSize = fitFontSize(longest, width, { base: TILE_VALUE_FONT, min: MIN_TILE_VALUE_FONT });
     } else {
-      fontSize = fitFontSize(valueText, width, { base: TILE_VALUE_FONT, min: 7 });
+      fontSize = fitFontSize(valueText, width, { base: TILE_VALUE_FONT, min: MIN_TILE_VALUE_FONT });
     }
   }
 
   let lineHeight = Math.ceil(fontSize * 1.2);
   let blockHeight = lineHeight * lines.length;
   if (blockHeight > availableHeight && availableHeight > 0) {
-    fontSize = Math.max(7, Math.floor((fontSize * availableHeight) / blockHeight));
+    fontSize = Math.max(MIN_TILE_VALUE_FONT, Math.floor((fontSize * availableHeight) / blockHeight));
     lineHeight = Math.ceil(fontSize * 1.2);
     blockHeight = lineHeight * lines.length;
   }
@@ -372,7 +397,7 @@ export function getTileTextLayout(d, formatValue) {
   const textX = width < 80 ? 4 : 8;
   const textWidth = Math.max(0, width - textX * 2);
   // Always reserve room for the amount so wrapping a long title cannot hide the number.
-  const minValueReserve = Math.ceil(TILE_VALUE_FONT * 1.2) + 6;
+  const minValueReserve = Math.ceil(MIN_TILE_VALUE_FONT * 1.2) + 6;
   const showCategoryLabel = height >= 24 && width >= 16 && categoryLabel.length > 0;
   const maxLabelBlockHeight = showCategoryLabel
     ? Math.max(0, height - labelY - minValueReserve)
@@ -385,16 +410,24 @@ export function getTileTextLayout(d, formatValue) {
   if (showCategoryLabel) {
     categoryLines = splitLabelIntoLines(categoryLabel, {
       availableWidth: textWidth,
-      minFontSize: 7,
+      preferFontSize: TILE_LABEL_FONT,
+      minFontSize: MIN_TILE_LABEL_FONT,
     });
     const longestLabelLine = categoryLines.reduce((a, b) => (a.length >= b.length ? a : b), "");
-    categoryFontSize = fitFontSize(longestLabelLine, textWidth, { base: TILE_LABEL_FONT, min: 6 });
+    categoryFontSize = fitFontSize(longestLabelLine, textWidth, {
+      base: TILE_LABEL_FONT,
+      min: MIN_TILE_LABEL_FONT,
+    });
     labelLineHeight = Math.ceil(categoryFontSize * 1.15);
 
-    // If a wrap would crowd out the value, keep a single line instead (still shrunk to fit).
-    if (categoryLines.length > 1 && categoryLines.length * labelLineHeight > maxLabelBlockHeight) {
+    // Only collapse wrap if two lines cannot fit even at the minimum font size.
+    const minWrappedBlock = categoryLines.length * Math.ceil(MIN_TILE_LABEL_FONT * 1.15);
+    if (categoryLines.length > 1 && minWrappedBlock > maxLabelBlockHeight) {
       categoryLines = [categoryLabel];
-      categoryFontSize = fitFontSize(categoryLabel, textWidth, { base: TILE_LABEL_FONT, min: 6 });
+      categoryFontSize = fitFontSize(categoryLabel, textWidth, {
+        base: TILE_LABEL_FONT,
+        min: MIN_TILE_LABEL_FONT,
+      });
       labelLineHeight = Math.ceil(categoryFontSize * 1.15);
     }
   }
