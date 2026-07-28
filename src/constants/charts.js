@@ -2519,10 +2519,10 @@ export default {
     fund_revenue: {
       type: "tree-map",
       title: "Fund Revenue Breakdown",
-      // Size tiles from smallest category's text needs, scale others by value,
-      // and compress extreme gaps so tiny tiles stay readable without inverting sizes.
-      treemapTextAwareLayout: true,
-      // Five revenue categories need five distinct colors (ordinal scales wrap otherwise).
+      // Color blocks only; labels/amounts live in the legend. Area is equal to dollar value.
+      treemapTrueProportions: true,
+      treemapExternalLabels: true,
+      // Five revenue categories need five distinct colors
       colors: Array.from(colors.CHART.PRIMARY.values()).slice(-5),
       valueFormatter: (v) => {
         const n = typeof v === "number" ? v : Number(v);
@@ -2536,7 +2536,7 @@ export default {
       tooltip: { type: "percentAndCount" },
       tables: {
         "tabular.muni_finance_m": (() => {
-          const columnList = ["municipal", "fiscal_yr", "rev_total", "src_taxlvy", "src_state", "src_locrpt", "src_other", "src_entcpa"];
+          const columnList = ["municipal", "fiscal_yr", "src_taxlvy", "src_state", "src_locrpt", "src_other", "src_entcpa"];
           return {
             yearCol: "fiscal_yr",
             latestYearOnly: true,
@@ -2547,7 +2547,7 @@ export default {
               latestYearUrl =` ${latestYearUrl}&filters=src_entcpa!!,src_taxlvy!!,municipal~${municipality}`;
               const yearResp = await fetch(latestYearUrl);
               const yearPayload = (await yearResp.json()) || {};
-              const latestYear = yearPayload.rows.length === 1 ? yearPayload.rows[0].fiscal_yr : 2023;
+              const latestYear =  yearPayload.rows[0].fiscal_yr
 
               let url = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
               url = `${url}&columns=${columnList.join(",")}&filters=municipal~${municipality},fiscal_yr:${latestYear}&limit=1`;
@@ -2576,21 +2576,26 @@ export default {
           return [];
         }
         const row = data[0];
-        const totRev =
-          row.rev_total != null && row.rev_total !== "" ? Number(row.rev_total) : null;
-        return [
-          {
-            summaryOnly: true,
-            key: "tot_rev_display",
-            label: "Total Revenue",
-            value: Number.isFinite(totRev) ? totRev : null,
-            group: "Fund Revenue",
-          },
+        const categories = [
           { key: "src_taxlvy", value: Number(row.src_taxlvy), label: "Tax Levy", group: "Fund Revenue" },
           { key: "src_state", value: Number(row.src_state), label: "State Aid", group: "Fund Revenue" },
           { key: "src_locrpt", value: Number(row.src_locrpt), label: "Local Receipt", group: "Fund Revenue" },
           { key: "src_entcpa", value: Number(row.src_entcpa), label: "Entreprise and CPA", group: "Fund Revenue" },
           { key: "src_other", value: Number(row.src_other), label: "All Other", group: "Fund Revenue" },
+        ];
+        const totRev = categories.reduce(
+          (sum, cat) => sum + (Number.isFinite(cat.value) ? cat.value : 0),
+          0,
+        );
+        return [
+          {
+            summaryOnly: true,
+            key: "tot_rev_display",
+            label: "Total Revenue",
+            value: totRev,
+            group: "Fund Revenue",
+          },
+          ...categories,
         ];
       },
       source: "MA Dept of Revenue",
