@@ -368,7 +368,6 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
         yearsUrl = `${yearsUrl}&filters=ovr_winamt!!,ovr_losamt!!,rev_total!!,exp_total!!`;
         const yearResp = await fetch(yearsUrl);
         const yearPayload = (await yearResp.json()) || {};
-        console.log("yearPayload", yearPayload);
         const latestYear = yearPayload.rows[0].fiscal_yr 
         const y = latestYear;
 
