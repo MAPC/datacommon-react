@@ -407,26 +407,6 @@ const SubregionProfilesView = () => {
               </div>
             </Tab>
 
-            <Tab active={activeTab === "governance"}>
-              <header className="print-header">
-                <h3>Governance</h3>
-              </header>
-              <div className="tab__row">
-                <ChartDetails
-                  chart={charts.governance.tax_levy}
-                  muni={subregionId}
-                  onViewData={handleShowModal}
-                  isSubregion={true}
-                >
-                  <PieChart
-                    chart={charts.governance.tax_levy}
-                    muni={subregionId}
-                    isSubregion={true}
-                  />
-                </ChartDetails>
-              </div>
-            </Tab>
-
             <Tab active={activeTab === "environment"}>
               <header className="print-header">
                 <h3>Environment</h3>
