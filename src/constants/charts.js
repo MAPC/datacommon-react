@@ -67,6 +67,7 @@ const getFormattedYearRange = async (schema, table, yearCol, limit, orderDir) =>
 };
 
 const eduAttainmentByRaceColumns = [
+  "municipal",
   "acs_year",
   "nhwlh",
   "nhwlh_me",
@@ -197,6 +198,7 @@ const eduAttainmentByRaceColumns = [
 ];
 
 const costBurdenColumns = [
+  "municipal",
   "acs_year",
   "o_notcb",
   "o_notcbme",
@@ -229,6 +231,7 @@ const costBurdenColumns = [
 ];
 
 const commuteToWorkColumns = [
+  "municipal",
   "acs_year",
   "ctvsngl",
   "ctvsnglme",
@@ -249,8 +252,8 @@ const commuteToWorkColumns = [
 ];
 
 const internetUsageByIncomeColumns = [
-  "acs_year",
   "municipal",
+  "acs_year",
   "lt20dia",
   "lt20diam",
   "lt20dia_p",
@@ -278,8 +281,8 @@ const internetUsageByIncomeColumns = [
 ];
 
 const internetSubscriptionTypesColumns = [
-  "acs_year",
   "municipal",
+  "acs_year",
   "dialo",
   "dialom",
   "dialo_p",
@@ -295,6 +298,7 @@ const internetSubscriptionTypesColumns = [
 ];
 
 const demoRaceByAgeGenderColumns = [
+  "municipal",
   "years",
   "race_eth",
   "pop",
@@ -337,6 +341,7 @@ export default {
           yearCol: "acs_year",
           latestYearOnly: true,
           columns: [
+            "municipal",
             "acs_year",
             "nhwhi",
             "nhwhi_me",
@@ -595,6 +600,513 @@ export default {
       },
     },
   },
+  "digital-equity": {
+    no_computer_access: {
+      type: "gauge",
+      title: "Percent Household Has No Computer Devices",
+      minValue: 0,
+      maxValue: 100,
+      valueColor: "#44aa44",
+      backgroundColor: "#e0e0e0",
+      showUnit: true,
+      unit: "%",
+      showLabels: true,
+      valueFormat: (d) => d.toFixed(1),
+      width: 500,
+      height: 400,
+      tables: {
+        "tabular.s2801_computer_internet_acs_m_noint": {
+          yearCol: "acs_year",
+          latestYearOnly: true,
+          columns: [ "municipal", "acs_year", "nocmp_p", "nocmp_mp"],
+          specialFetch: async (municipality, dispatchUpdate) => {
+            // TODO: Maybe make backend improvement to prevent 3 requests here
+            let countyIdsApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&columns=county_id`;
+            countyIdsApi = `${countyIdsApi}&filters=muni_name~${municipality}`;
+            const countyIdResp = await fetch(countyIdsApi);
+            const countyIdData = (await countyIdResp.json()) || {};
+            const countyId = countyIdData.rows?.length ? countyIdData.rows[0].county_id : "unknown";
+
+            const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
+            const year = years.length ? years[0] : "unknown";
+
+            const columns = ["municipal", "acs_year", "nocmp", "nocmpm", "nocmp_p", "nocmp_mp"];
+            let mainDataApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=s2801_computer_internet_acs_m`;
+            mainDataApi = `${mainDataApi}&columns=${columns.join(",")}`;
+            mainDataApi = `${mainDataApi}&filters=acs_year:${year}`;
+            mainDataApi = `${mainDataApi}&orFilters=muni_id:${countyId},muni_id:353,municipal~${municipality}`;
+            const response = await fetch(mainDataApi);
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const payload = (await response.json()) || {};
+            const rows = payload.rows || [];
+
+            // Sort rows by muni_id ascending
+            rows.sort((a, b) => {
+              const aId = Number(a.muni_id);
+              const bId = Number(b.muni_id);
+              if (Number.isNaN(aId) || Number.isNaN(bId)) {
+                return 0;
+              }
+              return aId - bId;
+            });
+
+            dispatchUpdate(rows);
+          },
+        },
+      },
+      source: "American Community Survey (ACS)",
+      datasetLinks: {
+        "Computers and Internet Subscriptions (Municipal)": 455,
+      },
+      timeframe: async () => {
+        const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
+        return years[0] || "N/A";
+      },
+      transformer: (tables, chart) => {
+        const data = tables["tabular.s2801_computer_internet_acs_m_noint"];
+        if (!data || data.length < 1) {
+          return [{ value: 0, marginOfError: null }];
+        }
+        const row = data[0];
+        const noComputer = parseFloat(row.nocmp_p) || 0;
+        const marginOfError = row.nocmp_mp !== null && row.nocmp_mp !== undefined ? parseFloat(row.nocmp_mp) : null;
+        const value = Math.max(0, Math.min(100, noComputer));
+        const count = row.nocmp !== null && row.nocmp !== undefined ? parseFloat(row.nocmp) : null;
+        const countMarginOfError = row.nocmpm !== null && row.nocmpm !== undefined ? parseFloat(row.nocmpm) : null;
+        return [{ value, marginOfError, count, countMarginOfError }];
+      },
+      subregionDataQuery: async (subregionId) => {
+        const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
+        const year = years.length ? years[0] : "unknown";
+
+        const columns = ["acs_year", "muni_id", "municipal", "nocmp", "nocmpm", "nocmp_p", "nocmp_mp"];
+        let queryString = `&schema=tabular&table=s2801_computer_internet_acs_m&columns=${columns.join(",")}`;
+        queryString = `${queryString}&filters=acs_year:${year},muni_id:${subregionId}`;
+        return queryString;
+      },
+    },
+    internet_access: {
+      type: "gauge",
+      title: "Percent Household Has No Internet",
+      minValue: 0,
+      maxValue: 100,
+      valueColor: "#44aa44",
+      backgroundColor: "#e0e0e0",
+      showUnit: true,
+      unit: "%",
+      showLabels: true,
+      valueFormat: (d) => d.toFixed(1),
+      width: 500,
+      height: 400,
+      tables: {
+        "tabular.s2801_computer_internet_acs_m_no_internet": {
+          yearCol: "acs_year",
+          latestYearOnly: true,
+          columns: ["municipal", "acs_year", "noint_p", "noint_mp"],
+          specialFetch: async (municipality, dispatchUpdate) => {
+            // TODO: Maybe make backend improvement to prevent 3 requests here
+            let countyIdsApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&columns=county_id`;
+            countyIdsApi = `${countyIdsApi}&filters=muni_name~${municipality}`;
+            const countyIdResp = await fetch(countyIdsApi);
+            const countyIdData = (await countyIdResp.json()) || {};
+            const countyId = countyIdData.rows?.length ? countyIdData.rows[0].county_id : "unknown";
+
+            const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
+            const year = years.length ? years[0] : "unknown";
+
+            const columns = ["municipal", "acs_year", "noint", "nointm", "noint_p", "noint_mp"];
+            let mainDataApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=s2801_computer_internet_acs_m`;
+            mainDataApi = `${mainDataApi}&columns=${columns.join(",")}`;
+            mainDataApi = `${mainDataApi}&filters=acs_year:${year}`;
+            mainDataApi = `${mainDataApi}&orFilters=muni_id:${countyId},muni_id:353,municipal~${municipality}`;
+            const response = await fetch(mainDataApi);
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const payload = (await response.json()) || {};
+            const rows = payload.rows || [];
+
+            rows.sort((a, b) => {
+              const aId = Number(a.muni_id);
+              const bId = Number(b.muni_id);
+              if (Number.isNaN(aId) || Number.isNaN(bId)) {
+                return 0;
+              }
+              return aId - bId;
+            });
+            dispatchUpdate(rows);
+          },
+        },
+      },
+      source: "American Community Survey (ACS)",
+      datasetLinks: {
+        "Computers and Internet Subscriptions (Municipal)": 455,
+      },
+      timeframe: async () => {
+        const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
+        return years[0] || "N/A";
+      },
+      transformer: (tables, chart) => {
+        const data = tables["tabular.s2801_computer_internet_acs_m_no_internet"];
+        if (!data || data.length < 1) {
+          return [{ value: 0, marginOfError: null }];
+        }
+        const row = data[0];
+        const noInternet = row.noint_p !== null && row.noint_p !== undefined ? parseFloat(row.noint_p) : 0;
+        const marginOfError = row.noint_mp !== null && row.noint_mp !== undefined ? parseFloat(row.noint_mp) : null;
+        const value = isNaN(noInternet) ? 0 : Math.max(0, Math.min(100, noInternet));
+        const count = row.noint !== null && row.noint !== undefined ? parseFloat(row.noint) : null;
+        const countMarginOfError = row.nointm !== null && row.nointm !== undefined ? parseFloat(row.nointm) : null;
+        return [{ value, marginOfError, count, countMarginOfError }];
+      },
+      subregionDataQuery: async (subregionId) => {
+        const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
+        const year = years.length ? years[0] : "unknown";
+
+        const columns = ["acs_year", "muni_id", "municipal", "noint", "nointm", "noint_p", "noint_mp"];
+        let queryString = `&schema=tabular&table=s2801_computer_internet_acs_m&columns=${columns.join(",")}`;
+        queryString = `${queryString}&filters=acs_year:${year},muni_id:${subregionId}`;
+        return queryString;
+      },
+    },
+    smartphone_only: {
+      type: "gauge",
+      title: "Percent Has One or More Types of Computing Devices: Smartphone Only",
+      minValue: 0,
+      maxValue: 100,
+      valueColor: "#44aa44",
+      backgroundColor: "#e0e0e0",
+      showUnit: true,
+      unit: "%",
+      showLabels: true,
+      valueFormat: (d) => d.toFixed(1),
+      width: 500,
+      height: 400,
+      tables: {
+        "tabular.s2801_computer_internet_acs_m_smartphone": {
+          yearCol: "acs_year",
+          latestYearOnly: true,
+          columns: ["municipal", "acs_year", "moblo_p", "moblo_mp"],
+          specialFetch: async (municipality, dispatchUpdate) => {
+            // TODO: Maybe make backend improvement to prevent 3 requests here
+            let countyIdsApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&columns=county_id`;
+            countyIdsApi = `${countyIdsApi}&filters=muni_name~${municipality}`;
+            const countyIdResp = await fetch(countyIdsApi);
+            const countyIdData = (await countyIdResp.json()) || {};
+            const countyId = countyIdData.rows?.length ? countyIdData.rows[0].county_id : "unknown";
+
+            const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
+            const year = years.length ? years[0] : "unknown";
+
+            const columns = ["municipal", "acs_year", "moblo", "moblom", "moblo_p", "moblo_mp"];
+            let mainDataApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=s2801_computer_internet_acs_m`;
+            mainDataApi = `${mainDataApi}&columns=${columns.join(",")}`;
+            mainDataApi = `${mainDataApi}&filters=acs_year:${year}`;
+            mainDataApi = `${mainDataApi}&orFilters=muni_id:${countyId},muni_id:353,municipal~${municipality}`;
+            const response = await fetch(mainDataApi);
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const payload = (await response.json()) || {};
+            const rows = payload.rows || [];
+            rows.sort((a, b) => {
+              const aId = Number(a.muni_id);
+              const bId = Number(b.muni_id);
+              if (Number.isNaN(aId) || Number.isNaN(bId)) {
+                return 0;
+              }
+              return aId - bId;
+            });
+
+            dispatchUpdate(rows);
+          },
+        },
+      },
+      source: "American Community Survey (ACS)",
+      datasetLinks: {
+        "Computers and Internet Subscriptions (Municipal)": 455,
+      },
+      timeframe: async () => {
+        const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
+        return years[0] || "N/A";
+      },
+      transformer: (tables, chart) => {
+        const data = tables["tabular.s2801_computer_internet_acs_m_smartphone"];
+        if (!data || data.length < 1) {
+          return [{ value: 0, marginOfError: null }];
+        }
+        const row = data[0];
+        const smartphoneOnly = row.moblo_p !== null && row.moblo_p !== undefined ? parseFloat(row.moblo_p) : 0;
+        const marginOfError = row.moblo_mp !== null && row.moblo_mp !== undefined ? parseFloat(row.moblo_mp) : null;
+        const value = isNaN(smartphoneOnly) ? 0 : Math.max(0, Math.min(100, smartphoneOnly));
+        const marginOfErrorSafe = isNaN(marginOfError) ? null : marginOfError;
+        const count = row.moblo !== null && row.moblo !== undefined ? parseFloat(row.moblo) : null;
+        const countMarginOfError = row.moblom !== null && row.moblom !== undefined ? parseFloat(row.moblom) : null;
+        return [{ value, marginOfError: marginOfErrorSafe, count, countMarginOfError }];
+      },
+      subregionDataQuery: async (subregionId) => {
+        const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
+        const year = years.length ? years[0] : "unknown";
+
+        const columns = ["acs_year", "muni_id", "municipal", "moblo", "moblom", "moblo_p", "moblo_mp"];
+        let queryString = `&schema=tabular&table=s2801_computer_internet_acs_m&columns=${columns.join(",")}`;
+        queryString = `${queryString}&filters=acs_year:${year},muni_id:${subregionId}`;
+        return queryString;
+      },
+    },
+    internet_usage_by_income: {
+      type: "stacked-bar",
+      title: "Lack of Access to Internet by Income Level",
+      tooltip: { type: "percentAndCount" },
+      xAxis: {
+        label: "Household Income Level",
+        format: format.string.default,
+        sort: (a, b) => {
+          const order = ["Below $20000", "$20000 - $74999", "$75000+"];
+          return order.indexOf(a) - order.indexOf(b);
+        },
+      },
+      yAxis: {
+        label: "Percent of Household",
+        format: (d) => {
+          if (d == null || isNaN(d)) return "";
+          const num = Number(d);
+          return `${num.toFixed(1)}%`;
+        },
+      },
+      tables: {
+        // Use a dedicated cache key so we always fetch income columns (gauges use same table but different columns and would otherwise overwrite cache)
+        "tabular.s2801_computer_internet_acs_m_income": {
+          yearCol: "acs_year",
+          latestYearOnly: true,
+          columns: internetUsageByIncomeColumns,
+          specialFetch: async (municipality, dispatchUpdate) => {
+            const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
+            const year = years.length ? years[0] : "unknown";
+
+            let mainDataApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=s2801_computer_internet_acs_m`;
+            mainDataApi = `${mainDataApi}&columns=${internetUsageByIncomeColumns.join(",")}`;
+            mainDataApi = `${mainDataApi}&filters=acs_year:${year},municipal~${municipality}`;
+            const response = await fetch(mainDataApi);
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const payload = (await response.json()) || {};
+            dispatchUpdate(payload.rows || []);
+          },
+        },
+      },
+      labels: {
+        "dial-up only": "Dial-up only",
+        "no internet": "No internet",
+      },
+      datasetLinks: { "Computers and Internet Subscriptions (Municipal)": 455 },
+      source: "American Community Survey (ACS)",
+      timeframe: async () => {
+        const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
+        return years[0] ? formatYearRange(years[0]) : "N/A";
+      },
+      transformer: (tables, chart) => {
+        const data = tables["tabular.s2801_computer_internet_acs_m_income"];
+        if (!data || data.length < 1) {
+          return [];
+        }
+        const row = data[0];
+        const parse = (v) => {
+          if (v == null || v === "" || v === undefined) return 0;
+          const parsed = parseFloat(v);
+          return isNaN(parsed) ? 0 : parsed;
+        };
+        const parseMe = (v) => {
+          if (v == null || v === "" || v === undefined) return undefined;
+          const parsed = parseFloat(v);
+          return isNaN(parsed) ? undefined : parsed;
+        };
+        const categories = [
+          {
+            x: "Below $20000",
+            dialUp: "lt20dia_p",
+            noInternet: "lt20nin_p",
+            dialUpMe: "lt20dia_mp",
+            noInternetMe: "lt20nin_mp",
+            dialUpCount: "lt20dia",
+            noInternetCount: "lt20nin",
+            dialUpCountMe: "lt20diam",
+            noInternetCountMe: "lt20ninm",
+          },
+          {
+            x: "$20000 - $74999",
+            dialUp: "i2074di_p",
+            noInternet: "i2074ni_p",
+            dialUpMe: "i2074di_mp",
+            noInternetMe: "i2074ni_mp",
+            dialUpCount: "i2074di",
+            noInternetCount: "i2074ni",
+            dialUpCountMe: "i2074dim",
+            noInternetCountMe: "i2074nim",
+          },
+          {
+            x: "$75000+",
+            dialUp: "mt74dia_p",
+            noInternet: "mt74nin_p",
+            dialUpMe: "mt74dia_mp",
+            noInternetMe: "mt74nin_mp",
+            dialUpCount: "mt74dia",
+            noInternetCount: "mt74nin",
+            dialUpCountMe: "mt74diam",
+            noInternetCountMe: "mt74ninm",
+          },
+        ];
+        const dialUpLabel = chart.labels && chart.labels["dial-up only"] ? chart.labels["dial-up only"] : "Dial-up only";
+        const noInternetLabel = chart.labels && chart.labels["no internet"] ? chart.labels["no internet"] : "No internet";
+        const zOrder = { [dialUpLabel]: 0, [noInternetLabel]: 1 };
+        const parseCount = (v) => {
+          if (v == null || v === "" || v === undefined) return undefined;
+          const parsed = parseFloat(v);
+          return isNaN(parsed) ? undefined : parsed;
+        };
+        return categories.flatMap((cat) => [
+          {
+            x: cat.x,
+            y: parse(row[cat.dialUp]),
+            z: dialUpLabel,
+            order: zOrder[dialUpLabel],
+            me: parseMe(row[cat.dialUpMe]),
+            count: parseCount(row[cat.dialUpCount]),
+            countMarginOfError: parseCount(row[cat.dialUpCountMe]),
+          },
+          {
+            x: cat.x,
+            y: parse(row[cat.noInternet]),
+            z: noInternetLabel,
+            order: zOrder[noInternetLabel],
+            me: parseMe(row[cat.noInternetMe]),
+            count: parseCount(row[cat.noInternetCount]),
+            countMarginOfError: parseCount(row[cat.noInternetCountMe]),
+          },
+        ]);
+      },
+      subregionDataQuery: async (subregionId) => {
+        const selectList = internetUsageByIncomeColumns.join(",");
+        const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
+        const year = years.length ? years[0] : "unknown";
+
+        let queryString = `&schema=tabular&table=s2801_computer_internet_acs_m&columns=${selectList}`;
+        queryString = `${queryString}&filters=acs_year:${year},muni_id:${subregionId}`;
+        return queryString;
+      },
+    },
+    internet_subscription_types: {
+      type: "grouped-bar",
+      title: "Internet Subscription Types",
+      tooltip: { type: "percentAndCount" }, // Used by GroupedBarChart to format percent + margin-of-error + counts
+      xAxis: {
+        label: "Subscription Type",
+        format: format.string.default,
+        sort: (a, b) => {
+          const order = ["Broadband (Cable, DSL)", "Cellular Plan", "dial-up"];
+          return order.indexOf(a) - order.indexOf(b);
+        },
+      },
+      yAxis: {
+        label: "Percent (%)",
+        format: (d) => {
+          if (d == null || isNaN(d)) return "";
+          const num = Number(d);
+          return `${num.toFixed(1)}%`;
+        },
+      },
+      tables: {
+        "tabular.s2801_computer_internet_acs_m_subscription": {
+          yearCol: "acs_year",
+          latestYearOnly: false,
+          years: async () => {
+            const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 2);
+            return years;
+          },
+          columns: internetSubscriptionTypesColumns,
+          specialFetch: async (municipality, dispatchUpdate) => {
+            let mainDataApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=s2801_computer_internet_acs_m`;
+            mainDataApi = `${mainDataApi}&columns=${internetSubscriptionTypesColumns.join(",")}`;
+            mainDataApi = `${mainDataApi}&filters=municipal~${municipality}&limit=2&orderByColumn=acs_year&orderByDirection=DESC`;
+            const response = await fetch(mainDataApi);
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const payload = (await response.json()) || {};
+            dispatchUpdate(payload.rows || []);
+          },
+        },
+      },
+      labels: {
+        "2019-2023": "2019-2023",
+        "2020-2024": "2020-2024",
+      },
+      datasetLinks: { "Computers and Internet Subscriptions (Municipal)": 455 },
+      source: "American Community Survey (ACS)",
+      timeframe: async () => {
+        const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 2);
+        if (!years || years.length < 2) return "";
+        const [latest, previous] = years;
+        return `${previous} and ${latest}`;
+      },
+      transformer: (tables, chart) => {
+        const data = tables["tabular.s2801_computer_internet_acs_m_subscription"];
+        if (!data || data.length < 1) {
+          return [];
+        }
+        const formatYearRange = (yearStr) => {
+          if (yearStr === "2020-24") return "2020-2024";
+          if (yearStr === "2019-23") return "2019-2023";
+          const [start, end] = yearStr.split("-");
+          return `${start}-20${end}`;
+        };
+        const subscriptionTypes = [
+          {
+            x: "Broadband (Cable, DSL)",
+            column: "bbfib_p",
+            meColumn: "bbfib_mp",
+            countColumn: "bbfib",
+            countMeColumn: "bbfibm",
+          },
+          {
+            x: "Cellular Plan",
+            column: "cdpinto_p",
+            meColumn: "cdpinto_mp",
+            countColumn: "cdpinto",
+            countMeColumn: "cdpintom",
+          },
+          {
+            x: "dial-up",
+            column: "dialo_p",
+            meColumn: "dialo_mp",
+            countColumn: "dialo",
+            countMeColumn: "dialom",
+          },
+        ];
+        return data.flatMap((row) => {
+          const yearRange = formatYearRange(row.acs_year);
+          return subscriptionTypes.map((type) => ({
+            x: type.x,
+            y: row[type.column],
+            z: yearRange,
+            me: row[type.meColumn],
+            count: row[type.countColumn],
+            countMarginOfError: row[type.countMeColumn],
+            order: yearRange === "2020-2024" ? 0 : 1,
+          }));
+        });
+      },
+      subregionDataQuery: async (subregionId) => {
+        const selectList = internetSubscriptionTypesColumns.join(",");
+        let queryString = `&schema=tabular&table=s2801_computer_internet_acs_m&columns=${selectList}`;
+        queryString = `${queryString}&filters=muni_id:${subregionId}&orderByColumn=acs_year&orderByDirection=DESC&limit=2`;
+        return queryString;
+      },
+    },
+  },
   economy: {
     resident_employment: {
       type: "stacked-bar",
@@ -609,7 +1121,7 @@ export default {
             const years = await fetchYears("tabular", "b23025_employment_acs_m", "acs_year", 2);
             return years;
           },
-          columns: ["acs_year", "emp", "emp_me", "emp_p", "emp_mep", "unemp", "unemp_me", "unemp_p", "unemp_mep", "clf", "clf_me", "clf_p", "clf_mep"],
+          columns: ["municipal", "acs_year", "emp", "emp_me", "emp_p", "emp_mep", "unemp", "unemp_me", "unemp_p", "unemp_mep", "clf", "clf_me", "clf_p", "clf_mep"],
         },
       },
       labels: {
@@ -672,7 +1184,7 @@ export default {
       tables: {
         "tabular.econ_es202_naics_2d_m": {
           yearCol: "cal_year",
-          columns: ["cal_year", "naicstitle", "naicscode", "avgemp"],
+          columns: ["municipal", "cal_year", "naicstitle", "naicscode", "avgemp"],
         },
       },
       labels: {
@@ -996,7 +1508,7 @@ export default {
         "tabular.econ_municipal_taxes_revenue_m": {
           yearCol: "fy",
           latestYearOnly: true,
-          columns: ["fy", "res_taxes", "os_taxes", "comm_taxes", "ind_taxes", "p_prop_tax", "tot_rev"],
+          columns: ["municipal", "fy", "res_taxes", "os_taxes", "comm_taxes", "ind_taxes", "p_prop_tax", "tot_rev"],
         },
       },
       labels: {
@@ -1064,7 +1576,7 @@ export default {
       },
       tables: {
         "tabular.env_dep_reviewed_water_demand_m": {
-          columns: ["rgpcd2009", "rgpcd2010", "rgpcd2011", "rgpcd2012", "rgpcd2013", "rgpcd2014", "rgpcd2015"],
+          columns: ["municipal", "rgpcd2009", "rgpcd2010", "rgpcd2011", "rgpcd2012", "rgpcd2013", "rgpcd2014", "rgpcd2015"],
         },
       },
       labels: {},
@@ -1132,11 +1644,11 @@ export default {
       tables: {
         "tabular.energy_masssave_elec_gas_ci_consumption_m": {
           yearCol: "cal_year",
-          columns: ["cal_year", "sector", "mwh_use", "therm_use"],
+          columns: ["municipal", "cal_year", "sector", "mwh_use", "therm_use"],
         },
         "tabular.energy_masssave_elec_gas_res_li_consumption_m": {
           yearCol: "cal_year",
-          columns: ["cal_year", "sector", "mwh_use", "therm_use"],
+          columns: ["municipal", "cal_year", "sector", "mwh_use", "therm_use"],
         },
       },
       labels: {
@@ -1206,11 +1718,11 @@ export default {
       tables: {
         "tabular.energy_masssave_elec_gas_ci_consumption_m": {
           yearCol: "cal_year",
-          columns: ["cal_year", "sector", "mwh_use", "therm_use"],
+          columns: ["municipal", "cal_year", "sector", "mwh_use", "therm_use"],
         },
         "tabular.energy_masssave_elec_gas_res_li_consumption_m": {
           yearCol: "cal_year",
-          columns: ["cal_year", "sector", "mwh_use", "therm_use"],
+          columns: ["municipal", "cal_year", "sector", "mwh_use", "therm_use"],
         },
       },
       labels: {
@@ -1393,7 +1905,7 @@ export default {
       tables: {
         "tabular.hous_building_permits_m": {
           yearCol: "cal_year",
-          columns: ["cal_year", "months_rep", "sf_units", "mf_units"],
+          columns: ["municipal", "cal_year", "months_rep", "sf_units", "mf_units"],
         },
       },
       labels: {
@@ -1490,6 +2002,7 @@ export default {
             return years;
           },
           columns: [
+            "municipal",
             "years",
             "whi_art",
             "whi_artlci",
@@ -1640,7 +2153,7 @@ export default {
             const years = await fetchYears("tabular", "health_hospitalizations_hypertension_m", "cal_years", 1);
             return years;
           },
-          columns: ["cal_years", "whi_arte", "aa_arte", "api_arte", "na_arte", "oth_arte", "lat_arte"],
+          columns: ["municipal", "cal_years", "whi_arte", "aa_arte", "api_arte", "na_arte", "oth_arte", "lat_arte"],
         },
       },
       abbreviations: {
@@ -1745,7 +2258,7 @@ export default {
       yAxis: { label: "Daily household vehicle miles traveled" },
       tables: {
         "tabular.trans_mavc_public_summary_m": {
-          columns: ["quarter", "hh_est", "pass_vmt", "comm_vmt"],
+          columns: ["municipal", "quarter", "hh_est", "pass_vmt", "comm_vmt"],
         },
       },
       labels: {
@@ -1873,513 +2386,6 @@ export default {
       },
     },
   },
-  "digital-equity": {
-    no_computer_access: {
-      type: "gauge",
-      title: "Percent Household Has No Computer Devices",
-      minValue: 0,
-      maxValue: 100,
-      valueColor: "#44aa44",
-      backgroundColor: "#e0e0e0",
-      showUnit: true,
-      unit: "%",
-      showLabels: true,
-      valueFormat: (d) => d.toFixed(1),
-      width: 500,
-      height: 400,
-      tables: {
-        "tabular.s2801_computer_internet_acs_m_noint": {
-          yearCol: "acs_year",
-          latestYearOnly: true,
-          columns: ["acs_year", "muni_id", "municipal", "nocmp_p", "nocmp_mp"],
-          specialFetch: async (municipality, dispatchUpdate) => {
-            // TODO: Maybe make backend improvement to prevent 3 requests here
-            let countyIdsApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&columns=county_id`;
-            countyIdsApi = `${countyIdsApi}&filters=muni_name~${municipality}`;
-            const countyIdResp = await fetch(countyIdsApi);
-            const countyIdData = (await countyIdResp.json()) || {};
-            const countyId = countyIdData.rows?.length ? countyIdData.rows[0].county_id : "unknown";
-
-            const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
-            const year = years.length ? years[0] : "unknown";
-
-            const columns = ["acs_year", "muni_id", "municipal", "nocmp", "nocmpm", "nocmp_p", "nocmp_mp"];
-            let mainDataApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=s2801_computer_internet_acs_m`;
-            mainDataApi = `${mainDataApi}&columns=${columns.join(",")}`;
-            mainDataApi = `${mainDataApi}&filters=acs_year:${year}`;
-            mainDataApi = `${mainDataApi}&orFilters=muni_id:${countyId},muni_id:353,municipal~${municipality}`;
-            const response = await fetch(mainDataApi);
-            if (!response.ok) {
-              throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            const payload = (await response.json()) || {};
-            const rows = payload.rows || [];
-
-            // Sort rows by muni_id ascending
-            rows.sort((a, b) => {
-              const aId = Number(a.muni_id);
-              const bId = Number(b.muni_id);
-              if (Number.isNaN(aId) || Number.isNaN(bId)) {
-                return 0;
-              }
-              return aId - bId;
-            });
-
-            dispatchUpdate(rows);
-          },
-        },
-      },
-      source: "American Community Survey (ACS)",
-      datasetLinks: {
-        "Computers and Internet Subscriptions (Municipal)": 455,
-      },
-      timeframe: async () => {
-        const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
-        return years[0] || "N/A";
-      },
-      transformer: (tables, chart) => {
-        const data = tables["tabular.s2801_computer_internet_acs_m_noint"];
-        if (!data || data.length < 1) {
-          return [{ value: 0, marginOfError: null }];
-        }
-        const row = data[0];
-        const noComputer = parseFloat(row.nocmp_p) || 0;
-        const marginOfError = row.nocmp_mp !== null && row.nocmp_mp !== undefined ? parseFloat(row.nocmp_mp) : null;
-        const value = Math.max(0, Math.min(100, noComputer));
-        const count = row.nocmp !== null && row.nocmp !== undefined ? parseFloat(row.nocmp) : null;
-        const countMarginOfError = row.nocmpm !== null && row.nocmpm !== undefined ? parseFloat(row.nocmpm) : null;
-        return [{ value, marginOfError, count, countMarginOfError }];
-      },
-      subregionDataQuery: async (subregionId) => {
-        const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
-        const year = years.length ? years[0] : "unknown";
-
-        const columns = ["acs_year", "muni_id", "municipal", "nocmp", "nocmpm", "nocmp_p", "nocmp_mp"];
-        let queryString = `&schema=tabular&table=s2801_computer_internet_acs_m&columns=${columns.join(",")}`;
-        queryString = `${queryString}&filters=acs_year:${year},muni_id:${subregionId}`;
-        return queryString;
-      },
-    },
-    internet_access: {
-      type: "gauge",
-      title: "Percent Household Has No Internet",
-      minValue: 0,
-      maxValue: 100,
-      valueColor: "#44aa44",
-      backgroundColor: "#e0e0e0",
-      showUnit: true,
-      unit: "%",
-      showLabels: true,
-      valueFormat: (d) => d.toFixed(1),
-      width: 500,
-      height: 400,
-      tables: {
-        "tabular.s2801_computer_internet_acs_m_no_internet": {
-          yearCol: "acs_year",
-          latestYearOnly: true,
-          columns: ["acs_year", "muni_id", "municipal", "noint_p", "noint_mp"],
-          specialFetch: async (municipality, dispatchUpdate) => {
-            // TODO: Maybe make backend improvement to prevent 3 requests here
-            let countyIdsApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&columns=county_id`;
-            countyIdsApi = `${countyIdsApi}&filters=muni_name~${municipality}`;
-            const countyIdResp = await fetch(countyIdsApi);
-            const countyIdData = (await countyIdResp.json()) || {};
-            const countyId = countyIdData.rows?.length ? countyIdData.rows[0].county_id : "unknown";
-
-            const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
-            const year = years.length ? years[0] : "unknown";
-
-            const columns = ["acs_year", "muni_id", "municipal", "noint", "nointm", "noint_p", "noint_mp"];
-            let mainDataApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=s2801_computer_internet_acs_m`;
-            mainDataApi = `${mainDataApi}&columns=${columns.join(",")}`;
-            mainDataApi = `${mainDataApi}&filters=acs_year:${year}`;
-            mainDataApi = `${mainDataApi}&orFilters=muni_id:${countyId},muni_id:353,municipal~${municipality}`;
-            const response = await fetch(mainDataApi);
-            if (!response.ok) {
-              throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            const payload = (await response.json()) || {};
-            const rows = payload.rows || [];
-
-            rows.sort((a, b) => {
-              const aId = Number(a.muni_id);
-              const bId = Number(b.muni_id);
-              if (Number.isNaN(aId) || Number.isNaN(bId)) {
-                return 0;
-              }
-              return aId - bId;
-            });
-            dispatchUpdate(rows);
-          },
-        },
-      },
-      source: "American Community Survey (ACS)",
-      datasetLinks: {
-        "Computers and Internet Subscriptions (Municipal)": 455,
-      },
-      timeframe: async () => {
-        const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
-        return years[0] || "N/A";
-      },
-      transformer: (tables, chart) => {
-        const data = tables["tabular.s2801_computer_internet_acs_m_no_internet"];
-        if (!data || data.length < 1) {
-          return [{ value: 0, marginOfError: null }];
-        }
-        const row = data[0];
-        const noInternet = row.noint_p !== null && row.noint_p !== undefined ? parseFloat(row.noint_p) : 0;
-        const marginOfError = row.noint_mp !== null && row.noint_mp !== undefined ? parseFloat(row.noint_mp) : null;
-        const value = isNaN(noInternet) ? 0 : Math.max(0, Math.min(100, noInternet));
-        const count = row.noint !== null && row.noint !== undefined ? parseFloat(row.noint) : null;
-        const countMarginOfError = row.nointm !== null && row.nointm !== undefined ? parseFloat(row.nointm) : null;
-        return [{ value, marginOfError, count, countMarginOfError }];
-      },
-      subregionDataQuery: async (subregionId) => {
-        const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
-        const year = years.length ? years[0] : "unknown";
-
-        const columns = ["acs_year", "muni_id", "municipal", "noint", "nointm", "noint_p", "noint_mp"];
-        let queryString = `&schema=tabular&table=s2801_computer_internet_acs_m&columns=${columns.join(",")}`;
-        queryString = `${queryString}&filters=acs_year:${year},muni_id:${subregionId}`;
-        return queryString;
-      },
-    },
-    smartphone_only: {
-      type: "gauge",
-      title: "Percent Has One or More Types of Computing Devices: Smartphone Only",
-      minValue: 0,
-      maxValue: 100,
-      valueColor: "#44aa44",
-      backgroundColor: "#e0e0e0",
-      showUnit: true,
-      unit: "%",
-      showLabels: true,
-      valueFormat: (d) => d.toFixed(1),
-      width: 500,
-      height: 400,
-      tables: {
-        "tabular.s2801_computer_internet_acs_m_smartphone": {
-          yearCol: "acs_year",
-          latestYearOnly: true,
-          columns: ["acs_year", "muni_id", "municipal", "moblo_p", "moblo_mp"],
-          specialFetch: async (municipality, dispatchUpdate) => {
-            // TODO: Maybe make backend improvement to prevent 3 requests here
-            let countyIdsApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&columns=county_id`;
-            countyIdsApi = `${countyIdsApi}&filters=muni_name~${municipality}`;
-            const countyIdResp = await fetch(countyIdsApi);
-            const countyIdData = (await countyIdResp.json()) || {};
-            const countyId = countyIdData.rows?.length ? countyIdData.rows[0].county_id : "unknown";
-
-            const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
-            const year = years.length ? years[0] : "unknown";
-
-            const columns = ["acs_year", "muni_id", "municipal", "moblo", "moblom", "moblo_p", "moblo_mp"];
-            let mainDataApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=s2801_computer_internet_acs_m`;
-            mainDataApi = `${mainDataApi}&columns=${columns.join(",")}`;
-            mainDataApi = `${mainDataApi}&filters=acs_year:${year}`;
-            mainDataApi = `${mainDataApi}&orFilters=muni_id:${countyId},muni_id:353,municipal~${municipality}`;
-            const response = await fetch(mainDataApi);
-            if (!response.ok) {
-              throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            const payload = (await response.json()) || {};
-            const rows = payload.rows || [];
-            rows.sort((a, b) => {
-              const aId = Number(a.muni_id);
-              const bId = Number(b.muni_id);
-              if (Number.isNaN(aId) || Number.isNaN(bId)) {
-                return 0;
-              }
-              return aId - bId;
-            });
-
-            dispatchUpdate(rows);
-          },
-        },
-      },
-      source: "American Community Survey (ACS)",
-      datasetLinks: {
-        "Computers and Internet Subscriptions (Municipal)": 455,
-      },
-      timeframe: async () => {
-        const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
-        return years[0] || "N/A";
-      },
-      transformer: (tables, chart) => {
-        const data = tables["tabular.s2801_computer_internet_acs_m_smartphone"];
-        if (!data || data.length < 1) {
-          return [{ value: 0, marginOfError: null }];
-        }
-        const row = data[0];
-        const smartphoneOnly = row.moblo_p !== null && row.moblo_p !== undefined ? parseFloat(row.moblo_p) : 0;
-        const marginOfError = row.moblo_mp !== null && row.moblo_mp !== undefined ? parseFloat(row.moblo_mp) : null;
-        const value = isNaN(smartphoneOnly) ? 0 : Math.max(0, Math.min(100, smartphoneOnly));
-        const marginOfErrorSafe = isNaN(marginOfError) ? null : marginOfError;
-        const count = row.moblo !== null && row.moblo !== undefined ? parseFloat(row.moblo) : null;
-        const countMarginOfError = row.moblom !== null && row.moblom !== undefined ? parseFloat(row.moblom) : null;
-        return [{ value, marginOfError: marginOfErrorSafe, count, countMarginOfError }];
-      },
-      subregionDataQuery: async (subregionId) => {
-        const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
-        const year = years.length ? years[0] : "unknown";
-
-        const columns = ["acs_year", "muni_id", "municipal", "moblo", "moblom", "moblo_p", "moblo_mp"];
-        let queryString = `&schema=tabular&table=s2801_computer_internet_acs_m&columns=${columns.join(",")}`;
-        queryString = `${queryString}&filters=acs_year:${year},muni_id:${subregionId}`;
-        return queryString;
-      },
-    },
-    internet_usage_by_income: {
-      type: "stacked-bar",
-      title: "Lack of Access to Internet by Income Level",
-      tooltip: { type: "percentAndCount" },
-      xAxis: {
-        label: "Household Income Level",
-        format: format.string.default,
-        sort: (a, b) => {
-          const order = ["Below $20000", "$20000 - $74999", "$75000+"];
-          return order.indexOf(a) - order.indexOf(b);
-        },
-      },
-      yAxis: {
-        label: "Percent of Household",
-        format: (d) => {
-          if (d == null || isNaN(d)) return "";
-          const num = Number(d);
-          return `${num.toFixed(1)}%`;
-        },
-      },
-      tables: {
-        // Use a dedicated cache key so we always fetch income columns (gauges use same table but different columns and would otherwise overwrite cache)
-        "tabular.s2801_computer_internet_acs_m_income": {
-          yearCol: "acs_year",
-          latestYearOnly: true,
-          columns: internetUsageByIncomeColumns,
-          specialFetch: async (municipality, dispatchUpdate) => {
-            const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
-            const year = years.length ? years[0] : "unknown";
-
-            let mainDataApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=s2801_computer_internet_acs_m`;
-            mainDataApi = `${mainDataApi}&columns=${internetUsageByIncomeColumns.join(",")}`;
-            mainDataApi = `${mainDataApi}&filters=acs_year:${year},municipal~${municipality}`;
-            const response = await fetch(mainDataApi);
-            if (!response.ok) {
-              throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            const payload = (await response.json()) || {};
-            dispatchUpdate(payload.rows || []);
-          },
-        },
-      },
-      labels: {
-        "dial-up only": "Dial-up only",
-        "no internet": "No internet",
-      },
-      datasetLinks: { "Computers and Internet Subscriptions (Municipal)": 455 },
-      source: "American Community Survey (ACS)",
-      timeframe: async () => {
-        const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
-        return years[0] ? formatYearRange(years[0]) : "N/A";
-      },
-      transformer: (tables, chart) => {
-        const data = tables["tabular.s2801_computer_internet_acs_m_income"];
-        if (!data || data.length < 1) {
-          return [];
-        }
-        const row = data[0];
-        const parse = (v) => {
-          if (v == null || v === "" || v === undefined) return 0;
-          const parsed = parseFloat(v);
-          return isNaN(parsed) ? 0 : parsed;
-        };
-        const parseMe = (v) => {
-          if (v == null || v === "" || v === undefined) return undefined;
-          const parsed = parseFloat(v);
-          return isNaN(parsed) ? undefined : parsed;
-        };
-        const categories = [
-          {
-            x: "Below $20000",
-            dialUp: "lt20dia_p",
-            noInternet: "lt20nin_p",
-            dialUpMe: "lt20dia_mp",
-            noInternetMe: "lt20nin_mp",
-            dialUpCount: "lt20dia",
-            noInternetCount: "lt20nin",
-            dialUpCountMe: "lt20diam",
-            noInternetCountMe: "lt20ninm",
-          },
-          {
-            x: "$20000 - $74999",
-            dialUp: "i2074di_p",
-            noInternet: "i2074ni_p",
-            dialUpMe: "i2074di_mp",
-            noInternetMe: "i2074ni_mp",
-            dialUpCount: "i2074di",
-            noInternetCount: "i2074ni",
-            dialUpCountMe: "i2074dim",
-            noInternetCountMe: "i2074nim",
-          },
-          {
-            x: "$75000+",
-            dialUp: "mt74dia_p",
-            noInternet: "mt74nin_p",
-            dialUpMe: "mt74dia_mp",
-            noInternetMe: "mt74nin_mp",
-            dialUpCount: "mt74dia",
-            noInternetCount: "mt74nin",
-            dialUpCountMe: "mt74diam",
-            noInternetCountMe: "mt74ninm",
-          },
-        ];
-        const dialUpLabel = chart.labels && chart.labels["dial-up only"] ? chart.labels["dial-up only"] : "Dial-up only";
-        const noInternetLabel = chart.labels && chart.labels["no internet"] ? chart.labels["no internet"] : "No internet";
-        const zOrder = { [dialUpLabel]: 0, [noInternetLabel]: 1 };
-        const parseCount = (v) => {
-          if (v == null || v === "" || v === undefined) return undefined;
-          const parsed = parseFloat(v);
-          return isNaN(parsed) ? undefined : parsed;
-        };
-        return categories.flatMap((cat) => [
-          {
-            x: cat.x,
-            y: parse(row[cat.dialUp]),
-            z: dialUpLabel,
-            order: zOrder[dialUpLabel],
-            me: parseMe(row[cat.dialUpMe]),
-            count: parseCount(row[cat.dialUpCount]),
-            countMarginOfError: parseCount(row[cat.dialUpCountMe]),
-          },
-          {
-            x: cat.x,
-            y: parse(row[cat.noInternet]),
-            z: noInternetLabel,
-            order: zOrder[noInternetLabel],
-            me: parseMe(row[cat.noInternetMe]),
-            count: parseCount(row[cat.noInternetCount]),
-            countMarginOfError: parseCount(row[cat.noInternetCountMe]),
-          },
-        ]);
-      },
-      subregionDataQuery: async (subregionId) => {
-        const selectList = internetUsageByIncomeColumns.join(",");
-        const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
-        const year = years.length ? years[0] : "unknown";
-
-        let queryString = `&schema=tabular&table=s2801_computer_internet_acs_m&columns=${selectList}`;
-        queryString = `${queryString}&filters=acs_year:${year},muni_id:${subregionId}`;
-        return queryString;
-      },
-    },
-    internet_subscription_types: {
-      type: "grouped-bar",
-      title: "Internet Subscription Types",
-      tooltip: { type: "percentAndCount" }, // Used by GroupedBarChart to format percent + margin-of-error + counts
-      xAxis: {
-        label: "Subscription Type",
-        format: format.string.default,
-        sort: (a, b) => {
-          const order = ["Broadband (Cable, DSL)", "Cellular Plan", "dial-up"];
-          return order.indexOf(a) - order.indexOf(b);
-        },
-      },
-      yAxis: {
-        label: "Percent (%)",
-        format: (d) => {
-          if (d == null || isNaN(d)) return "";
-          const num = Number(d);
-          return `${num.toFixed(1)}%`;
-        },
-      },
-      tables: {
-        "tabular.s2801_computer_internet_acs_m_subscription": {
-          yearCol: "acs_year",
-          latestYearOnly: false,
-          years: async () => {
-            const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 2);
-            return years;
-          },
-          columns: internetSubscriptionTypesColumns,
-          specialFetch: async (municipality, dispatchUpdate) => {
-            let mainDataApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=s2801_computer_internet_acs_m`;
-            mainDataApi = `${mainDataApi}&columns=${internetSubscriptionTypesColumns.join(",")}`;
-            mainDataApi = `${mainDataApi}&filters=municipal~${municipality}&limit=2&orderByColumn=acs_year&orderByDirection=DESC`;
-            const response = await fetch(mainDataApi);
-            if (!response.ok) {
-              throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            const payload = (await response.json()) || {};
-            dispatchUpdate(payload.rows || []);
-          },
-        },
-      },
-      labels: {
-        "2019-2023": "2019-2023",
-        "2020-2024": "2020-2024",
-      },
-      datasetLinks: { "Computers and Internet Subscriptions (Municipal)": 455 },
-      source: "American Community Survey (ACS)",
-      timeframe: async () => {
-        const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 2);
-        if (!years || years.length < 2) return "";
-        const [latest, previous] = years;
-        return `${previous} and ${latest}`;
-      },
-      transformer: (tables, chart) => {
-        const data = tables["tabular.s2801_computer_internet_acs_m_subscription"];
-        if (!data || data.length < 1) {
-          return [];
-        }
-        const formatYearRange = (yearStr) => {
-          if (yearStr === "2020-24") return "2020-2024";
-          if (yearStr === "2019-23") return "2019-2023";
-          const [start, end] = yearStr.split("-");
-          return `${start}-20${end}`;
-        };
-        const subscriptionTypes = [
-          {
-            x: "Broadband (Cable, DSL)",
-            column: "bbfib_p",
-            meColumn: "bbfib_mp",
-            countColumn: "bbfib",
-            countMeColumn: "bbfibm",
-          },
-          {
-            x: "Cellular Plan",
-            column: "cdpinto_p",
-            meColumn: "cdpinto_mp",
-            countColumn: "cdpinto",
-            countMeColumn: "cdpintom",
-          },
-          {
-            x: "dial-up",
-            column: "dialo_p",
-            meColumn: "dialo_mp",
-            countColumn: "dialo",
-            countMeColumn: "dialom",
-          },
-        ];
-        return data.flatMap((row) => {
-          const yearRange = formatYearRange(row.acs_year);
-          return subscriptionTypes.map((type) => ({
-            x: type.x,
-            y: row[type.column],
-            z: yearRange,
-            me: row[type.meColumn],
-            count: row[type.countColumn],
-            countMarginOfError: row[type.countMeColumn],
-            order: yearRange === "2020-2024" ? 0 : 1,
-          }));
-        });
-      },
-      subregionDataQuery: async (subregionId) => {
-        const selectList = internetSubscriptionTypesColumns.join(",");
-        let queryString = `&schema=tabular&table=s2801_computer_internet_acs_m&columns=${selectList}`;
-        queryString = `${queryString}&filters=muni_id:${subregionId}&orderByColumn=acs_year&orderByDirection=DESC&limit=2`;
-        return queryString;
-      },
-    },
-  },
   "municipal-finance": {
     bond_rating_sp: {
       type: "profile-metric",
@@ -2389,7 +2395,7 @@ export default {
         "tabular.muni_finance_m_bond_rating": {
           yearCol: "fiscal_yr",
           latestYearOnly: false,
-          columns: ["fiscal_yr", "municipal", "bnd_sprt"],
+          columns: ["municipal", "fiscal_yr", "bnd_sprt"],
           specialFetch: async (municipality, dispatchUpdate) => {
             let latestYearUrl = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
             latestYearUrl =` ${latestYearUrl}&columns=fiscal_yr&orderByColumn=fiscal_yr&orderByDirection=DESC&limit=1`;
@@ -2398,7 +2404,7 @@ export default {
             const yearPayload = (await yearResp.json()) || {};
             const latestYear = yearPayload.rows.length === 1 ? yearPayload.rows[0].fiscal_yr : 2023;
 
-            const columns = ["fiscal_yr", "municipal", "bnd_sprt"];
+            const columns = ["municipal", "fiscal_yr","bnd_sprt"];
             let url = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
             url = `${url}&columns=${columns.join(",")}&filters=municipal~${municipality},fiscal_yr:${latestYear}&limit=1`;
             const response = await fetch(url);
@@ -2442,7 +2448,7 @@ export default {
         "tabular.muni_finance_m_cpa_spending": {
           yearCol: "fiscal_yr",
           latestYearOnly: false,
-          columns: ["fiscal_yr", "municipal", "src_entcpa"],
+          columns: ["municipal", "fiscal_yr", "src_entcpa"],
           specialFetch: async (municipality, dispatchUpdate) => {
             let latestYearUrl = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
             latestYearUrl =` ${latestYearUrl}&columns=fiscal_yr&orderByColumn=fiscal_yr&orderByDirection=DESC&limit=1`;
@@ -2451,7 +2457,7 @@ export default {
             const yearPayload = (await yearResp.json()) || {};
             const latestYear = yearPayload.rows.length === 1 ? yearPayload.rows[0].fiscal_yr : 2023;
 
-            const columns = ["fiscal_yr", "municipal", "src_entcpa"];
+            const columns = ["municipal", "fiscal_yr", "src_entcpa"];
             let url = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
             url = `${url}&columns=${columns.join(",")}&filters=municipal~${municipality},fiscal_yr:${latestYear}&limit=1`;
             const response = await fetch(url);
@@ -2503,7 +2509,7 @@ export default {
         "tabular.muni_finance_m_total_employees": {
           yearCol: "fiscal_yr",
           latestYearOnly: false,
-          columns: ["fiscal_yr", "municipal", "fte_employ"],
+          columns: ["municipal", "fiscal_yr", "fte_employ"],
           specialFetch: async (municipality, dispatchUpdate) => {
             let latestYearUrl = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
             latestYearUrl =` ${latestYearUrl}&columns=fiscal_yr&orderByColumn=fiscal_yr&orderByDirection=DESC&limit=1`;
@@ -2512,7 +2518,7 @@ export default {
             const yearPayload = (await yearResp.json()) || {};
             const latestYear = yearPayload.rows.length === 1 ? yearPayload.rows[0].fiscal_yr : 2023;
 
-            const columns = ["fiscal_yr", "municipal", "fte_employ"];
+            const columns = ["municipal", "fiscal_yr", "fte_employ"];
             let url = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
             url = `${url}&columns=${columns.join(",")}&filters=municipal~${municipality},fiscal_yr:${latestYear}&limit=1`;
             const response = await fetch(url);
@@ -2573,7 +2579,7 @@ export default {
       tooltip: { type: "percentAndCount" },
       tables: {
         "tabular.muni_finance_m": (() => {
-          const columnList = ["fiscal_yr", "rev_total", "src_taxlvy", "src_state", "src_locrpt", "src_other", "src_entcpa"];
+          const columnList = ["municipal", "fiscal_yr", "rev_total", "src_taxlvy", "src_state", "src_locrpt", "src_other", "src_entcpa"];
           return {
             yearCol: "fiscal_yr",
             latestYearOnly: true,
