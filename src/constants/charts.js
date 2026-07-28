@@ -1025,14 +1025,30 @@ export default {
           yearCol: "acs_year",
           latestYearOnly: false,
           years: async () => {
-            const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 2);
-            return years;
+            let yearAPIReq = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=s2801_computer_internet_acs_m`;
+            yearAPIReq = `${yearAPIReq}&columns=acs_year`;
+            yearAPIReq = `${yearAPIReq}&limit=1&orderByColumn=acs_year&orderByDirection=DESC`;
+            const response = await fetch(yearAPIReq);
+            const payload = (await response.json()) || {};
+            const latestYear = payload?.rows?.length > 0 ? payload.rows[0].acs_year : '2020-24';
+            const [start, end] = latestYear.split('-');
+            const earliestYear = `${start- 5}-${end -5}`;
+            return [earliestYear, latestYear];
           },
           columns: internetSubscriptionTypesColumns,
           specialFetch: async (municipality, dispatchUpdate) => {
+            let yearAPIReq = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=s2801_computer_internet_acs_m`;
+            yearAPIReq = `${yearAPIReq}&columns=acs_year`;
+            yearAPIReq = `${yearAPIReq}&limit=1&orderByColumn=acs_year&orderByDirection=DESC`;
+            const yearResp = await fetch(yearAPIReq);
+            const yearPayload = (await yearResp.json()) || {};
+            const latestYear = yearPayload?.rows?.length > 0 ? yearPayload.rows[0].acs_year : '2020-24';
+            const [start, end] = latestYear.split('-');
+            const earliestYear = `${start- 5}-${end -5}`;
+
             let mainDataApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=s2801_computer_internet_acs_m`;
             mainDataApi = `${mainDataApi}&columns=${internetSubscriptionTypesColumns.join(",")}`;
-            mainDataApi = `${mainDataApi}&filters=municipal~${municipality}&limit=2&orderByColumn=acs_year&orderByDirection=DESC`;
+            mainDataApi = `${mainDataApi}&filters=municipal~${municipality},acs_year:${earliestYear},acs_year:${latestYear}&orderByColumn=acs_year&orderByDirection=DESC`;
             const response = await fetch(mainDataApi);
             if (!response.ok) {
               throw new Error(`HTTP error! status: ${response.status}`);
@@ -1049,19 +1065,24 @@ export default {
       datasetLinks: { "Computers and Internet Subscriptions (Municipal)": 455 },
       source: "American Community Survey (ACS)",
       timeframe: async () => {
-        const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 2);
-        if (!years || years.length < 2) return "";
-        const [latest, previous] = years;
-        return `${previous} and ${latest}`;
+        let yearAPIReq = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=s2801_computer_internet_acs_m`;
+        yearAPIReq = `${yearAPIReq}&columns=acs_year`;
+        yearAPIReq = `${yearAPIReq}&limit=1&orderByColumn=acs_year&orderByDirection=DESC`;
+        const response = await fetch(yearAPIReq);
+        const payload = (await response.json()) || {};
+        const latestYear = payload?.rows?.length > 0 ? payload.rows[0].acs_year : '2020-24';
+        const [start, end] = latestYear.split('-');
+        const earliestYear = `${start- 5}-${end -5}`;
+        return `${earliestYear} and ${latestYear}`;
       },
       transformer: (tables, chart) => {
         const data = tables["tabular.s2801_computer_internet_acs_m_subscription"];
-        if (!data || data.length < 1) {
+        if (!data || data.length == 0) {
           return [];
         }
+
+        // const firstAndLastData = [data[0], data[data.length - 1]];
         const formatYearRange = (yearStr) => {
-          if (yearStr === "2020-24") return "2020-2024";
-          if (yearStr === "2019-23") return "2019-2023";
           const [start, end] = yearStr.split("-");
           return `${start}-20${end}`;
         };
