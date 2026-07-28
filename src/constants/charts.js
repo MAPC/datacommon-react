@@ -66,15 +66,6 @@ const getFormattedYearRange = async (schema, table, yearCol, limit, orderDir) =>
   return formatYearRange(latestYear);
 };
 
-const formatMuniName = (muniName) => {
-  // manchester-by-the-sea includes hyphens, all other munis should replace hyphens with spaces
-  if (muniName.toLowerCase() === 'manchester-by-the-sea') {
-    return 'Manchester-by-the-Sea';
-  } else {
-    return muniName.replace("-", " ");
-  }
-}
-
 const eduAttainmentByRaceColumns = [
   "acs_year",
   "nhwlh",
@@ -1903,9 +1894,8 @@ export default {
           columns: ["acs_year", "muni_id", "municipal", "nocmp_p", "nocmp_mp"],
           specialFetch: async (municipality, dispatchUpdate) => {
             // TODO: Maybe make backend improvement to prevent 3 requests here
-            const municipalityFormatted = formatMuniName(municipality);
             let countyIdsApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&columns=county_id`;
-            countyIdsApi = `${countyIdsApi}&filters=muni_name~${municipalityFormatted}`;
+            countyIdsApi = `${countyIdsApi}&filters=muni_name~${municipality}`;
             const countyIdResp = await fetch(countyIdsApi);
             const countyIdData = (await countyIdResp.json()) || {};
             const countyId = countyIdData.rows?.length ? countyIdData.rows[0].county_id : "unknown";
@@ -1917,7 +1907,7 @@ export default {
             let mainDataApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=s2801_computer_internet_acs_m`;
             mainDataApi = `${mainDataApi}&columns=${columns.join(",")}`;
             mainDataApi = `${mainDataApi}&filters=acs_year:${year}`;
-            mainDataApi = `${mainDataApi}&orFilters=muni_id:${countyId},muni_id:353,municipal~${municipalityFormatted}%`;
+            mainDataApi = `${mainDataApi}&orFilters=muni_id:${countyId},muni_id:353,municipal~${municipality}`;
             const response = await fetch(mainDataApi);
             if (!response.ok) {
               throw new Error(`HTTP error! status: ${response.status}`);
@@ -1990,9 +1980,8 @@ export default {
           columns: ["acs_year", "muni_id", "municipal", "noint_p", "noint_mp"],
           specialFetch: async (municipality, dispatchUpdate) => {
             // TODO: Maybe make backend improvement to prevent 3 requests here
-            const municipalityFormatted = formatMuniName(municipality);
             let countyIdsApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&columns=county_id`;
-            countyIdsApi = `${countyIdsApi}&filters=muni_name~${municipalityFormatted}`;
+            countyIdsApi = `${countyIdsApi}&filters=muni_name~${municipality}`;
             const countyIdResp = await fetch(countyIdsApi);
             const countyIdData = (await countyIdResp.json()) || {};
             const countyId = countyIdData.rows?.length ? countyIdData.rows[0].county_id : "unknown";
@@ -2004,7 +1993,7 @@ export default {
             let mainDataApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=s2801_computer_internet_acs_m`;
             mainDataApi = `${mainDataApi}&columns=${columns.join(",")}`;
             mainDataApi = `${mainDataApi}&filters=acs_year:${year}`;
-            mainDataApi = `${mainDataApi}&orFilters=muni_id:${countyId},muni_id:353,municipal~${municipalityFormatted}%`;
+            mainDataApi = `${mainDataApi}&orFilters=muni_id:${countyId},muni_id:353,municipal~${municipality}`;
             const response = await fetch(mainDataApi);
             if (!response.ok) {
               throw new Error(`HTTP error! status: ${response.status}`);
@@ -2075,9 +2064,8 @@ export default {
           columns: ["acs_year", "muni_id", "municipal", "moblo_p", "moblo_mp"],
           specialFetch: async (municipality, dispatchUpdate) => {
             // TODO: Maybe make backend improvement to prevent 3 requests here
-            const municipalityFormatted = formatMuniName(municipality);
             let countyIdsApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&columns=county_id`;
-            countyIdsApi = `${countyIdsApi}&filters=muni_name~${municipalityFormatted}`;
+            countyIdsApi = `${countyIdsApi}&filters=muni_name~${municipality}`;
             const countyIdResp = await fetch(countyIdsApi);
             const countyIdData = (await countyIdResp.json()) || {};
             const countyId = countyIdData.rows?.length ? countyIdData.rows[0].county_id : "unknown";
@@ -2089,7 +2077,7 @@ export default {
             let mainDataApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=s2801_computer_internet_acs_m`;
             mainDataApi = `${mainDataApi}&columns=${columns.join(",")}`;
             mainDataApi = `${mainDataApi}&filters=acs_year:${year}`;
-            mainDataApi = `${mainDataApi}&orFilters=muni_id:${countyId},muni_id:353,municipal~${municipalityFormatted}%`;
+            mainDataApi = `${mainDataApi}&orFilters=muni_id:${countyId},muni_id:353,municipal~${municipality}`;
             const response = await fetch(mainDataApi);
             if (!response.ok) {
               throw new Error(`HTTP error! status: ${response.status}`);
@@ -2168,13 +2156,12 @@ export default {
           latestYearOnly: true,
           columns: internetUsageByIncomeColumns,
           specialFetch: async (municipality, dispatchUpdate) => {
-            const municipalityFormatted = formatMuniName(municipality);;
             const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
             const year = years.length ? years[0] : "unknown";
 
             let mainDataApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=s2801_computer_internet_acs_m`;
             mainDataApi = `${mainDataApi}&columns=${internetUsageByIncomeColumns.join(",")}`;
-            mainDataApi = `${mainDataApi}&filters=acs_year:${year},municipal~${municipalityFormatted}%`;
+            mainDataApi = `${mainDataApi}&filters=acs_year:${year},municipal~${municipality}`;
             const response = await fetch(mainDataApi);
             if (!response.ok) {
               throw new Error(`HTTP error! status: ${response.status}`);
@@ -2314,11 +2301,9 @@ export default {
           },
           columns: internetSubscriptionTypesColumns,
           specialFetch: async (municipality, dispatchUpdate) => {
-            const municipalityFormatted = formatMuniName(municipality);;
-
             let mainDataApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=s2801_computer_internet_acs_m`;
             mainDataApi = `${mainDataApi}&columns=${internetSubscriptionTypesColumns.join(",")}`;
-            mainDataApi = `${mainDataApi}&filters=municipal~${municipalityFormatted}%&limit=2&orderByColumn=acs_year&orderByDirection=DESC`;
+            mainDataApi = `${mainDataApi}&filters=municipal~${municipality}&limit=2&orderByColumn=acs_year&orderByDirection=DESC`;
             const response = await fetch(mainDataApi);
             if (!response.ok) {
               throw new Error(`HTTP error! status: ${response.status}`);
@@ -2683,7 +2668,7 @@ export default {
 
               let mainDataApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
               mainDataApi = `${mainDataApi}&columns=${selectList}`;
-              mainDataApi = `${mainDataApi}&filters=fiscal_yr:${latestYear},municipal~${muniName}%`;
+              mainDataApi = `${mainDataApi}&filters=fiscal_yr:${latestYear},municipal~${muniName}`;
 
               const response = await fetch(mainDataApi);
               if (!response.ok) {
@@ -2775,7 +2760,7 @@ export default {
 
               let mainDataApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=econ_municipal_taxes_revenue_m`;
               mainDataApi = `${mainDataApi}&columns=${selectList}`;
-              mainDataApi = `${mainDataApi}&filters=fy:${latestYear},municipal~${muniName}%`;
+              mainDataApi = `${mainDataApi}&filters=fy:${latestYear},municipal~${muniName}`;
 
               const response = await fetch(mainDataApi);
               if (!response.ok) {
@@ -2848,7 +2833,7 @@ export default {
 
             let mainDataApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
             mainDataApi = `${mainDataApi}&columns=${selectList}`;
-            mainDataApi = `${mainDataApi}&filters=municipal~${muniName}%`;
+            mainDataApi = `${mainDataApi}&filters=municipal~${muniName}`;
 
             const response = await fetch(mainDataApi);
             if (!response.ok) {
@@ -2917,7 +2902,7 @@ export default {
 
             let mainDataApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
             mainDataApi = `${mainDataApi}&columns=${selectList}`;
-            mainDataApi = `${mainDataApi}&filters=municipal~${muniName}%`;
+            mainDataApi = `${mainDataApi}&filters=municipal~${muniName}`;
 
             const response = await fetch(mainDataApi);
             if (!response.ok) {
