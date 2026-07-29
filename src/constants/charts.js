@@ -2557,12 +2557,12 @@ export default {
       treemapExternalLabels: true,
       treemapMinLabelWidth: 88,
       treemapMinLabelHeight: 52,
-      // Five distinct colors; use green instead of yellow for readable white labels.
+      // Five CVD-friendlier colors: keep blue/cyan/green/dark red; use orange instead of pink/red.
       colors: [
         colors.CHART.PRIMARY.get("BLUE"),
         colors.CHART.PRIMARY.get("CYAN"),
         colors.CHART.PRIMARY.get("GREEN"),
-        colors.CHART.PRIMARY.get("PINK"),
+        "#C2410C",
         colors.CHART.PRIMARY.get("DARK_RED"),
       ],
       valueFormatter: (v) => {
