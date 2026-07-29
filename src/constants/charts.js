@@ -2914,13 +2914,12 @@ export default {
         }
 
         const filtered = respData.filter(row => row.p2h_taxlvy || row.p2h_exlvyc || row.p2h_ovrcap || row.p2h_lc)
-
         const mappedData = [];
         filtered.forEach(row => {
           mappedData.push({ x: row.fiscal_yr, y: row.p2h_taxlvy, z: "Total Tax Levy", order: 1});
           mappedData.push({ x: row.fiscal_yr, y: row.p2h_exlvyc, z: "Excess Levy Limit", order: 2});
           mappedData.push({ x: row.fiscal_yr, y: row.p2h_ovrcap, z: "Override Capacity", order: 3});
-          // mappedData.push({ x: row.fiscal_yr, y: row.p2h_lc, z: "Levy Ceiling", order: 4});
+          mappedData.push({ x: row.fiscal_yr, y: row.p2h_lc, z: "Levy Ceiling", order: 4, type: 'dashed-line'});
         });
         
         return mappedData;
