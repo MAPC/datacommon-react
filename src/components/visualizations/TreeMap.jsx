@@ -581,11 +581,17 @@ class TreeMap extends React.Component {
         this.tooltip.style("opacity", 0);
       });
 
-    if (!externalLabels) {
-      leaves.each(function (d) {
-        appendTileText(d3.select(this), getTileTextLayout(d, formatValue), getTextColor(d.data));
-      });
-    }
+    // Show title + amount inside tiles that are large enough; small tiles rely on legend/tooltip.
+    const minLabelWidth =
+      chart && Number.isFinite(chart.treemapMinLabelWidth) ? chart.treemapMinLabelWidth : 88;
+    const minLabelHeight =
+      chart && Number.isFinite(chart.treemapMinLabelHeight) ? chart.treemapMinLabelHeight : 52;
+    leaves.each(function (d) {
+      const w = tileWidth(d);
+      const h = tileHeight(d);
+      if (externalLabels && (w < minLabelWidth || h < minLabelHeight)) return;
+      appendTileText(d3.select(this), getTileTextLayout(d, formatValue), getTextColor(d.data));
+    });
   }
 
   render() {
