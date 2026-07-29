@@ -1214,12 +1214,6 @@ export default {
         return transformedData;
       },
       subregionDataQuery: async (subregionId) => {
-        // const columns = ["municipal", "acs_year", "emp", "emp_me", "emp_p", "emp_mep", "unemp", "unemp_me", "unemp_p", "unemp_mep", "clf", "clf_me", "clf_p", "clf_mep"];
-        // let urlQueryParams = `&schema=tabular&table=b23025_employment_acs_m&columns=${columns.join(",")}`;
-        // urlQueryParams = `${urlQueryParams}&orderByColumn=acs_year&orderByDirection=DESC&limit=2`;
-        // urlQueryParams = `${urlQueryParams}&filters=muni_id:${subregionId}`;
-        // return urlQueryParams;
-
         let yearAPIReq = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=b23025_employment_acs_m`;
         yearAPIReq = `${yearAPIReq}&columns=acs_year`;
         yearAPIReq = `${yearAPIReq}&limit=1&orderByColumn=acs_year&orderByDirection=DESC`;

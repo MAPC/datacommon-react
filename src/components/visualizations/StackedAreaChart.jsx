@@ -190,8 +190,8 @@ class StackedAreaChart extends React.Component {
         .attr("class", "line")
         .attr("fill", "none")
         .attr("stroke", dashColor)
-        .attr("stroke-width", 4)
-        .style("stroke-dasharray", ("3, 3"));
+        .attr("stroke-width", 3)
+        .style("stroke-dasharray", ("5, 2"));
     }
   
     // Add axes
@@ -223,7 +223,8 @@ class StackedAreaChart extends React.Component {
 
     // Update legend
     this.legend.selectAll("*").remove();
-    drawLegend(this.legend, this.color, keys);
+    const dashedLineKeys = new Set(dashedLineData.map(d => d.z));
+    drawLegend(this.legend, this.color, keys, null, [...dashedLineKeys]);
   }
 
   renderBlankChart() {
