@@ -251,6 +251,23 @@ const commuteToWorkColumns = [
   "other_me",
 ];
 
+const residentEmploymentColumns = [
+  "municipal",
+  "acs_year",
+  "emp",
+  "emp_me",
+  "emp_p",
+  "emp_mep",
+  "unemp",
+  "unemp_me",
+  "unemp_p",
+  "unemp_mep",
+  "clf",
+  "clf_me",
+  "clf_p",
+  "clf_mep"
+];
+
 const internetUsageByIncomeColumns = [
   "municipal",
   "acs_year",
@@ -1022,19 +1039,6 @@ export default {
       },
       tables: {
         "tabular.s2801_computer_internet_acs_m_subscription": {
-          yearCol: "acs_year",
-          latestYearOnly: false,
-          years: async () => {
-            let yearAPIReq = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=s2801_computer_internet_acs_m`;
-            yearAPIReq = `${yearAPIReq}&columns=acs_year`;
-            yearAPIReq = `${yearAPIReq}&limit=1&orderByColumn=acs_year&orderByDirection=DESC`;
-            const response = await fetch(yearAPIReq);
-            const payload = (await response.json()) || {};
-            const latestYear = payload?.rows?.length > 0 ? payload.rows[0].acs_year : '2020-24';
-            const [start, end] = latestYear.split('-');
-            const earliestYear = `${start- 5}-${end -5}`;
-            return [earliestYear, latestYear];
-          },
           columns: internetSubscriptionTypesColumns,
           specialFetch: async (municipality, dispatchUpdate) => {
             let yearAPIReq = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=s2801_computer_internet_acs_m`;
@@ -1057,10 +1061,6 @@ export default {
             dispatchUpdate(payload.rows || []);
           },
         },
-      },
-      labels: {
-        "2019-2023": "2019-2023",
-        "2020-2024": "2020-2024",
       },
       datasetLinks: { "Computers and Internet Subscriptions (Municipal)": 455 },
       source: "American Community Survey (ACS)",
@@ -1123,9 +1123,19 @@ export default {
         });
       },
       subregionDataQuery: async (subregionId) => {
+        let yearAPIReq = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=s2801_computer_internet_acs_m`;
+        yearAPIReq = `${yearAPIReq}&columns=acs_year`;
+        yearAPIReq = `${yearAPIReq}&limit=1&orderByColumn=acs_year&orderByDirection=DESC`;
+        const yearResp = await fetch(yearAPIReq);
+        const yearPayload = (await yearResp.json()) || {};
+        const latestYear = yearPayload?.rows?.length > 0 ? yearPayload.rows[0].acs_year : '2020-24';
+        const [start, end] = latestYear.split('-');
+        const earliestYear = `${start- 5}-${end -5}`;
+        
         const selectList = internetSubscriptionTypesColumns.join(",");
         let queryString = `&schema=tabular&table=s2801_computer_internet_acs_m&columns=${selectList}`;
-        queryString = `${queryString}&filters=muni_id:${subregionId}&orderByColumn=acs_year&orderByDirection=DESC&limit=2`;
+        queryString = `${queryString}&filters=muni_id:${subregionId},acs_year:${earliestYear},acs_year:${latestYear}`;
+        queryString = `${queryString}&orderByColumn=acs_year&orderByDirection=DESC`;
         return queryString;
       },
     },
@@ -1139,12 +1149,28 @@ export default {
       yAxis: { label: "Population", format: format.number.localeString },
       tables: {
         "tabular.b23025_employment_acs_m": {
-          yearCol: "acs_year",
-          years: async () => {
-            const years = await fetchYears("tabular", "b23025_employment_acs_m", "acs_year", 2);
-            return years;
+          columns: residentEmploymentColumns,
+          yearCol: 'acs_year',
+          specialFetch: async (municipality, dispatchUpdate) => {
+            let yearAPIReq = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=b23025_employment_acs_m`;
+            yearAPIReq = `${yearAPIReq}&columns=acs_year`;
+            yearAPIReq = `${yearAPIReq}&limit=1&orderByColumn=acs_year&orderByDirection=DESC`;
+            const yearResp = await fetch(yearAPIReq);
+            const yearPayload = (await yearResp.json()) || {};
+            const latestYear = yearPayload?.rows?.length > 0 ? yearPayload.rows[0].acs_year : '2020-24';
+            const [start, end] = latestYear.split('-');
+            const earliestYear = `${start- 5}-${end -5}`;
+
+            let mainDataApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=b23025_employment_acs_m`;
+            mainDataApi = `${mainDataApi}&columns=${residentEmploymentColumns.join(",")}`;
+            mainDataApi = `${mainDataApi}&filters=municipal~${municipality},acs_year:${earliestYear},acs_year:${latestYear}&orderByColumn=acs_year&orderByDirection=DESC`;
+            const response = await fetch(mainDataApi);
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const payload = (await response.json()) || {};
+            dispatchUpdate(payload.rows || []);
           },
-          columns: ["municipal", "acs_year", "emp", "emp_me", "emp_p", "emp_mep", "unemp", "unemp_me", "unemp_p", "unemp_mep", "clf", "clf_me", "clf_p", "clf_mep"],
         },
       },
       labels: {
@@ -1153,17 +1179,15 @@ export default {
       },
       source: "American Community Survey",
       timeframe: async () => {
-        const years = await fetchYears("tabular", "b23025_employment_acs_m", "acs_year", 2);
-        if (!years || years.length < 2) return "";
-        const [latest, previous] = years;
-
-        // Convert year ranges from '2019-23' format to '2019-2023 5-Year Estimates' format
-        const formatYearRange = (yearStr) => {
-          const [start, end] = yearStr.split("-");
-          return `${start}-20${end}`;
-        };
-
-        return `${formatYearRange(previous)} and ${formatYearRange(latest)} 5-Year Estimates`;
+        let yearAPIReq = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=b23025_employment_acs_m`;
+        yearAPIReq = `${yearAPIReq}&columns=acs_year`;
+        yearAPIReq = `${yearAPIReq}&limit=1&orderByColumn=acs_year&orderByDirection=DESC`;
+        const response = await fetch(yearAPIReq);
+        const payload = (await response.json()) || {};
+        const latestYear = payload?.rows?.length > 0 ? payload.rows[0].acs_year : '2020-24';
+        const [start, end] = latestYear.split('-');
+        const earliestYear = `${start- 5}-${end -5}`;
+        return `${earliestYear} and ${latestYear} 5-Year Estimates`;
       },
       datasetLinks: { "Labor Force (Municipal)": 129 },
       transformer: (tables, chart) => {
@@ -1171,7 +1195,7 @@ export default {
         if (empData.length < 1) {
           return [];
         }
-        return empData.reduce(
+        const transformedData = empData.reduce(
           (acc, row) =>
             acc.concat(
               Object.keys(chart.labels).map((key) => ({
@@ -1187,13 +1211,28 @@ export default {
             ),
           [],
         );
+        return transformedData;
       },
-      subregionDataQuery: (subregionId) => {
-        const columns = ["municipal", "acs_year", "emp", "emp_me", "emp_p", "emp_mep", "unemp", "unemp_me", "unemp_p", "unemp_mep", "clf", "clf_me", "clf_p", "clf_mep"];
-        let urlQueryParams = `&schema=tabular&table=b23025_employment_acs_m&columns=${columns.join(",")}`;
-        urlQueryParams = `${urlQueryParams}&orderByColumn=acs_year&orderByDirection=DESC&limit=2`;
-        urlQueryParams = `${urlQueryParams}&filters=muni_id:${subregionId}`;
-        return urlQueryParams;
+      subregionDataQuery: async (subregionId) => {
+        // const columns = ["municipal", "acs_year", "emp", "emp_me", "emp_p", "emp_mep", "unemp", "unemp_me", "unemp_p", "unemp_mep", "clf", "clf_me", "clf_p", "clf_mep"];
+        // let urlQueryParams = `&schema=tabular&table=b23025_employment_acs_m&columns=${columns.join(",")}`;
+        // urlQueryParams = `${urlQueryParams}&orderByColumn=acs_year&orderByDirection=DESC&limit=2`;
+        // urlQueryParams = `${urlQueryParams}&filters=muni_id:${subregionId}`;
+        // return urlQueryParams;
+
+        let yearAPIReq = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=b23025_employment_acs_m`;
+        yearAPIReq = `${yearAPIReq}&columns=acs_year`;
+        yearAPIReq = `${yearAPIReq}&limit=1&orderByColumn=acs_year&orderByDirection=DESC`;
+        const yearResp = await fetch(yearAPIReq);
+        const yearPayload = (await yearResp.json()) || {};
+        const latestYear = yearPayload?.rows?.length > 0 ? yearPayload.rows[0].acs_year : '2020-24';
+        const [start, end] = latestYear.split('-');
+        const earliestYear = `${start- 5}-${end -5}`;
+
+        let mainDataApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=b23025_employment_acs_m`;
+        mainDataApi = `${mainDataApi}&columns=${residentEmploymentColumns.join(",")}`;
+        mainDataApi = `${mainDataApi}&filters=muni_id:${subregionId},acs_year:${earliestYear},acs_year:${latestYear}&orderByColumn=acs_year&orderByDirection=DESC`;
+        return mainDataApi;
       },
     },
     emp_by_sector: {
