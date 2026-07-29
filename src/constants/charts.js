@@ -2558,11 +2558,19 @@ export default {
     fund_revenue: {
       type: "tree-map",
       title: "Fund Revenue Breakdown",
-      // Color blocks only; labels/amounts live in the legend. Area is equal to dollar value.
+      // Area ∝ dollars. Large tiles show title + amount; small ones use legend/tooltip.
       treemapTrueProportions: true,
       treemapExternalLabels: true,
-      // Five revenue categories need five distinct colors
-      colors: Array.from(colors.CHART.PRIMARY.values()).slice(-5),
+      treemapMinLabelWidth: 88,
+      treemapMinLabelHeight: 52,
+      // Five distinct colors; use green instead of yellow for readable white labels.
+      colors: [
+        colors.CHART.PRIMARY.get("BLUE"),
+        colors.CHART.PRIMARY.get("CYAN"),
+        colors.CHART.PRIMARY.get("GREEN"),
+        colors.CHART.PRIMARY.get("PINK"),
+        colors.CHART.PRIMARY.get("DARK_RED"),
+      ],
       valueFormatter: (v) => {
         const n = typeof v === "number" ? v : Number(v);
         if (!Number.isFinite(n)) return "—";
@@ -2630,7 +2638,7 @@ export default {
           {
             summaryOnly: true,
             key: "tot_rev_display",
-            label: "Total Revenue",
+            label: "Total Receipts",
             value: totRev,
             group: "Fund Revenue",
           },
