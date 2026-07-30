@@ -31,12 +31,7 @@ export function buildBulkExportTableEntry(tableConfig) {
 
 /** @param {object[]} tables */
 export function buildInitialYearsByTable(tables) {
-  return Object.fromEntries(
-    tables.map(({ table, defaultSelectedYears, yearColumn }) => [
-      table,
-      yearColumn ? [...(defaultSelectedYears || [])] : [],
-    ]),
-  );
+  return Object.fromEntries(tables.map(({ table }) => [table, []]));
 }
 
 /**
