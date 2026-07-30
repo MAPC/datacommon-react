@@ -5,7 +5,7 @@ import PropTypes from "prop-types";
 import SearchBar from "../components/partials/SearchBar";
 import capitalize from "../utils/capitalize";
 import { fetchDatasets } from "../reducers/datasetSlice";
-import { getTableDisplayInfo, tableHasYearFilter } from "../constants/bulkDownloadBundles";
+import { getTableDisplayInfo } from "../constants/bulkDownloadBundles";
 import {
   downloadBlob,
   requestBulkExport,
@@ -13,8 +13,6 @@ import {
   BULK_DOWNLOAD_EXPORT_FAILED,
   BULK_DOWNLOAD_EXPORT_FAILED_MESSAGE,
 } from "../utils/bulkDownloadApi";
-import { resolveDefaultSelectedYears } from "../utils/bulkDownloadYears";
-
 const YearPill = ({ year, selected, onToggle, disabled = false }) => (
   <button
     type="button"
@@ -118,10 +116,14 @@ const BulkDownloadBundlePage = () => {
   const [availableYearsByTable, setAvailableYearsByTable] = useState({});
   const [selectedYearsByTable, setSelectedYearsByTable] = useState({});
   const [yearsLoading, setYearsLoading] = useState(true);
-  const [downloadFormat, setDownloadFormat] = useState("zip");
+  const [downloadFormat, setDownloadFormat] = useState(bundleId === "housing" ? "xlsx" : "zip");
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState("");
   const [downloadStatus, setDownloadStatus] = useState("");
+
+  useEffect(() => {
+    setDownloadFormat(bundleId === "housing" ? "xlsx" : "zip");
+  }, [bundleId]);
 
   useEffect(() => {
     if (status === "idle") {
@@ -147,14 +149,7 @@ const BulkDownloadBundlePage = () => {
           const selected = {};
           result.tables.forEach((tableConfig) => {
             available[tableConfig.table] = tableConfig.availableYears || [];
-            if (!tableHasYearFilter(tableConfig)) {
-              selected[tableConfig.table] = [];
-              return;
-            }
-            selected[tableConfig.table] = resolveDefaultSelectedYears(
-              tableConfig.defaultSelectedYears,
-              available[tableConfig.table],
-            );
+            selected[tableConfig.table] = [];
           });
 
           setBundle(result);
@@ -370,7 +365,7 @@ const BulkDownloadBundlePage = () => {
                 </div>
               </div>
               <p className="bulk-download__hint">
-                All tables are selected by default, and recommended years are pre-selected. You can change the selected years and tables.
+                All tables are selected by default. Select the years you want for each table, or leave years unselected to include all available years.
               </p>
               <ul className="bulk-download__table-list">
                 {bundle.tables.map((tableConfig) => {
