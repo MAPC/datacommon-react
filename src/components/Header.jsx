@@ -1,5 +1,7 @@
-import React from "react";
+import axios from "axios";
+import React, { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
+
 import logoImg from "../assets/images/logo.svg";
 
 function handleActivePage(subdirectory, link = "/home") {
@@ -13,8 +15,53 @@ function handleActivePage(subdirectory, link = "/home") {
   return null;
 }
 
+// coppied from https://www.w3schools.com/js/js_cookies.asp
+function getCookie(cname) {
+  let name = cname + "=";
+  let decodedCookie = decodeURIComponent(document.cookie);
+  let ca = decodedCookie.split(';');
+  for(let i = 0; i <ca.length; i++) {
+    let c = ca[i];
+    while (c.charAt(0) == ' ') {
+      c = c.substring(1);
+    }
+    if (c.indexOf(name) == 0) {
+      return c.substring(name.length, c.length);
+    }
+  }
+  return "";
+}
+
 const Header = () => {
+  const [userName, setUserName] = useState(null);
   const location = useLocation();
+
+  useEffect(() => {
+    // If the user has a login cookie set, fetch their name to display in the Icon.
+    const cookie = getCookie('datacommon_mapc_token');
+    if (cookie) {
+      axios.get("/api/users/me")
+        .then(res => {
+          if (res.data?.user?.name) {
+            setUserName(res.data.user.name);
+          } else {
+            setUserName(null);
+          }
+        }).catch(err => {
+          setUserName(null);
+        });
+    }
+  }, [location.pathname]);
+
+  const initialsString = useMemo(() => {
+    if (!userName) {
+      return '';
+    }
+
+    const words = userName.split(" ");
+    const letters = words.map(w => w.length > 0 ? w[0] : '');
+    return letters.join('');
+  }, [userName]);
 
   return (
     <header className="container">
@@ -70,6 +117,13 @@ const Header = () => {
           </ul>
         </div>
       </nav>
+      {userName && 
+        <div className="header-user-icon-container">
+          <div className="header-user-icon">
+            {initialsString}
+          </div>
+        </div>
+      }
     </header>
   );
 };
