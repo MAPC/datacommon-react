@@ -2,6 +2,8 @@ header {
   background: $color_bg-light;
   padding: 16px 0 10px;
   width: 100%;
+  display: flex;
+  align-items: center;
 
   nav {
     flex: 1 0;
@@ -19,6 +21,27 @@ header {
         }
       }
     }
+  }
+
+  .header-user-icon-container {
+    width: 45px;
+    height: 45px;
+    border-radius: 45px;
+    background: #1F4E46;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    cursor: pointer;
+
+    &:hover {
+      background: #2e5e56;
+    }
+  }
+
+  .header-user-icon {
+    top: -2px;
   }
 
   .header-brand {
