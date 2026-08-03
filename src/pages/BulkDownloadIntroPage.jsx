@@ -71,17 +71,36 @@ const BulkDownloadIntroPage = () => {
           <p className="bulk-download__hint">No download topics are available right now.</p>
         )}
         <ul className="bulk-download__bundle-grid">
-          {bundles.map((bundle) => (
-            <li key={bundle.id} className="bulk-download__bundle-card">
-              <Link to={`/browser/bulk-download/${bundle.id}`} className="bulk-download__bundle-link">
+          {bundles.map((bundle) => {
+            const isAvailable = bundle.tables.length > 0;
+            const content = (
+              <>
                 <h2>{bundle.title}</h2>
                 <p>{bundle.description}</p>
                 <span className="bulk-download__bundle-meta">
-                  {bundle.tables.length} tables · {bundle.geographyType === "municipality" ? "Municipality" : bundle.geographyType}
+                  {isAvailable
+                    ? `${bundle.tables.length} tables · ${
+                        bundle.geographyType === "municipality" ? "Municipality" : bundle.geographyType
+                      }`
+                    : "Coming soon"}
                 </span>
-              </Link>
-            </li>
-          ))}
+              </>
+            );
+
+            return (
+              <li key={bundle.id} className="bulk-download__bundle-card">
+                {isAvailable ? (
+                  <Link to={`/browser/bulk-download/${bundle.id}`} className="bulk-download__bundle-link">
+                    {content}
+                  </Link>
+                ) : (
+                  <div className="bulk-download__bundle-link bulk-download__bundle-link--disabled" aria-disabled="true">
+                    {content}
+                  </div>
+                )}
+              </li>
+            );
+          })}
         </ul>
       </div>
     </section>
