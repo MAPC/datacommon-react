@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import PropTypes from "prop-types";
 import { useLocation } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEllipsisVertical, faShareNodes, faTable } from "@fortawesome/free-solid-svg-icons";
+import { faEllipsisVertical, faMap, faShareNodes, faTable } from "@fortawesome/free-solid-svg-icons";
 import { faMessage } from "@fortawesome/free-regular-svg-icons";
 
 import { formatUpdated } from "../../utils/formatUpdated";
@@ -11,11 +11,11 @@ import EmbedTableModal from "./EmbedTableModal";
 import MetadataModal from "./MetadataModal";
 import { buildDatasetViewShareSearchParams, DATASET_VIEW_SHARE_MAX_URL_LENGTH } from "../../utils/datasetViewShareQuery";
 
-const setSelectYears = (availableYears, updateSelectedYears, selectedYears) => {
+const setSelectYears = (availableYears, updateSelectedYears, selectedYears, { singleSelect = false } = {}) => {
   if (availableYears.length > 0) {
     return (
       <div className="year-filter">
-        <span>Select Years:</span>
+        <span>{singleSelect ? "Select Year:" : "Select Years:"}</span>
         <ul>
           {availableYears.map((year) => (
             <li key={year.toString()} onClick={(e) => updateSelectedYears(e, year)} className={selectedYears.includes(year) ? "selected" : ""}>
@@ -662,6 +662,9 @@ function DatasetHeader({
   rowsPerPage,
   updateRowsPerPage,
   numberOfRows,
+  viewMode = "table",
+  onViewModeChange,
+  mapPreviewSupported = false,
 }) {
   const location = useLocation();
   const isEmbedView = new URLSearchParams(location.search).get("embed") === "1";
@@ -788,102 +791,134 @@ function DatasetHeader({
               </li>
               {setUpdatedAt(updatedAt)}
             </ul>
-            {setSelectYears(availableYears, updateSelectedYears, selectedYears)}
-            <div style={{ marginTop: "12px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
-              <ColumnSelectorDropdown
-                columnKeys={columnKeys}
-                updateSelectedColumns={updateSelectedColumns}
-                selectedColumns={selectedColumns}
-              />
-              <GeographyFilter
-                availableGeographies={availableGeographies}
-                selectedGeographies={selectedGeographies}
-                updateSelectedGeographies={updateSelectedGeographies}
-              />
-            </div>
+            {setSelectYears(availableYears, updateSelectedYears, selectedYears, {
+              singleSelect: viewMode === "map",
+            })}
+            {viewMode !== "map" && (
+              <div style={{ marginTop: "12px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
+                <ColumnSelectorDropdown
+                  columnKeys={columnKeys}
+                  updateSelectedColumns={updateSelectedColumns}
+                  selectedColumns={selectedColumns}
+                />
+                <GeographyFilter
+                  availableGeographies={availableGeographies}
+                  selectedGeographies={selectedGeographies}
+                  updateSelectedGeographies={updateSelectedGeographies}
+                />
+              </div>
+            )}
           </div>
           {!isEmbedView && (
             <div className="details-content-column download-section">
               <div className="details-content-column download-links">
-                <div className="dataset-actions-dropdown" ref={actionsDropdownRef}>
-                  <button
-                    type="button"
-                    className="button file-button dataset-actions-trigger"
-                    onClick={() => setActionsOpen((open) => !open)}
-                    aria-expanded={actionsOpen}
-                    aria-haspopup="menu"
-                  >
-                    Actions <span className="dropdown-arrow">{actionsOpen ? "▲" : "▼"}</span>
-                  </button>
-                  {actionsOpen && (
-                    <div className="dataset-actions-menu" role="menu" aria-label="Dataset actions">
+                {mapPreviewSupported && onViewModeChange && (
+                  <div className="dataset-view-toggle" role="group" aria-label="Dataset view">
+                    <button
+                      type="button"
+                      className={`dataset-view-toggle__btn${viewMode === "table" ? " dataset-view-toggle__btn--active" : ""}`}
+                      onClick={() => onViewModeChange("table")}
+                      aria-pressed={viewMode === "table"}
+                    >
+                      <FontAwesomeIcon icon={faTable} size="sm" aria-hidden="true" />
+                      Table
+                    </button>
+                    <button
+                      type="button"
+                      className={`dataset-view-toggle__btn${viewMode === "map" ? " dataset-view-toggle__btn--active" : ""}`}
+                      onClick={() => onViewModeChange("map")}
+                      aria-pressed={viewMode === "map"}
+                    >
+                      <FontAwesomeIcon icon={faMap} size="sm" aria-hidden="true" />
+                      Map
+                    </button>
+                  </div>
+                )}
+                {viewMode !== "map" && (
+                  <>
+                    <div className="dataset-actions-dropdown" ref={actionsDropdownRef}>
                       <button
                         type="button"
-                        className="dataset-actions-item"
-                        onClick={() => {
-                          setMetadataModalOpen(true);
-                          setActionsOpen(false);
-                        }}
+                        className="button file-button dataset-actions-trigger"
+                        onClick={() => setActionsOpen((open) => !open)}
+                        aria-expanded={actionsOpen}
+                        aria-haspopup="menu"
                       >
-                        <span className="dataset-actions-item-icon" aria-hidden="true">
-                          <FontAwesomeIcon icon={faTable} size="sm" />
-                        </span>
-                        View Metadata
+                        Actions <span className="dropdown-arrow">{actionsOpen ? "▲" : "▼"}</span>
                       </button>
-                      <button
-                        type="button"
-                        className="dataset-actions-item"
-                        onClick={() => {
-                          setEmbedModalOpen(true);
-                          setActionsOpen(false);
-                        }}
-                      >
-                        <span className="dataset-actions-item-icon" aria-hidden="true">
-                          <FontAwesomeIcon icon={faShareNodes} size="sm" />
-                        </span>
-                        Share and embed
-                      </button>
-                      <button
-                        type="button"
-                        className="dataset-actions-item"
-                        onClick={() => {
-                          window.open(
-                            "https://airtable.com/appqSr3MqAkN1GCfb/pagdcSeY2bc4rblam/form",
-                            "_blank",
-                            "noopener,noreferrer",
-                          );
-                          setActionsOpen(false);
-                        }}
-                      >
-                        <span className="dataset-actions-item-icon" aria-hidden="true">
-                          <FontAwesomeIcon icon={faMessage} size="sm" />
-                        </span>
-                        Submit data feedback
-                      </button>
+                      {actionsOpen && (
+                        <div className="dataset-actions-menu" role="menu" aria-label="Dataset actions">
+                          <button
+                            type="button"
+                            className="dataset-actions-item"
+                            onClick={() => {
+                              setMetadataModalOpen(true);
+                              setActionsOpen(false);
+                            }}
+                          >
+                            <span className="dataset-actions-item-icon" aria-hidden="true">
+                              <FontAwesomeIcon icon={faTable} size="sm" />
+                            </span>
+                            View Metadata
+                          </button>
+                          <button
+                            type="button"
+                            className="dataset-actions-item"
+                            onClick={() => {
+                              setEmbedModalOpen(true);
+                              setActionsOpen(false);
+                            }}
+                          >
+                            <span className="dataset-actions-item-icon" aria-hidden="true">
+                              <FontAwesomeIcon icon={faShareNodes} size="sm" />
+                            </span>
+                            Share and embed
+                          </button>
+                          <button
+                            type="button"
+                            className="dataset-actions-item"
+                            onClick={() => {
+                              window.open(
+                                "https://airtable.com/appqSr3MqAkN1GCfb/pagdcSeY2bc4rblam/form",
+                                "_blank",
+                                "noopener,noreferrer",
+                              );
+                              setActionsOpen(false);
+                            }}
+                          >
+                            <span className="dataset-actions-item-icon" aria-hidden="true">
+                              <FontAwesomeIcon icon={faMessage} size="sm" />
+                            </span>
+                            Submit data feedback
+                          </button>
+                        </div>
+                      )}
                     </div>
-                  )}
+                    <button type="button" className="button file-button" onClick={() => setDownloadModalOpen(true)}>
+                      Export
+                    </button>
+                  </>
+                )}
+              </div>
+              {viewMode === "table" && (
+                <div className="rows-per-page-selector">
+                  <label htmlFor="rows-per-page" className="rows-per-page-label">
+                    Rows per page:
+                  </label>
+                  <select
+                    id="rows-per-page"
+                    className="rows-per-page-dropdown"
+                    value={rowsPerPage}
+                    onChange={(e) => updateRowsPerPage(Number(e.target.value))}
+                  >
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                    <option value={500}>500</option>
+                  </select>
                 </div>
-                <button type="button" className="button file-button" onClick={() => setDownloadModalOpen(true)}>
-                  Export
-                </button>
-              </div>
-              <div className="rows-per-page-selector">
-                <label htmlFor="rows-per-page" className="rows-per-page-label">
-                  Rows per page:
-                </label>
-                <select
-                  id="rows-per-page"
-                  className="rows-per-page-dropdown"
-                  value={rowsPerPage}
-                  onChange={(e) => updateRowsPerPage(Number(e.target.value))}
-                >
-                  <option value={10}>10</option>
-                  <option value={25}>25</option>
-                  <option value={50}>50</option>
-                  <option value={100}>100</option>
-                  <option value={500}>500</option>
-                </select>
-              </div>
+              )}
             </div>
           )}
         </div>
@@ -899,7 +934,7 @@ function DatasetHeader({
             ))}
           </div>
         </div>}
-        {numberOfRows === 15000 && <div className="truncated-table-warning">
+        {viewMode !== "map" && numberOfRows === 15000 && <div className="truncated-table-warning">
           This data has been truncated for viewing in the browser. Only the first 15,000 rows are available. Please download the full dataset to see all available data.
         </div>}
       </div>
@@ -972,6 +1007,9 @@ DatasetHeader.propTypes = {
   rowsPerPage: PropTypes.number,
   updateRowsPerPage: PropTypes.func,
   numberOfRows: PropTypes.number,
+  viewMode: PropTypes.oneOf(["table", "map"]),
+  onViewModeChange: PropTypes.func,
+  mapPreviewSupported: PropTypes.bool,
 };
 
 export default DatasetHeader;
