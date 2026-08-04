@@ -23,6 +23,8 @@ import tabs from "./constants/tabs";
 import municipalities from "./assets/data/ma-munis.json";
 import "./utils/introModal"; 
 import PasswordResetPage from "./pages/PasswordResetPage";
+import AdminWrapper from "./pages/AdminWrapper";
+import AdminTeammatesPage from "./pages/AdminTeammatesPage";
 
 // Create arrays of valid options
 const muniOptions = municipalities.features.map(
@@ -167,6 +169,17 @@ const router = createBrowserRouter([
         path: "/password-reset/:token",
         element: <PasswordResetPage />
       },
+      // Admin routes, all routes should go through the admin parent that verifies login / admin status.
+      {
+        path: "admin",
+        element: <AdminWrapper />,
+        children: [
+          {
+            path: "teammates",
+            element: <AdminTeammatesPage />
+          }
+        ]
+      }
     ],
   },
 ]);

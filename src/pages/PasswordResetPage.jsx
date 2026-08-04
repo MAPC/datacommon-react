@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { useParams } from "react-router";
 import { useSearchParams } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
+import { logoutUser } from "../utils/cookies";
 
 const PageContainer = styled.section`
   background: #fff;
@@ -130,7 +131,7 @@ const PasswordResetPage = () => {
         setPasswordSetSuccessful(true);
 
         // remove any existing cookies
-        document.cookie = "datacommon_mapc_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+        logoutUser();
       }).catch(e => {
         setErrorMessage("There was an error while setting your new password.")
       }).finally(() => {
