@@ -5,7 +5,9 @@ export const MAP_VIEW_GEOGRAPHY_TYPES = {
   census_tracts: "census_tracts",
 };
 
-const MUNICIPAL_GEO_COLUMNS = ["muni_id", "muni_name", "municipal"];
+const MUNICIPAL_MAP_JOIN_COLUMNS = ["muni_id", "muni_name", "municipal"];
+/** Name columns for the tabular "All geographies" dropdown / row filter (not map join). */
+const MUNICIPAL_TABLE_FILTER_COLUMNS = ["muni_name", "municipal", "muni"];
 const TRACT_GEO_COLUMNS = [
   "ct20_id",
   "ct10_id",
@@ -22,7 +24,8 @@ const NON_MAPPABLE_COLUMN_NAMES = new Set(
     "shape",
     "geometry",
     "geom",
-    ...MUNICIPAL_GEO_COLUMNS,
+    "logrecno",
+    ...MUNICIPAL_MAP_JOIN_COLUMNS,
     ...TRACT_GEO_COLUMNS,
   ].map((name) => name.toLowerCase()),
 );
@@ -53,6 +56,21 @@ export function isMapPreviewSupported(geographyType) {
 }
 
 /**
+ * Column used for the tabular geography dropdown / filter 
+ * @param {object|null} sampleRow
+ * @returns {string|null}
+ */
+export function resolveTableGeographyColumn(sampleRow) {
+  if (!sampleRow) return null;
+  const withValue = MUNICIPAL_TABLE_FILTER_COLUMNS.find(
+    (col) => sampleRow[col] != null && sampleRow[col] !== "",
+  );
+  if (withValue) return withValue;
+  return MUNICIPAL_TABLE_FILTER_COLUMNS.find((col) => col in sampleRow) || null;
+}
+
+/**
+ * Column used to join table rows to map polygons (prefer muni_id / tract ids).
  * @param {object|null} sampleRow
  * @param {"municipal"|"census_tracts"|null} geographyType
  * @param {string|null} [preferredColumn]
@@ -66,7 +84,7 @@ export function resolveMapGeographyColumn(sampleRow, geographyType, preferredCol
   const candidates =
     geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts
       ? TRACT_GEO_COLUMNS
-      : MUNICIPAL_GEO_COLUMNS;
+      : MUNICIPAL_MAP_JOIN_COLUMNS;
 
   // Prefer a column that actually has a value (older ACS years often have ct10_id only).
   const withValue = candidates.find((col) => sampleRow[col] != null && sampleRow[col] !== "");
