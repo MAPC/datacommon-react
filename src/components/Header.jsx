@@ -1,6 +1,6 @@
 import axios from "axios";
 import React, { useEffect, useMemo, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import logoImg from "../assets/images/logo.svg";
 import { getCookie } from "../utils/cookies";
@@ -19,6 +19,7 @@ function handleActivePage(subdirectory, link = "/home") {
 const Header = () => {
   const [userName, setUserName] = useState(null);
   const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     // If the user has a login cookie set, fetch their name to display in the Icon.
@@ -105,7 +106,7 @@ const Header = () => {
         </div>
       </nav>
       {userName && 
-        <div className="header-user-icon-container">
+        <div className="header-user-icon-container" onClick={() => navigate("/admin")}>
           <div className="header-user-icon">
             {initialsString}
           </div>
