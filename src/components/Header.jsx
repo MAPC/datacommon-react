@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 
 import logoImg from "../assets/images/logo.svg";
+import { getCookie } from "../utils/cookies";
 
 function handleActivePage(subdirectory, link = "/home") {
   if (subdirectory.startsWith(link)) {
@@ -13,23 +14,6 @@ function handleActivePage(subdirectory, link = "/home") {
   }
 
   return null;
-}
-
-// coppied from https://www.w3schools.com/js/js_cookies.asp
-function getCookie(cname) {
-  let name = cname + "=";
-  let decodedCookie = decodeURIComponent(document.cookie);
-  let ca = decodedCookie.split(';');
-  for(let i = 0; i <ca.length; i++) {
-    let c = ca[i];
-    while (c.charAt(0) == ' ') {
-      c = c.substring(1);
-    }
-    if (c.indexOf(name) == 0) {
-      return c.substring(name.length, c.length);
-    }
-  }
-  return "";
 }
 
 const Header = () => {
@@ -50,6 +34,9 @@ const Header = () => {
         }).catch(err => {
           setUserName(null);
         });
+    } else {
+      // user has no cookie
+      setUserName(null);
     }
   }, [location.pathname]);
 
