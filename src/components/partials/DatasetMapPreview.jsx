@@ -86,6 +86,8 @@ function DatasetMapPreview({
     ],
   );
 
+  // Join key for choropleth (muni_id / tract id). Do not reuse geographyColumnProp —
+  // that is the tabular filter column (municipal / muni_name).
   const geographyColumn = useMemo(
     () =>
       resolveMapGeographyColumn(
@@ -93,9 +95,9 @@ function DatasetMapPreview({
           apiBoundaryGeojson?.features?.[0]?.properties ||
           rows[0],
         geographyType,
-        geometryJoinKey || geographyColumnProp,
+        geometryJoinKey || null,
       ),
-    [filteredRows, rows, geographyType, geographyColumnProp, geometryJoinKey, apiBoundaryGeojson],
+    [filteredRows, rows, geographyType, geometryJoinKey, apiBoundaryGeojson],
   );
 
   const mappableColumns = useMemo(() => {

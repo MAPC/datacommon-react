@@ -18,7 +18,7 @@ import { syncPreviewColumnOrder } from "../utils/datasetTablePreview";
 import {
   detectDatasetGeographyType,
   isMapPreviewSupported,
-  resolveMapGeographyColumn,
+  resolveTableGeographyColumn,
 } from "../utils/datasetMapPreview";
 
 const override = css`
@@ -297,6 +297,7 @@ class DataViewerClass extends React.Component {
         if (yearOverride) selectedYears = yearOverride;
 
         // Initialize geography filter for municipal (_m) tables only.
+        // Dropdown uses name columns (muni_name / municipal); map joins use muni_id separately.
         // Tract tables still map via resolveMapGeographyColumn inside DatasetMapPreview;
         // setting geographyColumn here without selectedGeographies would empty the table.
         let selectedGeographies;
@@ -307,7 +308,7 @@ class DataViewerClass extends React.Component {
           geographyColumn = null;
           availableGeographies = [];
           if (geographyType === "municipal") {
-            geographyColumn = resolveMapGeographyColumn(tableResults[0], geographyType, null);
+            geographyColumn = resolveTableGeographyColumn(tableResults[0]);
             if (geographyColumn) {
               const geoSet = new Set();
               tableResults.forEach((row) => {
