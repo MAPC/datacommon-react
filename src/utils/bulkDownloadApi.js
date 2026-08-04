@@ -83,6 +83,7 @@ function groupBundleListFromRows(bundleRows, tableRows) {
       title: row.title,
       description: row.description,
       geographyType: row.geography_type || row.geographyType || "municipality",
+      sortOrder: Number(row.sortOrder ?? row.sort_order ?? 0),
       tables: tablesByBundleId[bundleId] || [],
     };
     return acc;
@@ -100,8 +101,6 @@ async function fetchBundleListApiRows(bundleId) {
   if (bundleId) {
     bundleUrl = `${bundleUrl}&filters=id:${bundleId}`;
     tableUrl = `${tableUrl}&filters=bundle_id:${bundleId}`;
-  } else {
-    bundleUrl = `${bundleUrl}&filters=active:Y`;
   }
 
   const [bundleResponse, tableResponse] = await Promise.all([
@@ -122,12 +121,22 @@ async function fetchBundleListApiRows(bundleId) {
     tableResponse.json(),
   ]);
 
-  return [bundleData.rows || [], tableData.rows || []];
+  let bundleRows = bundleData.rows || [];
+  // Filter active client-side. The API `filters=active:Y` path can return stale
+  // cached metadata (e.g. an outdated housing title).
+  if (!bundleId) {
+    bundleRows = bundleRows.filter((row) => String(row.active ?? "Y").toUpperCase() === "Y");
+  }
+
+  return [bundleRows, tableData.rows || []];
 }
 
 export async function fetchBulkDownloadBundles() {
   const [bundleRows, tableRows] = await fetchBundleListApiRows();
-  return groupBundleListFromRows(bundleRows, tableRows);
+  const bundles = groupBundleListFromRows(bundleRows, tableRows);
+  return Object.fromEntries(
+    Object.entries(bundles).sort(([, a], [, b]) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
+  );
 }
 
 export async function fetchBulkDownloadBundle(bundleId) {

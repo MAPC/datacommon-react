@@ -5,7 +5,7 @@ import PropTypes from "prop-types";
 import SearchBar from "../components/partials/SearchBar";
 import capitalize from "../utils/capitalize";
 import { fetchDatasets } from "../reducers/datasetSlice";
-import { getTableDisplayInfo } from "../constants/bulkDownloadBundles";
+import { getTableDisplayInfo, tableHasYearFilter } from "../constants/bulkDownloadBundles";
 import {
   downloadBlob,
   requestBulkExport,
@@ -13,6 +13,8 @@ import {
   BULK_DOWNLOAD_EXPORT_FAILED,
   BULK_DOWNLOAD_EXPORT_FAILED_MESSAGE,
 } from "../utils/bulkDownloadApi";
+import { getLatestAvailableYear } from "../utils/bulkDownloadYears";
+
 const YearPill = ({ year, selected, onToggle, disabled = false }) => (
   <button
     type="button"
@@ -43,7 +45,7 @@ SkeletonBone.propTypes = {
 
 const BulkDownloadBundleSkeleton = ({ tableCount = 6 }) => (
   <>
-    <p className="bulk-download__sr-only">Loading housing data download options…</p>
+    <p className="bulk-download__sr-only">Loading download options…</p>
 
     <aside className="bulk-download__sidebar" aria-busy="true" aria-live="polite">
       <section className="bulk-download__panel">
@@ -148,8 +150,14 @@ const BulkDownloadBundlePage = () => {
           const available = {};
           const selected = {};
           result.tables.forEach((tableConfig) => {
-            available[tableConfig.table] = tableConfig.availableYears || [];
-            selected[tableConfig.table] = [];
+            const years = tableConfig.availableYears || [];
+            available[tableConfig.table] = years;
+            if (!tableHasYearFilter(tableConfig)) {
+              selected[tableConfig.table] = [];
+              return;
+            }
+            const latest = getLatestAvailableYear(years);
+            selected[tableConfig.table] = latest ? [latest] : [];
           });
 
           setBundle(result);
@@ -365,7 +373,7 @@ const BulkDownloadBundlePage = () => {
                 </div>
               </div>
               <p className="bulk-download__hint">
-                All tables are selected by default. Select the years you want for each table, or leave years unselected to include all available years.
+                All tables are selected by default, and the latest year is pre-selected for each table. You can change the selected years and tables.
               </p>
               <ul className="bulk-download__table-list">
                 {bundle.tables.map((tableConfig) => {
