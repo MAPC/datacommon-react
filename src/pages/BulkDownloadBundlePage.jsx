@@ -10,10 +10,10 @@ import {
   downloadBlob,
   requestBulkExport,
   fetchBulkDownloadBundle,
+  resolveDefaultSelectedYears,
   BULK_DOWNLOAD_EXPORT_FAILED,
   BULK_DOWNLOAD_EXPORT_FAILED_MESSAGE,
 } from "../utils/bulkDownloadApi";
-import { getLatestAvailableYear } from "../utils/bulkDownloadYears";
 
 const YearPill = ({ year, selected, onToggle, disabled = false }) => (
   <button
@@ -150,14 +150,14 @@ const BulkDownloadBundlePage = () => {
           const available = {};
           const selected = {};
           result.tables.forEach((tableConfig) => {
-            const years = tableConfig.availableYears || [];
-            available[tableConfig.table] = years;
+            available[tableConfig.table] = tableConfig.availableYears || [];
             if (!tableHasYearFilter(tableConfig)) {
               selected[tableConfig.table] = [];
               return;
             }
-            const latest = getLatestAvailableYear(years);
-            selected[tableConfig.table] = latest ? [latest] : [];
+            selected[tableConfig.table] = resolveDefaultSelectedYears(
+              available[tableConfig.table],
+            );
           });
 
           setBundle(result);
@@ -373,7 +373,7 @@ const BulkDownloadBundlePage = () => {
                 </div>
               </div>
               <p className="bulk-download__hint">
-                All tables are selected by default, and the latest year is pre-selected for each table. You can change the selected years and tables.
+                All tables are selected by default, with the latest year pre-selected. You can change the selected years and tables, or deselect years to include all available years.
               </p>
               <ul className="bulk-download__table-list">
                 {bundle.tables.map((tableConfig) => {

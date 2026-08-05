@@ -55,10 +55,16 @@ export function isMapPreviewSupported(geographyType) {
   );
 }
 
+/** municipal and census tract tables can export geojson via the export API
+ */
+export function supportsTabularGeojsonExport(tableName) {
+  return isMapPreviewSupported(detectDatasetGeographyType(tableName));
+}
+
 /**
  * Column used for the tabular geography dropdown / filter 
- * @param {object|null} sampleRow
- * @returns {string|null}
+ * @param {Object} sampleRow
+ * @returns {string}
  */
 export function resolveTableGeographyColumn(sampleRow) {
   if (!sampleRow) return null;
@@ -613,11 +619,9 @@ function countResultRowsForYear(result, yearKey) {
 /**
  * Pick the geometry API result for the requested year.
  *
- * join_key may be:
- * - "ct10_id" → always use the ct10_id result
- * - "ct20_id" → always use the ct20_id result
- * - "ct10_id or ct20_id" → inspect `results[]` and use whichever vintage
- *   has rows for the selected year (no fixed preference)
+ * Prefer the metadata join_key (ct10_id or ct20_id) when it has rows for that year.
+ * If it doesn't (common for ACS years that switched from ct10 → ct20),
+ * use whichever result in `results[]` actually has geometries.
  *
  * Supports both `{ results: [...] }` and flat single-result responses.
  */
@@ -630,26 +634,22 @@ export function pickGeometryApiResult(payload, year) {
     const candidates = payload.results.filter((result) => countResultRowsForYear(result, yearKey) > 0);
     if (!candidates.length) return null;
 
-    // Fixed vintage from metadata join_key.
+    // Prefer the metadata join column when it has data for this year.
     if (joinMeta.mode === "ct10_id") {
-      return candidates.find((r) => resultJoinToken(r) === "ct10_id") || null;
+      const preferred = candidates.find((r) => resultJoinToken(r) === "ct10_id");
+      if (preferred) return preferred;
     }
     if (joinMeta.mode === "ct20_id") {
-      return candidates.find((r) => resultJoinToken(r) === "ct20_id") || null;
+      const preferred = candidates.find((r) => resultJoinToken(r) === "ct20_id");
+      if (preferred) return preferred;
     }
 
-    // "ct10_id or ct20_id": pick from results based on which vintage has data for this year.
-    if (joinMeta.mode === "ct10_or_ct20" || candidates.length > 1) {
-      if (candidates.length === 1) return candidates[0];
-
-      // If more than one vintage has rows, use the one with more geometries for this year.
-      // Tie → keep API result order
-      return [...candidates].sort(
-        (a, b) => countResultRowsForYear(b, yearKey) - countResultRowsForYear(a, yearKey),
-      )[0];
-    }
-
-    return candidates[0];
+    // Metadata join column missing for this year (e.g. join_key=ct10_id but 2020-24
+    // only has ct20_id) — pick the result with the most geometries.
+    if (candidates.length === 1) return candidates[0];
+    return [...candidates].sort(
+      (a, b) => countResultRowsForYear(b, yearKey) - countResultRowsForYear(a, yearKey),
+    )[0];
   }
 
   // Flat response shape (single strategy)
@@ -663,11 +663,8 @@ export function pickGeometryApiResult(payload, year) {
 }
 
 /**
- * Convert a geometry API result into a WGS84 GeoJSON FeatureCollection.
- *
- * Current API row shape (per geography):
- * `{ ct10_id|ct20_id|muni_id, municipal?, geometry, data: [ { ...table columns } ] }`
- * Legacy flat rows (attributes on the row itself) are still supported.
+ * turn data from the geometry API into a Mapbox-ready GeoJSON FeatureCollection.
+ * Coordinates are converted from MA State Plane to lon/lat (WGS84).
  *
  * @param {object} result
  * @param {string|number|null} year
@@ -803,60 +800,6 @@ export function formatMapValue(value) {
   return new Intl.NumberFormat("en-US", {
     maximumFractionDigits: Math.abs(value) >= 100 ? 0 : 2,
   }).format(value);
-}
-
-const INTERNAL_MAP_PROPERTY_KEYS = new Set([
-  "__mapKey",
-  "__mapColor",
-  "__mapLabel",
-  "__mapValue",
-  "__joinKey",
-  "__dataRows",
-]);
-
-/**
- * Build a downloadable GeoJSON FeatureCollection from painted map features.
- * keeps data attributes and geometries.
- */
-export function buildExportableMapGeojson(featureCollection) {
-  const features = (featureCollection?.features || [])
-    .filter((feature) => feature?.geometry)
-    .map((feature) => {
-      const properties = {};
-      Object.entries(feature.properties || {}).forEach(([key, value]) => {
-        if (INTERNAL_MAP_PROPERTY_KEYS.has(key)) return;
-        properties[key] = value;
-      });
-      return {
-        type: "Feature",
-        id: feature.id,
-        properties,
-        geometry: feature.geometry,
-      };
-    });
-
-  return {
-    type: "FeatureCollection",
-    features,
-  };
-}
-
-/**
- * @param {object} featureCollection
- * @param {string} filename
- */
-export function downloadMapGeojson(featureCollection, filename) {
-  const geojson = buildExportableMapGeojson(featureCollection);
-  const blob = new Blob([JSON.stringify(geojson)], { type: "application/geo+json" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename.endsWith(".geojson") ? filename : `${filename}.geojson`;
-  link.style.display = "none";
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
 }
 
 /** Overlay boundary tables in gisdata.mapc */

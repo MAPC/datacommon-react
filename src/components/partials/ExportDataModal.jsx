@@ -3,6 +3,8 @@ import PropTypes from "prop-types";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faXmark } from "@fortawesome/free-solid-svg-icons";
 import { faClone } from "@fortawesome/free-regular-svg-icons";
+import { supportsTabularGeojsonExport } from "../../utils/datasetMapPreview";
+import { resolveDefaultSelectedYears } from "../../utils/bulkDownloadApi";
 
 const formats = {
   csv: {
@@ -81,7 +83,12 @@ const urlForDownload = (
 
   url = `/api/export?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=${database}&schema=${schema}&table=${table}&format=${format}`;
   const shouldUseFilteredValues = downloadScope === "filtered";
-  if (shouldUseFilteredValues && selectedYears.length > 0 && queryYearColumn !== "") {
+  // GeoJSON year pills always go on the export URL, even when other filters use "all".
+  const shouldIncludeYears =
+    selectedYears.length > 0 &&
+    queryYearColumn !== "" &&
+    (shouldUseFilteredValues || format === "geojson");
+  if (shouldIncludeYears) {
     url = `${url}&years=${selectedYears.join(",")}`;
   }
 
@@ -132,11 +139,25 @@ const triggerExportFileDownload = (url) => {
   document.body.removeChild(link);
 };
 
-const getDownloadFormatOptions = (database) => {
+const getDownloadFormatOptions = (database, table) => {
   const tableIsGeospatial = database === "towndata" || database === "gisdata";
-  return Object.entries(formats).filter(
-    ([, config]) => config.isGeospatial === tableIsGeospatial || (!tableIsGeospatial && config.isTabular),
-  );
+  const allowTabularGeojson = supportsTabularGeojsonExport(table);
+  return Object.entries(formats).filter(([format, config]) => {
+    if (format === "geojson" && allowTabularGeojson) return true;
+    return config.isGeospatial === tableIsGeospatial || (!tableIsGeospatial && config.isTabular);
+  });
+};
+
+const resolveInitialGeojsonYears = (selectedYears, availableYears) => {
+  const available = (availableYears || []).map((year) => String(year)).filter(Boolean);
+  const selected = (selectedYears || []).map((year) => String(year)).filter(Boolean);
+  if (!available.length) return selected;
+
+  const availableSet = new Set(available);
+  const matched = selected.filter((year) => availableSet.has(year));
+  if (matched.length) return matched;
+
+  return resolveDefaultSelectedYears(available);
 };
 
 function ExportDataModal({
@@ -161,13 +182,18 @@ function ExportDataModal({
   const [downloadDestination, setDownloadDestination] = useState("file");
   const [downloadScope, setDownloadScope] = useState("filtered");
   const [downloadFormat, setDownloadFormat] = useState("csv");
+  const [geojsonYears, setGeojsonYears] = useState([]);
   const [useMetadataColumns, setUseMetadataColumns] = useState(true);
   const [apiCopyStatus, setApiCopyStatus] = useState("");
   const [justCopiedEndpoint, setJustCopiedEndpoint] = useState(false);
+  const [geojsonDownloadError, setGeojsonDownloadError] = useState("");
   const copyEndpointFeedbackTimerRef = useRef(null);
 
-  const availableDownloadFormats = useMemo(() => getDownloadFormatOptions(database), [database]);
+  const allowsTabularGeojson = supportsTabularGeojsonExport(table);
+  const availableDownloadFormats = useMemo(() => getDownloadFormatOptions(database, table), [database, table]);
   const isShapefileSelection = downloadFormat === "shapefile";
+  const isTabularGeojsonSelection = downloadFormat === "geojson" && allowsTabularGeojson;
+  const showGeojsonYearPicker = isTabularGeojsonSelection && Boolean(queryYearColumn) && availableYears.length > 0;
 
   const hasFilteredSelections = useMemo(() => {
     const yearsAreFiltered = queryYearColumn && selectedYears.length > 0 && selectedYears.length !== availableYears.length;
@@ -210,8 +236,21 @@ function ExportDataModal({
     setDownloadScope(hasFilteredSelections ? "filtered" : "all");
     setApiCopyStatus("");
     setJustCopiedEndpoint(false);
+    setGeojsonDownloadError("");
+    setGeojsonYears(resolveInitialGeojsonYears(selectedYears, availableYears));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isTabularGeojsonSelection) {
+      setGeojsonDownloadError("");
+      return;
+    }
+    setGeojsonYears((prev) => {
+      if (prev.length) return prev;
+      return resolveInitialGeojsonYears(selectedYears, availableYears);
+    });
+  }, [isTabularGeojsonSelection, selectedYears, availableYears]);
 
   useEffect(
     () => () => {
@@ -232,22 +271,49 @@ function ExportDataModal({
     }
   }, [downloadDestination, exportTarget]);
 
-  const getConfiguredExportUrl = (scopeOverride = downloadScope, formatOverride = downloadFormat) =>
-    urlForDownload(
+  const getConfiguredExportUrl = (scopeOverride = downloadScope, formatOverride = downloadFormat) => {
+    const useGeojsonYears = formatOverride === "geojson" && allowsTabularGeojson && showGeojsonYearPicker;
+    const yearsForUrl = useGeojsonYears ? geojsonYears : selectedYears;
+    // Year pills drive GeoJSON years; keep page column/geography filters off for that path.
+    const scopeForUrl = useGeojsonYears ? "all" : scopeOverride;
+
+    return urlForDownload(
       schema,
       table,
       database,
-      selectedYears,
+      yearsForUrl,
       queryYearColumn,
       selectedColumns,
       columnKeys,
       selectedGeographies,
       availableGeographies,
       geographyColumn,
-      scopeOverride,
+      scopeForUrl,
       formatOverride,
       useMetadataColumns,
     );
+  };
+
+  const toggleGeojsonYear = (year) => {
+    const yearKey = String(year);
+    setGeojsonYears((prev) =>
+      prev.includes(yearKey) ? prev.filter((value) => value !== yearKey) : [...prev, yearKey],
+    );
+    setGeojsonDownloadError("");
+  };
+
+  const selectAllGeojsonYears = () => {
+    setGeojsonYears(availableYears.map((year) => String(year)));
+    setGeojsonDownloadError("");
+  };
+
+  const clearGeojsonYears = () => {
+    setGeojsonYears([]);
+    setGeojsonDownloadError("");
+  };
+
+  const allGeojsonYearsSelected =
+    availableYears.length > 0 && geojsonYears.length === availableYears.length;
 
   const copyApiEndpoint = () => {
     const effectiveDownloadScope = isShapefileSelection ? "all" : downloadScope;
@@ -294,9 +360,18 @@ function ExportDataModal({
       return;
     }
 
+    if (isTabularGeojsonSelection && showGeojsonYearPicker && geojsonYears.length === 0) {
+      setGeojsonDownloadError("Select at least one year to export as GeoJSON.");
+      return;
+    }
+
+    setGeojsonDownloadError("");
     const downloadUrl = getConfiguredExportUrl(effectiveDownloadScope);
     triggerExportFileDownload(downloadUrl);
   };
+
+  const geojsonDownloadDisabled =
+    isTabularGeojsonSelection && showGeojsonYearPicker && geojsonYears.length === 0;
 
   const resolvedApiExportUrl =
     isOpen && exportTarget === "data" && downloadDestination === "api"
@@ -365,7 +440,7 @@ function ExportDataModal({
                       </option>
                     ))}
                   </select>
-                  {["csv", "json"].includes(downloadFormat) && (
+                  {["csv", "json", "geojson"].includes(downloadFormat) && (
                     <div className="download-header-switch-wrapper">
                       <p className="download-option-note">Choose a column header style</p>
                       <div className="download-destination-switch" role="tablist" aria-label="Column header style">
@@ -390,7 +465,55 @@ function ExportDataModal({
                       </div>
                     </div>
                   )}
+                  {isTabularGeojsonSelection && (
+                    <p className="download-option-note">
+                      GeoJSON joins table attributes to municipal or census tract boundaries via the export API.
+                      {showGeojsonYearPicker
+                        ? " Select one or more years below. Multiple years download as a ZIP of GeoJSON files."
+                        : ""}
+                    </p>
+                  )}
                 </fieldset>
+
+                {showGeojsonYearPicker && (
+                  <fieldset className="download-option-group">
+                    <legend>Years for GeoJSON</legend>
+                    <div className="download-geojson-year-header">
+                      <p className="download-option-note">
+                        Choose which years to include. One year downloads a .geojson file; multiple years download a .zip.
+                      </p>
+                      <button
+                        type="button"
+                        className="download-geojson-year-link"
+                        onClick={allGeojsonYearsSelected ? clearGeojsonYears : selectAllGeojsonYears}
+                      >
+                        {allGeojsonYearsSelected ? "Clear selection" : "Select all"}
+                      </button>
+                    </div>
+                    <div className="download-geojson-year-list" role="group" aria-label="Years for GeoJSON export">
+                      {availableYears.map((year) => {
+                        const yearKey = String(year);
+                        const selected = geojsonYears.includes(yearKey);
+                        return (
+                          <button
+                            key={yearKey}
+                            type="button"
+                            className={`download-geojson-year-pill${selected ? " download-geojson-year-pill--selected" : ""}`}
+                            aria-pressed={selected}
+                            onClick={() => toggleGeojsonYear(yearKey)}
+                          >
+                            {yearKey}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {geojsonYears.length > 1 && (
+                      <p className="download-option-note">
+                        {geojsonYears.length} years selected — download will be a ZIP with one GeoJSON file per year.
+                      </p>
+                    )}
+                  </fieldset>
+                )}
 
                 <div className="download-destination-switch" role="tablist" aria-label="Export destination">
                   <button
@@ -446,6 +569,12 @@ function ExportDataModal({
                       ESRI Shapefile always downloads the full table. Filtered export is not applied.
                     </p>
                   </fieldset>
+                ) : isTabularGeojsonSelection ? (
+                  geojsonDownloadError ? (
+                    <p className="download-option-note download-geojson-error" role="alert">
+                      {geojsonDownloadError}
+                    </p>
+                  ) : null
                 ) : (
                   <fieldset
                     className={`download-option-group${!hasFilteredSelections ? " download-data-scope--inactive" : ""}`}
@@ -495,7 +624,10 @@ function ExportDataModal({
               justCopiedEndpoint && exportTarget === "data" && downloadDestination === "api" ? " download-modal-primary--copied" : ""
             }`}
             onClick={handleDownloadSubmit}
-            disabled={exportTarget === "metadata" && (!metadata || (Array.isArray(metadata) && metadata.length === 0))}
+            disabled={
+              (downloadDestination === "file" && geojsonDownloadDisabled) ||
+              (exportTarget === "metadata" && (!metadata || (Array.isArray(metadata) && metadata.length === 0)))
+            }
           >
             {exportTarget === "metadata"
               ? "Download"

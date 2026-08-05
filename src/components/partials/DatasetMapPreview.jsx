@@ -18,7 +18,6 @@ import {
   formatMapValue,
   getMappableColumns,
   resolveMapGeographyColumn,
-  downloadMapGeojson,
 } from "../../utils/datasetMapPreview";
 
 mapboxgl.accessToken = MAP_CONFIG.accessToken;
@@ -495,10 +494,11 @@ function DatasetMapPreview({
           .replace(/\b\w/g, (s) => s.toUpperCase())
       : null;
 
+    const joinKey = String(props.__joinKey || geometryJoinKey || "").toLowerCase();
     const isMunicipal =
       geographyType === MAP_VIEW_GEOGRAPHY_TYPES.municipal ||
-      props.__joinKey === "muni_id" ||
-      props.__joinKey === "municipal" ||
+      joinKey === "muni_id" ||
+      joinKey === "municipal" ||
       props.muni_id != null;
 
     const label =
@@ -507,19 +507,51 @@ function DatasetMapPreview({
       formattedMunicipalName ||
       "Area";
 
+    let tractBoundary = null;
+    if (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts) {
+      if (joinKey === "ct20_id" || (props.ct20_id && !props.ct10_id)) {
+        tractBoundary = "2020 Census tracts";
+      } else if (joinKey === "ct10_id" || (props.ct10_id && !props.ct20_id)) {
+        tractBoundary = "2010 Census tracts";
+      } else if (props.ct20_id) {
+        tractBoundary = "2020 Census tracts";
+      } else if (props.ct10_id) {
+        tractBoundary = "2010 Census tracts";
+      }
+    }
+
     return {
       label,
       value: Number.isFinite(value) ? value : null,
       year: mapYear != null ? String(mapYear) : null,
+      tractBoundary,
     };
-  }, [selectedFeature, mapYear, geographyType]);
+  }, [selectedFeature, mapYear, geographyType, geometryJoinKey]);
 
-  const canDownloadGeojson = (paintedGeojson?.features?.length || 0) > 0 && !isBoundaryLoading;
+  const canDownloadGeojson = Boolean(table) && !isBoundaryLoading;
 
   const handleDownloadGeojson = () => {
     if (!canDownloadGeojson) return;
-    const parts = [table || "dataset", mapYear != null ? String(mapYear) : null].filter(Boolean);
-    downloadMapGeojson(paintedGeojson, `${parts.join("_")}.geojson`);
+
+    const params = new URLSearchParams({
+      token: import.meta.env.VITE_MAPC_API_TOKEN,
+      database: database || "ds",
+      schema: schema || "tabular",
+      table,
+      format: "geojson",
+      useMetadataColumns: "true",
+    });
+    if (mapYear != null && queryYearColumn) {
+      params.set("years", String(mapYear));
+    }
+
+    const link = document.createElement("a");
+    link.href = `/api/export?${params.toString()}`;
+    link.rel = "noopener noreferrer";
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   if (!geographyType) {
@@ -666,6 +698,12 @@ function DatasetMapPreview({
                     <dd>{selectedDetails.year}</dd>
                   </div>
                 )}
+                {selectedDetails.tractBoundary && (
+                  <div className="dataset-map-preview__detail-row">
+                    <dt>Boundary</dt>
+                    <dd>{selectedDetails.tractBoundary}</dd>
+                  </div>
+                )}
                 <div className="dataset-map-preview__detail-row dataset-map-preview__detail-row--emphasis">
                   <dt>{activeVariableLabel}</dt>
                   <dd>{formatMapValue(selectedDetails.value)}</dd>
@@ -687,8 +725,9 @@ function DatasetMapPreview({
                 role="tooltip"
                 className="dataset-map-preview__download-tooltip"
               >
-                Download the map in GeoJSON format with geometries and all table columns as
-                properties.
+                {mapYear != null
+                  ? `Download the current map with selected year ${mapYear} as GeoJSON, with all table properties.`
+                  : "Download the current map as GeoJSON, with all table properties."}
               </span>
             </div>
           </aside>
