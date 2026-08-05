@@ -55,10 +55,16 @@ export function isMapPreviewSupported(geographyType) {
   );
 }
 
+/** municipal and census tract tables can export geojson via the export API
+ */
+export function supportsTabularGeojsonExport(tableName) {
+  return isMapPreviewSupported(detectDatasetGeographyType(tableName));
+}
+
 /**
  * Column used for the tabular geography dropdown / filter 
- * @param {object|null} sampleRow
- * @returns {string|null}
+ * @param {Object} sampleRow
+ * @returns {string}
  */
 export function resolveTableGeographyColumn(sampleRow) {
   if (!sampleRow) return null;
@@ -663,11 +669,8 @@ export function pickGeometryApiResult(payload, year) {
 }
 
 /**
- * Convert a geometry API result into a WGS84 GeoJSON FeatureCollection.
- *
- * Current API row shape (per geography):
- * `{ ct10_id|ct20_id|muni_id, municipal?, geometry, data: [ { ...table columns } ] }`
- * Legacy flat rows (attributes on the row itself) are still supported.
+ * turn data from the geometry API into a Mapbox-ready GeoJSON FeatureCollection.
+ * Coordinates are converted from MA State Plane to lon/lat (WGS84).
  *
  * @param {object} result
  * @param {string|number|null} year
@@ -803,60 +806,6 @@ export function formatMapValue(value) {
   return new Intl.NumberFormat("en-US", {
     maximumFractionDigits: Math.abs(value) >= 100 ? 0 : 2,
   }).format(value);
-}
-
-const INTERNAL_MAP_PROPERTY_KEYS = new Set([
-  "__mapKey",
-  "__mapColor",
-  "__mapLabel",
-  "__mapValue",
-  "__joinKey",
-  "__dataRows",
-]);
-
-/**
- * Build a downloadable GeoJSON FeatureCollection from painted map features.
- * keeps data attributes and geometries.
- */
-export function buildExportableMapGeojson(featureCollection) {
-  const features = (featureCollection?.features || [])
-    .filter((feature) => feature?.geometry)
-    .map((feature) => {
-      const properties = {};
-      Object.entries(feature.properties || {}).forEach(([key, value]) => {
-        if (INTERNAL_MAP_PROPERTY_KEYS.has(key)) return;
-        properties[key] = value;
-      });
-      return {
-        type: "Feature",
-        id: feature.id,
-        properties,
-        geometry: feature.geometry,
-      };
-    });
-
-  return {
-    type: "FeatureCollection",
-    features,
-  };
-}
-
-/**
- * @param {object} featureCollection
- * @param {string} filename
- */
-export function downloadMapGeojson(featureCollection, filename) {
-  const geojson = buildExportableMapGeojson(featureCollection);
-  const blob = new Blob([JSON.stringify(geojson)], { type: "application/geo+json" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename.endsWith(".geojson") ? filename : `${filename}.geojson`;
-  link.style.display = "none";
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
 }
 
 /** Overlay boundary tables in gisdata.mapc */

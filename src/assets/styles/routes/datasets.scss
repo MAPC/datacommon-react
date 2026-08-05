@@ -755,6 +755,73 @@
     line-height: 1.45;
   }
 
+  .download-geojson-year-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 4px;
+
+    .download-option-note {
+      margin-top: 0;
+      flex: 1 1 auto;
+    }
+  }
+
+  .download-geojson-year-link {
+    flex-shrink: 0;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: none;
+    color: $color_brand-secondary;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.45;
+    text-align: right;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    white-space: nowrap;
+
+    &:hover {
+      color: $color_brand-secondary--dark;
+    }
+  }
+
+  .download-geojson-year-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    margin-top: 8px;
+  }
+
+  .download-geojson-year-pill {
+    background: #fff;
+    border: 1px solid rgba($color_font-medium, 0.55);
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: $font_size-xsmall;
+    padding: 0.3rem 0.75rem;
+    transition: background 0.12s, border-color 0.12s, color 0.12s;
+
+    &--selected {
+      background: rgba($color_brand-secondary, 0.18);
+      border-color: $color_brand-secondary;
+      color: $color_brand-secondary--dark;
+      font-weight: 600;
+    }
+
+    &:hover:not(&--selected) {
+      border-color: $color_brand-secondary;
+    }
+  }
+
+  .download-geojson-error {
+    color: #9a3412;
+    font-weight: 600;
+  }
+
   .download-api-endpoint-section {
     margin-top: 4px;
   }

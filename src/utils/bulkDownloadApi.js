@@ -44,6 +44,18 @@ function parseYearList(value) {
   return [];
 }
 
+/**
+ * Pre-select the latest available year (availableYears are ordered newest-first).
+ * @param {string[]} availableYears
+ * @returns {string[]}
+ */
+export function resolveDefaultSelectedYears(availableYears) {
+  if (!availableYears?.length) {
+    return [];
+  }
+  return [String(availableYears[0])];
+}
+
 /** Map one _bulk_download_bundle_table_list row to a frontend table config. */
 function toBundleTableConfig(row, availableYears = []) {
   const datasetId = row.dataset_id;

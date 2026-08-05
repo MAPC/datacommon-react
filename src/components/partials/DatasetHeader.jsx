@@ -834,71 +834,67 @@ function DatasetHeader({
                     </button>
                   </div>
                 )}
-                {viewMode !== "map" && (
-                  <>
-                    <div className="dataset-actions-dropdown" ref={actionsDropdownRef}>
+                <div className="dataset-actions-dropdown" ref={actionsDropdownRef}>
+                  <button
+                    type="button"
+                    className="button file-button dataset-actions-trigger"
+                    onClick={() => setActionsOpen((open) => !open)}
+                    aria-expanded={actionsOpen}
+                    aria-haspopup="menu"
+                  >
+                    Actions <span className="dropdown-arrow">{actionsOpen ? "▲" : "▼"}</span>
+                  </button>
+                  {actionsOpen && (
+                    <div className="dataset-actions-menu" role="menu" aria-label="Dataset actions">
                       <button
                         type="button"
-                        className="button file-button dataset-actions-trigger"
-                        onClick={() => setActionsOpen((open) => !open)}
-                        aria-expanded={actionsOpen}
-                        aria-haspopup="menu"
+                        className="dataset-actions-item"
+                        onClick={() => {
+                          setMetadataModalOpen(true);
+                          setActionsOpen(false);
+                        }}
                       >
-                        Actions <span className="dropdown-arrow">{actionsOpen ? "▲" : "▼"}</span>
+                        <span className="dataset-actions-item-icon" aria-hidden="true">
+                          <FontAwesomeIcon icon={faTable} size="sm" />
+                        </span>
+                        View Metadata
                       </button>
-                      {actionsOpen && (
-                        <div className="dataset-actions-menu" role="menu" aria-label="Dataset actions">
-                          <button
-                            type="button"
-                            className="dataset-actions-item"
-                            onClick={() => {
-                              setMetadataModalOpen(true);
-                              setActionsOpen(false);
-                            }}
-                          >
-                            <span className="dataset-actions-item-icon" aria-hidden="true">
-                              <FontAwesomeIcon icon={faTable} size="sm" />
-                            </span>
-                            View Metadata
-                          </button>
-                          <button
-                            type="button"
-                            className="dataset-actions-item"
-                            onClick={() => {
-                              setEmbedModalOpen(true);
-                              setActionsOpen(false);
-                            }}
-                          >
-                            <span className="dataset-actions-item-icon" aria-hidden="true">
-                              <FontAwesomeIcon icon={faShareNodes} size="sm" />
-                            </span>
-                            Share and embed
-                          </button>
-                          <button
-                            type="button"
-                            className="dataset-actions-item"
-                            onClick={() => {
-                              window.open(
-                                "https://airtable.com/appqSr3MqAkN1GCfb/pagdcSeY2bc4rblam/form",
-                                "_blank",
-                                "noopener,noreferrer",
-                              );
-                              setActionsOpen(false);
-                            }}
-                          >
-                            <span className="dataset-actions-item-icon" aria-hidden="true">
-                              <FontAwesomeIcon icon={faMessage} size="sm" />
-                            </span>
-                            Submit data feedback
-                          </button>
-                        </div>
-                      )}
+                      <button
+                        type="button"
+                        className="dataset-actions-item"
+                        onClick={() => {
+                          setEmbedModalOpen(true);
+                          setActionsOpen(false);
+                        }}
+                      >
+                        <span className="dataset-actions-item-icon" aria-hidden="true">
+                          <FontAwesomeIcon icon={faShareNodes} size="sm" />
+                        </span>
+                        Share and embed
+                      </button>
+                      <button
+                        type="button"
+                        className="dataset-actions-item"
+                        onClick={() => {
+                          window.open(
+                            "https://airtable.com/appqSr3MqAkN1GCfb/pagdcSeY2bc4rblam/form",
+                            "_blank",
+                            "noopener,noreferrer",
+                          );
+                          setActionsOpen(false);
+                        }}
+                      >
+                        <span className="dataset-actions-item-icon" aria-hidden="true">
+                          <FontAwesomeIcon icon={faMessage} size="sm" />
+                        </span>
+                        Submit data feedback
+                      </button>
                     </div>
-                    <button type="button" className="button file-button" onClick={() => setDownloadModalOpen(true)}>
-                      Export
-                    </button>
-                  </>
-                )}
+                  )}
+                </div>
+                <button type="button" className="button file-button" onClick={() => setDownloadModalOpen(true)}>
+                  Export
+                </button>
               </div>
               {viewMode === "table" && (
                 <div className="rows-per-page-selector">

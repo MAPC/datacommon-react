@@ -18,7 +18,6 @@ import {
   formatMapValue,
   getMappableColumns,
   resolveMapGeographyColumn,
-  downloadMapGeojson,
 } from "../../utils/datasetMapPreview";
 
 mapboxgl.accessToken = MAP_CONFIG.accessToken;
@@ -514,12 +513,30 @@ function DatasetMapPreview({
     };
   }, [selectedFeature, mapYear, geographyType]);
 
-  const canDownloadGeojson = (paintedGeojson?.features?.length || 0) > 0 && !isBoundaryLoading;
+  const canDownloadGeojson = Boolean(table) && !isBoundaryLoading;
 
   const handleDownloadGeojson = () => {
     if (!canDownloadGeojson) return;
-    const parts = [table || "dataset", mapYear != null ? String(mapYear) : null].filter(Boolean);
-    downloadMapGeojson(paintedGeojson, `${parts.join("_")}.geojson`);
+
+    const params = new URLSearchParams({
+      token: import.meta.env.VITE_MAPC_API_TOKEN,
+      database: database || "ds",
+      schema: schema || "tabular",
+      table,
+      format: "geojson",
+      useMetadataColumns: "true",
+    });
+    if (mapYear != null && queryYearColumn) {
+      params.set("years", String(mapYear));
+    }
+
+    const link = document.createElement("a");
+    link.href = `/api/export?${params.toString()}`;
+    link.rel = "noopener noreferrer";
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   if (!geographyType) {
@@ -687,8 +704,9 @@ function DatasetMapPreview({
                 role="tooltip"
                 className="dataset-map-preview__download-tooltip"
               >
-                Download the map in GeoJSON format with geometries and all table columns as
-                properties.
+                {mapYear != null
+                  ? `Download the current map with selected year ${mapYear} as GeoJSON, with all table properties.`
+                  : "Download the current map as GeoJSON, with all table properties."}
               </span>
             </div>
           </aside>
