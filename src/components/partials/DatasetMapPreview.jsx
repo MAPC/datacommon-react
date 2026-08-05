@@ -494,10 +494,11 @@ function DatasetMapPreview({
           .replace(/\b\w/g, (s) => s.toUpperCase())
       : null;
 
+    const joinKey = String(props.__joinKey || geometryJoinKey || "").toLowerCase();
     const isMunicipal =
       geographyType === MAP_VIEW_GEOGRAPHY_TYPES.municipal ||
-      props.__joinKey === "muni_id" ||
-      props.__joinKey === "municipal" ||
+      joinKey === "muni_id" ||
+      joinKey === "municipal" ||
       props.muni_id != null;
 
     const label =
@@ -506,12 +507,26 @@ function DatasetMapPreview({
       formattedMunicipalName ||
       "Area";
 
+    let tractBoundary = null;
+    if (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts) {
+      if (joinKey === "ct20_id" || (props.ct20_id && !props.ct10_id)) {
+        tractBoundary = "2020 Census tracts";
+      } else if (joinKey === "ct10_id" || (props.ct10_id && !props.ct20_id)) {
+        tractBoundary = "2010 Census tracts";
+      } else if (props.ct20_id) {
+        tractBoundary = "2020 Census tracts";
+      } else if (props.ct10_id) {
+        tractBoundary = "2010 Census tracts";
+      }
+    }
+
     return {
       label,
       value: Number.isFinite(value) ? value : null,
       year: mapYear != null ? String(mapYear) : null,
+      tractBoundary,
     };
-  }, [selectedFeature, mapYear, geographyType]);
+  }, [selectedFeature, mapYear, geographyType, geometryJoinKey]);
 
   const canDownloadGeojson = Boolean(table) && !isBoundaryLoading;
 
@@ -681,6 +696,12 @@ function DatasetMapPreview({
                   <div className="dataset-map-preview__detail-row">
                     <dt>Year</dt>
                     <dd>{selectedDetails.year}</dd>
+                  </div>
+                )}
+                {selectedDetails.tractBoundary && (
+                  <div className="dataset-map-preview__detail-row">
+                    <dt>Boundary</dt>
+                    <dd>{selectedDetails.tractBoundary}</dd>
                   </div>
                 )}
                 <div className="dataset-map-preview__detail-row dataset-map-preview__detail-row--emphasis">

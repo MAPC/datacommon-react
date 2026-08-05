@@ -619,11 +619,9 @@ function countResultRowsForYear(result, yearKey) {
 /**
  * Pick the geometry API result for the requested year.
  *
- * join_key may be:
- * - "ct10_id" → always use the ct10_id result
- * - "ct20_id" → always use the ct20_id result
- * - "ct10_id or ct20_id" → inspect `results[]` and use whichever vintage
- *   has rows for the selected year (no fixed preference)
+ * Prefer the metadata join_key (ct10_id or ct20_id) when it has rows for that year.
+ * If it doesn't (common for ACS years that switched from ct10 → ct20),
+ * use whichever result in `results[]` actually has geometries.
  *
  * Supports both `{ results: [...] }` and flat single-result responses.
  */
@@ -636,26 +634,22 @@ export function pickGeometryApiResult(payload, year) {
     const candidates = payload.results.filter((result) => countResultRowsForYear(result, yearKey) > 0);
     if (!candidates.length) return null;
 
-    // Fixed vintage from metadata join_key.
+    // Prefer the metadata join column when it has data for this year.
     if (joinMeta.mode === "ct10_id") {
-      return candidates.find((r) => resultJoinToken(r) === "ct10_id") || null;
+      const preferred = candidates.find((r) => resultJoinToken(r) === "ct10_id");
+      if (preferred) return preferred;
     }
     if (joinMeta.mode === "ct20_id") {
-      return candidates.find((r) => resultJoinToken(r) === "ct20_id") || null;
+      const preferred = candidates.find((r) => resultJoinToken(r) === "ct20_id");
+      if (preferred) return preferred;
     }
 
-    // "ct10_id or ct20_id": pick from results based on which vintage has data for this year.
-    if (joinMeta.mode === "ct10_or_ct20" || candidates.length > 1) {
-      if (candidates.length === 1) return candidates[0];
-
-      // If more than one vintage has rows, use the one with more geometries for this year.
-      // Tie → keep API result order
-      return [...candidates].sort(
-        (a, b) => countResultRowsForYear(b, yearKey) - countResultRowsForYear(a, yearKey),
-      )[0];
-    }
-
-    return candidates[0];
+    // Metadata join column missing for this year (e.g. join_key=ct10_id but 2020-24
+    // only has ct20_id) — pick the result with the most geometries.
+    if (candidates.length === 1) return candidates[0];
+    return [...candidates].sort(
+      (a, b) => countResultRowsForYear(b, yearKey) - countResultRowsForYear(a, yearKey),
+    )[0];
   }
 
   // Flat response shape (single strategy)
