@@ -3,6 +3,7 @@
 export const MAP_VIEW_GEOGRAPHY_TYPES = {
   municipal: "municipal",
   census_tracts: "census_tracts",
+  block_groups: "block_groups",
 };
 
 const MUNICIPAL_MAP_JOIN_COLUMNS = ["muni_id", "muni_name", "municipal"];
@@ -36,26 +37,31 @@ const CHOROPLETH_COLORS = ["#EDF8FB", "#B2E2E2", "#66C2A4", "#2CA25F", "#006D2C"
 /**
  * @param {string} tableName
  * @param {string|null|undefined} [geographyHint] Optional `_data_browser.geography` value
- * @returns {"municipal"|"census_tracts"|null}
+ * @returns {"municipal"|"census_tracts"|"block_groups"|null}
  */
 export function detectDatasetGeographyType(tableName, geographyHint = null) {
   if (isNativeCensusTractBoundaryTable(tableName)) {
     return MAP_VIEW_GEOGRAPHY_TYPES.census_tracts;
   }
   if (!tableName || typeof tableName !== "string") {
-    const hint = String(geographyHint || "").toLowerCase();
-    if (hint.includes("census_tract") || hint.includes("census tract")) {
-      return MAP_VIEW_GEOGRAPHY_TYPES.census_tracts;
-    }
-    if (hint.includes("municipal")) {
-      return MAP_VIEW_GEOGRAPHY_TYPES.municipal;
-    }
-    return null;
+    return geographyTypeFromHint(geographyHint);
   }
   if (tableName.endsWith("_m")) return MAP_VIEW_GEOGRAPHY_TYPES.municipal;
   if (tableName.endsWith("_ct")) return MAP_VIEW_GEOGRAPHY_TYPES.census_tracts;
+  if (tableName.endsWith("_bg")) return MAP_VIEW_GEOGRAPHY_TYPES.block_groups;
 
+  return geographyTypeFromHint(geographyHint);
+}
+
+/**
+ * @param {string|null|undefined} geographyHint
+ * @returns {"municipal"|"census_tracts"|"block_groups"|null}
+ */
+function geographyTypeFromHint(geographyHint) {
   const hint = String(geographyHint || "").toLowerCase();
+  if (hint.includes("block_group") || hint.includes("block group")) {
+    return MAP_VIEW_GEOGRAPHY_TYPES.block_groups;
+  }
   if (hint.includes("census_tract") || hint.includes("census tract")) {
     return MAP_VIEW_GEOGRAPHY_TYPES.census_tracts;
   }
@@ -76,12 +82,18 @@ export function isMapPreviewSupported(geographyType) {
   );
 }
 
-/** municipal and census tract tables can export geojson via the export API
+/**
+ * Municipal, census tract, and block group tables can export GeoJSON via the export API.
  * Native tract boundary tables (shape column) use standard geospatial export instead.
  */
 export function supportsTabularGeojsonExport(tableName) {
   if (isNativeCensusTractBoundaryTable(tableName)) return false;
-  return isMapPreviewSupported(detectDatasetGeographyType(tableName));
+  const geographyType = detectDatasetGeographyType(tableName);
+  return (
+    geographyType === MAP_VIEW_GEOGRAPHY_TYPES.municipal ||
+    geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts ||
+    geographyType === MAP_VIEW_GEOGRAPHY_TYPES.block_groups
+  );
 }
 
 /**
