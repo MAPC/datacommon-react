@@ -300,13 +300,15 @@ class DataViewerClass extends React.Component {
         // Dropdown uses name columns (muni_name / municipal); map joins use muni_id separately.
         // Tract tables still map via resolveMapGeographyColumn inside DatasetMapPreview;
         // setting geographyColumn here without selectedGeographies would empty the table.
-        let selectedGeographies;
-        let availableGeographies;
-        let geographyColumn;
-        const geographyType = detectDatasetGeographyType(dataset.table_name);
+        // Native census tract boundary tables (gisdata shape) enable map view without a filter dropdown.
+        let selectedGeographies = [];
+        let availableGeographies = [];
+        let geographyColumn = null;
+        const geographyType = detectDatasetGeographyType(
+          dataset.table_name,
+          dataset.geography,
+        );
         if (dataset.schemaname === "tabular") {
-          geographyColumn = null;
-          availableGeographies = [];
           if (geographyType === "municipal") {
             geographyColumn = resolveTableGeographyColumn(tableResults[0]);
             if (geographyColumn) {
