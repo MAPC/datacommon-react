@@ -35,12 +35,33 @@ const CHOROPLETH_COLORS = ["#EDF8FB", "#B2E2E2", "#66C2A4", "#2CA25F", "#006D2C"
 
 /**
  * @param {string} tableName
+ * @param {string|null|undefined} [geographyHint] Optional `_data_browser.geography` value
  * @returns {"municipal"|"census_tracts"|null}
  */
-export function detectDatasetGeographyType(tableName) {
-  if (!tableName || typeof tableName !== "string") return null;
+export function detectDatasetGeographyType(tableName, geographyHint = null) {
+  if (isNativeCensusTractBoundaryTable(tableName)) {
+    return MAP_VIEW_GEOGRAPHY_TYPES.census_tracts;
+  }
+  if (!tableName || typeof tableName !== "string") {
+    const hint = String(geographyHint || "").toLowerCase();
+    if (hint.includes("census_tract") || hint.includes("census tract")) {
+      return MAP_VIEW_GEOGRAPHY_TYPES.census_tracts;
+    }
+    if (hint.includes("municipal")) {
+      return MAP_VIEW_GEOGRAPHY_TYPES.municipal;
+    }
+    return null;
+  }
   if (tableName.endsWith("_m")) return MAP_VIEW_GEOGRAPHY_TYPES.municipal;
   if (tableName.endsWith("_ct")) return MAP_VIEW_GEOGRAPHY_TYPES.census_tracts;
+
+  const hint = String(geographyHint || "").toLowerCase();
+  if (hint.includes("census_tract") || hint.includes("census tract")) {
+    return MAP_VIEW_GEOGRAPHY_TYPES.census_tracts;
+  }
+  if (hint.includes("municipal")) {
+    return MAP_VIEW_GEOGRAPHY_TYPES.municipal;
+  }
   return null;
 }
 
@@ -56,8 +77,10 @@ export function isMapPreviewSupported(geographyType) {
 }
 
 /** municipal and census tract tables can export geojson via the export API
+ * Native tract boundary tables (shape column) use standard geospatial export instead.
  */
 export function supportsTabularGeojsonExport(tableName) {
+  if (isNativeCensusTractBoundaryTable(tableName)) return false;
   return isMapPreviewSupported(detectDatasetGeographyType(tableName));
 }
 
@@ -816,7 +839,154 @@ export const GIS_BOUNDARY_LAYERS = {
   },
 };
 
+/** a temporary fix for census tract boundary datasets that already store polygons in a `shape` column
+ * Census tract boundary datasets that already store polygons in a `shape` column
+ * Map preview reads shape directly instead of joining.
+ */
+export const NATIVE_CENSUS_TRACT_BOUNDARY_TABLES = {
+  census2010_tracts_poly: {
+    database: "gisdata",
+    schema: "mapc",
+    table: "census2010_tracts_poly",
+    joinKey: "ct10_id",
+    idColumn: "ct10_id",
+    attributeColumns: ["ct10_id", "area_sqft", "area_acres"],
+    boundaryLabel: "2010 Census tracts",
+  },
+  census2020_tracts_poly: {
+    database: "gisdata",
+    schema: "mapc",
+    table: "census2020_tracts_poly",
+    joinKey: "ct20_id",
+    idColumn: "GEOID",
+    attributeColumns: ["GEOID", "name", "namelsad", "aland", "awater", "tractce"],
+    boundaryLabel: "2020 Census tracts",
+  },
+};
+
+/**
+ * Quote mixed-case Postgres identifiers (e.g. GEOID) so they are not folded to lowercase.
+ * @param {string} column
+ * @returns {string}
+ */
+function quoteSqlIdentifier(column) {
+  if (!column || typeof column !== "string") return column;
+  if (column.includes("(") || column.includes('"')) return column;
+  if (column !== column.toLowerCase()) return `"${column.replace(/"/g, '""')}"`;
+  return column;
+}
+
+/**
+ * Read a row value when the API may return GEOID or geoid.
+ * @param {object} row
+ * @param {string} column
+ */
+function rowValue(row, column) {
+  if (!row || column == null) return undefined;
+  if (row[column] !== undefined) return row[column];
+  const lower = String(column).toLowerCase();
+  if (row[lower] !== undefined) return row[lower];
+  const match = Object.keys(row).find((key) => key.toLowerCase() === lower);
+  return match != null ? row[match] : undefined;
+}
+
+/**
+ * @param {string} tableName
+ * @returns {boolean}
+ */
+export function isNativeCensusTractBoundaryTable(tableName) {
+  return Boolean(NATIVE_CENSUS_TRACT_BOUNDARY_TABLES[tableName]);
+}
+
 const gisBoundaryCache = new Map();
+const nativeTractBoundaryCache = new Map();
+
+/**
+ * Load a native census-tract boundary table (shape column) as WGS84 GeoJSON.
+ * @param {{ database?: string, schema?: string, table: string }} params
+ */
+export async function fetchNativeCensusTractBoundaryGeojson(params = {}) {
+  const { table } = params;
+  const config = NATIVE_CENSUS_TRACT_BOUNDARY_TABLES[table];
+  if (!config) {
+    throw new Error(`Table "${table}" is not a native census tract boundary table`);
+  }
+
+  const database = params.database || config.database;
+  const schema = params.schema || config.schema;
+  const cacheKey = `${database}.${schema}.${table}`;
+  if (nativeTractBoundaryCache.has(cacheKey)) {
+    return nativeTractBoundaryCache.get(cacheKey);
+  }
+
+  const pending = (async () => {
+    const columns = [
+      ...config.attributeColumns.map(quoteSqlIdentifier),
+      "sde.ST_AsText(shape) as geom_wkt",
+    ].join(",");
+    const search = new URLSearchParams({
+      token: import.meta.env.VITE_MAPC_API_TOKEN,
+      database,
+      schema,
+      table,
+      columns,
+      orderByColumn: quoteSqlIdentifier(config.idColumn),
+      orderByDirection: "ASC",
+      limit: "5000",
+    });
+
+    const response = await fetch(`/api?${search.toString()}`);
+    if (!response.ok) {
+      throw new Error(`Native tract boundary HTTP ${response.status}`);
+    }
+    const payload = await response.json();
+    const rows = payload.rows || [];
+
+    const features = rows
+      .map((row) => {
+        const geometry = parseWktPolygon(rowValue(row, "geom_wkt"));
+        if (!geometry) return null;
+        const id = rowValue(row, config.idColumn);
+        const properties = {
+          __joinKey: config.joinKey,
+          __mapLabel: String(id ?? rowValue(row, "name") ?? rowValue(row, "namelsad") ?? "Census tract"),
+        };
+        config.attributeColumns.forEach((col) => {
+          const value = rowValue(row, col);
+          if (value != null) properties[col] = value;
+        });
+        // Normalize so details panel can label 2020 boundaries via ct20_id.
+        if (config.joinKey === "ct20_id" && properties.GEOID != null && properties.ct20_id == null) {
+          properties.ct20_id = properties.GEOID;
+        }
+        return {
+          type: "Feature",
+          id: id != null ? String(id) : undefined,
+          properties,
+          geometry: reprojectGeometry(geometry),
+        };
+      })
+      .filter(Boolean);
+
+    if (!features.length) {
+      throw new Error(`No geometries returned for ${schema}.${table}`);
+    }
+
+    return {
+      featureCollection: { type: "FeatureCollection", features },
+      joinKey: config.joinKey,
+      boundaryLabel: config.boundaryLabel,
+    };
+  })();
+
+  nativeTractBoundaryCache.set(cacheKey, pending);
+  try {
+    return await pending;
+  } catch (err) {
+    nativeTractBoundaryCache.delete(cacheKey);
+    throw err;
+  }
+}
 
 /**
  * Parse a simple WKT POLYGON / MULTIPOLYGON into GeoJSON geometry coordinates.

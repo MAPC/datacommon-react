@@ -5,6 +5,7 @@ import { faXmark } from "@fortawesome/free-solid-svg-icons";
 import { faClone } from "@fortawesome/free-regular-svg-icons";
 import { supportsTabularGeojsonExport } from "../../utils/datasetMapPreview";
 import { resolveDefaultSelectedYears } from "../../utils/bulkDownloadApi";
+import { ExportLoadingMask, useExportFileDownload } from "./ExportLoadingMask";
 
 const formats = {
   csv: {
@@ -125,18 +126,12 @@ const toAbsoluteExportUrl = (url) => {
   return url;
 };
 
-/** Start file download without opening a new tab (avoids a blank window from window.open). */
-const triggerExportFileDownload = (url) => {
-  if (!url || url === "#") {
-    return;
+const fallbackExportFilename = (table, format, geojsonYearCount = 0) => {
+  const base = table || "export";
+  if (format === "geojson" && geojsonYearCount > 1) {
+    return `${base}.zip`;
   }
-  const link = document.createElement("a");
-  link.href = /^https?:\/\//i.test(url) ? url : toAbsoluteExportUrl(url);
-  link.rel = "noopener noreferrer";
-  link.style.display = "none";
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  return `${base}${formats[format]?.extension || ""}`;
 };
 
 const getDownloadFormatOptions = (database, table) => {
@@ -187,6 +182,7 @@ function ExportDataModal({
   const [apiCopyStatus, setApiCopyStatus] = useState("");
   const [justCopiedEndpoint, setJustCopiedEndpoint] = useState(false);
   const [geojsonDownloadError, setGeojsonDownloadError] = useState("");
+  const { isExporting, exportError, runExportDownload, clearExportError } = useExportFileDownload();
   const copyEndpointFeedbackTimerRef = useRef(null);
 
   const allowsTabularGeojson = supportsTabularGeojsonExport(table);
@@ -347,7 +343,20 @@ function ExportDataModal({
     }
   };
 
-  const handleDownloadSubmit = () => {
+  useEffect(() => {
+    if (!isOpen) {
+      clearExportError();
+    }
+  }, [isOpen, clearExportError]);
+
+  const handleClose = () => {
+    if (isExporting) return;
+    onClose();
+  };
+
+  const handleDownloadSubmit = async () => {
+    if (isExporting) return;
+
     if (exportTarget === "metadata") {
       downloadMetadata(metadata, title);
       return;
@@ -366,8 +375,15 @@ function ExportDataModal({
     }
 
     setGeojsonDownloadError("");
+    clearExportError();
     const downloadUrl = getConfiguredExportUrl(effectiveDownloadScope);
-    triggerExportFileDownload(downloadUrl);
+    const absoluteUrl = /^https?:\/\//i.test(downloadUrl)
+      ? downloadUrl
+      : toAbsoluteExportUrl(downloadUrl);
+    await runExportDownload(
+      absoluteUrl,
+      fallbackExportFilename(table, downloadFormat, geojsonYears.length),
+    );
   };
 
   const geojsonDownloadDisabled =
@@ -383,17 +399,25 @@ function ExportDataModal({
   }
 
   return (
-    <div className="download-modal-overlay" role="presentation" onClick={onClose}>
+    <div className="download-modal-overlay" role="presentation" onClick={handleClose}>
       <div
         className="download-modal"
         role="dialog"
         aria-modal="true"
         aria-label="Export data"
+        aria-busy={isExporting}
         onClick={(e) => e.stopPropagation()}
       >
+        <ExportLoadingMask active={isExporting} />
         <div className="download-modal-header">
           <h3>Export data</h3>
-          <button type="button" className="close-button" onClick={onClose} aria-label="Close export dialog">
+          <button
+            type="button"
+            className="close-button"
+            onClick={handleClose}
+            disabled={isExporting}
+            aria-label="Close export dialog"
+          >
             <FontAwesomeIcon icon={faXmark} aria-hidden />
           </button>
         </div>
@@ -602,6 +626,12 @@ function ExportDataModal({
               </>
             )}
 
+            {exportError && (
+              <p className="download-option-note download-geojson-error" role="alert">
+                {exportError}
+              </p>
+            )}
+
             {exportTarget === "data" && (
               <p className="download-modal-api-more download-modal-api-more--bottom">
                 <a
@@ -615,7 +645,7 @@ function ExportDataModal({
           </>
         </div>
         <div className="download-modal-footer">
-          <button type="button" className="button" onClick={onClose}>
+          <button type="button" className="button" onClick={handleClose} disabled={isExporting}>
             Close
           </button>
           <button
@@ -625,6 +655,7 @@ function ExportDataModal({
             }`}
             onClick={handleDownloadSubmit}
             disabled={
+              isExporting ||
               (downloadDestination === "file" && geojsonDownloadDisabled) ||
               (exportTarget === "metadata" && (!metadata || (Array.isArray(metadata) && metadata.length === 0)))
             }
@@ -635,7 +666,9 @@ function ExportDataModal({
                 ? justCopiedEndpoint
                   ? "Copied!"
                   : "Copy endpoint"
-                : "Download"}
+                : isExporting
+                  ? "Preparing…"
+                  : "Download"}
           </button>
         </div>
       </div>

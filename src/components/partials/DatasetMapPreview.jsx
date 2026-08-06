@@ -14,11 +14,14 @@ import {
   enrichBoundariesWithValues,
   fetchDatasetGeometry,
   fetchGisBoundaryLayer,
+  fetchNativeCensusTractBoundaryGeojson,
   filterRowsForMapPreview,
   formatMapValue,
   getMappableColumns,
+  isNativeCensusTractBoundaryTable,
   resolveMapGeographyColumn,
 } from "../../utils/datasetMapPreview";
+import { ExportLoadingMask, useExportFileDownload } from "./ExportLoadingMask";
 
 mapboxgl.accessToken = MAP_CONFIG.accessToken;
 
@@ -62,6 +65,7 @@ function DatasetMapPreview({
   const [muniOverlayGeojson, setMuniOverlayGeojson] = useState(EMPTY_FC);
   const [mapcOverlayGeojson, setMapcOverlayGeojson] = useState(EMPTY_FC);
   const [selectedFeatureKey, setSelectedFeatureKey] = useState(null);
+  const { isExporting, exportError, runExportDownload, clearExportError } = useExportFileDownload();
 
   const filteredRows = useMemo(
     () =>
@@ -177,14 +181,24 @@ function DatasetMapPreview({
 
     const loadBoundaries = async () => {
       try {
-        const years = mapYear != null ? [mapYear] : [];
-        const result = await fetchDatasetGeometry({
-          database,
-          schema,
-          table,
-          years,
-          yearColumn: queryYearColumn || null,
-        });
+        let result;
+        if (isNativeCensusTractBoundaryTable(table)) {
+          // Boundary datasets store polygons in `shape` — draw from that column.
+          result = await fetchNativeCensusTractBoundaryGeojson({
+            database,
+            schema,
+            table,
+          });
+        } else {
+          const years = mapYear != null ? [mapYear] : [];
+          result = await fetchDatasetGeometry({
+            database,
+            schema,
+            table,
+            years,
+            yearColumn: queryYearColumn || null,
+          });
+        }
         if (cancelled) return;
         setApiBoundaryGeojson(result.featureCollection);
         setGeometryJoinKey(result.joinKey);
@@ -528,9 +542,9 @@ function DatasetMapPreview({
     };
   }, [selectedFeature, mapYear, geographyType, geometryJoinKey]);
 
-  const canDownloadGeojson = Boolean(table) && !isBoundaryLoading;
+  const canDownloadGeojson = Boolean(table) && !isBoundaryLoading && !isExporting;
 
-  const handleDownloadGeojson = () => {
+  const handleDownloadGeojson = async () => {
     if (!canDownloadGeojson) return;
 
     const params = new URLSearchParams({
@@ -545,13 +559,12 @@ function DatasetMapPreview({
       params.set("years", String(mapYear));
     }
 
-    const link = document.createElement("a");
-    link.href = `/api/export?${params.toString()}`;
-    link.rel = "noopener noreferrer";
-    link.style.display = "none";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    clearExportError();
+    const yearSuffix = mapYear != null ? `_${mapYear}` : "";
+    await runExportDownload(
+      `/api/export?${params.toString()}`,
+      `${table || "export"}${yearSuffix}.geojson`,
+    );
   };
 
   if (!geographyType) {
@@ -624,6 +637,7 @@ function DatasetMapPreview({
         </div>
         <div className="dataset-map-preview__map-body">
           <div className="dataset-map-preview__map-shell">
+            <ExportLoadingMask active={isExporting} />
             <div className="dataset-map-preview__layer-toggles" role="group" aria-label="Map overlay layers">
               <label className={`dataset-map-preview__layer-toggle${overlaysLoading ? " dataset-map-preview__layer-toggle--disabled" : ""}`}>
                 <input
@@ -716,9 +730,10 @@ function DatasetMapPreview({
                 className="dataset-map-preview__download-geojson"
                 onClick={handleDownloadGeojson}
                 disabled={!canDownloadGeojson}
+                aria-busy={isExporting}
                 aria-describedby="dataset-map-geojson-download-tip"
               >
-                Download as GeoJSON
+                {isExporting ? "Preparing…" : "Download as GeoJSON"}
               </button>
               <span
                 id="dataset-map-geojson-download-tip"
@@ -729,6 +744,11 @@ function DatasetMapPreview({
                   ? `Download the current map with selected year ${mapYear} as GeoJSON, with all table properties.`
                   : "Download the current map as GeoJSON, with all table properties."}
               </span>
+              {exportError && (
+                <p className="dataset-map-preview__download-error" role="alert">
+                  {exportError}
+                </p>
+              )}
             </div>
           </aside>
         </div>

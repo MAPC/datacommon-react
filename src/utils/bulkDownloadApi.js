@@ -94,7 +94,7 @@ function groupBundleListFromRows(bundleRows, tableRows) {
       id: bundleId,
       title: row.title,
       description: row.description,
-      geographyType: row.geography_type || row.geographyType || "municipality",
+      geographyType: row.geographyType || "municipality",
       sortOrder: Number(row.sortOrder ?? row.sort_order ?? 0),
       tables: tablesByBundleId[bundleId] || [],
     };
@@ -134,8 +134,6 @@ async function fetchBundleListApiRows(bundleId) {
   ]);
 
   let bundleRows = bundleData.rows || [];
-  // Filter active client-side. The API `filters=active:Y` path can return stale
-  // cached metadata (e.g. an outdated housing title).
   if (!bundleId) {
     bundleRows = bundleRows.filter((row) => String(row.active ?? "Y").toUpperCase() === "Y");
   }
@@ -242,11 +240,7 @@ export async function requestBulkExport({
   }
 
   const blob = await response.blob();
-  const disposition = response.headers.get("Content-Disposition") || "";
-  const filenameMatch = disposition.match(/filename="?([^";\n]+)"?/);
-  const filename =
-    filenameMatch?.[1] ||
-    buildBulkDownloadFilename(municipalities, bundleSlug, defaultExtension);
+  const filename = buildBulkDownloadFilename(municipalities, bundleSlug, defaultExtension);
 
   return { blob, filename };
 }
@@ -261,4 +255,17 @@ export function downloadBlob(blob, filename) {
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
+}
+
+/**
+ * Fetch a file URL and save it under `filename` (usually the table name + extension).
+ */
+export async function fetchAndDownloadFile(url, filename = "download") {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Download failed (${response.status})`);
+  }
+  const blob = await response.blob();
+  downloadBlob(blob, filename);
+  return filename;
 }
