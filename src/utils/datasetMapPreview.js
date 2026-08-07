@@ -46,9 +46,16 @@ export function detectDatasetGeographyType(tableName, geographyHint = null) {
   if (!tableName || typeof tableName !== "string") {
     return geographyTypeFromHint(geographyHint);
   }
+
   if (tableName.endsWith("_m")) return MAP_VIEW_GEOGRAPHY_TYPES.municipal;
   if (tableName.endsWith("_ct")) return MAP_VIEW_GEOGRAPHY_TYPES.census_tracts;
-  if (tableName.endsWith("_bg")) return MAP_VIEW_GEOGRAPHY_TYPES.block_groups;
+  if (
+    tableName.endsWith("_bg") ||
+    tableName.endsWith("_bg10") ||
+    tableName.endsWith("_bg20")
+  ) {
+    return MAP_VIEW_GEOGRAPHY_TYPES.block_groups;
+  }
 
   return geographyTypeFromHint(geographyHint);
 }
