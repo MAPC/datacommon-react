@@ -833,8 +833,8 @@ const BrowserPage = () => {
   }, [datasets]);
 
   const datasetOfTheWeek = useMemo(() => {
-    return pickDatasetOfTheWeek(datasets);
-  }, [datasets]);
+    return noDupesDatasets ? pickDatasetOfTheWeek(noDupesDatasets) : pickDatasetOfTheWeek(datasets);
+  }, [noDupesDatasets, datasets]);
 
   const renderHighlightedText = (text, datasetId, key) => {
     if (!text) {
