@@ -671,7 +671,7 @@ StackedBarChart.propTypes = {
   data: PropTypes.arrayOf(
     PropTypes.shape({
       x: PropTypes.string.isRequired,
-      y: PropTypes.number.isRequired,
+      y: PropTypes.number,
       z: PropTypes.string.isRequired,
       color: PropTypes.string,
       order: PropTypes.number,

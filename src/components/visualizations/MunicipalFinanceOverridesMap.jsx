@@ -662,6 +662,11 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
     });
   }, [mapReady, profileTownKey, municipalFeature]);
 
+  const makeDatasetLink = (datasetId, useTimeframe, timeframe) => {
+    const timeframeParam = useTimeframe ? `?year=${timeframe}` : '';
+    return `${window.location.origin}/browser/datasets/${datasetId}${timeframeParam}`;
+  };
+
   return (
     <section className="municipal-finance-overrides-map" aria-labelledby="municipal-overrides-map-title">
       <h4 id="municipal-overrides-map-title" className="chart__title" style={{ marginBottom: "0.75rem" }}>
@@ -738,7 +743,7 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
                 {Object.keys(config.datasetLinks).map((label) => (
                   <a
                     key={label}
-                    href={`${window.location.origin}/browser/datasets/${config.datasetLinks[label]}`}
+                    href={makeDatasetLink(config.datasetLinks[label], config.useTimeframeInDatasetLink, fiscalYear)}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
