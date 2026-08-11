@@ -2381,6 +2381,7 @@ export default {
       type: "profile-metric",
       title: "Bond rating (S&P)",
       hideOuterTitle: true,
+      useTimeframeInDatasetLink: true,
       tables: {
         "tabular.muni_finance_m_bond_rating": {
           yearCol: "fiscal_yr",
@@ -2495,6 +2496,7 @@ export default {
       type: "profile-metric",
       title: "Total employees",
       hideOuterTitle: true,
+      useTimeframeInDatasetLink: true,
       tables: {
         "tabular.muni_finance_m_total_employees": {
           yearCol: "fiscal_yr",
@@ -2659,6 +2661,7 @@ export default {
       width: 500,
       height: 400,
       tooltip: { type: "percentAndCount" },
+      useTimeframeInDatasetLink: true,
       tables: {
         "tabular.muni_finance_m_levy_share": (() => {
           const columnList = ["municipal", "fiscal_yr", "nwg_res_p", "nwg_cip_p"];
@@ -2751,6 +2754,7 @@ export default {
       width: 500,
       height: 400,
       tooltip: { type: "percentAndCount" },
+      useTimeframeInDatasetLink: true,
       tables: {
         "tabular.econ_municipal_taxes_revenue_m_tax_share": (() => {
           const columnList = ["municipal", "fy", "res_os_p", "cip_p"];
@@ -2881,12 +2885,12 @@ export default {
         if (overrideData.length < 1) {
           return [];
         }
-       
+
         return overrideData.reduce(
           (acc, row) =>
             acc.concat(
               Object.keys(chart.labels).map((key) => ({
-                x: row[chart.tables["tabular.muni_finance_m_override_win_loss"].yearCol],
+                x: row[chart.tables["tabular.muni_finance_m_override_win_loss"].yearCol].toString(),
                 y: row[key],
                 z: chart.labels[key],
               })),
@@ -2974,6 +2978,7 @@ export default {
       mapColumns: ["municipal", "fiscal_yr", "rev_total", "exp_total", "ovr_winamt", "ovr_losamt"],
       source: "MA Dept of Revenue",
       datasetLinks: { "Dept of Revenue Municipal Finance": 502 },
+      useTimeframeInDatasetLink: true,
       legend: [
         {
           key: "success",
