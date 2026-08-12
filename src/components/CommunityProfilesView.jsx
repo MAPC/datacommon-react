@@ -533,7 +533,16 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                           target="_blank"
                           rel="noopener noreferrer"
                         >
-                          DLS data dashboard
+                          DLS Data Dashboard
+                        </a>
+                      </li>
+                      <li>
+                        <a
+                          href="https://resources.finalsite.net/images/v1745582857/masconometorg/ruf2wck2udvxx63gp0nf/dlsmunicipalfinanceglossary.pdf"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          DLS Municipal Finance Glossary
                         </a>
                       </li>
                       <li>

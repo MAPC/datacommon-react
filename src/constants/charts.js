@@ -2553,7 +2553,7 @@ export default {
     },
     fund_revenue: {
       type: "tree-map",
-      title: "Fund Revenue Breakdown",
+      title: "Total Receipts by Source",
       // Area ∝ dollars. Large tiles show title + amount; small ones use legend/tooltip.
       treemapTrueProportions: true,
       treemapExternalLabels: true,
@@ -2650,7 +2650,7 @@ export default {
     },
     levy_share_gauge: {
       type: "multi-gauge",
-      title: "Percentage of Total New Growth",
+      title: "Percent Property Class of New Growth Applied to Levy Limit",
       minValue: 0,
       maxValue: 100,
       backgroundColor: "#e0e0e0",
@@ -2743,7 +2743,7 @@ export default {
     },
     taxes_share_gauge: {
       type: "multi-gauge",
-      title: "Share of Tax Revenue",
+      title: "Property Class Percent of Total Tax Levy",
       minValue: 0,
       maxValue: 100,
       backgroundColor: "#e0e0e0",
@@ -2901,7 +2901,7 @@ export default {
     },
     excess_levy_capacity_stacked_area: {
       type: "stacked-area",
-      title: "Excess Levy Capacity",
+      title: "Prop 2 1/2 Levy Ceiling and Levy Limit",
       xAxis: { label: "Year", format: format.string.default },
       yAxis: {
         label: "USD",
