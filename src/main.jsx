@@ -25,6 +25,7 @@ import "./utils/introModal";
 import PasswordResetPage from "./pages/PasswordResetPage";
 import AdminWrapper from "./pages/AdminWrapper";
 import AdminTeammatesPage from "./pages/AdminTeammatesPage";
+import AdminListJobsPage from "./pages/AdminListJobsPage";
 
 // Create arrays of valid options
 const muniOptions = municipalities.features.map(
@@ -177,6 +178,10 @@ const router = createBrowserRouter([
           {
             path: "teammates",
             element: <AdminTeammatesPage />
+          },
+          {
+            path: "jobs",
+            element: <AdminListJobsPage />
           }
         ]
       }
