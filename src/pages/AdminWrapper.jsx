@@ -14,9 +14,8 @@ const AdminMainWrapper = styled.div`
 `;
 
 const AdminLeftNavContainer = styled.div`
-  width: 18rem;
+  min-width: 16rem;
   border: 1px solid #dddddd;
-  broder-radus: 4px;
 `;
 
 const AdminLeftNavHeader = styled.div`
@@ -113,6 +112,12 @@ const AdminWrapper = () => {
           onClick={() => navigate("/admin/teammates")}
         >
           Teammates
+        </AdminPageRoute>
+        <AdminPageRoute
+          className={location.pathname === '/admin/jobs' ? 'active' : ''}
+          onClick={() => navigate("/admin/jobs")}
+        >
+          Pipeline Jobs
         </AdminPageRoute>
         <AdminPageRoute >
           More Coming Soon! 
