@@ -26,6 +26,7 @@ import PasswordResetPage from "./pages/PasswordResetPage";
 import AdminWrapper from "./pages/AdminWrapper";
 import AdminTeammatesPage from "./pages/AdminTeammatesPage";
 import AdminListJobsPage from "./pages/AdminListJobsPage";
+import EmailVerificationPage from "./pages/EmailVerificationPage";
 
 // Create arrays of valid options
 const muniOptions = municipalities.features.map(
@@ -169,6 +170,10 @@ const router = createBrowserRouter([
       {
         path: "/password-reset/:token",
         element: <PasswordResetPage />
+      },
+      {
+        path: "/verify-account/:token",
+        element: <EmailVerificationPage />
       },
       // Admin routes, all routes should go through the admin parent that verifies login / admin status.
       {
