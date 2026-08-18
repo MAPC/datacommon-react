@@ -39,6 +39,7 @@ const LoginBoxContent = styled.div`
 const LoginEmailContainer = styled.div`
   width: 100%;
   padding: 2rem;
+  padding-bottom: 0px;
   color: #111111;
 `;
 
@@ -68,6 +69,7 @@ const LoginForgotPassword = styled.div`
   color: #24289c;
   font-size: 16px;
   cursor: pointer;
+  margin-top: 12px;
 
   &:hover {
     color: #1e2182
@@ -119,53 +121,39 @@ const Spinner = styled.div`
 // TODO: Handle case when user is already logged in
 const LoginPage = () => {
   const [emailInputValue, setEmailInputValue] = useState('');
-  const [submittedEmail, setSubmittedEmail] = useState(null);
-  const [shouldSetPassword, setShouldSetPassword] = useState(false);
+  const [passwordInputValue, setPasswordInputValue] = useState('');
   const [buttonLoading, setButtonLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
+  const [creatingAccount, setCreatingAccount] = useState(false);
+  const [nameInputValue, setNameInputValue] = useState('');
+  const [forgotPassword, setForgotPassword] = useState(false);
   const [forgotPasswordMessage, setForgotPasswordMessage] = useState(null);
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [passwordSetSuccessful, setPasswordSetSuccessful] = useState(false);
-  const [password, setPassword] = useState('');
 
-  const onEmailSubmitted = () => {
-    setSubmittedEmail(null);
-    setButtonLoading(true);
-    setErrorMessage(null);
-    
-    axios.get(`/api/users/by-email?email=${emailInputValue}`)
-      .then(resp => {
-        setShouldSetPassword(resp.data?.unsetPW);
-        setSubmittedEmail(emailInputValue);
-      }).catch(e => {
-        setErrorMessage("There was an error while sumitting the given email.")
-      }).finally(() => {
-        setButtonLoading(false);
-      });
-  };
-
-  const onSetNewPassword = () => {
+  const onCreateAccount = () => {
     setButtonLoading(true);
     setErrorMessage(null);
     setPasswordSetSuccessful(false);
 
     // newPassword and confirmNewPassword are checked for equality before submit button clicked
-    axios.post(`/api/users/set-pw`, { email: submittedEmail, password: newPassword})
+    axios.post(`/api/users/create-account`, 
+      { email: emailInputValue, name: nameInputValue, password: newPassword})
       .then(resp => {
         setPasswordSetSuccessful(true);
       }).catch(e => {
-        setErrorMessage("There was an error while setting your new password.")
+        setErrorMessage("There was an error while creating your account.");
       }).finally(() => {
         setButtonLoading(false);
       });
-  }
+  };
 
   const onLoginUser = () => {
     setButtonLoading(true);
     setErrorMessage(null);
 
-    axios.post(`/api/users/login`, { email: submittedEmail, password: password})
+    axios.post(`/api/users/login`, { email: emailInputValue, password: passwordInputValue})
       .then(resp => {
         if (resp.data?.login) {
           const now = new Date();
@@ -176,17 +164,17 @@ const LoginPage = () => {
           setErrorMessage("Incorrect email or password");
         }
       }).catch(e => {
-        setErrorMessage("There was an error while attempting to login.")
+        setErrorMessage("There was an error while attempting to login.");
       }).finally(() => {
         setButtonLoading(false);
       });
-  }
+  };
 
   const sendPasswordResetEmail = () => {
     setErrorMessage(null);
     setForgotPasswordMessage(null);
 
-    axios.post(`/api/users/request-pw-reset`, { email: submittedEmail })
+    axios.post(`/api/users/request-pw-reset`, { email: emailInputValue })
       .then(resp => {
         setForgotPasswordMessage("Please check the provided email for a password reset link.")
       }).catch(e => {
@@ -202,51 +190,117 @@ const LoginPage = () => {
         </LoginHeader>
         <LoginBoxContent>
           <LoginEmailContainer>
-            {/* User has yet to fill out the email and submit it */}
-            {!submittedEmail &&
+            {/* Regular login password prompt */}
+            {!creatingAccount && !forgotPassword &&
               <>
                 <LoginEmailDescription>
-                  Please enter your email and click "Submit"
+                  Enter your email and password to login 
                 </LoginEmailDescription>
-                <LoginEmailLabel htmlFor="datacommon-login-email-input">
+                <LoginEmailLabel htmlFor="datacommon-login-email">
                   Email:
                 </LoginEmailLabel>
                 <LoginEmailInput 
-                  id="datacommon-login-email-input"
+                  id="datacommon-login-email"
+                  style={{'marginLeft': '60px'}}
                   value={emailInputValue}
                   onChange={e => setEmailInputValue(e.target.value)}
                   placeholder="Email..."
                 />
-              </>
-            }
-
-            {/* User has submitted an email regardless of password status */}
-            {submittedEmail &&
-              <>
+                <div>
+                  <LoginEmailLabel htmlFor="datacommon-login-password">
+                    Password:
+                  </LoginEmailLabel>
+                  <LoginEmailInput 
+                    id="datacommon-login-password"
+                    type="password"
+                    style={{'marginLeft': '32px'}}
+                    value={passwordInputValue}
+                    onChange={e => setPasswordInputValue(e.target.value)}
+                    placeholder="Password..."
+                  />
+                </div>
+                <LoginForgotPassword
+                  onClick={() => setForgotPassword(true)}
+                >
+                  Forgot Password? 
+                </LoginForgotPassword>
                 <LoginEmailDescription>
-                  Email: {submittedEmail}
+                  Don't have an account yet? 
+                    <LoginForgotPassword 
+                      style={{ display: 'inline-block', marginLeft: '12px' }}
+                      onClick={() => setCreatingAccount(true)}
+                    >
+                      Click here to create one!
+                    </LoginForgotPassword>
                 </LoginEmailDescription>
               </>
             }
-
-            {/* For when the user is created but hasn't set a password. */}
-            {/* TODO: This should be removed once we're not creating accounts for users */}
-            {submittedEmail && shouldSetPassword && 
+            {/* User forgot password */}
+            {forgotPassword && 
               <>
                 <LoginEmailDescription>
-                  Your email has been registered with us but you have not yet set a password. Please set one now. 
+                  Enter your email to recieve a password reset link
                 </LoginEmailDescription>
-                <LoginEmailLabel htmlFor="datacommon-login-password-set">
-                  Password:
+                <LoginEmailLabel htmlFor="datacommon-login-email">
+                  Email:
                 </LoginEmailLabel>
                 <LoginEmailInput 
-                  id="datacommon-login-password-set"
-                  type="password"
+                  id="datacommon-login-email"
                   style={{'marginLeft': '60px'}}
-                  value={newPassword}
-                  onChange={e => setNewPassword(e.target.value)}
-                  placeholder="Password..."
+                  value={emailInputValue}
+                  onChange={e => setEmailInputValue(e.target.value)}
+                  placeholder="Email..."
                 />
+                {forgotPasswordMessage && 
+                  <LoginEmailDescription>
+                    {forgotPasswordMessage}
+                  </LoginEmailDescription>
+                }
+              </>
+            }
+            {/* User is creating a new account */}
+            {creatingAccount && 
+              <>
+                <LoginEmailDescription>
+                  Please enter your information to create an account. 
+                </LoginEmailDescription>
+                <div>
+                  <LoginEmailLabel htmlFor="datacommon-account-create-name">
+                    Name:
+                  </LoginEmailLabel>
+                  <LoginEmailInput 
+                    id="datacommon-account-create-name"
+                    style={{'marginLeft': '88px'}}
+                    value={nameInputValue}
+                    onChange={e => setNameInputValue(e.target.value)}
+                    placeholder="Name..."
+                  />
+                </div>
+                <div>
+                  <LoginEmailLabel htmlFor="datacommon-account-create-email">
+                    Email:
+                  </LoginEmailLabel>
+                  <LoginEmailInput 
+                    id="datacommon-account-create-email"
+                    style={{'marginLeft': '90px'}}
+                    value={emailInputValue}
+                    onChange={e => setEmailInputValue(e.target.value)}
+                    placeholder="Email..."
+                  />
+                </div>
+                <div>
+                  <LoginEmailLabel htmlFor="datacommon-login-password-set">
+                    Password:
+                  </LoginEmailLabel>
+                  <LoginEmailInput 
+                    id="datacommon-login-password-set"
+                    type="password"
+                    style={{'marginLeft': '60px'}}
+                    value={newPassword}
+                    onChange={e => setNewPassword(e.target.value)}
+                    placeholder="Password..."
+                  />
+                </div>
                 <div>
                   <LoginEmailLabel htmlFor="datacommon-login-password-confirm">
                     Confirm Password:
@@ -262,37 +316,7 @@ const LoginPage = () => {
                 {/* After user has set password, direct them to login. */}
                 {passwordSetSuccessful && 
                   <LoginEmailDescription>
-                    Your password has been set! Please return to the login screen to login.  
-                  </LoginEmailDescription>
-                }
-              </>
-            }
-
-            {/* Regular login password prompt */}
-            {submittedEmail && !shouldSetPassword &&
-              <>
-                <LoginEmailDescription>
-                  Enter your password to login 
-                </LoginEmailDescription>
-                <LoginEmailLabel htmlFor="datacommon-login-password">
-                  Password:
-                </LoginEmailLabel>
-                <LoginEmailInput 
-                  id="datacommon-login-password"
-                  type="password"
-                  style={{'marginLeft': '60px'}}
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder="Password..."
-                />
-                <LoginForgotPassword
-                  onClick={() => sendPasswordResetEmail()}
-                >
-                  Forgot Password? 
-                </LoginForgotPassword>
-                {forgotPasswordMessage && 
-                  <LoginEmailDescription>
-                    {forgotPasswordMessage}
+                    Your Account has been created! Please verify your email using the link that was sent to you before logging in. 
                   </LoginEmailDescription>
                 }
               </>
@@ -302,43 +326,44 @@ const LoginPage = () => {
           </LoginEmailContainer>
 
           <LoginActionButtonsContainer>
-            {/* Before user submits email */}
-            {!submittedEmail &&
+            {/* User is attempting to login normally */}
+            {!creatingAccount && !forgotPassword &&
               <LoginSumbitButton
-                onClick={onEmailSubmitted}
-                className={emailInputValue.trim() ? '' : 'disabled'}
+                className={(passwordInputValue && emailInputValue) ? '' : 'disabled'}
+                onClick={onLoginUser}
               >
-                {!buttonLoading && "Submit"}
+                {!buttonLoading && "Login"}
                 {buttonLoading && <Spinner />}
               </LoginSumbitButton>
             }
-            {/* User is setting password */}
-            {submittedEmail && shouldSetPassword && !passwordSetSuccessful &&
+            {/* User forgot password */}
+            {!creatingAccount && forgotPassword &&
               <LoginSumbitButton
-                onClick={onSetNewPassword}
-                className={(newPassword && confirmNewPassword && newPassword === confirmNewPassword) ? '' : 'disabled'}
+                className={(emailInputValue) ? '' : 'disabled'}
+                style={{ width: '140px' }}
+                onClick={sendPasswordResetEmail}
+              >
+                {!buttonLoading && "Send Email"}
+                {buttonLoading && <Spinner />}
+              </LoginSumbitButton>
+            }
+            {/* User is creating an account */}
+            {creatingAccount && !passwordSetSuccessful &&
+              <LoginSumbitButton
+                onClick={onCreateAccount}
+                className={(newPassword && confirmNewPassword && newPassword === confirmNewPassword && emailInputValue && nameInputValue) ? '' : 'disabled'}
               >
                 {!buttonLoading && "Submit"}
                 {buttonLoading && <Spinner />}
               </LoginSumbitButton>
             }
             {/* User has set password successfully */}
-            {submittedEmail && shouldSetPassword && passwordSetSuccessful &&
+            {creatingAccount && passwordSetSuccessful &&
               <LoginSumbitButton
                 style={{ 'width': '9.5rem' }}
                 onClick={() => window.location.href = '/login'}
               >
                 {!buttonLoading && "Return to login"}
-                {buttonLoading && <Spinner />}
-              </LoginSumbitButton>
-            }
-            {/* User is attempting to login with their password */}
-            {submittedEmail && !shouldSetPassword &&
-              <LoginSumbitButton
-                className={password ? '' : 'disabled'}
-                onClick={onLoginUser}
-              >
-                {!buttonLoading && "Login"}
                 {buttonLoading && <Spinner />}
               </LoginSumbitButton>
             }
