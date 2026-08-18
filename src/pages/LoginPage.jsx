@@ -143,11 +143,11 @@ const LoginPage = () => {
       .then(resp => {
         setPasswordSetSuccessful(true);
       }).catch(e => {
-        setErrorMessage("There was an error while setting your new password.")
+        setErrorMessage("There was an error while creating your account.");
       }).finally(() => {
         setButtonLoading(false);
       });
-  }
+  };
 
   const onLoginUser = () => {
     setButtonLoading(true);
@@ -164,11 +164,11 @@ const LoginPage = () => {
           setErrorMessage("Incorrect email or password");
         }
       }).catch(e => {
-        setErrorMessage("There was an error while attempting to login.")
+        setErrorMessage("There was an error while attempting to login.");
       }).finally(() => {
         setButtonLoading(false);
       });
-  }
+  };
 
   const sendPasswordResetEmail = () => {
     setErrorMessage(null);
@@ -316,7 +316,7 @@ const LoginPage = () => {
                 {/* After user has set password, direct them to login. */}
                 {passwordSetSuccessful && 
                   <LoginEmailDescription>
-                    Your Account has been created! Please verify your email using the link that was sent to you. 
+                    Your Account has been created! Please verify your email using the link that was sent to you before logging in. 
                   </LoginEmailDescription>
                 }
               </>
