@@ -665,6 +665,7 @@ function DatasetHeader({
   viewMode = "table",
   onViewModeChange,
   mapPreviewSupported = false,
+  mapVariable = null,
 }) {
   const location = useLocation();
   const isEmbedView = new URLSearchParams(location.search).get("embed") === "1";
@@ -676,8 +677,11 @@ function DatasetHeader({
 
   const { sharePageUrl, embedPageUrl, shareUrlTooLong } = useMemo(() => {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
-    const basePath = `${origin}/browser/datasets/${datasetId}`;
+    const viewSuffix = viewMode === "map" ? "/map" : "";
+    const basePath = `${origin}/browser/datasets/${datasetId}${viewSuffix}`;
     const shareArgs = {
+      viewMode,
+      mapVariable: viewMode === "map" ? mapVariable : null,
       columnKeys,
       selectedColumns,
       availableGeographies,
@@ -698,6 +702,8 @@ function DatasetHeader({
     return { sharePageUrl, embedPageUrl, shareUrlTooLong };
   }, [
     datasetId,
+    viewMode,
+    mapVariable,
     columnKeys,
     selectedColumns,
     selectedGeographies,
@@ -762,7 +768,11 @@ function DatasetHeader({
               type="button"
               className="embed-view-source-icon-btn"
               onClick={() => {
-                const url = new URL(`/browser/datasets/${datasetId}`, window.location.origin);
+                const path =
+                  viewMode === "map"
+                    ? `/browser/datasets/${datasetId}/map`
+                    : `/browser/datasets/${datasetId}`;
+                const url = new URL(path, window.location.origin);
                 window.open(url.href, "_blank", "noopener,noreferrer");
               }}
               title="View source data"
@@ -961,6 +971,7 @@ function DatasetHeader({
         embedUrl={embedPageUrl}
         urlTooLong={shareUrlTooLong}
         adjustUrlFiltersSlot={embedModalAdjustFilters}
+        viewMode={viewMode}
       />
       <MetadataModal
         show={metadataModalOpen}
@@ -1006,6 +1017,7 @@ DatasetHeader.propTypes = {
   viewMode: PropTypes.oneOf(["table", "map"]),
   onViewModeChange: PropTypes.func,
   mapPreviewSupported: PropTypes.bool,
+  mapVariable: PropTypes.string,
 };
 
 export default DatasetHeader;

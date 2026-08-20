@@ -109,7 +109,7 @@ const router = createBrowserRouter([
             element: <BrowserPage />,
           },
           {
-            path: "datasets/:id",
+            path: "datasets/:id/:viewMode?",
             element: <DataViewerPage />,
           },
           {

@@ -369,22 +369,53 @@ function quantileBreaks(sortedValues, breakCount) {
 }
 
 /**
- * @param {number[]} values
- * @returns {{ colorForValue: (n:number|null)=>string, legend: Array<{label:string,color:string}> }}
+ * Infer a display unit from column metadata / naming.
+ * Metadata has no dedicated unit field; ACS aliases often use "% …" or end in `_p`.
+ * @param {{name?: string, alias?: string, details?: string, label?: string}|null|undefined} column
+ * @returns {string|null}
  */
-export function buildChoroplethScale(values = []) {
+export function getColumnUnit(column) {
+  if (!column) return null;
+  const name = String(column.name || "");
+  const alias = String(column.alias || column.label || "").trim();
+  const details = String(column.details || "");
+
+  if (
+    /_p$/i.test(name) ||
+    alias.startsWith("%") ||
+    /\bpercent(?:age)?\b/i.test(alias) ||
+    /\bpercent(?:age)?\b/i.test(details)
+  ) {
+    return "%";
+  }
+  return null;
+}
+
+/**
+ * @param {number[]} values
+ * @param {{ unit?: string|null }} [options]
+ * @returns {{
+ *   colorForValue: (n:number|null)=>string,
+ *   legend: Array<{label:string,color:string}>,
+ *   binningDescription: string,
+ * }}
+ */
+export function buildChoroplethScale(values = [], { unit = null } = {}) {
   const numeric = values.filter((v) => Number.isFinite(v)).sort((a, b) => a - b);
   if (!numeric.length) {
     return {
       colorForValue: () => NO_DATA_COLOR,
       legend: [{ label: "No data", color: NO_DATA_COLOR }],
+      binningDescription: "Classification: no numeric values",
     };
   }
 
-  const format = (n) =>
-    new Intl.NumberFormat("en-US", {
+  const format = (n) => {
+    const formatted = new Intl.NumberFormat("en-US", {
       maximumFractionDigits: Math.abs(n) >= 100 ? 0 : 2,
     }).format(n);
+    return unit === "%" ? `${formatted}%` : formatted;
+  };
 
   const domainMin = numeric[0];
   const domainMax = numeric[numeric.length - 1];
@@ -397,24 +428,42 @@ export function buildChoroplethScale(values = []) {
         { label: format(uniqueValues[0]), color: CHOROPLETH_COLORS[0] },
         { label: "No data", color: NO_DATA_COLOR },
       ],
+      binningDescription: "Classification: single value",
     };
   }
 
-  const binCount = Math.min(CHOROPLETH_COLORS.length, Math.max(2, uniqueValues.length));
-  // Interior cuts only — never equal to min/max, so we get contiguous bins like 0–12, 12–28.
-  let breaks = quantileBreaks(numeric, binCount).filter((b) => b > domainMin && b < domainMax);
+  const valuesAreIntegers = numeric.every((n) => Number.isInteger(n));
+  const displayDecimals = (n) => (Math.abs(n) >= 100 ? 0 : 2);
+  const exclusiveUpper = (min, max) => {
+    if (valuesAreIntegers || Number.isInteger(max)) {
+      return Math.max(min, max - 1);
+    }
+    const decimals = Math.max(displayDecimals(min), displayDecimals(max));
+    const step = 10 ** -decimals;
+    const upper = Number((max - step).toFixed(decimals));
+    return Math.max(min, upper);
+  };
 
-  // Zero-heavy series can collapse early quantiles onto min; add cuts from non-zero values.
+  // Quantile classification across all numeric values.
+  const classifyValues = numeric;
+  const classifyMin = domainMin;
+  const classifyMax = domainMax;
+  const classifyUnique = uniqueValues;
+
+  const availableColors = CHOROPLETH_COLORS;
+  const binCount = Math.min(availableColors.length, Math.max(2, classifyUnique.length));
+
+  let breaks = quantileBreaks(classifyValues, binCount).filter((b) => b > classifyMin && b < classifyMax);
+
   if (breaks.length < Math.min(2, binCount - 1)) {
-    const nonzero = numeric.filter((v) => v !== 0);
+    const nonzero = classifyValues.filter((v) => v !== 0);
     if (nonzero.length > 1) {
-      const extra = quantileBreaks(nonzero, binCount).filter((b) => b > domainMin && b < domainMax);
+      const extra = quantileBreaks(nonzero, binCount).filter((b) => b > classifyMin && b < classifyMax);
       breaks = [...new Set([...breaks, ...extra])].sort((a, b) => a - b);
     }
   }
 
-  // At most 4 interior breaks → 5 contiguous ranges (one per choropleth color).
-  const maxBreaks = CHOROPLETH_COLORS.length - 1;
+  const maxBreaks = availableColors.length - 1;
   if (breaks.length > maxBreaks) {
     const sampled = [];
     for (let i = 0; i < maxBreaks; i += 1) {
@@ -424,30 +473,56 @@ export function buildChoroplethScale(values = []) {
     breaks = [...new Set(sampled)].sort((a, b) => a - b);
   }
 
-  const uniqueEdges = [...new Set([domainMin, ...breaks, domainMax])].sort((a, b) => a - b);
+  const uniqueEdges = [...new Set([classifyMin, ...breaks, classifyMax])].sort((a, b) => a - b);
   const ranges = [];
-  for (let i = 0; i < uniqueEdges.length - 1; i += 1) {
-    if (uniqueEdges[i] === uniqueEdges[i + 1]) continue;
-    ranges.push({ min: uniqueEdges[i], max: uniqueEdges[i + 1] });
+  if (classifyUnique.length === 1) {
+    ranges.push({
+      min: classifyMin,
+      max: classifyMax,
+      colorIndex: 0,
+    });
+  } else {
+    for (let i = 0; i < uniqueEdges.length - 1; i += 1) {
+      if (uniqueEdges[i] === uniqueEdges[i + 1]) continue;
+      ranges.push({
+        min: uniqueEdges[i],
+        max: uniqueEdges[i + 1],
+        colorIndex: i,
+      });
+    }
   }
 
+  // Mutually exclusive classes: [min, max) for every class except the last, which is [min, max].
   const colorForValue = (n) => {
     if (!Number.isFinite(n)) return NO_DATA_COLOR;
     for (let i = 0; i < ranges.length; i += 1) {
-      if (n <= ranges[i].max) {
-        return CHOROPLETH_COLORS[Math.min(i, CHOROPLETH_COLORS.length - 1)];
+      const isLast = i === ranges.length - 1;
+      if (isLast ? n <= ranges[i].max : n < ranges[i].max) {
+        const colorIndex = Math.min(ranges[i].colorIndex, CHOROPLETH_COLORS.length - 1);
+        return CHOROPLETH_COLORS[colorIndex];
       }
     }
-    return CHOROPLETH_COLORS[Math.min(ranges.length - 1, CHOROPLETH_COLORS.length - 1)];
+    const last = ranges[ranges.length - 1];
+    return CHOROPLETH_COLORS[Math.min(last?.colorIndex ?? 0, CHOROPLETH_COLORS.length - 1)];
   };
 
-  const legend = ranges.map((range, i) => ({
-    label: `${format(range.min)} – ${format(range.max)}`,
-    color: CHOROPLETH_COLORS[Math.min(i, CHOROPLETH_COLORS.length - 1)],
-  }));
+  const legend = ranges.map((range, i) => {
+    const isLast = i === ranges.length - 1;
+    const upper = isLast ? range.max : exclusiveUpper(range.min, range.max);
+    const label =
+      upper === range.min
+        ? format(range.min)
+        : `${format(range.min)}-${format(upper)}`;
+    return {
+      label,
+      color: CHOROPLETH_COLORS[Math.min(range.colorIndex, CHOROPLETH_COLORS.length - 1)],
+    };
+  });
   legend.push({ label: "No data", color: NO_DATA_COLOR });
 
-  return { colorForValue, legend };
+  const binningDescription = "Classification: Quantile";
+
+  return { colorForValue, legend, binningDescription };
 }
 
 /**
@@ -837,11 +912,12 @@ export async function fetchDatasetGeometry(params = {}) {
   };
 }
 
-export function formatMapValue(value) {
+export function formatMapValue(value, unit = null) {
   if (!Number.isFinite(value)) return "—";
-  return new Intl.NumberFormat("en-US", {
+  const formatted = new Intl.NumberFormat("en-US", {
     maximumFractionDigits: Math.abs(value) >= 100 ? 0 : 2,
   }).format(value);
+  return unit === "%" ? `${formatted}%` : formatted;
 }
 
 /** Overlay boundary tables in gisdata.mapc */

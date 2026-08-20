@@ -17,6 +17,7 @@ import {
   fetchNativeCensusTractBoundaryGeojson,
   filterRowsForMapPreview,
   formatMapValue,
+  getColumnUnit,
   getMappableColumns,
   isNativeCensusTractBoundaryTable,
   resolveMapGeographyColumn,
@@ -118,6 +119,13 @@ function DatasetMapPreview({
 
   const activeVariableLabel =
     mappableColumns.find((col) => col.name === activeVariable)?.label || activeVariable || "";
+
+  const activeVariableUnit = useMemo(() => {
+    const column =
+      columnKeys.find((col) => col.name === activeVariable) ||
+      mappableColumns.find((col) => col.name === activeVariable);
+    return getColumnUnit(column);
+  }, [activeVariable, columnKeys, mappableColumns]);
 
   useEffect(() => {
     if (!activeVariable) return;
@@ -236,6 +244,24 @@ function DatasetMapPreview({
       ? municipalGeojson
       : null);
 
+  const tractBoundaryLabel = useMemo(() => {
+    if (geographyType !== MAP_VIEW_GEOGRAPHY_TYPES.census_tracts) return null;
+    const joinKey = String(geometryJoinKey || "").toLowerCase();
+    const props = baseGeojson?.features?.[0]?.properties || {};
+    const featureJoinKey = String(props.__joinKey || "").toLowerCase();
+    const key = joinKey || featureJoinKey;
+
+    if (key === "ct20_id" || (props.ct20_id && !props.ct10_id)) {
+      return "2020 Census tracts";
+    }
+    if (key === "ct10_id" || (props.ct10_id && !props.ct20_id)) {
+      return "2010 Census tracts";
+    }
+    if (props.ct20_id) return "2020 Census tracts";
+    if (props.ct10_id) return "2010 Census tracts";
+    return null;
+  }, [geographyType, geometryJoinKey, baseGeojson]);
+
   const valueByGeography = useMemo(() => {
     if (!activeVariable) return new Map();
 
@@ -267,9 +293,9 @@ function DatasetMapPreview({
     apiBoundaryGeojson,
   ]);
 
-  const { colorForValue, legend } = useMemo(
-    () => buildChoroplethScale([...valueByGeography.values()]),
-    [valueByGeography],
+  const { colorForValue, legend, binningDescription } = useMemo(
+    () => buildChoroplethScale([...valueByGeography.values()], { unit: activeVariableUnit }),
+    [valueByGeography, activeVariableUnit],
   );
 
   const paintedGeojson = useMemo(() => {
@@ -605,34 +631,13 @@ function DatasetMapPreview({
 
   return (
     <div className="dataset-map-preview">
-      <aside className="dataset-map-preview__sidebar" aria-label="Map variables">
-        <h2 className="dataset-map-preview__sidebar-title">Variables</h2>
-        <p className="dataset-map-preview__sidebar-hint">
-          Choose a column to color the map. Values use the selected year and any active column filters.
-        </p>
-        <ul className="dataset-map-preview__variable-list">
-          {mappableColumns.map((col) => {
-            const selected = col.name === activeVariable;
-            return (
-              <li key={col.name}>
-                <button
-                  type="button"
-                  className={`dataset-map-preview__variable${selected ? " dataset-map-preview__variable--selected" : ""}`}
-                  onClick={() => onMapVariableChange?.(col.name)}
-                  aria-pressed={selected}
-                >
-                  <span className="dataset-map-preview__variable-label">{col.label}</span>
-                  <span className="dataset-map-preview__variable-name">{col.name}</span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </aside>
-
       <div className="dataset-map-preview__map-panel">
         <div className="dataset-map-preview__map-header">
-          <h2>{activeVariableLabel}</h2>
+          <h2>
+            {mapYear != null && activeVariableLabel
+              ? `${mapYear} ${activeVariableLabel}`
+              : activeVariableLabel || (mapYear != null ? String(mapYear) : "")}
+          </h2>
           {boundariesError && <span className="dataset-map-preview__status dataset-map-preview__status--error">{boundariesError}</span>}
         </div>
         <div className="dataset-map-preview__map-body">
@@ -665,6 +670,16 @@ function DatasetMapPreview({
               </div>
             )}
             <div className="dataset-map-preview__legend" aria-label="Map legend">
+              {(activeVariableLabel || tractBoundaryLabel) && (
+                <div className="dataset-map-preview__legend-header">
+                  {activeVariableLabel && (
+                    <h3 className="dataset-map-preview__legend-title">{activeVariableLabel}</h3>
+                  )}
+                  {tractBoundaryLabel && (
+                    <p className="dataset-map-preview__legend-boundary">{tractBoundaryLabel}</p>
+                  )}
+                </div>
+              )}
               {legend.map((item) => (
                 <div key={`${item.color}-${item.label}`} className="dataset-map-preview__legend-item">
                   <span className="dataset-map-preview__legend-swatch" style={{ backgroundColor: item.color }} />
@@ -674,84 +689,111 @@ function DatasetMapPreview({
             </div>
           </div>
 
-          <aside className="dataset-map-preview__detail" aria-label="Selected area details">
-            <div className="dataset-map-preview__detail-header">
-              <h2 className="dataset-map-preview__detail-title">Details</h2>
-              {selectedDetails && (
+          <div className="dataset-map-preview__side-panels">
+            <aside className="dataset-map-preview__detail" aria-label="Map variable">
+              <div className="dataset-map-preview__detail-header">
+                <h2 className="dataset-map-preview__detail-title">Variable</h2>
+              </div>
+              <label className="dataset-map-preview__variable-field">
+                <span className="dataset-map-preview__variable-field-label">Choose a column to color the map</span>
+                <select
+                  className="dataset-map-preview__variable-select"
+                  value={activeVariable || ""}
+                  onChange={(e) => onMapVariableChange?.(e.target.value)}
+                  aria-label="Map variable"
+                  title={activeVariableLabel || undefined}
+                >
+                  {mappableColumns.map((col) => (
+                    <option key={col.name} value={col.name}>
+                      {col.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </aside>
+
+            <aside className="dataset-map-preview__detail" aria-label="Selected area details">
+              <div className="dataset-map-preview__detail-header">
+                <h2 className="dataset-map-preview__detail-title">Details</h2>
+                {selectedDetails && (
+                  <button
+                    type="button"
+                    className="dataset-map-preview__detail-close"
+                    onClick={() => setSelectedFeatureKey(null)}
+                    aria-label="Clear selection"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              {!selectedDetails ? (
+                <p className="dataset-map-preview__detail-empty">
+                  Click a{" "}
+                  {geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts
+                    ? "census tract"
+                    : "municipality"}{" "}
+                  on the map to view its values.
+                </p>
+              ) : (
+                <dl className="dataset-map-preview__detail-list">
+                  <div className="dataset-map-preview__detail-row">
+                    <dt>
+                      {geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts
+                        ? "Census tract"
+                        : "Municipality"}
+                    </dt>
+                    <dd>{selectedDetails.label}</dd>
+                  </div>
+                  {selectedDetails.year && (
+                    <div className="dataset-map-preview__detail-row">
+                      <dt>Year</dt>
+                      <dd>{selectedDetails.year}</dd>
+                    </div>
+                  )}
+                  {selectedDetails.tractBoundary && (
+                    <div className="dataset-map-preview__detail-row">
+                      <dt>Boundary</dt>
+                      <dd>{selectedDetails.tractBoundary}</dd>
+                    </div>
+                  )}
+                  <div className="dataset-map-preview__detail-row dataset-map-preview__detail-row--emphasis">
+                    <dt>{activeVariableLabel}</dt>
+                    <dd>{formatMapValue(selectedDetails.value, activeVariableUnit)}</dd>
+                  </div>
+                </dl>
+              )}
+              <div className="dataset-map-preview__download-wrap">
                 <button
                   type="button"
-                  className="dataset-map-preview__detail-close"
-                  onClick={() => setSelectedFeatureKey(null)}
-                  aria-label="Clear selection"
+                  className="dataset-map-preview__download-geojson"
+                  onClick={handleDownloadGeojson}
+                  disabled={!canDownloadGeojson}
+                  aria-busy={isExporting}
+                  aria-describedby="dataset-map-geojson-download-tip"
                 >
-                  Clear
+                  {isExporting ? "Preparing…" : "Download as GeoJSON"}
                 </button>
-              )}
-            </div>
-            {!selectedDetails ? (
-              <p className="dataset-map-preview__detail-empty">
-                Click a{" "}
-                {geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts
-                  ? "census tract"
-                  : "municipality"}{" "}
-                on the map to view its values.
-              </p>
-            ) : (
-              <dl className="dataset-map-preview__detail-list">
-                <div className="dataset-map-preview__detail-row">
-                  <dt>
-                    {geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts
-                      ? "Census tract"
-                      : "Municipality"}
-                  </dt>
-                  <dd>{selectedDetails.label}</dd>
-                </div>
-                {selectedDetails.year && (
-                  <div className="dataset-map-preview__detail-row">
-                    <dt>Year</dt>
-                    <dd>{selectedDetails.year}</dd>
-                  </div>
+                <span
+                  id="dataset-map-geojson-download-tip"
+                  role="tooltip"
+                  className="dataset-map-preview__download-tooltip"
+                >
+                  {mapYear != null
+                    ? `Download the current map with selected year ${mapYear} as GeoJSON, with all table properties.`
+                    : "Download the current map as GeoJSON, with all table properties."}
+                </span>
+                {exportError && (
+                  <p className="dataset-map-preview__download-error" role="alert">
+                    {exportError}
+                  </p>
                 )}
-                {selectedDetails.tractBoundary && (
-                  <div className="dataset-map-preview__detail-row">
-                    <dt>Boundary</dt>
-                    <dd>{selectedDetails.tractBoundary}</dd>
-                  </div>
-                )}
-                <div className="dataset-map-preview__detail-row dataset-map-preview__detail-row--emphasis">
-                  <dt>{activeVariableLabel}</dt>
-                  <dd>{formatMapValue(selectedDetails.value)}</dd>
-                </div>
-              </dl>
-            )}
-            <div className="dataset-map-preview__download-wrap">
-              <button
-                type="button"
-                className="dataset-map-preview__download-geojson"
-                onClick={handleDownloadGeojson}
-                disabled={!canDownloadGeojson}
-                aria-busy={isExporting}
-                aria-describedby="dataset-map-geojson-download-tip"
-              >
-                {isExporting ? "Preparing…" : "Download as GeoJSON"}
-              </button>
-              <span
-                id="dataset-map-geojson-download-tip"
-                role="tooltip"
-                className="dataset-map-preview__download-tooltip"
-              >
-                {mapYear != null
-                  ? `Download the current map with selected year ${mapYear} as GeoJSON, with all table properties.`
-                  : "Download the current map as GeoJSON, with all table properties."}
-              </span>
-              {exportError && (
-                <p className="dataset-map-preview__download-error" role="alert">
-                  {exportError}
-                </p>
-              )}
-            </div>
-          </aside>
+              </div>
+            </aside>
+          </div>
         </div>
+        {binningDescription && (
+          <p className="dataset-map-preview__map-footer">{binningDescription}</p>
+        )}
       </div>
     </div>
   );
