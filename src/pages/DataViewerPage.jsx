@@ -1,7 +1,7 @@
 import React from "react";
 import axios from "axios";
 import { useSelector, useDispatch } from "react-redux";
-import { useLocation, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { css } from "@emotion/react";
 import MoonLoader from "react-spinners/MoonLoader";
 import { fetchDatasets } from "../reducers/datasetSlice";
@@ -27,6 +27,20 @@ const override = css`
   width: 3.5rem;
 `;
 
+function viewModeFromLocation(location, params) {
+  if (params?.viewMode === "map") return "map";
+  if ((location?.pathname || "").endsWith("/map")) return "map";
+  return "table";
+}
+
+function datasetViewerPath(datasetId, viewMode, search = "") {
+  const base =
+    viewMode === "map"
+      ? `/browser/datasets/${datasetId}/map`
+      : `/browser/datasets/${datasetId}`;
+  return `${base}${search || ""}`;
+}
+
 class DataViewerClass extends React.Component {
   constructor(props) {
     super(props);
@@ -43,7 +57,7 @@ class DataViewerClass extends React.Component {
       previewColumnOrder: [],
       previewRowOrder: [],
       columnFilters: [],
-      viewMode: "table",
+      viewMode: viewModeFromLocation(props.location, props.params),
       mapVariable: null,
       geographyType: null,
     };
@@ -327,6 +341,15 @@ class DataViewerClass extends React.Component {
           if (geoOverride) selectedGeographies = geoOverride;
         }
 
+        const wantMap =
+          viewModeFromLocation(this.props.location, this.props.params) === "map" &&
+          isMapPreviewSupported(geographyType);
+        let mapVariable = null;
+        if (wantMap && parsedShare.mapVariable) {
+          const hasColumn = columnKeys.some((col) => String(col?.name) === String(parsedShare.mapVariable));
+          if (hasColumn) mapVariable = parsedShare.mapVariable;
+        }
+
         const previewColumnOrder = syncPreviewColumnOrder([], selectedColumns, columnKeys);
 
         this.setState({
@@ -353,10 +376,21 @@ class DataViewerClass extends React.Component {
           linkInventoryRows: isDatasetInventoryCatalog(dataset),
           previewColumnOrder,
           previewRowOrder: [],
-          viewMode: "table",
-          mapVariable: null,
+          viewMode: wantMap ? "map" : "table",
+          mapVariable,
           loading: false,
         });
+
+        if (
+          viewModeFromLocation(this.props.location, this.props.params) === "map" &&
+          !isMapPreviewSupported(geographyType) &&
+          this.props.navigate
+        ) {
+          this.props.navigate(
+            datasetViewerPath(this.props.params.id, "table", this.props.location?.search || ""),
+            { replace: true },
+          );
+        }
 
       }).catch((error) => {
         this.setState({ loading: false, error: "Please try again later" });
@@ -449,7 +483,34 @@ class DataViewerClass extends React.Component {
     }));
   }
 
+  componentDidUpdate(prevProps) {
+    const prevMode = viewModeFromLocation(prevProps.location, prevProps.params);
+    const nextMode = viewModeFromLocation(this.props.location, this.props.params);
+    if (prevMode === nextMode) return;
+
+    this.setState((prevState) => {
+      if (nextMode === "map") {
+        if (!isMapPreviewSupported(prevState.geographyType)) {
+          return prevState;
+        }
+        const years = prevState.availableYears || [];
+        const latestYear = years.length ? years[0] : null;
+        return {
+          viewMode: "map",
+          selectedYears: latestYear != null ? [latestYear] : [],
+        };
+      }
+      return { viewMode: "table" };
+    });
+  }
+
   onViewModeChange(viewMode) {
+    const datasetId = this.props.params.id;
+    const search = this.props.location?.search || "";
+    if (this.props.navigate) {
+      this.props.navigate(datasetViewerPath(datasetId, viewMode, search));
+    }
+
     this.setState((prevState) => {
       if (viewMode === "map") {
         const years = prevState.availableYears || [];
@@ -563,6 +624,7 @@ class DataViewerClass extends React.Component {
             viewMode={this.state.viewMode}
             onViewModeChange={this.onViewModeChange}
             mapPreviewSupported={mapPreviewSupported}
+            mapVariable={this.state.mapVariable}
           />
           {this.state.viewMode === "map" && mapPreviewSupported ? (
             <DatasetMapPreview
@@ -618,6 +680,7 @@ class DataViewerClass extends React.Component {
 const DataViewerPage = () => {
   const params = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
   const dispatch = useDispatch();
   const datasets = useSelector((state) => state.dataset.cache);
 
@@ -625,6 +688,7 @@ const DataViewerPage = () => {
     <DataViewerClass
       params={params}
       location={location}
+      navigate={navigate}
       datasets={datasets}
       fetchDatasets={() => dispatch(fetchDatasets())}
     />

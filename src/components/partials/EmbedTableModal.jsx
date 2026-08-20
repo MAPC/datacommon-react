@@ -13,8 +13,8 @@ const SIZE_PRESETS = {
 const IFRAME_WIDTH_DEFAULT = SIZE_PRESETS.large.width;
 const IFRAME_HEIGHT_DEFAULT = SIZE_PRESETS.large.height;
 
-const makeIframeSnippet = (embedUrl, title, w, h) =>
-  `<iframe src="${embedUrl}" title="${title || "Embedded dataset table"}" width="${w}" height="${h}" frameborder="0" loading="lazy"></iframe>`;
+const makeIframeSnippet = (embedUrl, title, w, h, viewMode = "table") =>
+  `<iframe src="${embedUrl}" title="${title || (viewMode === "map" ? "Embedded dataset map" : "Embedded dataset table")}" width="${w}" height="${h}" frameborder="0" loading="lazy"></iframe>`;
 
 const digitsOnly = (value) => String(value ?? "").replace(/\D/g, "");
 const getPresetForDimensions = (width, height) => {
@@ -39,6 +39,7 @@ const EmbedTableModal = ({
   embedUrl: embedUrlProp,
   urlTooLong = false,
   adjustUrlFiltersSlot = null,
+  viewMode = "table",
 }) => {
   const [panel, setPanel] = useState("share");
   /** Shown in inputs while typing; only digits (empty allowed briefly). */
@@ -75,18 +76,22 @@ const EmbedTableModal = ({
   }, [isOpen, urlTooLong]);
 
   const fallbackSourceUrl = useMemo(() => {
+    const path =
+      viewMode === "map" ? `/browser/datasets/${datasetId}/map` : `/browser/datasets/${datasetId}`;
     if (typeof window === "undefined") {
-      return `/browser/datasets/${datasetId}`;
+      return path;
     }
-    return `${window.location.origin}/browser/datasets/${datasetId}`;
-  }, [datasetId]);
+    return `${window.location.origin}${path}`;
+  }, [datasetId, viewMode]);
 
   const fallbackEmbedUrl = useMemo(() => {
+    const path =
+      viewMode === "map" ? `/browser/datasets/${datasetId}/map` : `/browser/datasets/${datasetId}`;
     if (typeof window === "undefined") {
-      return `/browser/datasets/${datasetId}?embed=1`;
+      return `${path}?embed=1`;
     }
-    return `${window.location.origin}/browser/datasets/${datasetId}?embed=1`;
-  }, [datasetId]);
+    return `${window.location.origin}${path}?embed=1`;
+  }, [datasetId, viewMode]);
 
   const sourceUrl = shareUrlProp ?? fallbackSourceUrl;
   const embedUrl = embedUrlProp ?? fallbackEmbedUrl;
@@ -114,8 +119,8 @@ const EmbedTableModal = ({
   };
 
   const iframeCode = useMemo(
-    () => makeIframeSnippet(embedUrl, title, widthCommitted, heightCommitted),
-    [embedUrl, heightCommitted, title, widthCommitted],
+    () => makeIframeSnippet(embedUrl, title, widthCommitted, heightCommitted, viewMode),
+    [embedUrl, heightCommitted, title, widthCommitted, viewMode],
   );
 
   const commitWidth = () => {
@@ -165,7 +170,7 @@ const EmbedTableModal = ({
     setWidthInput(String(w));
     setHeightInput(String(h));
     setSizePreset(getPresetForDimensions(w, h));
-    copyText(makeIframeSnippet(embedUrl, title, w, h), "Embed code copied!");
+    copyText(makeIframeSnippet(embedUrl, title, w, h, viewMode), "Embed code copied!");
   };
 
   const handleSizePresetChange = (e) => {
@@ -258,7 +263,9 @@ const EmbedTableModal = ({
             <div className="embed-table-modal-panel" role="tabpanel" aria-label="Share">
               <p className="embed-table-modal-section-title">Copy link to page</p>
               <p className="embed-table-modal-section-hint">
-                This link includes the selected filters (columns, geography, and years).
+                {viewMode === "map"
+                  ? "This link opens the map view and includes the selected map variable, geography, and year."
+                  : "This link includes the selected filters (columns, geography, and years)."}
               </p>
               {shareEmbedFilterHelp}
               <div
@@ -292,7 +299,9 @@ const EmbedTableModal = ({
             <div className="embed-table-modal-panel" role="tabpanel" aria-label="Embed">
               <p className="embed-table-modal-section-title">Copy embed code</p>
               <p className="embed-table-modal-section-hint">
-                The embed URL updates based on the applied filters (columns, geography, and years).
+                {viewMode === "map"
+                  ? "The embed URL uses the map view and updates with the selected map variable, geography, and year."
+                  : "The embed URL updates based on the applied filters (columns, geography, and years)."}
               </p>
               {shareEmbedFilterHelp}
               <div className="embed-table-modal-group embed-table-modal-group--tight">
@@ -399,11 +408,13 @@ EmbedTableModal.propTypes = {
   embedUrl: PropTypes.string,
   urlTooLong: PropTypes.bool,
   adjustUrlFiltersSlot: PropTypes.node,
+  viewMode: PropTypes.oneOf(["table", "map"]),
 };
 
 EmbedTableModal.defaultProps = {
   title: "",
   urlTooLong: false,
+  viewMode: "table",
 };
 
 export default EmbedTableModal;
