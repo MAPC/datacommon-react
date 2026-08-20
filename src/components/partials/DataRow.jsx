@@ -17,10 +17,10 @@ const DataRow = ({
   onRowDrop,
 }) => {
   const targetId = getInventoryRowDatasetId(rowData);
-  const canLink = Boolean(linkRowsToDatasetView && targetId != null && targetId !== "");
+  const canLink = Boolean(linkRowsToDatasetView && targetId != null && targetId !== "" && rowData?.active === 'Y');
   const openDatasetTooltip = canLink ? "Open dataset table in a new tab" : "";
   const showOpenTableAction = canLink;
-  const showGutter = showRowDragControls || showOpenTableAction;
+  const showGutter = showRowDragControls || linkRowsToDatasetView;
 
   const go = useCallback(() => {
     if (!canLink) {
