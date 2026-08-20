@@ -627,6 +627,7 @@ class DataViewerClass extends React.Component {
             onViewModeChange={this.onViewModeChange}
             mapPreviewSupported={mapPreviewSupported}
             mapVariable={this.state.mapVariable}
+            geographyType={this.state.geographyType}
           />
           {this.state.viewMode === "map" && mapPreviewSupported ? (
             <DatasetMapPreview

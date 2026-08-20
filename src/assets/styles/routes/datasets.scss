@@ -2062,10 +2062,10 @@
     border-radius: 6px;
     background-color: #fff;
     color: $color_font-dark;
-    font-size: $font_size-xsmall;
+    font-size: 0.95rem;
     font-weight: 500;
     line-height: 1.35;
-    padding: 10px 36px 10px 12px;
+    padding: 11px 36px 11px 12px;
     cursor: pointer;
     transition: border-color 0.14s, background-color 0.14s, box-shadow 0.14s;
     -webkit-appearance: none;
@@ -2142,6 +2142,61 @@
     min-height: 520px;
     background: #e8eef0;
     min-width: 0;
+
+    // Keep Mapbox zoom/compass above map chrome.
+    .mapboxgl-ctrl-bottom-right {
+      z-index: 4;
+      bottom: 8px;
+      right: 8px;
+    }
+
+    .mapboxgl-ctrl-group {
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+    }
+
+    .mapboxgl-ctrl-compass {
+      display: block !important;
+    }
+  }
+
+  .dataset-map-preview__map-controls {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 4;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+  }
+
+  .dataset-map-preview__north-arrow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    width: 36px;
+    padding: 6px 4px 4px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.94);
+    border: 1px solid rgba($color_font-medium, 0.22);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+    pointer-events: none;
+  }
+
+  .dataset-map-preview__north-arrow-pointer {
+    width: 0;
+    height: 0;
+    border-left: 7px solid transparent;
+    border-right: 7px solid transparent;
+    border-bottom: 14px solid #c23b2e;
+  }
+
+  .dataset-map-preview__north-arrow-label {
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    color: $color_font-dark;
   }
 
   .dataset-map-preview__detail {
@@ -2257,7 +2312,7 @@
     margin: 0;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
   }
 
   .dataset-map-preview__detail-row {
@@ -2277,22 +2332,70 @@
     dd {
       margin: 0;
       font-size: 0.95rem;
+      font-weight: 600;
       color: $color_font-dark;
       word-break: break-word;
     }
 
-    &--emphasis dd {
-      font-size: 1.15rem;
-      font-weight: 700;
-      color: $color_font-dark;
+    &--inline {
+      flex-direction: row;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+
+      dt {
+        flex: 0 0 auto;
+        text-transform: none;
+        letter-spacing: 0;
+        font-size: 12px;
+        font-weight: 500;
+        color: $color_font-medium--dark;
+      }
+
+      dd {
+        flex: 1 1 auto;
+        text-align: right;
+        font-size: 13px;
+        font-weight: 600;
+      }
     }
   }
 
+  .dataset-map-preview__detail-metric {
+    margin-top: 4px;
+    padding-top: 12px;
+    border-top: 1px solid rgba($color_font-medium, 0.2);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .dataset-map-preview__detail-metric-label {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.35;
+    color: $color_font-medium--dark;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  .dataset-map-preview__detail-metric-value {
+    margin: 0;
+    font-size: 1.35rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: $color_font-dark;
+    word-break: break-word;
+  }
+
+  .dataset-map-preview__detail-metric-moe {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: $color_font-medium--dark;
+  }
+
   .dataset-map-preview__layer-toggles {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    z-index: 3;
     display: flex;
     flex-direction: column;
     gap: 6px;

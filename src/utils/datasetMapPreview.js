@@ -26,6 +26,7 @@ const NON_MAPPABLE_COLUMN_NAMES = new Set(
     "geometry",
     "geom",
     "logrecno",
+    "county_id",
     ...MUNICIPAL_MAP_JOIN_COLUMNS,
     ...TRACT_GEO_COLUMNS,
   ].map((name) => name.toLowerCase()),
@@ -47,7 +48,9 @@ export function detectDatasetGeographyType(tableName, geographyHint = null) {
     return geographyTypeFromHint(geographyHint);
   }
 
-  if (tableName.endsWith("_m")) return MAP_VIEW_GEOGRAPHY_TYPES.municipal;
+  if (tableName.endsWith("_m") || tableName.endsWith("_muni")) {
+    return MAP_VIEW_GEOGRAPHY_TYPES.municipal;
+  }
   if (tableName.endsWith("_ct")) return MAP_VIEW_GEOGRAPHY_TYPES.census_tracts;
   if (
     tableName.endsWith("_bg") ||
@@ -92,10 +95,11 @@ export function isMapPreviewSupported(geographyType) {
 /**
  * Municipal, census tract, and block group tables can export GeoJSON via the export API.
  * Native tract boundary tables (shape column) use standard geospatial export instead.
+ * Pass geographyHint (e.g. `_data_browser.geography`) when the table name has no `_m`/`_ct`/`_bg` suffix.
  */
-export function supportsTabularGeojsonExport(tableName) {
+export function supportsTabularGeojsonExport(tableName, geographyHint = null) {
   if (isNativeCensusTractBoundaryTable(tableName)) return false;
-  const geographyType = detectDatasetGeographyType(tableName);
+  const geographyType = detectDatasetGeographyType(tableName, geographyHint);
   return (
     geographyType === MAP_VIEW_GEOGRAPHY_TYPES.municipal ||
     geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts ||
@@ -147,6 +151,105 @@ function isNumericLike(value) {
   if (typeof value === "boolean") return false;
   const n = Number(String(value).replace(/,/g, "").trim());
   return Number.isFinite(n);
+}
+
+/**
+ * Find the margin-of-error column paired with a base estimate column.
+ * Mirrors DataViewerPage / DatasetHeader pairing (alias + common ACS suffixes).
+ * @param {Array<{name?: string, alias?: string, details?: string}>} columnKeys
+ * @param {string|null|undefined} baseColumnName
+ * @returns {string|null}
+ */
+export function getMarginColumnForBase(columnKeys = [], baseColumnName) {
+  const base = String(baseColumnName || "");
+  if (!base) return null;
+
+  const byName = new Set((columnKeys || []).map((c) => String(c?.name || "")).filter(Boolean));
+  if (!byName.has(base)) return null;
+
+  const byAlias = {};
+  (columnKeys || []).forEach((col) => {
+    const alias = String(col?.alias || "").trim().toLowerCase();
+    if (alias) byAlias[alias] = String(col?.name || "");
+  });
+
+  const normalizeAliasMetric = (text) =>
+    String(text || "")
+      .toLowerCase()
+      .replace(/\s*;\s*(estimate|margin of error)\s*$/i, "")
+      .replace(/\s*,\s*(estimate|margin of error)\s*$/i, "")
+      .trim();
+
+  const getBaseCandidates = (name) => {
+    const candidates = [];
+    const n = String(name || "");
+
+    if (n.endsWith("_mep")) {
+      candidates.push(n.slice(0, -4) + "_p");
+    } else if (/mep$/i.test(n)) {
+      candidates.push(n.slice(0, -3) + "_p");
+    }
+    if (n.endsWith("_mp")) {
+      candidates.push(n.slice(0, -3) + "_p");
+      candidates.push(n.slice(0, -3));
+    }
+    if (n.endsWith("_me")) {
+      candidates.push(n.slice(0, -3));
+    } else if (/[0-9][a-z0-9_]*me$/i.test(n)) {
+      candidates.push(n.slice(0, -2));
+    }
+    if (n.endsWith("_moe")) {
+      candidates.push(n.slice(0, -4));
+    }
+    if (
+      n.endsWith("_m") &&
+      !n.endsWith("_me") &&
+      !n.endsWith("_mp") &&
+      !n.endsWith("_moe") &&
+      !n.endsWith("_mep")
+    ) {
+      candidates.push(n.slice(0, -2));
+    }
+
+    return [...new Set(candidates.filter(Boolean))];
+  };
+
+  const pairs = [];
+  (columnKeys || []).forEach((col) => {
+    const name = String(col?.name || "");
+    if (!name) return;
+
+    const alias = String(col?.alias || "").toLowerCase();
+    const details = String(col?.details || "").toLowerCase();
+    const hintFromMetadata = alias.includes("margin of error") || details.includes("margin of error");
+    const suffixHint =
+      /(?:_mp|_me|_moe|_mep|_m)$/i.test(name) ||
+      /[0-9][a-z0-9_]*me$/i.test(name) ||
+      /[a-z0-9_]mep$/i.test(name);
+    if (!hintFromMetadata && !suffixHint) return;
+
+    let pairedBase = null;
+    if (alias.includes("margin of error")) {
+      const estimateAlias = alias.replace("margin of error", "estimate").replace(/\s+/g, " ").trim();
+      if (byAlias[estimateAlias]) {
+        pairedBase = byAlias[estimateAlias];
+      } else {
+        const normalized = normalizeAliasMetric(alias);
+        const matchedBase = (columnKeys || []).find((candidate) => {
+          const a = String(candidate?.alias || "").toLowerCase();
+          const isEstimate = /\bestimate\b/i.test(a) || (!/\bmargin of error\b/i.test(a) && !!a);
+          return isEstimate && normalizeAliasMetric(a) === normalized;
+        });
+        if (matchedBase?.name) pairedBase = matchedBase.name;
+      }
+    }
+    if (!pairedBase) {
+      pairedBase = getBaseCandidates(name).find((candidate) => byName.has(candidate)) || null;
+    }
+    if (pairedBase === base) pairs.push(name);
+  });
+
+  return pairs[0] || null;
 }
 
 /**
@@ -531,6 +634,7 @@ export function buildChoroplethScale(values = [], { unit = null } = {}) {
 export function enrichBoundariesWithValues({
   baseGeojson,
   valueByGeography,
+  moeByGeography = null,
   geographyType,
   colorForValue,
   displayNameProperty,
@@ -586,12 +690,15 @@ export function enrichBoundariesWithValues({
       const key = getFeatureKey(feature.properties);
       const value = valueByGeography.get(key);
       const hasValue = Number.isFinite(value);
+      const moeRaw = moeByGeography?.get(key);
+      const moe = Number.isFinite(moeRaw) ? moeRaw : null;
       return {
         ...feature,
         properties: {
           ...feature.properties,
           __mapKey: key,
           __mapValue: hasValue ? value : null,
+          __mapMoe: moe,
           __mapColor: colorForValue(hasValue ? value : null),
           __mapLabel: getDisplayName(feature.properties),
         },
@@ -927,10 +1034,11 @@ export const GIS_BOUNDARY_LAYERS = {
     schema: "mapc",
     table: "ma_municipalities",
   },
+  // MAPC region outline uses the static asset (same as community profiles MapBox).
+  // gisdata.mapc.mapc_municipalities_poly is not authorized for the public API token.
   mapcRegion: {
-    database: "gisdata",
-    schema: "mapc",
-    table: "mapc_municipalities_poly",
+    source: "static",
+    asset: "mapc-regions",
   },
 };
 
@@ -1165,7 +1273,7 @@ export function parseWktPolygon(wkt) {
 }
 
 /**
- * fetch mapc boundary overlays from gisdata
+ * fetch mapc boundary overlays from gisdata (municipal) or static assets (MAPC region)
  */
 export async function fetchGisBoundaryLayer(layerKey) {
   const config = GIS_BOUNDARY_LAYERS[layerKey];
@@ -1178,6 +1286,15 @@ export async function fetchGisBoundaryLayer(layerKey) {
   }
 
   const pending = (async () => {
+    if (config.source === "static" && config.asset === "mapc-regions") {
+      const module = await import("../assets/data/mapc-regions.json");
+      const fc = module.default || module;
+      if (!fc?.features?.length) {
+        throw new Error("MAPC regions asset has no features");
+      }
+      return fc;
+    }
+
     const search = new URLSearchParams({
       token: import.meta.env.VITE_MAPC_API_TOKEN,
       database: config.database,

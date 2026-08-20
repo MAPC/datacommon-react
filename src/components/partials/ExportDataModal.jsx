@@ -134,9 +134,9 @@ const fallbackExportFilename = (table, format, geojsonYearCount = 0) => {
   return `${base}${formats[format]?.extension || ""}`;
 };
 
-const getDownloadFormatOptions = (database, table) => {
+const getDownloadFormatOptions = (database, table, geographyType = null) => {
   const tableIsGeospatial = database === "towndata" || database === "gisdata";
-  const allowTabularGeojson = supportsTabularGeojsonExport(table);
+  const allowTabularGeojson = supportsTabularGeojsonExport(table, geographyType);
   return Object.entries(formats).filter(([format, config]) => {
     if (format === "geojson" && allowTabularGeojson) return true;
     return config.isGeospatial === tableIsGeospatial || (!tableIsGeospatial && config.isTabular);
@@ -172,6 +172,7 @@ function ExportDataModal({
   availableGeographies = [],
   geographyColumn,
   availableYears = [],
+  geographyType = null,
 }) {
   const [exportTarget, setExportTarget] = useState("data");
   const [downloadDestination, setDownloadDestination] = useState("file");
@@ -185,8 +186,11 @@ function ExportDataModal({
   const { isExporting, exportError, runExportDownload, clearExportError } = useExportFileDownload();
   const copyEndpointFeedbackTimerRef = useRef(null);
 
-  const allowsTabularGeojson = supportsTabularGeojsonExport(table);
-  const availableDownloadFormats = useMemo(() => getDownloadFormatOptions(database, table), [database, table]);
+  const allowsTabularGeojson = supportsTabularGeojsonExport(table, geographyType);
+  const availableDownloadFormats = useMemo(
+    () => getDownloadFormatOptions(database, table, geographyType),
+    [database, table, geographyType],
+  );
   const isShapefileSelection = downloadFormat === "shapefile";
   const isTabularGeojsonSelection = downloadFormat === "geojson" && allowsTabularGeojson;
   const showGeojsonYearPicker = isTabularGeojsonSelection && Boolean(queryYearColumn) && availableYears.length > 0;
@@ -693,6 +697,7 @@ ExportDataModal.propTypes = {
   availableGeographies: PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.string, PropTypes.number])),
   geographyColumn: PropTypes.string,
   availableYears: PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.string, PropTypes.number])),
+  geographyType: PropTypes.oneOf(["municipal", "census_tracts", "block_groups"]),
 };
 
 export default ExportDataModal;

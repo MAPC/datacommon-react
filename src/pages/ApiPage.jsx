@@ -1266,6 +1266,7 @@ const ApiPage = () => {
       schema: selectedDataset.schemaname || "",
       table: selectedDataset.table_name || "",
       yearcolumn: selectedDataset.yearcolumn || "",
+      geography: selectedDataset.geography || "",
     };
   }, [selectedDataset]);
 
@@ -1309,7 +1310,10 @@ const ApiPage = () => {
 
   const availableExportFormats = useMemo(() => {
     const tableIsGeospatial = datasetBasics?.database === "towndata" || datasetBasics?.database === "gisdata";
-    const allowTabularGeojson = supportsTabularGeojsonExport(datasetBasics?.table);
+    const allowTabularGeojson = supportsTabularGeojsonExport(
+      datasetBasics?.table,
+      datasetBasics?.geography,
+    );
     return Object.entries(EXPORT_FORMATS)
       .filter(([format, config]) => {
         if (format === "geojson" && allowTabularGeojson) return true;
