@@ -99,7 +99,7 @@ const CommunitySelectorPage = () => {
   const handleMunicipalitySelect = useCallback((municipality) => {
     const formattedMuni = municipality.toLowerCase().replace(/\s+/g, '-');
     dispatch(fillPoly(formattedMuni));
-    navigate(`/profile/${formattedMuni}`);
+    navigate(`/profile/${formattedMuni}/demographics`);
   }, [dispatch, navigate]);
 
   return (

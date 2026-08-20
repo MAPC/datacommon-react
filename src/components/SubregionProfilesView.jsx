@@ -156,7 +156,10 @@ const chunkArray = (array, size) => {
 const SubregionProfilesView = () => {
   const dispatch = useDispatch();
   const { subregionId, tab } = useParams();
-  const availableTabs = tabs;
+
+  // muni-finance not available at subregion level
+  const availableTabs = tabs.filter(tab => tab.value !== 'municipal-finance');
+
   const sanitizeTab = (value) =>
     value ? value : "demographics";
   const [activeTab, setActiveTab] = useState(sanitizeTab(tab));
