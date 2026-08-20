@@ -18,6 +18,7 @@ import {
   filterRowsForMapPreview,
   formatMapValue,
   getColumnUnit,
+  getMarginColumnForBase,
   getMappableColumns,
   isNativeCensusTractBoundaryTable,
   resolveMapGeographyColumn,
@@ -35,6 +36,17 @@ const MUNI_LINE_LAYER_ID = "dataset-map-preview-muni-line";
 const MAPC_SOURCE_ID = "dataset-map-preview-mapc";
 const MAPC_LINE_LAYER_ID = "dataset-map-preview-mapc-line";
 const EMPTY_FC = { type: "FeatureCollection", features: [] };
+
+function bringOverlayLayersToFront(map) {
+  if (!map) return;
+  // Keep reference overlays above the choropleth fill/outline so toggles are visible.
+  if (map.getLayer(MUNI_LINE_LAYER_ID)) {
+    map.moveLayer(MUNI_LINE_LAYER_ID);
+  }
+  if (map.getLayer(MAPC_LINE_LAYER_ID)) {
+    map.moveLayer(MAPC_LINE_LAYER_ID);
+  }
+}
 
 function DatasetMapPreview({
   rows = [],
@@ -127,6 +139,11 @@ function DatasetMapPreview({
     return getColumnUnit(column);
   }, [activeVariable, columnKeys, mappableColumns]);
 
+  const marginColumn = useMemo(
+    () => getMarginColumnForBase(columnKeys, activeVariable),
+    [columnKeys, activeVariable],
+  );
+
   useEffect(() => {
     if (!activeVariable) return;
     if (mapVariable !== activeVariable) {
@@ -142,15 +159,22 @@ function DatasetMapPreview({
     const loadOverlays = async () => {
       setOverlaysLoading(true);
       try {
-        const [muniFc, mapcFc] = await Promise.all([
+        // Load independently so one failure (e.g. unauthorized MAPC table) does not block both.
+        const [muniResult, mapcResult] = await Promise.allSettled([
           fetchGisBoundaryLayer("municipal"),
           fetchGisBoundaryLayer("mapcRegion"),
         ]);
         if (cancelled) return;
-        setMuniOverlayGeojson(muniFc);
-        setMapcOverlayGeojson(mapcFc);
-      } catch (err) {
-        console.error("Failed to load map overlay boundaries from gisdata:", err);
+        if (muniResult.status === "fulfilled") {
+          setMuniOverlayGeojson(muniResult.value);
+        } else {
+          console.error("Failed to load municipal overlay boundaries:", muniResult.reason);
+        }
+        if (mapcResult.status === "fulfilled") {
+          setMapcOverlayGeojson(mapcResult.value);
+        } else {
+          console.error("Failed to load MAPC region overlay boundaries:", mapcResult.reason);
+        }
       } finally {
         if (!cancelled) {
           setOverlaysLoading(false);
@@ -293,6 +317,35 @@ function DatasetMapPreview({
     apiBoundaryGeojson,
   ]);
 
+  const moeByGeography = useMemo(() => {
+    if (!marginColumn) return null;
+
+    if (apiBoundaryGeojson?.features?.length) {
+      const fromFeatures = buildValueByGeographyFromFeatures({
+        features: apiBoundaryGeojson.features,
+        valueColumn: marginColumn,
+        geographyType,
+      });
+      if (fromFeatures.size) return fromFeatures;
+    }
+
+    if (!geographyColumn) return null;
+    return buildValueByGeography({
+      rows: filteredRows,
+      geographyColumn,
+      valueColumn: marginColumn,
+      yearColumn: queryYearColumn,
+      geographyType,
+    });
+  }, [
+    marginColumn,
+    apiBoundaryGeojson,
+    geographyType,
+    geographyColumn,
+    filteredRows,
+    queryYearColumn,
+  ]);
+
   const { colorForValue, legend, binningDescription } = useMemo(
     () => buildChoroplethScale([...valueByGeography.values()], { unit: activeVariableUnit }),
     [valueByGeography, activeVariableUnit],
@@ -303,10 +356,11 @@ function DatasetMapPreview({
     return enrichBoundariesWithValues({
       baseGeojson,
       valueByGeography,
+      moeByGeography,
       geographyType,
       colorForValue,
     });
-  }, [baseGeojson, valueByGeography, geographyType, colorForValue]);
+  }, [baseGeojson, valueByGeography, moeByGeography, geographyType, colorForValue]);
 
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return undefined;
@@ -314,14 +368,16 @@ function DatasetMapPreview({
     const map = new mapboxgl.Map({
       container: mapContainerRef.current,
       style: MAP_CONFIG.style,
-      dragRotate: false,
+      dragRotate: true,
+      touchPitch: false,
+      pitchWithRotate: false,
       bounds: MAP_CONFIG.bounds,
       fitBoundsOptions: { padding: { top: 24, bottom: 24, left: 24, right: 24 }, animate: false },
     });
 
     map.addControl(
       new mapboxgl.NavigationControl({
-        showCompass: false,
+        showCompass: true,
         showZoom: true,
         visualizePitch: false,
       }),
@@ -378,8 +434,8 @@ function DatasetMapPreview({
         layout: { visibility: "none" },
         paint: {
           "line-color": "#094A72",
-          "line-width": 0.9,
-          "line-opacity": 0.9,
+          "line-width": 1.6,
+          "line-opacity": 1,
         },
       });
 
@@ -393,11 +449,13 @@ function DatasetMapPreview({
         source: MAPC_SOURCE_ID,
         layout: { visibility: "none" },
         paint: {
-          "line-color": "#ED948D",
-          "line-width": 2,
+          "line-color": "#C23B2E",
+          "line-width": 2.5,
           "line-opacity": 1,
         },
       });
+
+      bringOverlayLayersToFront(map);
 
       map.on("mouseenter", FILL_LAYER_ID, () => {
         map.getCanvas().style.cursor = "pointer";
@@ -428,6 +486,7 @@ function DatasetMapPreview({
     if (source) {
       source.setData(muniOverlayGeojson || EMPTY_FC);
     }
+    bringOverlayLayersToFront(map);
   }, [muniOverlayGeojson, mapReady]);
 
   useEffect(() => {
@@ -437,6 +496,7 @@ function DatasetMapPreview({
     if (source) {
       source.setData(mapcOverlayGeojson || EMPTY_FC);
     }
+    bringOverlayLayersToFront(map);
   }, [mapcOverlayGeojson, mapReady]);
 
   useEffect(() => {
@@ -445,6 +505,7 @@ function DatasetMapPreview({
     const visibility = showMunicipalLayer ? "visible" : "none";
     if (map.getLayer(MUNI_LINE_LAYER_ID)) {
       map.setLayoutProperty(MUNI_LINE_LAYER_ID, "visibility", visibility);
+      if (showMunicipalLayer) bringOverlayLayersToFront(map);
     }
   }, [showMunicipalLayer, mapReady]);
 
@@ -454,6 +515,7 @@ function DatasetMapPreview({
     const visibility = showMapcRegionLayer ? "visible" : "none";
     if (map.getLayer(MAPC_LINE_LAYER_ID)) {
       map.setLayoutProperty(MAPC_LINE_LAYER_ID, "visibility", visibility);
+      if (showMapcRegionLayer) bringOverlayLayersToFront(map);
     }
   }, [showMapcRegionLayer, mapReady]);
 
@@ -471,6 +533,8 @@ function DatasetMapPreview({
         geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts ? 0.4 : 0.7,
       );
     }
+    // Choropleth updates can reshuffle paint order; keep overlays on top.
+    bringOverlayLayersToFront(map);
   }, [paintedGeojson, mapReady, geographyType]);
 
   useEffect(() => {
@@ -560,13 +624,24 @@ function DatasetMapPreview({
       }
     }
 
+    let marginOfError = null;
+    if (marginColumn) {
+      const rawMoe =
+        props.__mapMoe ??
+        props[marginColumn] ??
+        Object.entries(props).find(([key]) => key.toLowerCase() === marginColumn.toLowerCase())?.[1];
+      const moeNum = rawMoe == null || rawMoe === "" ? null : Number(rawMoe);
+      marginOfError = Number.isFinite(moeNum) ? moeNum : null;
+    }
+
     return {
       label,
       value: Number.isFinite(value) ? value : null,
+      marginOfError,
       year: mapYear != null ? String(mapYear) : null,
       tractBoundary,
     };
-  }, [selectedFeature, mapYear, geographyType, geometryJoinKey]);
+  }, [selectedFeature, mapYear, geographyType, geometryJoinKey, marginColumn]);
 
   const canDownloadGeojson = Boolean(table) && !isBoundaryLoading && !isExporting;
 
@@ -643,25 +718,31 @@ function DatasetMapPreview({
         <div className="dataset-map-preview__map-body">
           <div className="dataset-map-preview__map-shell">
             <ExportLoadingMask active={isExporting} />
-            <div className="dataset-map-preview__layer-toggles" role="group" aria-label="Map overlay layers">
-              <label className={`dataset-map-preview__layer-toggle${overlaysLoading ? " dataset-map-preview__layer-toggle--disabled" : ""}`}>
-                <input
-                  type="checkbox"
-                  checked={showMunicipalLayer}
-                  disabled={overlaysLoading}
-                  onChange={(e) => setShowMunicipalLayer(e.target.checked)}
-                />
-                <span>Municipal boundaries</span>
-              </label>
-              <label className={`dataset-map-preview__layer-toggle${overlaysLoading ? " dataset-map-preview__layer-toggle--disabled" : ""}`}>
-                <input
-                  type="checkbox"
-                  checked={showMapcRegionLayer}
-                  disabled={overlaysLoading}
-                  onChange={(e) => setShowMapcRegionLayer(e.target.checked)}
-                />
-                <span>MAPC region</span>
-              </label>
+            <div className="dataset-map-preview__map-controls">
+              <div className="dataset-map-preview__north-arrow" aria-hidden="true" title="North">
+                <span className="dataset-map-preview__north-arrow-pointer" />
+                <span className="dataset-map-preview__north-arrow-label">N</span>
+              </div>
+              <div className="dataset-map-preview__layer-toggles" role="group" aria-label="Map overlay layers">
+                <label className={`dataset-map-preview__layer-toggle${overlaysLoading ? " dataset-map-preview__layer-toggle--disabled" : ""}`}>
+                  <input
+                    type="checkbox"
+                    checked={showMunicipalLayer}
+                    disabled={overlaysLoading}
+                    onChange={(e) => setShowMunicipalLayer(e.target.checked)}
+                  />
+                  <span>Municipal boundaries</span>
+                </label>
+                <label className={`dataset-map-preview__layer-toggle${overlaysLoading ? " dataset-map-preview__layer-toggle--disabled" : ""}`}>
+                  <input
+                    type="checkbox"
+                    checked={showMapcRegionLayer}
+                    disabled={overlaysLoading}
+                    onChange={(e) => setShowMapcRegionLayer(e.target.checked)}
+                  />
+                  <span>MAPC region</span>
+                </label>
+              </div>
             </div>
             <div ref={mapContainerRef} className="dataset-map-preview__map" role="img" aria-label={`Choropleth map of ${activeVariableLabel}`} />
             {isBoundaryLoading && (
@@ -736,7 +817,7 @@ function DatasetMapPreview({
                 </p>
               ) : (
                 <dl className="dataset-map-preview__detail-list">
-                  <div className="dataset-map-preview__detail-row">
+                  <div className="dataset-map-preview__detail-row dataset-map-preview__detail-row--inline">
                     <dt>
                       {geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts
                         ? "Census tract"
@@ -745,20 +826,28 @@ function DatasetMapPreview({
                     <dd>{selectedDetails.label}</dd>
                   </div>
                   {selectedDetails.year && (
-                    <div className="dataset-map-preview__detail-row">
+                    <div className="dataset-map-preview__detail-row dataset-map-preview__detail-row--inline">
                       <dt>Year</dt>
                       <dd>{selectedDetails.year}</dd>
                     </div>
                   )}
                   {selectedDetails.tractBoundary && (
-                    <div className="dataset-map-preview__detail-row">
+                    <div className="dataset-map-preview__detail-row dataset-map-preview__detail-row--inline">
                       <dt>Boundary</dt>
                       <dd>{selectedDetails.tractBoundary}</dd>
                     </div>
                   )}
-                  <div className="dataset-map-preview__detail-row dataset-map-preview__detail-row--emphasis">
-                    <dt>{activeVariableLabel}</dt>
-                    <dd>{formatMapValue(selectedDetails.value, activeVariableUnit)}</dd>
+                  <div className="dataset-map-preview__detail-metric">
+                    <dt className="dataset-map-preview__detail-metric-label">{activeVariableLabel}</dt>
+                    <dd className="dataset-map-preview__detail-metric-value">
+                      {formatMapValue(selectedDetails.value, activeVariableUnit)}
+                      {selectedDetails.marginOfError != null && (
+                        <span className="dataset-map-preview__detail-metric-moe">
+                          {" "}
+                          ± {formatMapValue(selectedDetails.marginOfError, activeVariableUnit)}
+                        </span>
+                      )}
+                    </dd>
                   </div>
                 </dl>
               )}
