@@ -1115,9 +1115,6 @@ export const GIS_BOUNDARY_LAYERS = {
   },
 };
 
-/** @deprecated Use NATIVE_BOUNDARY_TABLES */
-export const NATIVE_CENSUS_TRACT_BOUNDARY_TABLES = NATIVE_BOUNDARY_TABLES;
-
 /**
  * Quote mixed-case Postgres identifiers (e.g. GEOID) so they are not folded to lowercase.
  * @param {string} column

@@ -9,7 +9,6 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import { MAP_CONFIG } from "../../constants/mapConfig";
 import {
   MAP_VIEW_GEOGRAPHY_TYPES,
-  NATIVE_BOUNDARY_TABLES,
   buildChoroplethScale,
   buildValueByGeography,
   buildValueByGeographyFromFeatures,
