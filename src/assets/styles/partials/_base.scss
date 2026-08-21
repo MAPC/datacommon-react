@@ -11,6 +11,48 @@ body {
     min-height: 100vh;
     background: $color_bg-light;
   }
+
+  #root > .component.App.App--embed {
+    min-height: 100%;
+    height: 100%;
+  }
+
+  #root > .component.App.App--embed-map {
+    height: 100%;
+    min-height: 100%;
+    overflow: hidden;
+
+    > main {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      padding-bottom: 0;
+    }
+
+    .datasets {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    .embed-map-header-actions {
+      flex-shrink: 0;
+    }
+
+    .dataset-map-preview {
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+  }
+}
+
+html:has(.App--embed),
+html:has(.App--embed) body,
+html:has(.App--embed) #root {
+  height: 100%;
 }
 
 main {

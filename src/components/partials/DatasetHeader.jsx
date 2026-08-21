@@ -760,6 +760,23 @@ function DatasetHeader({
   }, [actionsOpen]);
 
   return (
+    isEmbedView && viewMode === "map" ? (
+      <div className="embed-map-header-actions" role="group" aria-label="Embed map header">
+        <h2 className="embed-map-header-title">{title}</h2>
+        <button
+          type="button"
+          className="embed-view-source-icon-btn"
+          onClick={() => {
+            const url = new URL(`/browser/datasets/${datasetId}/map`, window.location.origin);
+            window.open(url.href, "_blank", "noopener,noreferrer");
+          }}
+          title="View source data"
+          aria-label="View source data in DataCommon in a new tab"
+        >
+          <FontAwesomeIcon icon={faEllipsisVertical} />
+        </button>
+      </div>
+    ) : (
     <div className={isEmbedView ? "page-header page-header-embed" : "page-header"}>
       <div className="container tight">
         {isEmbedView && (
@@ -984,6 +1001,7 @@ function DatasetHeader({
         }}
       />
     </div>
+    )
   );
 }
 

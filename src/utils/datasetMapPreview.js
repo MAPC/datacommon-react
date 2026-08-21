@@ -4,6 +4,9 @@ export const MAP_VIEW_GEOGRAPHY_TYPES = {
   municipal: "municipal",
   census_tracts: "census_tracts",
   block_groups: "block_groups",
+  blocks: "blocks",
+  /** `_data_browser.menu1 === "Boundaries"` — table already has polygons in `shape`. */
+  boundary: "boundary",
 };
 
 const MUNICIPAL_MAP_JOIN_COLUMNS = ["muni_id", "muni_name", "municipal"];
@@ -16,6 +19,54 @@ const TRACT_GEO_COLUMNS = [
   "GEOID",
 ];
 
+const OWN_SHAPE_COLUMN_NAMES = new Set(["shape", "geometry", "geom"]);
+
+/** `_data_browser.menu1 === "Boundaries"` */
+export function isBoundariesCategory(menu1) {
+  return String(menu1 || "").trim().toLowerCase() === "boundaries";
+}
+
+/**
+ * Detect geography type from `_data_browser.geography`, or Boundaries category.
+ * Known geography values: municipal, census_tracts, block_groups, blocks, null.
+ *
+ * @param {string|null|undefined} [_tableName]
+ * @param {string|null|undefined} [geography] `_data_browser.geography`
+ * @param {{ menu1?: string|null }} [options]
+ */
+export function detectDatasetGeographyType(_tableName, geography = null, { menu1 = null } = {}) {
+  if (geography != null && geography !== "") {
+    const value = String(geography).trim().toLowerCase();
+    if (value === MAP_VIEW_GEOGRAPHY_TYPES.municipal) {
+      return MAP_VIEW_GEOGRAPHY_TYPES.municipal;
+    }
+    if (value === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts) {
+      return MAP_VIEW_GEOGRAPHY_TYPES.census_tracts;
+    }
+    if (value === MAP_VIEW_GEOGRAPHY_TYPES.block_groups) {
+      return MAP_VIEW_GEOGRAPHY_TYPES.block_groups;
+    }
+    if (value === MAP_VIEW_GEOGRAPHY_TYPES.blocks) {
+      return MAP_VIEW_GEOGRAPHY_TYPES.blocks;
+    }
+  }
+  if (isBoundariesCategory(menu1)) {
+    return MAP_VIEW_GEOGRAPHY_TYPES.boundary;
+  }
+  return null;
+}
+
+/**
+ * Map preview: municipal + census tract choropleths, and Boundaries-category layers.
+ */
+export function isMapPreviewSupported(geographyType) {
+  return (
+    geographyType === MAP_VIEW_GEOGRAPHY_TYPES.municipal ||
+    geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts ||
+    geographyType === MAP_VIEW_GEOGRAPHY_TYPES.boundary
+  );
+}
+
 const ID_LIKE_COLUMN_PATTERN =
   /^(muni(_?id)?|municipal(_?id)?|town(_?id)?|municipality(_?id)?|geo(_?id)?|objectid|gid)$/i;
 
@@ -26,6 +77,24 @@ const NON_MAPPABLE_COLUMN_NAMES = new Set(
     "geometry",
     "geom",
     "logrecno",
+    "county_id",
+    "nbhd_id",
+    "fips_id",
+    "objectid",
+    "id",
+    "rpa_id",
+    "website",
+    "naicscode",
+    "adj_year",
+    "statefp",
+    "countyfp",
+    "tractce",
+    "name",
+    "namelsad",
+    "mtfcc",
+    "funcstat",
+    "intptlat",
+    "intptlon",
     ...MUNICIPAL_MAP_JOIN_COLUMNS,
     ...TRACT_GEO_COLUMNS,
   ].map((name) => name.toLowerCase()),
@@ -35,67 +104,14 @@ const NO_DATA_COLOR = "#E0E0E0";
 const CHOROPLETH_COLORS = ["#EDF8FB", "#B2E2E2", "#66C2A4", "#2CA25F", "#006D2C"];
 
 /**
- * @param {string} tableName
- * @param {string|null|undefined} [geographyHint] Optional `_data_browser.geography` value
- * @returns {"municipal"|"census_tracts"|"block_groups"|null}
- */
-export function detectDatasetGeographyType(tableName, geographyHint = null) {
-  if (isNativeCensusTractBoundaryTable(tableName)) {
-    return MAP_VIEW_GEOGRAPHY_TYPES.census_tracts;
-  }
-  if (!tableName || typeof tableName !== "string") {
-    return geographyTypeFromHint(geographyHint);
-  }
-
-  if (tableName.endsWith("_m")) return MAP_VIEW_GEOGRAPHY_TYPES.municipal;
-  if (tableName.endsWith("_ct")) return MAP_VIEW_GEOGRAPHY_TYPES.census_tracts;
-  if (
-    tableName.endsWith("_bg") ||
-    tableName.endsWith("_bg10") ||
-    tableName.endsWith("_bg20")
-  ) {
-    return MAP_VIEW_GEOGRAPHY_TYPES.block_groups;
-  }
-
-  return geographyTypeFromHint(geographyHint);
-}
-
-/**
- * @param {string|null|undefined} geographyHint
- * @returns {"municipal"|"census_tracts"|"block_groups"|null}
- */
-function geographyTypeFromHint(geographyHint) {
-  const hint = String(geographyHint || "").toLowerCase();
-  if (hint.includes("block_group") || hint.includes("block group")) {
-    return MAP_VIEW_GEOGRAPHY_TYPES.block_groups;
-  }
-  if (hint.includes("census_tract") || hint.includes("census tract")) {
-    return MAP_VIEW_GEOGRAPHY_TYPES.census_tracts;
-  }
-  if (hint.includes("municipal")) {
-    return MAP_VIEW_GEOGRAPHY_TYPES.municipal;
-  }
-  return null;
-}
-
-/**
- * @param {string|null|undefined} geographyType
- * @returns {boolean}
- */
-export function isMapPreviewSupported(geographyType) {
-  return (
-    geographyType === MAP_VIEW_GEOGRAPHY_TYPES.municipal ||
-    geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts
-  );
-}
-
-/**
  * Municipal, census tract, and block group tables can export GeoJSON via the export API.
- * Native tract boundary tables (shape column) use standard geospatial export instead.
+ * Boundaries-category tables use standard geospatial export instead.
+ * Pass `_data_browser.geography` (or an already-resolved geography type) as the second arg.
  */
-export function supportsTabularGeojsonExport(tableName) {
-  if (isNativeCensusTractBoundaryTable(tableName)) return false;
-  const geographyType = detectDatasetGeographyType(tableName);
+export function supportsTabularGeojsonExport(tableName, geography = null, { menu1 = null } = {}) {
+  if (isBoundariesCategory(menu1)) return false;
+  const geographyType = detectDatasetGeographyType(tableName, geography, { menu1 });
+  if (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.boundary) return false;
   return (
     geographyType === MAP_VIEW_GEOGRAPHY_TYPES.municipal ||
     geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts ||
@@ -120,7 +136,7 @@ export function resolveTableGeographyColumn(sampleRow) {
 /**
  * Column used to join table rows to map polygons (prefer muni_id / tract ids).
  * @param {object|null} sampleRow
- * @param {"municipal"|"census_tracts"|null} geographyType
+ * @param {"municipal"|"census_tracts"|"boundary"|null} geographyType
  * @param {string|null} [preferredColumn]
  */
 export function resolveMapGeographyColumn(sampleRow, geographyType, preferredColumn = null) {
@@ -147,6 +163,105 @@ function isNumericLike(value) {
   if (typeof value === "boolean") return false;
   const n = Number(String(value).replace(/,/g, "").trim());
   return Number.isFinite(n);
+}
+
+/**
+ * Find the margin-of-error column paired with a base estimate column.
+ * Mirrors DataViewerPage / DatasetHeader pairing (alias + common ACS suffixes).
+ * @param {Array<{name?: string, alias?: string, details?: string}>} columnKeys
+ * @param {string|null|undefined} baseColumnName
+ * @returns {string|null}
+ */
+export function getMarginColumnForBase(columnKeys = [], baseColumnName) {
+  const base = String(baseColumnName || "");
+  if (!base) return null;
+
+  const byName = new Set((columnKeys || []).map((c) => String(c?.name || "")).filter(Boolean));
+  if (!byName.has(base)) return null;
+
+  const byAlias = {};
+  (columnKeys || []).forEach((col) => {
+    const alias = String(col?.alias || "").trim().toLowerCase();
+    if (alias) byAlias[alias] = String(col?.name || "");
+  });
+
+  const normalizeAliasMetric = (text) =>
+    String(text || "")
+      .toLowerCase()
+      .replace(/\s*;\s*(estimate|margin of error)\s*$/i, "")
+      .replace(/\s*,\s*(estimate|margin of error)\s*$/i, "")
+      .trim();
+
+  const getBaseCandidates = (name) => {
+    const candidates = [];
+    const n = String(name || "");
+
+    if (n.endsWith("_mep")) {
+      candidates.push(n.slice(0, -4) + "_p");
+    } else if (/mep$/i.test(n)) {
+      candidates.push(n.slice(0, -3) + "_p");
+    }
+    if (n.endsWith("_mp")) {
+      candidates.push(n.slice(0, -3) + "_p");
+      candidates.push(n.slice(0, -3));
+    }
+    if (n.endsWith("_me")) {
+      candidates.push(n.slice(0, -3));
+    } else if (/[0-9][a-z0-9_]*me$/i.test(n)) {
+      candidates.push(n.slice(0, -2));
+    }
+    if (n.endsWith("_moe")) {
+      candidates.push(n.slice(0, -4));
+    }
+    if (
+      n.endsWith("_m") &&
+      !n.endsWith("_me") &&
+      !n.endsWith("_mp") &&
+      !n.endsWith("_moe") &&
+      !n.endsWith("_mep")
+    ) {
+      candidates.push(n.slice(0, -2));
+    }
+
+    return [...new Set(candidates.filter(Boolean))];
+  };
+
+  const pairs = [];
+  (columnKeys || []).forEach((col) => {
+    const name = String(col?.name || "");
+    if (!name) return;
+
+    const alias = String(col?.alias || "").toLowerCase();
+    const details = String(col?.details || "").toLowerCase();
+    const hintFromMetadata = alias.includes("margin of error") || details.includes("margin of error");
+    const suffixHint =
+      /(?:_mp|_me|_moe|_mep|_m)$/i.test(name) ||
+      /[0-9][a-z0-9_]*me$/i.test(name) ||
+      /[a-z0-9_]mep$/i.test(name);
+    if (!hintFromMetadata && !suffixHint) return;
+
+    let pairedBase = null;
+    if (alias.includes("margin of error")) {
+      const estimateAlias = alias.replace("margin of error", "estimate").replace(/\s+/g, " ").trim();
+      if (byAlias[estimateAlias]) {
+        pairedBase = byAlias[estimateAlias];
+      } else {
+        const normalized = normalizeAliasMetric(alias);
+        const matchedBase = (columnKeys || []).find((candidate) => {
+          const a = String(candidate?.alias || "").toLowerCase();
+          const isEstimate = /\bestimate\b/i.test(a) || (!/\bmargin of error\b/i.test(a) && !!a);
+          return isEstimate && normalizeAliasMetric(a) === normalized;
+        });
+        if (matchedBase?.name) pairedBase = matchedBase.name;
+      }
+    }
+    if (!pairedBase) {
+      pairedBase = getBaseCandidates(name).find((candidate) => byName.has(candidate)) || null;
+    }
+    if (pairedBase === base) pairs.push(name);
+  });
+
+  return pairs[0] || null;
 }
 
 /**
@@ -334,11 +449,11 @@ export function buildValueByGeographyFromFeatures({
     let key = "";
     if (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts) {
       const raw =
-        (joinKey && properties[joinKey] != null ? properties[joinKey] : null) ??
         properties.ct20_id ??
         properties.ct10_id ??
+        properties.GEOID ??
         properties.geoid ??
-        properties.GEOID;
+        (joinKey && properties[joinKey] != null ? properties[joinKey] : null);
       key = normalizeTractKey(raw);
     } else {
       const raw =
@@ -531,6 +646,7 @@ export function buildChoroplethScale(values = [], { unit = null } = {}) {
 export function enrichBoundariesWithValues({
   baseGeojson,
   valueByGeography,
+  moeByGeography = null,
   geographyType,
   colorForValue,
   displayNameProperty,
@@ -541,22 +657,44 @@ export function enrichBoundariesWithValues({
 
   const getFeatureKey = (properties = {}) => {
     if (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts) {
-      const joinKey = properties.__joinKey;
-      if (joinKey && properties[joinKey] != null) {
-        return normalizeTractKey(properties[joinKey]);
-      }
+      // Prefer real tract ids over whatever __joinKey was inferred (e.g. statefp).
       const raw =
         properties.ct20_id ||
         properties.ct10_id ||
-        properties.GEOID 
+        properties.GEOID ||
+        properties.geoid ||
+        (properties.__joinKey && properties[properties.__joinKey] != null
+          ? properties[properties.__joinKey]
+          : null);
       return normalizeTractKey(raw);
+    }
+    // Boundaries / native shape layers: prefer a per-feature id over a shared parent id.
+    if (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.boundary) {
+      const preferred = [
+        "nbhd_id",
+        "GEOID",
+        "geoid",
+        "ct20_id",
+        "ct10_id",
+        "rpa_id",
+        "county_id",
+        "objectid",
+      ];
+      for (const col of preferred) {
+        if (properties[col] != null && properties[col] !== "") {
+          return String(properties[col]);
+        }
+      }
+      const joinKey = properties.__joinKey;
+      if (joinKey && properties[joinKey] != null) return String(properties[joinKey]);
+      return properties.__mapKey != null ? String(properties.__mapKey) : "";
     }
     const joinKey = properties.__joinKey;
     if (joinKey && properties[joinKey] != null) {
       return normalizeMunicipalKey(properties[joinKey]);
     }
     return normalizeMunicipalKey(
-      properties.muni_id ?? properties.municipal ?? properties.NAME,
+      properties.muni_id ?? properties.town_id ?? properties.municipal ?? properties.town ?? properties.NAME,
     );
   };
 
@@ -567,17 +705,19 @@ export function enrichBoundariesWithValues({
     if (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts) {
       return (
         properties.ct20_id ||
-        properties.ct10_id 
+        properties.ct10_id
       );
     }
     if (properties.__mapLabel) return String(properties.__mapLabel);
-    const town = properties.municipal || properties.NAME || "";
+    const town = properties.municipal || properties.town || properties.NAME || "";
     if (town) {
       return String(town)
         .toLowerCase()
         .replace(/\b\w/g, (s) => s.toUpperCase());
     }
-    return properties.muni_id != null ? `Muni ${properties.muni_id}` : "Municipality";
+    return properties.muni_id != null || properties.town_id != null
+      ? `Muni ${properties.muni_id ?? properties.town_id}`
+      : "Municipality";
   };
 
   return {
@@ -586,12 +726,15 @@ export function enrichBoundariesWithValues({
       const key = getFeatureKey(feature.properties);
       const value = valueByGeography.get(key);
       const hasValue = Number.isFinite(value);
+      const moeRaw = moeByGeography?.get(key);
+      const moe = Number.isFinite(moeRaw) ? moeRaw : null;
       return {
         ...feature,
         properties: {
           ...feature.properties,
           __mapKey: key,
           __mapValue: hasValue ? value : null,
+          __mapMoe: moe,
           __mapColor: colorForValue(hasValue ? value : null),
           __mapLabel: getDisplayName(feature.properties),
         },
@@ -920,6 +1063,34 @@ export function formatMapValue(value, unit = null) {
   return unit === "%" ? `${formatted}%` : formatted;
 }
 
+/**
+ * Adapt the static / Redux municipal FeatureCollection for map preview joins.
+ * Static asset uses `town` / `town_id`; GIS table uses `municipal` / `muni_id`.
+ */
+export function adaptMunicipalBoundaryGeojson(geojson) {
+  if (!geojson?.features?.length) {
+    return { type: "FeatureCollection", features: [] };
+  }
+  return {
+    type: "FeatureCollection",
+    features: geojson.features.map((feature) => {
+      const props = feature.properties || {};
+      const muniId = props.muni_id ?? props.town_id ?? null;
+      const municipal = props.municipal ?? props.town ?? props.NAME ?? null;
+      return {
+        ...feature,
+        properties: {
+          ...props,
+          muni_id: muniId,
+          municipal,
+          __joinKey: "muni_id",
+          __mapLabel: municipal != null ? String(municipal) : muniId != null ? `Muni ${muniId}` : "Municipality",
+        },
+      };
+    }),
+  };
+}
+
 /** Overlay boundary tables in gisdata.mapc */
 export const GIS_BOUNDARY_LAYERS = {
   municipal: {
@@ -927,35 +1098,11 @@ export const GIS_BOUNDARY_LAYERS = {
     schema: "mapc",
     table: "ma_municipalities",
   },
+  // MAPC region outline uses the static asset (same as community profiles MapBox).
+  // gisdata.mapc.mapc_municipalities_poly is not authorized for the public API token.
   mapcRegion: {
-    database: "gisdata",
-    schema: "mapc",
-    table: "mapc_municipalities_poly",
-  },
-};
-
-/** a temporary fix for census tract boundary datasets that already store polygons in a `shape` column
- * Census tract boundary datasets that already store polygons in a `shape` column
- * Map preview reads shape directly instead of joining.
- */
-export const NATIVE_CENSUS_TRACT_BOUNDARY_TABLES = {
-  census2010_tracts_poly: {
-    database: "gisdata",
-    schema: "mapc",
-    table: "census2010_tracts_poly",
-    joinKey: "ct10_id",
-    idColumn: "ct10_id",
-    attributeColumns: ["ct10_id", "area_sqft", "area_acres"],
-    boundaryLabel: "2010 Census tracts",
-  },
-  census2020_tracts_poly: {
-    database: "gisdata",
-    schema: "mapc",
-    table: "census2020_tracts_poly",
-    joinKey: "ct20_id",
-    idColumn: "GEOID",
-    attributeColumns: ["GEOID", "name", "namelsad", "aland", "awater", "tractce"],
-    boundaryLabel: "2020 Census tracts",
+    source: "static",
+    asset: "mapc-regions",
   },
 };
 
@@ -985,38 +1132,110 @@ function rowValue(row, column) {
   return match != null ? row[match] : undefined;
 }
 
-/**
- * @param {string} tableName
- * @returns {boolean}
- */
-export function isNativeCensusTractBoundaryTable(tableName) {
-  return Boolean(NATIVE_CENSUS_TRACT_BOUNDARY_TABLES[tableName]);
+/** Attribute columns to request (everything except geometry). */
+function attributeColumnsFromNames(columnNames = []) {
+  return [...new Set(
+    (columnNames || [])
+      .map((name) => String(name || "").trim())
+      .filter((name) => name && !OWN_SHAPE_COLUMN_NAMES.has(name.toLowerCase())),
+  )].slice(0, 40);
+}
+
+/** Stable id for feature keys — prefer per-feature ids, never a shared parent id like muni_id. */
+function pickIdColumn(attributeColumns = []) {
+  const exact = (wanted) =>
+    attributeColumns.find((col) => col.toLowerCase() === wanted);
+  // Most-specific first. muni_id is last: neighborhoods / tracts share one muni_id.
+  const preferred = [
+    "geoid",
+    "ct20_id",
+    "ct10_id",
+    "nbhd_id",
+    "rpa_id",
+    "county_id",
+    "objectid",
+    "muni_id",
+  ];
+  for (const want of preferred) {
+    const hit = exact(want);
+    if (hit) return hit;
+  }
+  return (
+    attributeColumns.find((col) => /_id$/i.test(col)) ||
+    exact("id") ||
+    attributeColumns[0] ||
+    "objectid"
+  );
+}
+
+/** Human-readable label — prefer a name-like column, else the id. */
+function pickLabelColumn(attributeColumns = [], idColumn) {
+  const preferredNames = [
+    "municipal",
+    "county",
+    "rpa_name",
+    "neighborhd",
+    "namelsad",
+    "name",
+    "acronym",
+    "town",
+  ];
+  for (const want of preferredNames) {
+    const hit = attributeColumns.find((col) => col.toLowerCase() === want);
+    if (hit) return hit;
+  }
+  const idLower = String(idColumn || "").toLowerCase();
+  const fallback = attributeColumns.find((col) => {
+    const lower = col.toLowerCase();
+    return (
+      lower !== idLower &&
+      lower !== "objectid" &&
+      lower !== "id" &&
+      !/_id$/i.test(col) &&
+      !/^(area_|aland|awater)/i.test(col)
+    );
+  });
+  return fallback || idColumn;
 }
 
 const gisBoundaryCache = new Map();
-const nativeTractBoundaryCache = new Map();
+const nativeBoundaryCache = new Map();
 
 /**
- * Load a native census-tract boundary table (shape column) as WGS84 GeoJSON.
- * @param {{ database?: string, schema?: string, table: string }} params
+ * Load a table’s own `shape` column as WGS84 GeoJSON (no geometry-API join).
+ * Uses column names from the DB / page — no hardcoded table list.
+ *
+ * @param {{
+ *   database: string,
+ *   schema: string,
+ *   table: string,
+ *   columnNames?: string[],
+ *   boundaryLabel?: string|null,
+ * }} params
  */
-export async function fetchNativeCensusTractBoundaryGeojson(params = {}) {
-  const { table } = params;
-  const config = NATIVE_CENSUS_TRACT_BOUNDARY_TABLES[table];
-  if (!config) {
-    throw new Error(`Table "${table}" is not a native census tract boundary table`);
+export async function fetchNativeBoundaryGeojson(params = {}) {
+  const { table, database, schema } = params;
+  if (!table || !database || !schema) {
+    throw new Error("database, schema, and table are required for native boundary fetch");
   }
 
-  const database = params.database || config.database;
-  const schema = params.schema || config.schema;
-  const cacheKey = `${database}.${schema}.${table}`;
-  if (nativeTractBoundaryCache.has(cacheKey)) {
-    return nativeTractBoundaryCache.get(cacheKey);
+  const attributeColumns = attributeColumnsFromNames(params.columnNames);
+  if (!attributeColumns.length) {
+    throw new Error(`No attribute columns available for ${schema}.${table}`);
+  }
+
+  const idColumn = pickIdColumn(attributeColumns);
+  const labelColumn = pickLabelColumn(attributeColumns, idColumn);
+  const boundaryLabel = params.boundaryLabel || "Boundaries";
+  const cacheKey = `${database}.${schema}.${table}:${attributeColumns.join(",")}`;
+
+  if (nativeBoundaryCache.has(cacheKey)) {
+    return nativeBoundaryCache.get(cacheKey);
   }
 
   const pending = (async () => {
     const columns = [
-      ...config.attributeColumns.map(quoteSqlIdentifier),
+      ...attributeColumns.map(quoteSqlIdentifier),
       "sde.ST_AsText(shape) as geom_wkt",
     ].join(",");
     const search = new URLSearchParams({
@@ -1025,14 +1244,14 @@ export async function fetchNativeCensusTractBoundaryGeojson(params = {}) {
       schema,
       table,
       columns,
-      orderByColumn: quoteSqlIdentifier(config.idColumn),
+      orderByColumn: quoteSqlIdentifier(idColumn),
       orderByDirection: "ASC",
       limit: "5000",
     });
 
     const response = await fetch(`/api?${search.toString()}`);
     if (!response.ok) {
-      throw new Error(`Native tract boundary HTTP ${response.status}`);
+      throw new Error(`Native boundary HTTP ${response.status}`);
     }
     const payload = await response.json();
     const rows = payload.rows || [];
@@ -1041,17 +1260,18 @@ export async function fetchNativeCensusTractBoundaryGeojson(params = {}) {
       .map((row) => {
         const geometry = parseWktPolygon(rowValue(row, "geom_wkt"));
         if (!geometry) return null;
-        const id = rowValue(row, config.idColumn);
+        const id = rowValue(row, idColumn);
+        const label = rowValue(row, labelColumn);
         const properties = {
-          __joinKey: config.joinKey,
-          __mapLabel: String(id ?? rowValue(row, "name") ?? rowValue(row, "namelsad") ?? "Census tract"),
+          __joinKey: idColumn,
+          __mapLabel: String(label ?? id ?? "Feature"),
         };
-        config.attributeColumns.forEach((col) => {
+        attributeColumns.forEach((col) => {
           const value = rowValue(row, col);
           if (value != null) properties[col] = value;
         });
-        // Normalize so details panel can label 2020 boundaries via ct20_id.
-        if (config.joinKey === "ct20_id" && properties.GEOID != null && properties.ct20_id == null) {
+        // Geometry API / details panel often look for ct20_id on 2020 tracts.
+        if (properties.GEOID != null && properties.ct20_id == null) {
           properties.ct20_id = properties.GEOID;
         }
         return {
@@ -1069,16 +1289,16 @@ export async function fetchNativeCensusTractBoundaryGeojson(params = {}) {
 
     return {
       featureCollection: { type: "FeatureCollection", features },
-      joinKey: config.joinKey,
-      boundaryLabel: config.boundaryLabel,
+      joinKey: idColumn,
+      boundaryLabel,
     };
   })();
 
-  nativeTractBoundaryCache.set(cacheKey, pending);
+  nativeBoundaryCache.set(cacheKey, pending);
   try {
     return await pending;
   } catch (err) {
-    nativeTractBoundaryCache.delete(cacheKey);
+    nativeBoundaryCache.delete(cacheKey);
     throw err;
   }
 }
@@ -1165,7 +1385,7 @@ export function parseWktPolygon(wkt) {
 }
 
 /**
- * fetch mapc boundary overlays from gisdata
+ * fetch mapc boundary overlays from gisdata (municipal) or static assets (MAPC region)
  */
 export async function fetchGisBoundaryLayer(layerKey) {
   const config = GIS_BOUNDARY_LAYERS[layerKey];
@@ -1178,6 +1398,15 @@ export async function fetchGisBoundaryLayer(layerKey) {
   }
 
   const pending = (async () => {
+    if (config.source === "static" && config.asset === "mapc-regions") {
+      const module = await import("../assets/data/mapc-regions.json");
+      const fc = module.default || module;
+      if (!fc?.features?.length) {
+        throw new Error("MAPC regions asset has no features");
+      }
+      return fc;
+    }
+
     const search = new URLSearchParams({
       token: import.meta.env.VITE_MAPC_API_TOKEN,
       database: config.database,

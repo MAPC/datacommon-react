@@ -60,6 +60,7 @@ class DataViewerClass extends React.Component {
       viewMode: viewModeFromLocation(props.location, props.params),
       mapVariable: null,
       geographyType: null,
+      menu1: null,
     };
     this.updateSelectedYears = this.updateSelectedYears.bind(this);
     this.updateSelectedColumns = this.updateSelectedColumns.bind(this);
@@ -244,20 +245,22 @@ class DataViewerClass extends React.Component {
       return;
     }
 
+
     // construct the query for the data in the table and handle some special cases.
     let limit = 15000;
+    // these tables are large and need a much higher limit
+    // TODO: setup backend pagination and only fetch 25 results at a time?
     if (dataset.table_name === "econ_es202_naics_4d_m" || dataset.table_name === "econ_es202_naics_2d_m" || dataset.table_name === "econ_es202_naics_3d_m") {
-      // these tables are large and need a much higher limit
-      // TODO: setup backend pagination and only fetch 25 results at a time?
       limit = 460000 ;
     }
     let tableQueryUrl = `/api?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=${dataset.db_name}&schema=${dataset.schemaname}&table=${dataset.table_name}&limit=${limit}`;
     if (dataset.yearcolumn) {
       tableQueryUrl = `${tableQueryUrl}&orderByColumn=${dataset.yearcolumn}&orderByDirection=DESC`;
     }
-    if (dataset.table_name === "_data_browser") {
-      // filter on active datasets if viewing the data browser
-      tableQueryUrl = `${tableQueryUrl}&filters=active:Y`;
+    // Handle only showing select columns in the _data_browser
+    if (dataset.table_name == "_data_browser") {
+      const browserColumns = ["seq_id", "menu1", "menu2", "menu3", "geography", "source", "active", "updated"];
+      tableQueryUrl = `${tableQueryUrl}&columns=${browserColumns.join(',')}`
     }
     const tableQuery = axios.get(tableQueryUrl);
 
@@ -310,17 +313,14 @@ class DataViewerClass extends React.Component {
         const yearOverride = resolveYearsFromUrl(parsedShare, distinctYears);
         if (yearOverride) selectedYears = yearOverride;
 
-        // Initialize geography filter for municipal (_m) tables only.
-        // Dropdown uses name columns (muni_name / municipal); map joins use muni_id separately.
-        // Tract tables still map via resolveMapGeographyColumn inside DatasetMapPreview;
-        // setting geographyColumn here without selectedGeographies would empty the table.
-        // Native census tract boundary tables (gisdata shape) enable map view without a filter dropdown.
+        // Geography from `_data_browser.geography`, or Boundaries category (own `shape`).
         let selectedGeographies = [];
         let availableGeographies = [];
         let geographyColumn = null;
         const geographyType = detectDatasetGeographyType(
           dataset.table_name,
           dataset.geography,
+          { menu1: dataset.menu1 },
         );
         if (dataset.schemaname === "tabular") {
           if (geographyType === "municipal") {
@@ -367,6 +367,7 @@ class DataViewerClass extends React.Component {
           database: dataset.db_name,
           title: dataset.menu3,
           source: dataset.source,
+          menu1: dataset.menu1 || null,
           queryYearColumn: dataset.yearcolumn,
           updatedAt: dataset.updated,
           geographyColumn,
@@ -625,6 +626,7 @@ class DataViewerClass extends React.Component {
             onViewModeChange={this.onViewModeChange}
             mapPreviewSupported={mapPreviewSupported}
             mapVariable={this.state.mapVariable}
+            geographyType={this.state.geographyType}
           />
           {this.state.viewMode === "map" && mapPreviewSupported ? (
             <DatasetMapPreview
@@ -639,6 +641,10 @@ class DataViewerClass extends React.Component {
               geographyType={this.state.geographyType}
               mapVariable={this.state.mapVariable}
               onMapVariableChange={this.onMapVariableChange}
+              menu1={this.state.menu1}
+              title={this.state.title}
+              source={this.state.source}
+              datasetId={this.props.params.id}
               database={this.state.database}
               schema={this.state.schema}
               table={this.state.table}
