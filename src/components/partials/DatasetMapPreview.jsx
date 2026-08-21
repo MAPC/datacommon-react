@@ -8,19 +8,21 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import { MAP_CONFIG } from "../../constants/mapConfig";
 import {
   MAP_VIEW_GEOGRAPHY_TYPES,
+  NATIVE_BOUNDARY_TABLES,
   buildChoroplethScale,
   buildValueByGeography,
   buildValueByGeographyFromFeatures,
   enrichBoundariesWithValues,
   fetchDatasetGeometry,
   fetchGisBoundaryLayer,
-  fetchNativeCensusTractBoundaryGeojson,
+  fetchNativeBoundaryGeojson,
   filterRowsForMapPreview,
   formatMapValue,
   getColumnUnit,
   getMarginColumnForBase,
   getMappableColumns,
-  isNativeCensusTractBoundaryTable,
+  isNativeBoundaryTable,
+  adaptMunicipalBoundaryGeojson,
   resolveMapGeographyColumn,
 } from "../../utils/datasetMapPreview";
 import { ExportLoadingMask, useExportFileDownload } from "./ExportLoadingMask";
@@ -214,9 +216,15 @@ function DatasetMapPreview({
     const loadBoundaries = async () => {
       try {
         let result;
-        if (isNativeCensusTractBoundaryTable(table)) {
+        if (table === "ma_municipalities" && municipalGeojson?.features?.length) {
+          // Static Redux polygons are already WGS84 — avoid a multi‑MB ST_AsText round-trip.
+          result = {
+            featureCollection: adaptMunicipalBoundaryGeojson(municipalGeojson),
+            joinKey: "muni_id",
+          };
+        } else if (isNativeBoundaryTable(table)) {
           // Boundary datasets store polygons in `shape` — draw from that column.
-          result = await fetchNativeCensusTractBoundaryGeojson({
+          result = await fetchNativeBoundaryGeojson({
             database,
             schema,
             table,
@@ -260,15 +268,20 @@ function DatasetMapPreview({
     return () => {
       cancelled = true;
     };
-  }, [geographyType, database, schema, table, mapYear, queryYearColumn]);
+  }, [geographyType, database, schema, table, mapYear, queryYearColumn, municipalGeojson]);
 
-  const baseGeojson =
-    apiBoundaryGeojson ||
-    (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.municipal && !boundariesLoading
-      ? municipalGeojson
-      : null);
+  const baseGeojson = useMemo(() => {
+    if (apiBoundaryGeojson) return apiBoundaryGeojson;
+    if (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.municipal && !boundariesLoading && municipalGeojson) {
+      return adaptMunicipalBoundaryGeojson(municipalGeojson);
+    }
+    return null;
+  }, [apiBoundaryGeojson, geographyType, boundariesLoading, municipalGeojson]);
 
   const tractBoundaryLabel = useMemo(() => {
+    const nativeLabel = NATIVE_BOUNDARY_TABLES[table]?.boundaryLabel;
+    if (nativeLabel && isNativeBoundaryTable(table)) return nativeLabel;
+
     if (geographyType !== MAP_VIEW_GEOGRAPHY_TYPES.census_tracts) return null;
     const joinKey = String(geometryJoinKey || "").toLowerCase();
     const props = baseGeojson?.features?.[0]?.properties || {};
@@ -284,7 +297,12 @@ function DatasetMapPreview({
     if (props.ct20_id) return "2020 Census tracts";
     if (props.ct10_id) return "2010 Census tracts";
     return null;
-  }, [geographyType, geometryJoinKey, baseGeojson]);
+  }, [table, geographyType, geometryJoinKey, baseGeojson]);
+
+  const mapTitle =
+    mapYear != null && activeVariableLabel
+      ? `${mapYear} ${activeVariableLabel}`
+      : activeVariableLabel || tractBoundaryLabel || (mapYear != null ? String(mapYear) : "Map");
 
   const valueByGeography = useMemo(() => {
     if (!activeVariable) return new Map();
@@ -346,10 +364,18 @@ function DatasetMapPreview({
     queryYearColumn,
   ]);
 
-  const { colorForValue, legend, binningDescription } = useMemo(
-    () => buildChoroplethScale([...valueByGeography.values()], { unit: activeVariableUnit }),
-    [valueByGeography, activeVariableUnit],
-  );
+  const { colorForValue, legend, binningDescription } = useMemo(() => {
+    const values = [...valueByGeography.values()];
+    if (!values.length && isNativeBoundaryTable(table)) {
+      const boundaryColor = "#7eb8c9";
+      return {
+        colorForValue: () => boundaryColor,
+        legend: [{ label: NATIVE_BOUNDARY_TABLES[table]?.boundaryLabel || "Boundaries", color: boundaryColor }],
+        binningDescription: "Classification: Boundary outline",
+      };
+    }
+    return buildChoroplethScale(values, { unit: activeVariableUnit });
+  }, [valueByGeography, activeVariableUnit, table]);
 
   const paintedGeojson = useMemo(() => {
     if (!baseGeojson) return { type: "FeatureCollection", features: [] };
@@ -686,20 +712,12 @@ function DatasetMapPreview({
     );
   }
 
-  if (!mappableColumns.length && !isBoundaryLoading && !apiBoundaryGeojson) {
+  // Boundary-only layers (e.g. ma_municipalities) have no numeric choropleth columns.
+  const isBoundaryOnlyMap = isNativeBoundaryTable(table) || Boolean(apiBoundaryGeojson);
+  if (!mappableColumns.length && !isBoundaryLoading && !isBoundaryOnlyMap) {
     return (
       <div className="dataset-map-preview dataset-map-preview--empty">
         <p>Select at least one numeric column to preview on the map.</p>
-      </div>
-    );
-  }
-
-  if (!geographyColumn || !mappableColumns.length) {
-    return (
-      <div className="dataset-map-preview dataset-map-preview--empty">
-        <div className="dataset-map-preview__loading" role="status" aria-live="polite" aria-label="Loading map">
-          <MoonLoader size={42} color="#767676" />
-        </div>
       </div>
     );
   }
@@ -708,11 +726,7 @@ function DatasetMapPreview({
     <div className="dataset-map-preview">
       <div className="dataset-map-preview__map-panel">
         <div className="dataset-map-preview__map-header">
-          <h2>
-            {mapYear != null && activeVariableLabel
-              ? `${mapYear} ${activeVariableLabel}`
-              : activeVariableLabel || (mapYear != null ? String(mapYear) : "")}
-          </h2>
+          <h2>{mapTitle}</h2>
           {boundariesError && <span className="dataset-map-preview__status dataset-map-preview__status--error">{boundariesError}</span>}
         </div>
         <div className="dataset-map-preview__map-body">
@@ -775,22 +789,28 @@ function DatasetMapPreview({
               <div className="dataset-map-preview__detail-header">
                 <h2 className="dataset-map-preview__detail-title">Variable</h2>
               </div>
-              <label className="dataset-map-preview__variable-field">
-                <span className="dataset-map-preview__variable-field-label">Choose a column to color the map</span>
-                <select
-                  className="dataset-map-preview__variable-select"
-                  value={activeVariable || ""}
-                  onChange={(e) => onMapVariableChange?.(e.target.value)}
-                  aria-label="Map variable"
-                  title={activeVariableLabel || undefined}
-                >
-                  {mappableColumns.map((col) => (
-                    <option key={col.name} value={col.name}>
-                      {col.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              {mappableColumns.length ? (
+                <label className="dataset-map-preview__variable-field">
+                  <span className="dataset-map-preview__variable-field-label">Choose a column to color the map</span>
+                  <select
+                    className="dataset-map-preview__variable-select"
+                    value={activeVariable || ""}
+                    onChange={(e) => onMapVariableChange?.(e.target.value)}
+                    aria-label="Map variable"
+                    title={activeVariableLabel || undefined}
+                  >
+                    {mappableColumns.map((col) => (
+                      <option key={col.name} value={col.name}>
+                        {col.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <p className="dataset-map-preview__variable-field-label">
+                  This boundary layer has no numeric columns to choropleth. Click a feature for details.
+                </p>
+              )}
             </aside>
 
             <aside className="dataset-map-preview__detail" aria-label="Selected area details">
