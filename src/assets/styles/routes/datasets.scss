@@ -2082,10 +2082,10 @@
     border-radius: 6px;
     background-color: #fff;
     color: $color_font-dark;
-    font-size: $font_size-xsmall;
+    font-size: 0.95rem;
     font-weight: 500;
     line-height: 1.35;
-    padding: 10px 36px 10px 12px;
+    padding: 11px 36px 11px 12px;
     cursor: pointer;
     transition: border-color 0.14s, background-color 0.14s, box-shadow 0.14s;
     -webkit-appearance: none;
@@ -2488,7 +2488,7 @@
     margin: 0;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
   }
 
   .dataset-map-preview__detail-row {
@@ -2508,6 +2508,7 @@
     dd {
       margin: 0;
       font-size: 0.95rem;
+      font-weight: 600;
       color: $color_font-dark;
       word-break: break-word;
     }
@@ -2560,6 +2561,40 @@
       font-weight: 700;
       color: $color_font-dark;
     }
+  }
+
+  .dataset-map-preview__detail-metric {
+    margin-top: 4px;
+    padding-top: 12px;
+    border-top: 1px solid rgba($color_font-medium, 0.2);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .dataset-map-preview__detail-metric-label {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.35;
+    color: $color_font-medium--dark;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  .dataset-map-preview__detail-metric-value {
+    margin: 0;
+    font-size: 1.35rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: $color_font-dark;
+    word-break: break-word;
+  }
+
+  .dataset-map-preview__detail-metric-moe {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: $color_font-medium--dark;
   }
 
   .dataset-map-preview__layer-toggles {

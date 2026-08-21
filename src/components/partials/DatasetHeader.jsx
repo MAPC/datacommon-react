@@ -666,6 +666,7 @@ function DatasetHeader({
   onViewModeChange,
   mapPreviewSupported = false,
   mapVariable = null,
+  geographyType = null,
 }) {
   const location = useLocation();
   const isEmbedView = new URLSearchParams(location.search).get("embed") === "1";
@@ -978,6 +979,7 @@ function DatasetHeader({
         availableGeographies={availableGeographies}
         geographyColumn={geographyColumn}
         availableYears={availableYears}
+        geographyType={geographyType}
       />
       <EmbedTableModal
         isOpen={embedModalOpen}
@@ -1036,6 +1038,7 @@ DatasetHeader.propTypes = {
   onViewModeChange: PropTypes.func,
   mapPreviewSupported: PropTypes.bool,
   mapVariable: PropTypes.string,
+  geographyType: PropTypes.oneOf(["municipal", "census_tracts", "block_groups"]),
 };
 
 export default DatasetHeader;

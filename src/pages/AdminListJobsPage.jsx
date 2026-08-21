@@ -25,7 +25,7 @@ const JobsTableHeader = styled.tr`
 
 const JobsTableCell = styled.td`
   color: #111111;
-  font-size: 16px;
+  font-size: 15px;
   padding: 4px 12px;
   border: 1px solid #111111;
 `;
@@ -37,7 +37,15 @@ const JobStatusCell = styled.div`
   border-radius: 8px;
   padding: 2px 8px;
   display: inline-block;
-`
+`;
+
+const GitHubLink = styled.a`
+  color: #0909da;
+
+  &:hover {
+    color: #0c0c9b
+  }
+`;
 
 const spin = keyframes`
   0% { transform: rotate(0deg); }
@@ -55,6 +63,7 @@ const Spinner = styled.div`
   animation: ${spin} 0.8s linear infinite;
 `;
 
+
 const jobTypeToStyledMap = {
   validation: "Validation",
   repair: "Repair",
@@ -65,12 +74,19 @@ const jobStatusToCellMap = {
   FINISHED: <JobStatusCell style={{ background: "#1F4E46", color: "white"}}>Finished</JobStatusCell>,
   IN_PROGRESS: <JobStatusCell style={{ background: "#d5c834", color: "#111111"}}>In-Progress</JobStatusCell>,
   ERROR: <JobStatusCell style={{ background: "#6d1414", color: "white"}}>Errored</JobStatusCell>,
-}
+};
+
+const jobNameToGithubLinkMap = {
+  repair_muni_names: 'https://github.com/MAPC/data-validation/blob/main/repair/repair_muni_names.py',
+  validate_aggregations: 'https://github.com/MAPC/data-validation/blob/main/validation/validate_aggregations.py',
+  validate_muni_names: 'https://github.com/MAPC/data-validation/blob/main/validation/validate_muni_names.py',
+};
 
 
 const AdminListJobsPage = () => {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [expandedRows, setExpandedRows] = useState([]);
 
   useEffect(() => {
     axios.get("/api/jobs")
@@ -83,6 +99,18 @@ const AdminListJobsPage = () => {
       });
   }, []);
 
+  const toggleRowExpanded = (rowId) => {
+    let newRows = [...expandedRows];
+
+    if (expandedRows.includes(rowId)) {
+      newRows = newRows.filter(id => id !== rowId);
+    } else {
+      newRows.push(rowId);
+    }
+
+    setExpandedRows(newRows);
+  };
+
   const formatTimestamp = (dateString) => {
     if (!dateString) {
       return 'Unknown time';
@@ -92,28 +120,39 @@ const AdminListJobsPage = () => {
     return asDate.toLocaleString();
   };
   
-  const formatMetadata = (metadataObject) => {
-    return (
-      <div>
-        {Object.entries(metadataObject).map(([key, value]) => {
-          if (key === 'errors') {
-            let displayValue;
-            if (value.length === 0) {
-              displayValue = 'none';
-            } else {
-              displayValue = value.map(errorObject => JSON.stringify(errorObject)).join(', ');
-            }
-            return <div key={key}>
-              {`${key}: ${displayValue}`}
-            </div>;
-          } else if (key === "error_count") {
-            return <></>; // for now skip error count since we have errors array
-          } else {
-            return <div key={key}>{`${key}: ${value}`}</div>;
-          }
-         })}
-      </div>
-    );
+  const formatTopLevelMetadata = (jobRow) => {
+    // TODO: add more types here
+    if (jobRow.job_name === 'validate_muni_names') {
+      const errorCountIsNum = jobRow.metadata?.error_count !== undefined && jobRow.metadata?.error_count !== null;
+      return `Errors found: ${errorCountIsNum ? jobRow.metadata?.error_count : 'unknown'}`;
+    } else if (jobRow.job_name === 'repair_muni_names') {
+      return `Errors detected: ${jobRow.metadata?.errors_detected}, Errors fixed: ${jobRow.metadata?.errors_fixed}`;
+    }
+  };
+
+  const formatExpandedRow = (jobRow) => {
+    // TODO: add more types here
+    if (jobRow.job_name === 'validate_muni_names') {
+      const hasErrors = jobRow.metadata?.error_count > 0;
+      return (
+        <>
+          <div>{`Tables checked: ${jobRow.metadata?.tables_checked}`}</div>
+          {hasErrors && <div>Errors:</div>}
+          {hasErrors && jobRow.metadata?.errors.map(error => (
+            <div style={{marginLeft: '8px'}}>
+              <b>{error.table}</b>
+              {` - Expected "${error.expected}" for muni_id (${error.muni_id}) but found "${error.actual}"`}
+            </div>
+          ))}
+        </>
+      );
+    } else if (jobRow.job_name === 'repair_muni_names') {
+      return (
+        <>
+          <div>{`Tables checked: ${jobRow.metadata?.tables_checked}`}</div>
+        </>
+      );
+    }
   };
 
   return (
@@ -134,45 +173,69 @@ const AdminListJobsPage = () => {
               <JobsTableCell style={{ minWidth: '120px' }}>
                 Status
               </JobsTableCell>
-              <JobsTableCell style={{ minWidth: '200px' }}>
+              <JobsTableCell style={{ minWidth: '180px' }}>
                 Started at
               </JobsTableCell>
-              <JobsTableCell style={{ minWidth: '200px' }}>
+              <JobsTableCell style={{ minWidth: '180px' }}>
                 Finished at
               </JobsTableCell>
-              <JobsTableCell style={{ maxWidth: '400px' }}>
-                Extra Info
-              </JobsTableCell>
-              <JobsTableCell style={{ minWidth: '400px' }}>
+              <JobsTableCell style={{ minWidth: '300px' }}>
                 Comment
+              </JobsTableCell>
+              <JobsTableCell style={{ minWidth: '300px' }}>
+                Extra Info
               </JobsTableCell>
             </JobsTableHeader>
           </thead>
           <tbody>
             {jobs.map(job => (
-              <JobsTableRow key={job.email}>
-                <JobsTableCell>
-                  {jobTypeToStyledMap[job.job_type] || 'Unknown'}
-                </JobsTableCell>
-                <JobsTableCell>
-                  {job.job_name}
-                </JobsTableCell>
-                <JobsTableCell>
-                  {jobStatusToCellMap[job.status] || 'Unknown'}
-                </JobsTableCell>
-                <JobsTableCell>
-                  {formatTimestamp(job.started_at)}
-                </JobsTableCell>
-                <JobsTableCell>
-                  {formatTimestamp(job.finished_at)}
-                </JobsTableCell>
-                <JobsTableCell>
-                  {formatMetadata(job.metadata)}
-                </JobsTableCell>
-                <JobsTableCell>
-                  {job.comment}
-                </JobsTableCell>
-              </JobsTableRow>
+              <>
+                <JobsTableRow key={job.id}>
+                  <JobsTableCell>
+                    {jobTypeToStyledMap[job.job_type] || 'Unknown'}
+                  </JobsTableCell>
+                  <JobsTableCell>
+                    {jobNameToGithubLinkMap[job.job_name] && (
+                      <GitHubLink href={jobNameToGithubLinkMap[job.job_name]} target="_blank">
+                        {job.job_name}
+                      </GitHubLink>
+                    )}
+                    {!jobNameToGithubLinkMap[job.job_name] && (
+                      <>{job.job_name}</>
+                    )}
+                  </JobsTableCell>
+                  <JobsTableCell>
+                    {jobStatusToCellMap[job.status] || 'Unknown'}
+                  </JobsTableCell>
+                  <JobsTableCell>
+                    {formatTimestamp(job.started_at)}
+                  </JobsTableCell>
+                  <JobsTableCell>
+                    {formatTimestamp(job.finished_at)}
+                  </JobsTableCell>
+                  <JobsTableCell>
+                    {job.comment}
+                  </JobsTableCell>
+                  <JobsTableCell>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                      {formatTopLevelMetadata(job)}
+                      <div 
+                        onClick={() => toggleRowExpanded(job.id)}
+                        style={{ fontSize: '20px', top: '-8px', cursor: 'pointer' }}
+                      >
+                        ⌄
+                      </div>
+                    </div>
+                  </JobsTableCell>
+                </JobsTableRow>
+                {expandedRows.includes(job.id) && (
+                  <JobsTableRow key={`${job.id}_expanded`}>
+                    <JobsTableCell colSpan={7}>
+                      {formatExpandedRow(job)}
+                    </JobsTableCell>
+                  </JobsTableRow>
+                )}
+              </>
             ))}
           </tbody>
         </table>

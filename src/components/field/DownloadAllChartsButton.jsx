@@ -169,7 +169,9 @@ export default function DownloadAllChartsButton({ muni, datatype, displayName })
 
       Object.values(charts).forEach((category) => {
         Object.values(category).forEach((chartInfo) => {
-          Object.keys(chartInfo.tables).forEach((tableName) => {
+          // check that chartInfo.tables exists. Muni-finance map didn't have it. 
+          chartInfo.tables && Object.keys(chartInfo.tables).forEach((tableName) => {
+            console.log('in table:', tableName)
             let data;
             switch (datatype) {
               case 'subregion':

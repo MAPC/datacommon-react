@@ -1104,7 +1104,19 @@ export const GIS_BOUNDARY_LAYERS = {
     source: "static",
     asset: "mapc-regions",
   },
+  ma_municipalities: {
+    database: "gisdata",
+    schema: "mapc",
+    table: "ma_municipalities",
+    joinKey: "muni_id",
+    idColumn: "muni_id",
+    attributeColumns: ["muni_id", "municipal"],
+    boundaryLabel: "Municipalities",
+  },
 };
+
+/** @deprecated Use NATIVE_BOUNDARY_TABLES */
+export const NATIVE_CENSUS_TRACT_BOUNDARY_TABLES = NATIVE_BOUNDARY_TABLES;
 
 /**
  * Quote mixed-case Postgres identifiers (e.g. GEOID) so they are not folded to lowercase.
@@ -1168,7 +1180,7 @@ function pickIdColumn(attributeColumns = []) {
   );
 }
 
-/** Human-readable label — prefer a name-like column, else the id. */
+/** prefer a name-like column, else the id. */
 function pickLabelColumn(attributeColumns = [], idColumn) {
   const preferredNames = [
     "municipal",
@@ -1202,6 +1214,7 @@ const gisBoundaryCache = new Map();
 const nativeBoundaryCache = new Map();
 
 /**
+ * this is for category=Boudaries datasets
  * Load a table’s own `shape` column as WGS84 GeoJSON (no geometry-API join).
  * Uses column names from the DB / page — no hardcoded table list.
  *
@@ -1246,7 +1259,7 @@ export async function fetchNativeBoundaryGeojson(params = {}) {
       columns,
       orderByColumn: quoteSqlIdentifier(idColumn),
       orderByDirection: "ASC",
-      limit: "5000",
+      limit: "25000",
     });
 
     const response = await fetch(`/api?${search.toString()}`);
@@ -1301,6 +1314,11 @@ export async function fetchNativeBoundaryGeojson(params = {}) {
     nativeBoundaryCache.delete(cacheKey);
     throw err;
   }
+}
+
+/** @deprecated Use fetchNativeBoundaryGeojson */
+export async function fetchNativeCensusTractBoundaryGeojson(params = {}) {
+  return fetchNativeBoundaryGeojson(params);
 }
 
 /**

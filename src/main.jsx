@@ -134,10 +134,10 @@ const router = createBrowserRouter([
         path: "/profile/subregion/:subregionId/:tab?",
         element: <SubregionProfileRoute tabOptions={tabOptions} />
       },
-      {
-        path: "/profile/rpa/:rpaId/:tab?",
-        element: <RPAProfileRoute tabOptions={tabOptions} />
-      },
+      // {
+      //   path: "/profile/rpa/:rpaId/:tab?",
+      //   element: <RPAProfileRoute tabOptions={tabOptions} />
+      // },
       {
         path: "gallery",
         children: [
