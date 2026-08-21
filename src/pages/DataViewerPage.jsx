@@ -312,7 +312,7 @@ class DataViewerClass extends React.Component {
         const yearOverride = resolveYearsFromUrl(parsedShare, distinctYears);
         if (yearOverride) selectedYears = yearOverride;
 
-        // Initialize geography filter for municipal (_m) tables only.
+        // Initialize geography filter for municipal tables (from `_data_browser.geography`).
         // Dropdown uses name columns (muni_name / municipal); map joins use muni_id separately.
         // Tract tables still map via resolveMapGeographyColumn inside DatasetMapPreview;
         // setting geographyColumn here without selectedGeographies would empty the table.
