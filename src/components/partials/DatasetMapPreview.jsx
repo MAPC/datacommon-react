@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import PropTypes from "prop-types";
 import { useSelector } from "react-redux";
+import { useLocation } from "react-router-dom";
 import mapboxgl from "mapbox-gl";
 import MoonLoader from "react-spinners/MoonLoader";
 import "mapbox-gl/dist/mapbox-gl.css";
@@ -8,7 +9,6 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import { MAP_CONFIG } from "../../constants/mapConfig";
 import {
   MAP_VIEW_GEOGRAPHY_TYPES,
-  NATIVE_BOUNDARY_TABLES,
   buildChoroplethScale,
   buildValueByGeography,
   buildValueByGeographyFromFeatures,
@@ -21,7 +21,7 @@ import {
   getColumnUnit,
   getMarginColumnForBase,
   getMappableColumns,
-  isNativeBoundaryTable,
+  isBoundariesCategory,
   adaptMunicipalBoundaryGeojson,
   resolveMapGeographyColumn,
 } from "../../utils/datasetMapPreview";
@@ -38,6 +38,115 @@ const MUNI_LINE_LAYER_ID = "dataset-map-preview-muni-line";
 const MAPC_SOURCE_ID = "dataset-map-preview-mapc";
 const MAPC_LINE_LAYER_ID = "dataset-map-preview-mapc-line";
 const EMPTY_FC = { type: "FeatureCollection", features: [] };
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function buildFeatureDetails(props, {
+  mapYear,
+  geographyType,
+  geometryJoinKey,
+  marginColumn,
+} = {}) {
+  if (!props) return null;
+  const rawValue = props.__mapValue;
+  const value = rawValue == null || rawValue === "" ? null : Number(rawValue);
+
+  const municipalName = props.municipal || props.town || props.NAME || null;
+  const formattedMunicipalName = municipalName
+    ? String(municipalName)
+        .toLowerCase()
+        .replace(/\b\w/g, (s) => s.toUpperCase())
+    : null;
+
+  const joinKey = String(props.__joinKey || geometryJoinKey || "").toLowerCase();
+  const isMunicipal =
+    geographyType === MAP_VIEW_GEOGRAPHY_TYPES.municipal ||
+    joinKey === "muni_id" ||
+    joinKey === "municipal" ||
+    props.muni_id != null;
+
+  const label =
+    (isMunicipal && formattedMunicipalName) ||
+    props.__mapLabel ||
+    formattedMunicipalName ||
+    "Area";
+
+  let tractBoundary = null;
+  if (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts) {
+    if (joinKey === "ct20_id" || (props.ct20_id && !props.ct10_id)) {
+      tractBoundary = "2020 Census tracts";
+    } else if (joinKey === "ct10_id" || (props.ct10_id && !props.ct20_id)) {
+      tractBoundary = "2010 Census tracts";
+    } else if (props.ct20_id) {
+      tractBoundary = "2020 Census tracts";
+    } else if (props.ct10_id) {
+      tractBoundary = "2010 Census tracts";
+    }
+  }
+
+  let marginOfError = null;
+  if (marginColumn) {
+    const rawMoe =
+      props.__mapMoe ??
+      props[marginColumn] ??
+      Object.entries(props).find(([key]) => key.toLowerCase() === marginColumn.toLowerCase())?.[1];
+    const moeNum = rawMoe == null || rawMoe === "" ? null : Number(rawMoe);
+    marginOfError = Number.isFinite(moeNum) ? moeNum : null;
+  }
+
+  return {
+    label,
+    value: Number.isFinite(value) ? value : null,
+    marginOfError,
+    year: mapYear != null ? String(mapYear) : null,
+    tractBoundary,
+  };
+}
+
+function featureDetailsToPopupHtml(details, {
+  geographyType,
+  activeVariableLabel,
+  activeVariableUnit,
+} = {}) {
+  if (!details) return "";
+  const placeLabel =
+    geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts
+      ? "Census tract"
+      : geographyType === MAP_VIEW_GEOGRAPHY_TYPES.boundary
+        ? "Feature"
+        : "Municipality";
+  const valueText = formatMapValue(details.value, activeVariableUnit);
+  const moeText =
+    details.marginOfError != null
+      ? ` ± ${formatMapValue(details.marginOfError, activeVariableUnit)}`
+      : "";
+
+  const rows = [
+    `<div class="dataset-map-preview__hover-tooltip-row"><strong>${escapeHtml(placeLabel)}:</strong> <span>${escapeHtml(details.label)}</span></div>`,
+  ];
+  if (details.year) {
+    rows.push(
+      `<div class="dataset-map-preview__hover-tooltip-row"><strong>Year:</strong> <span>${escapeHtml(details.year)}</span></div>`,
+    );
+  }
+  if (details.tractBoundary) {
+    rows.push(
+      `<div class="dataset-map-preview__hover-tooltip-row"><strong>Boundary:</strong> <span>${escapeHtml(details.tractBoundary)}</span></div>`,
+    );
+  }
+  if (activeVariableLabel) {
+    rows.push(
+      `<div class="dataset-map-preview__hover-tooltip-row dataset-map-preview__hover-tooltip-row--metric"><strong>${escapeHtml(activeVariableLabel)}:</strong> <span>${escapeHtml(valueText)}${escapeHtml(moeText)}</span></div>`,
+    );
+  }
+  return `<div class="dataset-map-preview__hover-tooltip">${rows.join("")}</div>`;
+}
 
 function bringOverlayLayersToFront(map) {
   if (!map) return;
@@ -62,10 +171,16 @@ function DatasetMapPreview({
   geographyType = null,
   mapVariable = null,
   onMapVariableChange,
+  menu1 = null,
+  title = "",
+  source = "",
+  datasetId = null,
   database = "ds",
   schema = "tabular",
   table = "",
 }) {
+  const location = useLocation();
+  const isEmbedView = new URLSearchParams(location.search).get("embed") === "1";
   const municipalGeojson = useSelector((state) => state.municipality.geojson);
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
@@ -80,6 +195,7 @@ function DatasetMapPreview({
   const [muniOverlayGeojson, setMuniOverlayGeojson] = useState(EMPTY_FC);
   const [mapcOverlayGeojson, setMapcOverlayGeojson] = useState(EMPTY_FC);
   const [selectedFeatureKey, setSelectedFeatureKey] = useState(null);
+  const hoverPopupRef = useRef(null);
   const { isExporting, exportError, runExportDownload, clearExportError } = useExportFileDownload();
 
   const filteredRows = useMemo(
@@ -191,12 +307,21 @@ function DatasetMapPreview({
   }, []);
 
   const isBoundaryLoading = boundariesLoading || overlaysLoading;
+  // Boundaries category tables already have polygons in `shape` — no geometry-API join.
+  const isBoundariesDataset = isBoundariesCategory(menu1);
+  const shapeAttributeColumns = useMemo(
+    () => (columnKeys || []).map((col) => col?.name).filter(Boolean),
+    [columnKeys],
+  );
+  const boundaryLayerLabel = title || "Boundaries";
+
   useEffect(() => {
     const usesGeometryApi =
-      geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts ||
-      geographyType === MAP_VIEW_GEOGRAPHY_TYPES.municipal;
+      !isBoundariesDataset &&
+      (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts ||
+        geographyType === MAP_VIEW_GEOGRAPHY_TYPES.municipal);
 
-    if (!usesGeometryApi) {
+    if (!usesGeometryApi && !isBoundariesDataset) {
       setApiBoundaryGeojson(null);
       setGeometryJoinKey(null);
       setBoundariesError("");
@@ -221,13 +346,16 @@ function DatasetMapPreview({
           result = {
             featureCollection: adaptMunicipalBoundaryGeojson(municipalGeojson),
             joinKey: "muni_id",
+            boundaryLabel: boundaryLayerLabel,
           };
-        } else if (isNativeBoundaryTable(table)) {
-          // Boundary datasets store polygons in `shape` — draw from that column.
+        } else if (isBoundariesDataset) {
+          // Load this table’s own `shape` column.
           result = await fetchNativeBoundaryGeojson({
             database,
             schema,
             table,
+            columnNames: shapeAttributeColumns,
+            boundaryLabel: boundaryLayerLabel,
           });
         } else {
           const years = mapYear != null ? [mapYear] : [];
@@ -247,8 +375,7 @@ function DatasetMapPreview({
         if (cancelled) return;
         setApiBoundaryGeojson(null);
         setGeometryJoinKey(null);
-        if (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.municipal) {
-          // Fall back to Redux municipal polygons + client-side join
+        if (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.municipal && !isBoundariesDataset) {
           setBoundariesError(
             primaryError?.message
               ? `Geometry API unavailable (${primaryError.message}); using fallback boundaries`
@@ -256,7 +383,7 @@ function DatasetMapPreview({
           );
         } else {
           setBoundariesError(
-            primaryError?.message || "Unable to load census tract boundaries",
+            primaryError?.message || "Unable to load map boundaries",
           );
         }
         setBoundariesLoading(false);
@@ -268,7 +395,18 @@ function DatasetMapPreview({
     return () => {
       cancelled = true;
     };
-  }, [geographyType, database, schema, table, mapYear, queryYearColumn, municipalGeojson]);
+  }, [
+    geographyType,
+    database,
+    schema,
+    table,
+    mapYear,
+    queryYearColumn,
+    municipalGeojson,
+    isBoundariesDataset,
+    shapeAttributeColumns,
+    boundaryLayerLabel,
+  ]);
 
   const baseGeojson = useMemo(() => {
     if (apiBoundaryGeojson) return apiBoundaryGeojson;
@@ -279,8 +417,7 @@ function DatasetMapPreview({
   }, [apiBoundaryGeojson, geographyType, boundariesLoading, municipalGeojson]);
 
   const tractBoundaryLabel = useMemo(() => {
-    const nativeLabel = NATIVE_BOUNDARY_TABLES[table]?.boundaryLabel;
-    if (nativeLabel && isNativeBoundaryTable(table)) return nativeLabel;
+    if (isBoundariesDataset) return null;
 
     if (geographyType !== MAP_VIEW_GEOGRAPHY_TYPES.census_tracts) return null;
     const joinKey = String(geometryJoinKey || "").toLowerCase();
@@ -297,12 +434,7 @@ function DatasetMapPreview({
     if (props.ct20_id) return "2020 Census tracts";
     if (props.ct10_id) return "2010 Census tracts";
     return null;
-  }, [table, geographyType, geometryJoinKey, baseGeojson]);
-
-  const mapTitle =
-    mapYear != null && activeVariableLabel
-      ? `${mapYear} ${activeVariableLabel}`
-      : activeVariableLabel || tractBoundaryLabel || (mapYear != null ? String(mapYear) : "Map");
+  }, [isBoundariesDataset, geographyType, geometryJoinKey, baseGeojson]);
 
   const valueByGeography = useMemo(() => {
     if (!activeVariable) return new Map();
@@ -366,16 +498,16 @@ function DatasetMapPreview({
 
   const { colorForValue, legend, binningDescription } = useMemo(() => {
     const values = [...valueByGeography.values()];
-    if (!values.length && isNativeBoundaryTable(table)) {
+    if (!values.length && isBoundariesDataset) {
       const boundaryColor = "#7eb8c9";
       return {
         colorForValue: () => boundaryColor,
-        legend: [{ label: NATIVE_BOUNDARY_TABLES[table]?.boundaryLabel || "Boundaries", color: boundaryColor }],
+        legend: [{ label: boundaryLayerLabel, color: boundaryColor }],
         binningDescription: "Classification: Boundary outline",
       };
     }
     return buildChoroplethScale(values, { unit: activeVariableUnit });
-  }, [valueByGeography, activeVariableUnit, table]);
+  }, [valueByGeography, activeVariableUnit, boundaryLayerLabel, isBoundariesDataset]);
 
   const paintedGeojson = useMemo(() => {
     if (!baseGeojson) return { type: "FeatureCollection", features: [] };
@@ -446,7 +578,7 @@ function DatasetMapPreview({
           "line-width": 2.4,
           "line-opacity": 1,
         },
-        filter: ["==", ["get", "__mapKey"], ""],
+        filter: ["==", ["get", "__mapKey"], "__none__"],
       });
 
       map.addSource(MUNI_SOURCE_ID, {
@@ -496,7 +628,18 @@ function DatasetMapPreview({
 
     mapRef.current = map;
 
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined" && mapContainerRef.current
+        ? new ResizeObserver(() => {
+            map.resize();
+          })
+        : null;
+    if (resizeObserver && mapContainerRef.current) {
+      resizeObserver.observe(mapContainerRef.current);
+    }
+
     return () => {
+      resizeObserver?.disconnect();
       map.remove();
       mapRef.current = null;
       setMapReady(false);
@@ -559,9 +702,32 @@ function DatasetMapPreview({
         geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts ? 0.4 : 0.7,
       );
     }
+    if (isBoundariesDataset && paintedGeojson?.features?.length) {
+      const bounds = new mapboxgl.LngLatBounds();
+      let hasCoord = false;
+      const extendCoords = (coords) => {
+        if (!Array.isArray(coords) || !coords.length) return;
+        if (typeof coords[0] === "number") {
+          if (Number.isFinite(coords[0]) && Number.isFinite(coords[1])) {
+            bounds.extend([coords[0], coords[1]]);
+            hasCoord = true;
+          }
+          return;
+        }
+        coords.forEach(extendCoords);
+      };
+      paintedGeojson.features.forEach((feature) => extendCoords(feature?.geometry?.coordinates));
+      if (hasCoord && !bounds.isEmpty()) {
+        map.fitBounds(bounds, {
+          padding: { top: 28, bottom: 28, left: 28, right: 28 },
+          animate: false,
+          maxZoom: 12,
+        });
+      }
+    }
     // Choropleth updates can reshuffle paint order; keep overlays on top.
     bringOverlayLayersToFront(map);
-  }, [paintedGeojson, mapReady, geographyType]);
+  }, [paintedGeojson, mapReady, geographyType, isBoundariesDataset]);
 
   useEffect(() => {
     setSelectedFeatureKey(null);
@@ -570,16 +736,67 @@ function DatasetMapPreview({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady || !map.getLayer(SELECTED_LINE_LAYER_ID)) return;
-    map.setFilter(SELECTED_LINE_LAYER_ID, [
-      "==",
-      ["to-string", ["get", "__mapKey"]],
-      selectedFeatureKey != null ? String(selectedFeatureKey) : "",
-    ]);
+    // Use a non-matching sentinel when nothing is selected — matching "" would
+    // highlight every feature whose __mapKey is missing/empty.
+    map.setFilter(
+      SELECTED_LINE_LAYER_ID,
+      selectedFeatureKey != null && selectedFeatureKey !== ""
+        ? ["==", ["to-string", ["get", "__mapKey"]], String(selectedFeatureKey)]
+        : ["==", ["get", "__mapKey"], "__none__"],
+    );
   }, [selectedFeatureKey, mapReady, paintedGeojson]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return undefined;
+
+    if (isEmbedView) {
+      if (!hoverPopupRef.current) {
+        hoverPopupRef.current = new mapboxgl.Popup({
+          closeButton: false,
+          closeOnClick: false,
+          offset: 12,
+          maxWidth: "260px",
+          className: "dataset-map-preview__mapbox-popup",
+        });
+      }
+      const popup = hoverPopupRef.current;
+
+      const onMouseMove = (e) => {
+        const feature = e.features?.[0];
+        if (!feature) return;
+        map.getCanvas().style.cursor = "pointer";
+        const details = buildFeatureDetails(feature.properties, {
+          mapYear,
+          geographyType,
+          geometryJoinKey,
+          marginColumn,
+        });
+        popup
+          .setLngLat(e.lngLat)
+          .setHTML(
+            featureDetailsToPopupHtml(details, {
+              geographyType,
+              activeVariableLabel,
+              activeVariableUnit,
+            }),
+          )
+          .addTo(map);
+      };
+
+      const onMouseLeave = () => {
+        map.getCanvas().style.cursor = "";
+        popup.remove();
+      };
+
+      map.on("mousemove", FILL_LAYER_ID, onMouseMove);
+      map.on("mouseleave", FILL_LAYER_ID, onMouseLeave);
+      return () => {
+        map.off("mousemove", FILL_LAYER_ID, onMouseMove);
+        map.off("mouseleave", FILL_LAYER_ID, onMouseLeave);
+        popup.remove();
+      };
+    }
 
     const onFeatureClick = (e) => {
       const feature = e.features?.[0];
@@ -600,7 +817,16 @@ function DatasetMapPreview({
       map.off("click", FILL_LAYER_ID, onFeatureClick);
       map.off("click", onMapClick);
     };
-  }, [mapReady]);
+  }, [
+    mapReady,
+    isEmbedView,
+    mapYear,
+    geographyType,
+    geometryJoinKey,
+    marginColumn,
+    activeVariableLabel,
+    activeVariableUnit,
+  ]);
 
   const selectedFeature = useMemo(() => {
     if (selectedFeatureKey == null) return null;
@@ -613,60 +839,12 @@ function DatasetMapPreview({
 
   const selectedDetails = useMemo(() => {
     if (!selectedFeature?.properties) return null;
-    const props = selectedFeature.properties;
-    const rawValue = props.__mapValue;
-    const value = rawValue == null || rawValue === "" ? null : Number(rawValue);
-
-    const municipalName = props.municipal || props.town || props.NAME || null;
-    const formattedMunicipalName = municipalName
-      ? String(municipalName)
-          .toLowerCase()
-          .replace(/\b\w/g, (s) => s.toUpperCase())
-      : null;
-
-    const joinKey = String(props.__joinKey || geometryJoinKey || "").toLowerCase();
-    const isMunicipal =
-      geographyType === MAP_VIEW_GEOGRAPHY_TYPES.municipal ||
-      joinKey === "muni_id" ||
-      joinKey === "municipal" ||
-      props.muni_id != null;
-
-    const label =
-      (isMunicipal && formattedMunicipalName) ||
-      props.__mapLabel ||
-      formattedMunicipalName ||
-      "Area";
-
-    let tractBoundary = null;
-    if (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts) {
-      if (joinKey === "ct20_id" || (props.ct20_id && !props.ct10_id)) {
-        tractBoundary = "2020 Census tracts";
-      } else if (joinKey === "ct10_id" || (props.ct10_id && !props.ct20_id)) {
-        tractBoundary = "2010 Census tracts";
-      } else if (props.ct20_id) {
-        tractBoundary = "2020 Census tracts";
-      } else if (props.ct10_id) {
-        tractBoundary = "2010 Census tracts";
-      }
-    }
-
-    let marginOfError = null;
-    if (marginColumn) {
-      const rawMoe =
-        props.__mapMoe ??
-        props[marginColumn] ??
-        Object.entries(props).find(([key]) => key.toLowerCase() === marginColumn.toLowerCase())?.[1];
-      const moeNum = rawMoe == null || rawMoe === "" ? null : Number(rawMoe);
-      marginOfError = Number.isFinite(moeNum) ? moeNum : null;
-    }
-
-    return {
-      label,
-      value: Number.isFinite(value) ? value : null,
-      marginOfError,
-      year: mapYear != null ? String(mapYear) : null,
-      tractBoundary,
-    };
+    return buildFeatureDetails(selectedFeature.properties, {
+      mapYear,
+      geographyType,
+      geometryJoinKey,
+      marginColumn,
+    });
   }, [selectedFeature, mapYear, geographyType, geometryJoinKey, marginColumn]);
 
   const canDownloadGeojson = Boolean(table) && !isBoundaryLoading && !isExporting;
@@ -697,7 +875,7 @@ function DatasetMapPreview({
   if (!geographyType) {
     return (
       <div className="dataset-map-preview dataset-map-preview--empty">
-        <p>Map preview is available for municipal and census tract tables.</p>
+        <p>Map preview is available for municipal, census tract, and Boundaries datasets.</p>
       </div>
     );
   }
@@ -712,8 +890,8 @@ function DatasetMapPreview({
     );
   }
 
-  // Boundary-only layers (e.g. ma_municipalities) have no numeric choropleth columns.
-  const isBoundaryOnlyMap = isNativeBoundaryTable(table) || Boolean(apiBoundaryGeojson);
+  // Boundary-only layers (e.g. Boundaries category / ma_municipalities) have no numeric choropleth columns.
+  const isBoundaryOnlyMap = isBoundariesDataset || Boolean(apiBoundaryGeojson);
   if (!mappableColumns.length && !isBoundaryLoading && !isBoundaryOnlyMap) {
     return (
       <div className="dataset-map-preview dataset-map-preview--empty">
@@ -723,15 +901,14 @@ function DatasetMapPreview({
   }
 
   return (
-    <div className="dataset-map-preview">
+    <div className={`dataset-map-preview${isEmbedView ? " dataset-map-preview--embed" : ""}`}>
       <div className="dataset-map-preview__map-panel">
-        <div className="dataset-map-preview__map-header">
-          <h2>{mapTitle}</h2>
-          {boundariesError && <span className="dataset-map-preview__status dataset-map-preview__status--error">{boundariesError}</span>}
-        </div>
+        {boundariesError && (
+          <span className="dataset-map-preview__status dataset-map-preview__status--error">{boundariesError}</span>
+        )}
         <div className="dataset-map-preview__map-body">
           <div className="dataset-map-preview__map-shell">
-            <ExportLoadingMask active={isExporting} />
+            {!isEmbedView && <ExportLoadingMask active={isExporting} />}
             <div className="dataset-map-preview__map-controls">
               <div className="dataset-map-preview__north-arrow" aria-hidden="true" title="North">
                 <span className="dataset-map-preview__north-arrow-pointer" />
@@ -784,125 +961,165 @@ function DatasetMapPreview({
             </div>
           </div>
 
-          <div className="dataset-map-preview__side-panels">
-            <aside className="dataset-map-preview__detail" aria-label="Map variable">
-              <div className="dataset-map-preview__detail-header">
-                <h2 className="dataset-map-preview__detail-title">Variable</h2>
-              </div>
-              {mappableColumns.length ? (
-                <label className="dataset-map-preview__variable-field">
-                  <span className="dataset-map-preview__variable-field-label">Choose a column to color the map</span>
-                  <select
-                    className="dataset-map-preview__variable-select"
-                    value={activeVariable || ""}
-                    onChange={(e) => onMapVariableChange?.(e.target.value)}
-                    aria-label="Map variable"
-                    title={activeVariableLabel || undefined}
-                  >
-                    {mappableColumns.map((col) => (
-                      <option key={col.name} value={col.name}>
-                        {col.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ) : (
-                <p className="dataset-map-preview__variable-field-label">
-                  This boundary layer has no numeric columns to choropleth. Click a feature for details.
-                </p>
-              )}
-            </aside>
-
-            <aside className="dataset-map-preview__detail" aria-label="Selected area details">
-              <div className="dataset-map-preview__detail-header">
-                <h2 className="dataset-map-preview__detail-title">Details</h2>
-                {selectedDetails && (
-                  <button
-                    type="button"
-                    className="dataset-map-preview__detail-close"
-                    onClick={() => setSelectedFeatureKey(null)}
-                    aria-label="Clear selection"
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
-              {!selectedDetails ? (
-                <p className="dataset-map-preview__detail-empty">
-                  Click a{" "}
-                  {geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts
-                    ? "census tract"
-                    : "municipality"}{" "}
-                  on the map to view its values.
-                </p>
-              ) : (
-                <dl className="dataset-map-preview__detail-list">
-                  <div className="dataset-map-preview__detail-row dataset-map-preview__detail-row--inline">
-                    <dt>
-                      {geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts
-                        ? "Census tract"
-                        : "Municipality"}
-                    </dt>
-                    <dd>{selectedDetails.label}</dd>
-                  </div>
-                  {selectedDetails.year && (
-                    <div className="dataset-map-preview__detail-row dataset-map-preview__detail-row--inline">
-                      <dt>Year</dt>
-                      <dd>{selectedDetails.year}</dd>
-                    </div>
-                  )}
-                  {selectedDetails.tractBoundary && (
-                    <div className="dataset-map-preview__detail-row dataset-map-preview__detail-row--inline">
-                      <dt>Boundary</dt>
-                      <dd>{selectedDetails.tractBoundary}</dd>
-                    </div>
-                  )}
-                  <div className="dataset-map-preview__detail-metric">
-                    <dt className="dataset-map-preview__detail-metric-label">{activeVariableLabel}</dt>
-                    <dd className="dataset-map-preview__detail-metric-value">
-                      {formatMapValue(selectedDetails.value, activeVariableUnit)}
-                      {selectedDetails.marginOfError != null && (
-                        <span className="dataset-map-preview__detail-metric-moe">
-                          {" "}
-                          ± {formatMapValue(selectedDetails.marginOfError, activeVariableUnit)}
-                        </span>
-                      )}
-                    </dd>
-                  </div>
-                </dl>
-              )}
-              <div className="dataset-map-preview__download-wrap">
-                <button
-                  type="button"
-                  className="dataset-map-preview__download-geojson"
-                  onClick={handleDownloadGeojson}
-                  disabled={!canDownloadGeojson}
-                  aria-busy={isExporting}
-                  aria-describedby="dataset-map-geojson-download-tip"
-                >
-                  {isExporting ? "Preparing…" : "Download as GeoJSON"}
-                </button>
-                <span
-                  id="dataset-map-geojson-download-tip"
-                  role="tooltip"
-                  className="dataset-map-preview__download-tooltip"
-                >
-                  {mapYear != null
-                    ? `Download the current map with selected year ${mapYear} as GeoJSON, with all table properties.`
-                    : "Download the current map as GeoJSON, with all table properties."}
-                </span>
-                {exportError && (
-                  <p className="dataset-map-preview__download-error" role="alert">
-                    {exportError}
+          {!isEmbedView && (
+            <div className="dataset-map-preview__side-panels">
+              <aside className="dataset-map-preview__detail" aria-label="Map variable">
+                <div className="dataset-map-preview__detail-header">
+                  <h2 className="dataset-map-preview__detail-title">Variable</h2>
+                </div>
+                {mappableColumns.length ? (
+                  <label className="dataset-map-preview__variable-field">
+                    <span className="dataset-map-preview__variable-field-label">Choose a column to color the map</span>
+                    <select
+                      className="dataset-map-preview__variable-select"
+                      value={activeVariable || ""}
+                      onChange={(e) => onMapVariableChange?.(e.target.value)}
+                      aria-label="Map variable"
+                      title={activeVariableLabel || undefined}
+                    >
+                      {mappableColumns.map((col) => (
+                        <option key={col.name} value={col.name}>
+                          {col.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : (
+                  <p className="dataset-map-preview__variable-field-label">
+                    This boundary layer has no numeric columns to choropleth. Click a feature for details.
                   </p>
                 )}
-              </div>
-            </aside>
-          </div>
+              </aside>
+
+              <aside className="dataset-map-preview__detail" aria-label="Selected area details">
+                <div className="dataset-map-preview__detail-header">
+                  <h2 className="dataset-map-preview__detail-title">Details</h2>
+                  {selectedDetails && (
+                    <button
+                      type="button"
+                      className="dataset-map-preview__detail-close"
+                      onClick={() => setSelectedFeatureKey(null)}
+                      aria-label="Clear selection"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                {!selectedDetails ? (
+                  <p className="dataset-map-preview__detail-empty">
+                    Click a{" "}
+                    {geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts
+                      ? "census tract"
+                      : geographyType === MAP_VIEW_GEOGRAPHY_TYPES.boundary
+                        ? "feature"
+                        : "municipality"}{" "}
+                    on the map to view its values.
+                  </p>
+                ) : (
+                  <dl className="dataset-map-preview__detail-list">
+                    <div className="dataset-map-preview__detail-row dataset-map-preview__detail-row--inline">
+                      <dt>
+                        {geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts
+                          ? "Census tract"
+                          : geographyType === MAP_VIEW_GEOGRAPHY_TYPES.boundary
+                            ? "Feature"
+                            : "Municipality"}
+                      </dt>
+                      <dd>{selectedDetails.label}</dd>
+                    </div>
+                    {selectedDetails.year && (
+                      <div className="dataset-map-preview__detail-row dataset-map-preview__detail-row--inline">
+                        <dt>Year</dt>
+                        <dd>{selectedDetails.year}</dd>
+                      </div>
+                    )}
+                    {selectedDetails.tractBoundary && (
+                      <div className="dataset-map-preview__detail-row dataset-map-preview__detail-row--inline">
+                        <dt>Boundary</dt>
+                        <dd>{selectedDetails.tractBoundary}</dd>
+                      </div>
+                    )}
+                    <div className="dataset-map-preview__detail-row dataset-map-preview__detail-row--inline dataset-map-preview__detail-row--metric">
+                      <dt>{activeVariableLabel}</dt>
+                      <dd>
+                        {formatMapValue(selectedDetails.value, activeVariableUnit)}
+                        {selectedDetails.marginOfError != null && (
+                          <span className="dataset-map-preview__detail-metric-moe">
+                            {" "}
+                            ± {formatMapValue(selectedDetails.marginOfError, activeVariableUnit)}
+                          </span>
+                        )}
+                      </dd>
+                    </div>
+                  </dl>
+                )}
+                <div className="dataset-map-preview__download-wrap">
+                  <button
+                    type="button"
+                    className="dataset-map-preview__download-geojson"
+                    onClick={handleDownloadGeojson}
+                    disabled={!canDownloadGeojson}
+                    aria-busy={isExporting}
+                    aria-describedby="dataset-map-geojson-download-tip"
+                  >
+                    {isExporting ? "Preparing…" : "Download as GeoJSON"}
+                  </button>
+                  <span
+                    id="dataset-map-geojson-download-tip"
+                    role="tooltip"
+                    className="dataset-map-preview__download-tooltip"
+                  >
+                    {mapYear != null
+                      ? `Download the current map with selected year ${mapYear} as GeoJSON, with all table properties.`
+                      : "Download the current map as GeoJSON, with all table properties."}
+                  </span>
+                  {exportError && (
+                    <p className="dataset-map-preview__download-error" role="alert">
+                      {exportError}
+                    </p>
+                  )}
+                </div>
+              </aside>
+            </div>
+          )}
         </div>
-        {binningDescription && (
-          <p className="dataset-map-preview__map-footer">{binningDescription}</p>
-        )}
+        <div className="metadata dataset-map-preview__metadata">
+          {binningDescription && (
+            <span className="dataset-map-preview__metadata-item">{binningDescription}</span>
+          )}
+          <span className="dataset-map-preview__metadata-item">
+            Source:
+            {" "}
+            {source || "Unknown"}
+          </span>
+          <span className="dataset-map-preview__metadata-item">
+            Years:
+            {" "}
+            {mapYear != null
+              ? String(mapYear)
+              : selectedYears?.length
+                ? selectedYears.map(String).join(", ")
+                : "N/A"}
+          </span>
+          {datasetId != null && datasetId !== "" && title && (
+            <span className="dataset-map-preview__metadata-item link">
+              Link to:
+              {" "}
+              <a
+                href={`/browser/datasets/${datasetId}/map${(() => {
+                  const params = new URLSearchParams(location.search || "");
+                  params.delete("embed");
+                  const qs = params.toString();
+                  return qs ? `?${qs}` : "";
+                })()}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {title}
+              </a>
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -920,10 +1137,15 @@ DatasetMapPreview.propTypes = {
   geographyType: PropTypes.oneOf([
     MAP_VIEW_GEOGRAPHY_TYPES.municipal,
     MAP_VIEW_GEOGRAPHY_TYPES.census_tracts,
+    MAP_VIEW_GEOGRAPHY_TYPES.boundary,
     null,
   ]),
   mapVariable: PropTypes.string,
   onMapVariableChange: PropTypes.func,
+  menu1: PropTypes.string,
+  title: PropTypes.string,
+  source: PropTypes.string,
+  datasetId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   database: PropTypes.string,
   schema: PropTypes.string,
   table: PropTypes.string,

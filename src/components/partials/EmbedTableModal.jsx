@@ -17,8 +17,12 @@ const makeIframeSnippet = (embedUrl, title, w, h, viewMode = "table") =>
   `<iframe src="${embedUrl}" title="${title || (viewMode === "map" ? "Embedded dataset map" : "Embedded dataset table")}" width="${w}" height="${h}" frameborder="0" loading="lazy"></iframe>`;
 
 const digitsOnly = (value) => String(value ?? "").replace(/\D/g, "");
-const getPresetForDimensions = (width, height) => {
-  if (width === SIZE_PRESETS.small.width && height === SIZE_PRESETS.small.height) {
+const getPresetForDimensions = (width, height, viewMode = "table") => {
+  if (
+    viewMode !== "map" &&
+    width === SIZE_PRESETS.small.width &&
+    height === SIZE_PRESETS.small.height
+  ) {
     return "small";
   }
   if (width === SIZE_PRESETS.medium.width && height === SIZE_PRESETS.medium.height) {
@@ -61,9 +65,9 @@ const EmbedTableModal = ({
       setHeightInput(String(IFRAME_HEIGHT_DEFAULT));
       setWidthCommitted(IFRAME_WIDTH_DEFAULT);
       setHeightCommitted(IFRAME_HEIGHT_DEFAULT);
-      setSizePreset(getPresetForDimensions(IFRAME_WIDTH_DEFAULT, IFRAME_HEIGHT_DEFAULT));
+      setSizePreset(getPresetForDimensions(IFRAME_WIDTH_DEFAULT, IFRAME_HEIGHT_DEFAULT, viewMode));
     }
-  }, [isOpen]);
+  }, [isOpen, viewMode]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -127,7 +131,7 @@ const EmbedTableModal = ({
     const c = resolveWidthFromInput();
     setWidthCommitted(c);
     setWidthInput(String(c));
-    setSizePreset(getPresetForDimensions(c, heightCommitted));
+    setSizePreset(getPresetForDimensions(c, heightCommitted, viewMode));
     setCopyStatus("");
   };
 
@@ -135,7 +139,7 @@ const EmbedTableModal = ({
     const c = resolveHeightFromInput();
     setHeightCommitted(c);
     setHeightInput(String(c));
-    setSizePreset(getPresetForDimensions(widthCommitted, c));
+    setSizePreset(getPresetForDimensions(widthCommitted, c, viewMode));
     setCopyStatus("");
   };
 
@@ -169,12 +173,15 @@ const EmbedTableModal = ({
     setHeightCommitted(h);
     setWidthInput(String(w));
     setHeightInput(String(h));
-    setSizePreset(getPresetForDimensions(w, h));
+    setSizePreset(getPresetForDimensions(w, h, viewMode));
     copyText(makeIframeSnippet(embedUrl, title, w, h, viewMode), "Embed code copied!");
   };
 
   const handleSizePresetChange = (e) => {
     const nextPreset = e.target.value;
+    if (viewMode === "map" && nextPreset === "small") {
+      return;
+    }
     setSizePreset(nextPreset);
     setCopyStatus("");
     if (nextPreset === "custom") {
@@ -314,7 +321,9 @@ const EmbedTableModal = ({
                   value={sizePreset}
                   onChange={handleSizePresetChange}
                 >
-                  <option value="small">{`${SIZE_PRESETS.small.width} x ${SIZE_PRESETS.small.height} (Small)`}</option>
+                  {viewMode !== "map" && (
+                    <option value="small">{`${SIZE_PRESETS.small.width} x ${SIZE_PRESETS.small.height} (Small)`}</option>
+                  )}
                   <option value="medium">{`${SIZE_PRESETS.medium.width} x ${SIZE_PRESETS.medium.height} (Medium)`}</option>
                   <option value="large">{`${SIZE_PRESETS.large.width} x ${SIZE_PRESETS.large.height} (Large)`}</option>
                   <option value="custom">Custom</option>

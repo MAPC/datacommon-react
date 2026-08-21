@@ -60,6 +60,7 @@ class DataViewerClass extends React.Component {
       viewMode: viewModeFromLocation(props.location, props.params),
       mapVariable: null,
       geographyType: null,
+      menu1: null,
     };
     this.updateSelectedYears = this.updateSelectedYears.bind(this);
     this.updateSelectedColumns = this.updateSelectedColumns.bind(this);
@@ -312,17 +313,14 @@ class DataViewerClass extends React.Component {
         const yearOverride = resolveYearsFromUrl(parsedShare, distinctYears);
         if (yearOverride) selectedYears = yearOverride;
 
-        // Initialize geography filter for municipal tables (from `_data_browser.geography`).
-        // Dropdown uses name columns (muni_name / municipal); map joins use muni_id separately.
-        // Tract tables still map via resolveMapGeographyColumn inside DatasetMapPreview;
-        // setting geographyColumn here without selectedGeographies would empty the table.
-        // Native census tract boundary tables (gisdata shape) enable map view without a filter dropdown.
+        // Geography from `_data_browser.geography`, or Boundaries category (own `shape`).
         let selectedGeographies = [];
         let availableGeographies = [];
         let geographyColumn = null;
         const geographyType = detectDatasetGeographyType(
           dataset.table_name,
           dataset.geography,
+          { menu1: dataset.menu1 },
         );
         if (dataset.schemaname === "tabular") {
           if (geographyType === "municipal") {
@@ -369,6 +367,7 @@ class DataViewerClass extends React.Component {
           database: dataset.db_name,
           title: dataset.menu3,
           source: dataset.source,
+          menu1: dataset.menu1 || null,
           queryYearColumn: dataset.yearcolumn,
           updatedAt: dataset.updated,
           geographyColumn,
@@ -642,6 +641,10 @@ class DataViewerClass extends React.Component {
               geographyType={this.state.geographyType}
               mapVariable={this.state.mapVariable}
               onMapVariableChange={this.onMapVariableChange}
+              menu1={this.state.menu1}
+              title={this.state.title}
+              source={this.state.source}
+              datasetId={this.props.params.id}
               database={this.state.database}
               schema={this.state.schema}
               table={this.state.table}

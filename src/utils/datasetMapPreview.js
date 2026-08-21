@@ -5,6 +5,8 @@ export const MAP_VIEW_GEOGRAPHY_TYPES = {
   census_tracts: "census_tracts",
   block_groups: "block_groups",
   blocks: "blocks",
+  /** `_data_browser.menu1 === "Boundaries"` — table already has polygons in `shape`. */
+  boundary: "boundary",
 };
 
 const MUNICIPAL_MAP_JOIN_COLUMNS = ["muni_id", "muni_name", "municipal"];
@@ -17,6 +19,54 @@ const TRACT_GEO_COLUMNS = [
   "GEOID",
 ];
 
+const OWN_SHAPE_COLUMN_NAMES = new Set(["shape", "geometry", "geom"]);
+
+/** `_data_browser.menu1 === "Boundaries"` */
+export function isBoundariesCategory(menu1) {
+  return String(menu1 || "").trim().toLowerCase() === "boundaries";
+}
+
+/**
+ * Detect geography type from `_data_browser.geography`, or Boundaries category.
+ * Known geography values: municipal, census_tracts, block_groups, blocks, null.
+ *
+ * @param {string|null|undefined} [_tableName]
+ * @param {string|null|undefined} [geography] `_data_browser.geography`
+ * @param {{ menu1?: string|null }} [options]
+ */
+export function detectDatasetGeographyType(_tableName, geography = null, { menu1 = null } = {}) {
+  if (geography != null && geography !== "") {
+    const value = String(geography).trim().toLowerCase();
+    if (value === MAP_VIEW_GEOGRAPHY_TYPES.municipal) {
+      return MAP_VIEW_GEOGRAPHY_TYPES.municipal;
+    }
+    if (value === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts) {
+      return MAP_VIEW_GEOGRAPHY_TYPES.census_tracts;
+    }
+    if (value === MAP_VIEW_GEOGRAPHY_TYPES.block_groups) {
+      return MAP_VIEW_GEOGRAPHY_TYPES.block_groups;
+    }
+    if (value === MAP_VIEW_GEOGRAPHY_TYPES.blocks) {
+      return MAP_VIEW_GEOGRAPHY_TYPES.blocks;
+    }
+  }
+  if (isBoundariesCategory(menu1)) {
+    return MAP_VIEW_GEOGRAPHY_TYPES.boundary;
+  }
+  return null;
+}
+
+/**
+ * Map preview: municipal + census tract choropleths, and Boundaries-category layers.
+ */
+export function isMapPreviewSupported(geographyType) {
+  return (
+    geographyType === MAP_VIEW_GEOGRAPHY_TYPES.municipal ||
+    geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts ||
+    geographyType === MAP_VIEW_GEOGRAPHY_TYPES.boundary
+  );
+}
+
 const ID_LIKE_COLUMN_PATTERN =
   /^(muni(_?id)?|municipal(_?id)?|town(_?id)?|municipality(_?id)?|geo(_?id)?|objectid|gid)$/i;
 
@@ -28,6 +78,23 @@ const NON_MAPPABLE_COLUMN_NAMES = new Set(
     "geom",
     "logrecno",
     "county_id",
+    "nbhd_id",
+    "fips_id",
+    "objectid",
+    "id",
+    "rpa_id",
+    "website",
+    "naicscode",
+    "adj_year",
+    "statefp",
+    "countyfp",
+    "tractce",
+    "name",
+    "namelsad",
+    "mtfcc",
+    "funcstat",
+    "intptlat",
+    "intptlon",
     ...MUNICIPAL_MAP_JOIN_COLUMNS,
     ...TRACT_GEO_COLUMNS,
   ].map((name) => name.toLowerCase()),
@@ -37,45 +104,14 @@ const NO_DATA_COLOR = "#E0E0E0";
 const CHOROPLETH_COLORS = ["#EDF8FB", "#B2E2E2", "#66C2A4", "#2CA25F", "#006D2C"];
 
 /**
- * Detect geography type from `_data_browser.geography`.
- * Known values: municipal, census_tracts, block_groups,blocks,null 
- */
-export function detectDatasetGeographyType(_tableName, geography = null) {
-  if (geography == null || geography === "") return null;
-  const value = String(geography).trim().toLowerCase();
-  if (value === MAP_VIEW_GEOGRAPHY_TYPES.municipal) {
-    return MAP_VIEW_GEOGRAPHY_TYPES.municipal;
-  }
-  if (value === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts) {
-    return MAP_VIEW_GEOGRAPHY_TYPES.census_tracts;
-  }
-  if (value === MAP_VIEW_GEOGRAPHY_TYPES.block_groups) {
-    return MAP_VIEW_GEOGRAPHY_TYPES.block_groups;
-  }
-  if (value === MAP_VIEW_GEOGRAPHY_TYPES.blocks) {
-    return MAP_VIEW_GEOGRAPHY_TYPES.blocks;
-  }
-  return null;
-}
-
-/**
- *  for the map preview, only municipal and census tracts are supported for now
- */
-export function isMapPreviewSupported(geographyType) {
-  return (
-    geographyType === MAP_VIEW_GEOGRAPHY_TYPES.municipal ||
-    geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts
-  );
-}
-
-/**
  * Municipal, census tract, and block group tables can export GeoJSON via the export API.
- * Native tract boundary tables (shape column) use standard geospatial export instead.
+ * Boundaries-category tables use standard geospatial export instead.
  * Pass `_data_browser.geography` (or an already-resolved geography type) as the second arg.
  */
-export function supportsTabularGeojsonExport(tableName, geography = null) {
-  if (isNativeBoundaryTable(tableName)) return false;
-  const geographyType = detectDatasetGeographyType(tableName, geography);
+export function supportsTabularGeojsonExport(tableName, geography = null, { menu1 = null } = {}) {
+  if (isBoundariesCategory(menu1)) return false;
+  const geographyType = detectDatasetGeographyType(tableName, geography, { menu1 });
+  if (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.boundary) return false;
   return (
     geographyType === MAP_VIEW_GEOGRAPHY_TYPES.municipal ||
     geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts ||
@@ -100,7 +136,7 @@ export function resolveTableGeographyColumn(sampleRow) {
 /**
  * Column used to join table rows to map polygons (prefer muni_id / tract ids).
  * @param {object|null} sampleRow
- * @param {"municipal"|"census_tracts"|null} geographyType
+ * @param {"municipal"|"census_tracts"|"boundary"|null} geographyType
  * @param {string|null} [preferredColumn]
  */
 export function resolveMapGeographyColumn(sampleRow, geographyType, preferredColumn = null) {
@@ -413,11 +449,11 @@ export function buildValueByGeographyFromFeatures({
     let key = "";
     if (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts) {
       const raw =
-        (joinKey && properties[joinKey] != null ? properties[joinKey] : null) ??
         properties.ct20_id ??
         properties.ct10_id ??
+        properties.GEOID ??
         properties.geoid ??
-        properties.GEOID;
+        (joinKey && properties[joinKey] != null ? properties[joinKey] : null);
       key = normalizeTractKey(raw);
     } else {
       const raw =
@@ -621,15 +657,37 @@ export function enrichBoundariesWithValues({
 
   const getFeatureKey = (properties = {}) => {
     if (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts) {
-      const joinKey = properties.__joinKey;
-      if (joinKey && properties[joinKey] != null) {
-        return normalizeTractKey(properties[joinKey]);
-      }
+      // Prefer real tract ids over whatever __joinKey was inferred (e.g. statefp).
       const raw =
         properties.ct20_id ||
         properties.ct10_id ||
-        properties.GEOID 
+        properties.GEOID ||
+        properties.geoid ||
+        (properties.__joinKey && properties[properties.__joinKey] != null
+          ? properties[properties.__joinKey]
+          : null);
       return normalizeTractKey(raw);
+    }
+    // Boundaries / native shape layers: prefer a per-feature id over a shared parent id.
+    if (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.boundary) {
+      const preferred = [
+        "nbhd_id",
+        "GEOID",
+        "geoid",
+        "ct20_id",
+        "ct10_id",
+        "rpa_id",
+        "county_id",
+        "objectid",
+      ];
+      for (const col of preferred) {
+        if (properties[col] != null && properties[col] !== "") {
+          return String(properties[col]);
+        }
+      }
+      const joinKey = properties.__joinKey;
+      if (joinKey && properties[joinKey] != null) return String(properties[joinKey]);
+      return properties.__mapKey != null ? String(properties.__mapKey) : "";
     }
     const joinKey = properties.__joinKey;
     if (joinKey && properties[joinKey] != null) {
@@ -647,7 +705,7 @@ export function enrichBoundariesWithValues({
     if (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts) {
       return (
         properties.ct20_id ||
-        properties.ct10_id 
+        properties.ct10_id
       );
     }
     if (properties.__mapLabel) return String(properties.__mapLabel);
@@ -1046,30 +1104,6 @@ export const GIS_BOUNDARY_LAYERS = {
     source: "static",
     asset: "mapc-regions",
   },
-};
-
-/** Boundary datasets that already store polygons in a `shape` column.
- * Map preview reads `shape` directly instead of joining via the geometry API.
- */
-export const NATIVE_BOUNDARY_TABLES = {
-  census2010_tracts_poly: {
-    database: "gisdata",
-    schema: "mapc",
-    table: "census2010_tracts_poly",
-    joinKey: "ct10_id",
-    idColumn: "ct10_id",
-    attributeColumns: ["ct10_id", "area_sqft", "area_acres"],
-    boundaryLabel: "2010 Census tracts",
-  },
-  census2020_tracts_poly: {
-    database: "gisdata",
-    schema: "mapc",
-    table: "census2020_tracts_poly",
-    joinKey: "ct20_id",
-    idColumn: "GEOID",
-    attributeColumns: ["GEOID", "name", "namelsad", "aland", "awater", "tractce"],
-    boundaryLabel: "2020 Census tracts",
-  },
   ma_municipalities: {
     database: "gisdata",
     schema: "mapc",
@@ -1080,9 +1114,6 @@ export const NATIVE_BOUNDARY_TABLES = {
     boundaryLabel: "Municipalities",
   },
 };
-
-/** @deprecated Use NATIVE_BOUNDARY_TABLES */
-export const NATIVE_CENSUS_TRACT_BOUNDARY_TABLES = NATIVE_BOUNDARY_TABLES;
 
 /**
  * Quote mixed-case Postgres identifiers (e.g. GEOID) so they are not folded to lowercase.
@@ -1110,43 +1141,111 @@ function rowValue(row, column) {
   return match != null ? row[match] : undefined;
 }
 
-/**
- * @param {string} tableName
- * @returns {boolean}
- */
-export function isNativeBoundaryTable(tableName) {
-  return Boolean(NATIVE_BOUNDARY_TABLES[tableName]);
+/** Attribute columns to request (everything except geometry). */
+function attributeColumnsFromNames(columnNames = []) {
+  return [...new Set(
+    (columnNames || [])
+      .map((name) => String(name || "").trim())
+      .filter((name) => name && !OWN_SHAPE_COLUMN_NAMES.has(name.toLowerCase())),
+  )].slice(0, 40);
 }
 
-/** @deprecated Use isNativeBoundaryTable */
-export function isNativeCensusTractBoundaryTable(tableName) {
-  return isNativeBoundaryTable(tableName);
+/** Stable id for feature keys — prefer per-feature ids, never a shared parent id like muni_id. */
+function pickIdColumn(attributeColumns = []) {
+  const exact = (wanted) =>
+    attributeColumns.find((col) => col.toLowerCase() === wanted);
+  // Most-specific first. muni_id is last: neighborhoods / tracts share one muni_id.
+  const preferred = [
+    "geoid",
+    "ct20_id",
+    "ct10_id",
+    "nbhd_id",
+    "rpa_id",
+    "county_id",
+    "objectid",
+    "muni_id",
+  ];
+  for (const want of preferred) {
+    const hit = exact(want);
+    if (hit) return hit;
+  }
+  return (
+    attributeColumns.find((col) => /_id$/i.test(col)) ||
+    exact("id") ||
+    attributeColumns[0] ||
+    "objectid"
+  );
+}
+
+/** prefer a name-like column, else the id. */
+function pickLabelColumn(attributeColumns = [], idColumn) {
+  const preferredNames = [
+    "municipal",
+    "county",
+    "rpa_name",
+    "neighborhd",
+    "namelsad",
+    "name",
+    "acronym",
+    "town",
+  ];
+  for (const want of preferredNames) {
+    const hit = attributeColumns.find((col) => col.toLowerCase() === want);
+    if (hit) return hit;
+  }
+  const idLower = String(idColumn || "").toLowerCase();
+  const fallback = attributeColumns.find((col) => {
+    const lower = col.toLowerCase();
+    return (
+      lower !== idLower &&
+      lower !== "objectid" &&
+      lower !== "id" &&
+      !/_id$/i.test(col) &&
+      !/^(area_|aland|awater)/i.test(col)
+    );
+  });
+  return fallback || idColumn;
 }
 
 const gisBoundaryCache = new Map();
 const nativeBoundaryCache = new Map();
 
 /**
- * Load a native boundary table (`shape` column) as WGS84 GeoJSON.
- * @param {{ database?: string, schema?: string, table: string }} params
+ * this is for category=Boudaries datasets
+ * Load a table’s own `shape` column as WGS84 GeoJSON (no geometry-API join).
+ * Uses column names from the DB / page — no hardcoded table list.
+ *
+ * @param {{
+ *   database: string,
+ *   schema: string,
+ *   table: string,
+ *   columnNames?: string[],
+ *   boundaryLabel?: string|null,
+ * }} params
  */
 export async function fetchNativeBoundaryGeojson(params = {}) {
-  const { table } = params;
-  const config = NATIVE_BOUNDARY_TABLES[table];
-  if (!config) {
-    throw new Error(`Table "${table}" is not a native boundary table`);
+  const { table, database, schema } = params;
+  if (!table || !database || !schema) {
+    throw new Error("database, schema, and table are required for native boundary fetch");
   }
 
-  const database = params.database || config.database;
-  const schema = params.schema || config.schema;
-  const cacheKey = `${database}.${schema}.${table}`;
+  const attributeColumns = attributeColumnsFromNames(params.columnNames);
+  if (!attributeColumns.length) {
+    throw new Error(`No attribute columns available for ${schema}.${table}`);
+  }
+
+  const idColumn = pickIdColumn(attributeColumns);
+  const labelColumn = pickLabelColumn(attributeColumns, idColumn);
+  const boundaryLabel = params.boundaryLabel || "Boundaries";
+  const cacheKey = `${database}.${schema}.${table}:${attributeColumns.join(",")}`;
+
   if (nativeBoundaryCache.has(cacheKey)) {
     return nativeBoundaryCache.get(cacheKey);
   }
 
   const pending = (async () => {
     const columns = [
-      ...config.attributeColumns.map(quoteSqlIdentifier),
+      ...attributeColumns.map(quoteSqlIdentifier),
       "sde.ST_AsText(shape) as geom_wkt",
     ].join(",");
     const search = new URLSearchParams({
@@ -1155,9 +1254,9 @@ export async function fetchNativeBoundaryGeojson(params = {}) {
       schema,
       table,
       columns,
-      orderByColumn: quoteSqlIdentifier(config.idColumn),
+      orderByColumn: quoteSqlIdentifier(idColumn),
       orderByDirection: "ASC",
-      limit: "5000",
+      limit: "25000",
     });
 
     const response = await fetch(`/api?${search.toString()}`);
@@ -1171,23 +1270,18 @@ export async function fetchNativeBoundaryGeojson(params = {}) {
       .map((row) => {
         const geometry = parseWktPolygon(rowValue(row, "geom_wkt"));
         if (!geometry) return null;
-        const id = rowValue(row, config.idColumn);
+        const id = rowValue(row, idColumn);
+        const label = rowValue(row, labelColumn);
         const properties = {
-          __joinKey: config.joinKey,
-          __mapLabel: String(
-            rowValue(row, "municipal") ??
-              rowValue(row, "name") ??
-              rowValue(row, "namelsad") ??
-              id ??
-              "Feature",
-          ),
+          __joinKey: idColumn,
+          __mapLabel: String(label ?? id ?? "Feature"),
         };
-        config.attributeColumns.forEach((col) => {
+        attributeColumns.forEach((col) => {
           const value = rowValue(row, col);
           if (value != null) properties[col] = value;
         });
-        // Normalize so details panel can label 2020 boundaries via ct20_id.
-        if (config.joinKey === "ct20_id" && properties.GEOID != null && properties.ct20_id == null) {
+        // Geometry API / details panel often look for ct20_id on 2020 tracts.
+        if (properties.GEOID != null && properties.ct20_id == null) {
           properties.ct20_id = properties.GEOID;
         }
         return {
@@ -1205,8 +1299,8 @@ export async function fetchNativeBoundaryGeojson(params = {}) {
 
     return {
       featureCollection: { type: "FeatureCollection", features },
-      joinKey: config.joinKey,
-      boundaryLabel: config.boundaryLabel,
+      joinKey: idColumn,
+      boundaryLabel,
     };
   })();
 
