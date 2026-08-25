@@ -61,7 +61,7 @@ const AdminTeammatesPage = () => {
   return (
     <AdminTeammatesContainer>
       <TeammatesHeaderMessage>
-        Teammates within your orgainization
+        Teammates within your organization
       </TeammatesHeaderMessage>
       <table>
         <thead>
@@ -70,7 +70,7 @@ const AdminTeammatesPage = () => {
               Name
             </TeammatesTableCell>
             <TeammatesTableCell style={{ width: '200px' }}>
-              Eamil
+              Email
             </TeammatesTableCell>
             <TeammatesTableCell style={{ width: '200px' }}>
               Role

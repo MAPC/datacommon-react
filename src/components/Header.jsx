@@ -106,7 +106,7 @@ const Header = () => {
         </div>
       </nav>
       {userName && 
-        <div className="header-user-icon-container" onClick={() => navigate("/admin")}>
+        <div className="header-user-icon-container" onClick={() => navigate("/admin/teammates")}>
           <div className="header-user-icon">
             {initialsString}
           </div>

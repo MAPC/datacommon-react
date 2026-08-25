@@ -60,7 +60,7 @@ const LoginEmailInput = styled.input`
   margin-top: 1rem;
 `;
 
-const LoginErrorMesage = styled.div`
+const LoginErrorMessage = styled.div`
   color: #721414;
   font-size: 16px;
 `;
@@ -83,7 +83,7 @@ const LoginActionButtonsContainer = styled.div`
   padding: 1rem;
 `;
 
-const LoginSumbitButton = styled.button`
+const LoginSubmitButton = styled.button`
   width: 6.5rem;
   height: 2.8rem;
   padding: 0.5rem 1.5rem;
@@ -97,7 +97,7 @@ const LoginSumbitButton = styled.button`
   }
   
   &.disabled {
-    cusrsor: not-allowed;
+    cursor: not-allowed;
     pointer-events: none;
     background: #555555;
   }
@@ -239,7 +239,7 @@ const LoginPage = () => {
             {forgotPassword && 
               <>
                 <LoginEmailDescription>
-                  Enter your email to recieve a password reset link
+                  Enter your email to receive a password reset link
                 </LoginEmailDescription>
                 <LoginEmailLabel htmlFor="datacommon-login-email">
                   Email:
@@ -322,50 +322,50 @@ const LoginPage = () => {
               </>
             }
 
-            {errorMessage && <LoginErrorMesage>{errorMessage}</LoginErrorMesage>}
+            {errorMessage && <LoginErrorMessage>{errorMessage}</LoginErrorMessage>}
           </LoginEmailContainer>
 
           <LoginActionButtonsContainer>
             {/* User is attempting to login normally */}
             {!creatingAccount && !forgotPassword &&
-              <LoginSumbitButton
+              <LoginSubmitButton
                 className={(passwordInputValue && emailInputValue) ? '' : 'disabled'}
                 onClick={onLoginUser}
               >
                 {!buttonLoading && "Login"}
                 {buttonLoading && <Spinner />}
-              </LoginSumbitButton>
+              </LoginSubmitButton>
             }
             {/* User forgot password */}
             {!creatingAccount && forgotPassword &&
-              <LoginSumbitButton
+              <LoginSubmitButton
                 className={(emailInputValue) ? '' : 'disabled'}
                 style={{ width: '140px' }}
                 onClick={sendPasswordResetEmail}
               >
                 {!buttonLoading && "Send Email"}
                 {buttonLoading && <Spinner />}
-              </LoginSumbitButton>
+              </LoginSubmitButton>
             }
             {/* User is creating an account */}
             {creatingAccount && !passwordSetSuccessful &&
-              <LoginSumbitButton
+              <LoginSubmitButton
                 onClick={onCreateAccount}
                 className={(newPassword && confirmNewPassword && newPassword === confirmNewPassword && emailInputValue && nameInputValue) ? '' : 'disabled'}
               >
                 {!buttonLoading && "Submit"}
                 {buttonLoading && <Spinner />}
-              </LoginSumbitButton>
+              </LoginSubmitButton>
             }
             {/* User has set password successfully */}
             {creatingAccount && passwordSetSuccessful &&
-              <LoginSumbitButton
+              <LoginSubmitButton
                 style={{ 'width': '9.5rem' }}
                 onClick={() => window.location.href = '/login'}
               >
                 {!buttonLoading && "Return to login"}
                 {buttonLoading && <Spinner />}
-              </LoginSumbitButton>
+              </LoginSubmitButton>
             }
           </LoginActionButtonsContainer>
         </LoginBoxContent>

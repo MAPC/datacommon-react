@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { useParams } from "react-router";
 import { useSearchParams } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
+
 import { logoutUser } from "../utils/cookies";
 
 const PageContainer = styled.section`
@@ -62,7 +63,7 @@ const EmailVerificationInput = styled.input`
   margin-top: 1rem;
 `;
 
-const EmailVerificationErrorMesage = styled.div`
+const EmailVerificationErrorMessage = styled.div`
   color: #721414;
   font-size: 16px;
 `;
@@ -88,7 +89,7 @@ const EmailVerificationSubmitButton = styled.button`
   }
   
   &.disabled {
-    cusrsor: not-allowed;
+    cursor: not-allowed;
     pointer-events: none;
     background: #555555;
   }
@@ -123,7 +124,6 @@ const EmailVerificationPage = () => {
     setErrorMessage(null);
     setAccountVerificationSuccessful(false);
 
-    // newPassword and confirmNewPassword are checked for equality before submit button clicked
     axios.post(`/api/users/verify-email`, { email: email, token: token})
       .then(resp => {
         setAccountVerificationSuccessful(true);
@@ -162,7 +162,7 @@ const EmailVerificationPage = () => {
                 </EmailVerificationDescription>
             }
 
-            {errorMessage && <EmailVerificationErrorMesage>{errorMessage}</EmailVerificationErrorMesage>}
+            {errorMessage && <EmailVerificationErrorMessage>{errorMessage}</EmailVerificationErrorMessage>}
           </EmailVerificationMainContainer>
 
           <EmailVerificationActionButtonsContainer>

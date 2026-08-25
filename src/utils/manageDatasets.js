@@ -243,7 +243,7 @@ export function sortDatasets({ datasets = [], sortOrder = 'Relevance', searchQue
       const searchTokens = trimmedSearch.split(" ").filter(st => !!st).map(st => st.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
       // Count number to table_name and dataset name (menu3) matches
       // prioritize higher number of matches and earlier avg index of terms
-      // deprioritize datasets containing the word 'by'
+      // de-prioritize datasets containing the word 'by'
       return sorted.sort((a, b) => {
         const datasetNameA = a.menu3 || '';
         const tableNameA = a.table_name || '';
