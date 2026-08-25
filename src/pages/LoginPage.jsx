@@ -157,7 +157,7 @@ const LoginPage = () => {
       .then(resp => {
         if (resp.data?.login) {
           const now = new Date();
-          const expiration = new Date(now.getTime() + 1000 * 60 * 60 * 24 * 90); // 90 days. 
+          const expiration = new Date(now.getTime() + 1000 * 60 * 60 * 24 * 30); // 30 days.
           document.cookie = `datacommon_mapc_token=${resp.data?.login}; expires=${expiration.toUTCString()};`;
           window.location.href = '/';
         } else {
