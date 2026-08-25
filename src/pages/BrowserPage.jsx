@@ -1,12 +1,15 @@
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faLock } from "@fortawesome/free-solid-svg-icons";
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import styled from 'styled-components';
-import { fetchDatasets } from '../reducers/datasetSlice';
+
 import MetadataModal from "../components/partials/MetadataModal";
-import { formatUpdated } from '../utils/formatUpdated';
+import { fetchDatasets } from '../reducers/datasetSlice';
 import { filterDatasets, highlightDatasets, sortDatasets, compressDatasetsByGeography } from "../utils/manageDatasets";
 import { pickDatasetOfTheWeek } from "../utils/featuredDataset";
+import { formatUpdated } from '../utils/formatUpdated';
 
 const PageContainer = styled.section`
   &.route.categories {
@@ -1077,6 +1080,9 @@ const BrowserPage = () => {
         >
           <DatasetHeaderContainer>
             <DatasetHeader>
+              {selectedDatasetFromTab?.active === 'N' &&
+                <FontAwesomeIcon icon={faLock} style={{ color: '#af971a', marginRight: '8px' }} title="This dataset is not active"/>
+              }
               {renderHighlightedText(selectedDatasetFromTab.menu3, selectedDatasetFromTab.seq_id, 'menu3')}
             </DatasetHeader>
             <ViewMetadataButton
