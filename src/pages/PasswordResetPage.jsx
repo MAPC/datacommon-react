@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { useParams } from "react-router";
 import { useSearchParams } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
+
 import { logoutUser } from "../utils/cookies";
 
 const PageContainer = styled.section`
@@ -62,7 +63,7 @@ const PasswordResetInput = styled.input`
   margin-top: 1rem;
 `;
 
-const PasswordResetErrorMesage = styled.div`
+const PasswordResetErrorMessage = styled.div`
   color: #721414;
   font-size: 16px;
 `;
@@ -74,7 +75,7 @@ const PasswordResetActionButtonsContainer = styled.div`
   padding: 1rem;
 `;
 
-const PasswordResetSumbitButton = styled.button`
+const PasswordResetSubmitButton = styled.button`
   width: 6.5rem;
   height: 2.8rem;
   padding: 0.5rem 1.5rem;
@@ -88,7 +89,7 @@ const PasswordResetSumbitButton = styled.button`
   }
   
   &.disabled {
-    cusrsor: not-allowed;
+    cursor: not-allowed;
     pointer-events: none;
     background: #555555;
   }
@@ -176,33 +177,33 @@ const PasswordResetPage = () => {
             {/* After user has set password, direct them to login. */}
             {passwordSetSuccessful && 
                 <PasswordResetDescription>
-                Your password has been set! Please return to the login screen to login.  
+                Your password has been updated! Please return to the login screen to login.  
                 </PasswordResetDescription>
             }
 
-            {errorMessage && <PasswordResetErrorMesage>{errorMessage}</PasswordResetErrorMesage>}
+            {errorMessage && <PasswordResetErrorMessage>{errorMessage}</PasswordResetErrorMessage>}
           </PasswordResetMainContainer>
 
           <PasswordResetActionButtonsContainer>
             <>
               {!passwordSetSuccessful &&
-                <PasswordResetSumbitButton
+                <PasswordResetSubmitButton
                   onClick={onPasswordReset}
                   className={(newPassword && confirmNewPassword && newPassword === confirmNewPassword) ? '' : 'disabled'}
                 >
                   {!buttonLoading && "Submit"}
                   {buttonLoading && <Spinner />}
-                </PasswordResetSumbitButton>
+                </PasswordResetSubmitButton>
               }
 
               {passwordSetSuccessful &&
-                <PasswordResetSumbitButton
+                <PasswordResetSubmitButton
                   style={{ 'width': '9.5rem' }}
                   onClick={() => window.location.href = '/login'}
                 >
                   {!buttonLoading && "Return to login"}
                   {buttonLoading && <Spinner />}
-                </PasswordResetSumbitButton>
+                </PasswordResetSubmitButton>
               }
             </>
           </PasswordResetActionButtonsContainer>

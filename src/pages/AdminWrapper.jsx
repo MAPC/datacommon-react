@@ -1,11 +1,11 @@
 import axios from 'axios';
 import React, { useEffect } from 'react';
 import { Outlet, useLocation, useNavigate } from "react-router"
-
-import { getCookie, logoutUser } from '../utils/cookies';
 import styled from 'styled-components';
 
-const ALLOWED_ROLES = ['ADMIN', 'SADMIN'];
+import { getCookie, logoutUser } from '../utils/cookies';
+
+const ALLOWED_ROLES = ['ADMIN', 'SADMIN', 'MAPC_USER'];
 
 const AdminMainWrapper = styled.div`
   display: flex;
