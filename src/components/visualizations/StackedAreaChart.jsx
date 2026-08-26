@@ -171,27 +171,33 @@ class StackedAreaChart extends React.Component {
       });
 
     // Add the dashed line fields if they exist:
-    // TODO: this doesn't scale well for multiple dashed lines. 
-    if (dashedLineData.length > 0) {
-      const sortedData = dashedLineData.sort((a,b) => a.x - b.x);
-      const svg = this.chart.append('svg')
-        .attr('width', '100%')
-        .attr('height', '100%')
-        .attr("transform", `translate(${margin.left},${margin.top})`)
-        .attr('id', "d3Chart");
-      
-      const valueline = d3.line()
-        .x((d) => x(d.x))
-        .y((d) => y(d.y));
+    const dashedLineDataByField = {};
+    dashedLineData.forEach(row => {
+      if (!dashedLineDataByField[row.z]) dashedLineDataByField[row.z] = [];
+      dashedLineDataByField[row.z].push(row);
+    });
+    if (Object.keys(dashedLineDataByField).length > 0) {
+      Object.entries(dashedLineDataByField).forEach(([field, rows]) => {
+        const sortedData = rows.sort((a,b) => a.x - b.x);
+        const svg = this.chart.append('svg')
+          .attr('width', '100%')
+          .attr('height', '100%')
+          .attr("transform", `translate(${margin.left},${margin.top})`)
+          .attr('id', "d3Chart");
+        
+        const valueline = d3.line()
+          .x((d) => x(d.x))
+          .y((d) => y(d.y));
 
-      const dashColor = this.color(sortedData[0].z);
-      svg.append("path")
-        .attr("d", valueline(sortedData))
-        .attr("class", "line")
-        .attr("fill", "none")
-        .attr("stroke", dashColor)
-        .attr("stroke-width", 3)
-        .style("stroke-dasharray", ("5, 2"));
+        const dashColor = this.color(sortedData[0].z);
+        svg.append("path")
+          .attr("d", valueline(sortedData))
+          .attr("class", "line")
+          .attr("fill", "none")
+          .attr("stroke", dashColor)
+          .attr("stroke-width", 3)
+          .style("stroke-dasharray", ("5, 2"));
+      });
     }
   
     // Add axes

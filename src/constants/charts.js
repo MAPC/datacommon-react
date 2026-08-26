@@ -2579,7 +2579,7 @@ export default {
       tooltip: { type: "percentAndCount" },
       tables: {
         "tabular.muni_finance_m": (() => {
-          const columnList = ["municipal", "fiscal_yr", "src_taxlvy", "src_state", "src_locrpt", "src_other", "src_entcpa"];
+          const columnList = ["municipal", "fiscal_yr", "src_taxlvy", "src_state", "src_locrpt", "src_other", "src_entcpa", "src_totrc"];
           return {
             yearCol: "fiscal_yr",
             latestYearOnly: true,
@@ -2626,10 +2626,7 @@ export default {
           { key: "src_entcpa", value: Number(row.src_entcpa), label: "Entreprise and CPA", group: "Fund Revenue" },
           { key: "src_other", value: Number(row.src_other), label: "All Other", group: "Fund Revenue" },
         ];
-        const totRev = categories.reduce(
-          (sum, cat) => sum + (Number.isFinite(cat.value) ? cat.value : 0),
-          0,
-        );
+        const totRev = Number(row.src_totrc);
         return [
           {
             summaryOnly: true,
@@ -2837,7 +2834,7 @@ export default {
       type: "stacked-bar",
       title: "Override Wins and Losses",
       xAxis: { label: "Year", format: format.string.default },
-      yAxis: { label: "Win / Loss Ammount (USD)", format: format.number.localeString },
+      yAxis: { label: "Win / Loss Ammount (2024 USD)", format: format.number.localeString },
       noDataMessage: "No override data found in this timeframe.",
       tables: {
         "tabular.muni_finance_m_override_win_loss": {
@@ -2904,15 +2901,15 @@ export default {
       title: "Prop 2 1/2 Levy Ceiling and Levy Limit",
       xAxis: { label: "Year", format: format.string.default },
       yAxis: {
-        label: "USD",
+        label: "2024 USD",
         format: format.number.localeString,
       },
       tables: {
         "tabular.muni_finance_m_excess_capacity_area": {
           yearCol: "fiscal_yr",
-          columns: ["municipal", "fiscal_yr", "p2h_taxlvy", "p2h_exlvyc", "p2h_ovrcap", "p2h_lc"],
+          columns: ["municipal", "fiscal_yr", "p2h_taxlvy", "p2h_exlvyc", "p2h_ovrcap", "p2h_lc", "p2h_max_ll"],
           specialFetch: async (municipality, dispatchUpdate) => {
-            const columnList = ["municipal", "fiscal_yr", "p2h_taxlvy", "p2h_exlvyc", "p2h_ovrcap", "p2h_lc"];
+            const columnList = ["municipal", "fiscal_yr", "p2h_taxlvy", "p2h_exlvyc", "p2h_ovrcap", "p2h_lc", "p2h_max_ll"];
             const muniName = String(municipality || "").replace(/'/g, "''");
             const selectList = columnList.join(",");
 
@@ -2951,20 +2948,14 @@ export default {
           return [];
         }
 
-        const keyToNameMap = {
-          "p2h_taxlvy": "Total Tax Levy",
-          "p2h_exlvyc": "Excess Levy Limit",
-          "p2h_ovrcap": "Override Capacity",
-          // "p2h_lc": "Levy Ceiling",
-        }
-
-        const filtered = respData.filter(row => row.p2h_taxlvy || row.p2h_exlvyc || row.p2h_ovrcap || row.p2h_lc)
+        const filtered = respData.filter(row => row.p2h_taxlvy || row.p2h_exlvyc || row.p2h_ovrcap || row.p2h_lc || row.p2h_max_ll)
         const mappedData = [];
         filtered.forEach(row => {
           mappedData.push({ x: row.fiscal_yr, y: row.p2h_taxlvy, z: "Total Tax Levy", order: 1});
           mappedData.push({ x: row.fiscal_yr, y: row.p2h_exlvyc, z: "Excess Levy Limit", order: 2});
           mappedData.push({ x: row.fiscal_yr, y: row.p2h_ovrcap, z: "Override Capacity", order: 3});
           mappedData.push({ x: row.fiscal_yr, y: row.p2h_lc, z: "Levy Ceiling", order: 4, type: 'dashed-line'});
+          mappedData.push({ x: row.fiscal_yr, y: row.p2h_max_ll, z: "Max Levy Limit", order: 5, type: 'dashed-line'})
         });
         
         return mappedData;

@@ -40,15 +40,17 @@ const DataRow = ({
     }
   };
 
-  const formatValue = (value) => {
-    if (typeof value === "number" && value % 1 !== 0) {
-      return value.toFixed(2);
+  const formatValue = (value, header) => {
+    const yearCols = ["fy_year", "fiscal_yr", "fy", "acs_year", "year", "dec_year", "cal_year"];
+    const isYear = yearCols.includes(header);
+    if (typeof value === "number" && !isYear) {
+      return value.toLocaleString("en-US", { maximumFractionDigits: 2});
     }
 
     if (typeof value === "string") {
       const parsed = parseFloat(value);
-      if (!isNaN(parsed) && parsed % 1 !== 0) {
-        return parsed.toFixed(2);
+      if (!isNaN(parsed) && !isYear) {
+        return parsed.toLocaleString("en-US", { maximumFractionDigits: 2});
       }
     }
 
@@ -70,7 +72,7 @@ const DataRow = ({
     const { column } = segment;
     if (column.name === "seq_id") return [];
 
-    return [<td key={column.name}>{formatValue(rowData[column.name])}</td>];
+    return [<td key={column.name}>{formatValue(rowData[column.name], column.name)}</td>];
   });
 
   return (
