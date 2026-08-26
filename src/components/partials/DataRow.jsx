@@ -42,14 +42,14 @@ const DataRow = ({
   };
 
   const formatValue = (value, header) => {
-    const isYear = unformattedColumns.includes(header);
-    if (typeof value === "number" && !isYear) {
+    const doNotFormat = unformattedColumns.includes(header);
+    if (typeof value === "number" && !doNotFormat) {
       return value.toLocaleString("en-US", { maximumFractionDigits: 2});
     }
 
     if (typeof value === "string") {
       const parsed = parseFloat(value);
-      if (!isNaN(parsed) && !isYear) {
+      if (!isNaN(parsed) && !doNotFormat) {
         return parsed.toLocaleString("en-US", { maximumFractionDigits: 2});
       }
     }
