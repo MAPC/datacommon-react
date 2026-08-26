@@ -446,12 +446,15 @@ const DataTableModal = ({ show, handleClose, data, title, muni, tableKey }) => {
                   <tr key={index}>
                     {headers.map(header => {
                       const value = row[header];
+                      const displayValue = isNumeric(value) ? value.toLocaleString("en-US", { maximumFractionDigits: 2}) : value;
+                      const yearCols = ["fy_year", "fiscal_yr", "fy", "acs_year", "year", "dec_year", "cal_year"];
+                      const isYear = yearCols.includes(header);
                       return (
                         <td 
                           key={`${index}-${header}`}
                           className={isNumeric(value) ? 'numeric' : ''}
                         >
-                          {value}
+                          {isYear ? value : displayValue}
                         </td>
                       );
                     })}
