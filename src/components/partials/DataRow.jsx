@@ -3,6 +3,7 @@ import PropTypes from "prop-types";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTable } from "@fortawesome/free-solid-svg-icons";
 import { getInventoryRowDatasetId } from "../../utils/datasetInventoryRow";
+import { unformattedColumns } from "../../constants/columns";
 
 const DataRow = ({
   columnSegments,
@@ -41,8 +42,7 @@ const DataRow = ({
   };
 
   const formatValue = (value, header) => {
-    const yearCols = ["fy_year", "fiscal_yr", "fy", "acs_year", "year", "dec_year", "cal_year"];
-    const isYear = yearCols.includes(header);
+    const isYear = unformattedColumns.includes(header);
     if (typeof value === "number" && !isYear) {
       return value.toLocaleString("en-US", { maximumFractionDigits: 2});
     }

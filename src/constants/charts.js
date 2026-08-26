@@ -2433,7 +2433,7 @@ export default {
     },
     cpa_annual_spending: {
       type: "profile-metric",
-      title: "Annual Community Preservation Act spending",
+      title: "Annual Community Preservation Act Revenue",
       hideOuterTitle: true,
       tables: {
         "tabular.muni_finance_m_cpa_spending": {
