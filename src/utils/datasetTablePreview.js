@@ -3,7 +3,7 @@ export function getDatasetRowKey(row, fallbackIndex = 0) {
   if (!row || typeof row !== "object") return `row:${fallbackIndex}`;
 
   // Per-row API id (unique even when muni_id/geo repeats across years or categories).
-  for (const field of ["seq_id", "id"]) {
+  for (const field of ["seq_id", "id", "mapc_id"]) {
     const v = row[field];
     if (v != null && v !== "") return `${field}:${v}`;
   }

@@ -33,7 +33,7 @@ export async function fetchTableColumnAliases(params) {
   return metadataMap;
 }
 
-mapboxgl.accessToken = MAP_CONFIG.accessToken;
+mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_API_TOKEN;
 
 const INITIAL_MAP_PADDING = { top: 28, bottom: 28, left: 28, right: 28 };
 
@@ -275,10 +275,6 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
   const fitMapToInitialView = useCallback((map) => {
     if (!map) return;
     map.resize();
-    map.fitBounds(MAP_CONFIG.bounds, {
-      padding: INITIAL_MAP_PADDING,
-      animate: false,
-    });
     if (typeof map.triggerRepaint === "function") {
       map.triggerRepaint();
     }
@@ -446,13 +442,11 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
     if (!mapContainerRef.current) return undefined;
     const map = new mapboxgl.Map({
       container: mapContainerRef.current,
+      center: MAP_CONFIG.center,
+      zoom: MAP_CONFIG.zoom,
       style: MAP_CONFIG.style,
       dragPan: true,
       dragRotate: false,
-    });
-    map.fitBounds(MAP_CONFIG.bounds, {
-      padding: INITIAL_MAP_PADDING,
-      animate: false,
     });
     const navCfg = MAP_CONFIG.navigationControl || {};
     map.addControl(

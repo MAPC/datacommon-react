@@ -7,7 +7,7 @@ import { addMapLayer, updateMapLayers } from '../utils/layerManager';
 import mapcRegions from "../assets/data/mapc-regions.json";
 import colors from "../constants/colors";
 
-mapboxgl.accessToken = MAP_CONFIG.accessToken;
+mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_API_TOKEN;
 
 class MapBox extends React.Component {
   state = {

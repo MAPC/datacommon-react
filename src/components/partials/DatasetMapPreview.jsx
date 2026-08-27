@@ -27,7 +27,7 @@ import {
 } from "../../utils/datasetMapPreview";
 import { ExportLoadingMask, useExportFileDownload } from "./ExportLoadingMask";
 
-mapboxgl.accessToken = MAP_CONFIG.accessToken;
+mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_API_TOKEN;
 
 const SOURCE_ID = "dataset-map-preview";
 const FILL_LAYER_ID = "dataset-map-preview-fill";
