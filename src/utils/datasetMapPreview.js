@@ -1098,11 +1098,11 @@ export const GIS_BOUNDARY_LAYERS = {
     schema: "mapc",
     table: "ma_municipalities",
   },
-  // MAPC region outline uses the static asset (same as community profiles MapBox).
+  // MAPC region outline uses the static single-outline asset.
   // gisdata.mapc.mapc_municipalities_poly is not authorized for the public API token.
   mapcRegion: {
     source: "static",
-    asset: "mapc-regions",
+    asset: "mapc-boundary-outline",
   },
   ma_municipalities: {
     database: "gisdata",
@@ -1413,11 +1413,15 @@ export async function fetchGisBoundaryLayer(layerKey) {
   }
 
   const pending = (async () => {
-    if (config.source === "static" && config.asset === "mapc-regions") {
-      const module = await import("../assets/data/mapc-regions.json");
-      const fc = module.default || module;
+    if (config.source === "static" && config.asset === "mapc-boundary-outline") {
+      const assetUrl = (await import("../assets/data/mapc_boundary_outline.geojson?url")).default;
+      const response = await fetch(assetUrl);
+      if (!response.ok) {
+        throw new Error(`MAPC boundary outline HTTP ${response.status}`);
+      }
+      const fc = await response.json();
       if (!fc?.features?.length) {
-        throw new Error("MAPC regions asset has no features");
+        throw new Error("MAPC boundary outline asset has no features");
       }
       return fc;
     }
