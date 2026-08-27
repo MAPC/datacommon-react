@@ -148,14 +148,23 @@ function featureDetailsToPopupHtml(details, {
   return `<div class="dataset-map-preview__hover-tooltip">${rows.join("")}</div>`;
 }
 
-function bringOverlayLayersToFront(map) {
+function syncMapLayerOrder(map) {
   if (!map) return;
-  // Keep reference overlays above the choropleth fill/outline so toggles are visible.
+  // Bottom → top: fill, feature outlines, boundary overlays, selected highlight.
+  if (map.getLayer(FILL_LAYER_ID)) {
+    map.moveLayer(FILL_LAYER_ID);
+  }
+  if (map.getLayer(LINE_LAYER_ID)) {
+    map.moveLayer(LINE_LAYER_ID);
+  }
   if (map.getLayer(MUNI_LINE_LAYER_ID)) {
     map.moveLayer(MUNI_LINE_LAYER_ID);
   }
   if (map.getLayer(MAPC_LINE_LAYER_ID)) {
     map.moveLayer(MAPC_LINE_LAYER_ID);
+  }
+  if (map.getLayer(SELECTED_LINE_LAYER_ID)) {
+    map.moveLayer(SELECTED_LINE_LAYER_ID);
   }
 }
 
@@ -575,7 +584,7 @@ function DatasetMapPreview({
         source: SOURCE_ID,
         paint: {
           "line-color": "#0f172a",
-          "line-width": 2.4,
+          "line-width": 2.2,
           "line-opacity": 1,
         },
         filter: ["==", ["get", "__mapKey"], "__none__"],
@@ -591,7 +600,7 @@ function DatasetMapPreview({
         source: MUNI_SOURCE_ID,
         layout: { visibility: "none" },
         paint: {
-          "line-color": "#094A72",
+          "line-color": "#5a5a5a",
           "line-width": 1.6,
           "line-opacity": 1,
         },
@@ -607,13 +616,13 @@ function DatasetMapPreview({
         source: MAPC_SOURCE_ID,
         layout: { visibility: "none" },
         paint: {
-          "line-color": "#C23B2E",
-          "line-width": 2.5,
+          "line-color": "#000000",
+          "line-width": 3.5,
           "line-opacity": 1,
         },
       });
 
-      bringOverlayLayersToFront(map);
+      syncMapLayerOrder(map);
 
       map.on("mouseenter", FILL_LAYER_ID, () => {
         map.getCanvas().style.cursor = "pointer";
@@ -655,7 +664,7 @@ function DatasetMapPreview({
     if (source) {
       source.setData(muniOverlayGeojson || EMPTY_FC);
     }
-    bringOverlayLayersToFront(map);
+    syncMapLayerOrder(map);
   }, [muniOverlayGeojson, mapReady]);
 
   useEffect(() => {
@@ -665,7 +674,7 @@ function DatasetMapPreview({
     if (source) {
       source.setData(mapcOverlayGeojson || EMPTY_FC);
     }
-    bringOverlayLayersToFront(map);
+    syncMapLayerOrder(map);
   }, [mapcOverlayGeojson, mapReady]);
 
   useEffect(() => {
@@ -674,7 +683,7 @@ function DatasetMapPreview({
     const visibility = showMunicipalLayer ? "visible" : "none";
     if (map.getLayer(MUNI_LINE_LAYER_ID)) {
       map.setLayoutProperty(MUNI_LINE_LAYER_ID, "visibility", visibility);
-      if (showMunicipalLayer) bringOverlayLayersToFront(map);
+      if (showMunicipalLayer) syncMapLayerOrder(map);
     }
   }, [showMunicipalLayer, mapReady]);
 
@@ -684,7 +693,7 @@ function DatasetMapPreview({
     const visibility = showMapcRegionLayer ? "visible" : "none";
     if (map.getLayer(MAPC_LINE_LAYER_ID)) {
       map.setLayoutProperty(MAPC_LINE_LAYER_ID, "visibility", visibility);
-      if (showMapcRegionLayer) bringOverlayLayersToFront(map);
+      if (showMapcRegionLayer) syncMapLayerOrder(map);
     }
   }, [showMapcRegionLayer, mapReady]);
 
@@ -725,8 +734,8 @@ function DatasetMapPreview({
         });
       }
     }
-    // Choropleth updates can reshuffle paint order; keep overlays on top.
-    bringOverlayLayersToFront(map);
+    // Keep layer stack: boundaries under selected highlight.
+    syncMapLayerOrder(map);
   }, [paintedGeojson, mapReady, geographyType, isBoundariesDataset]);
 
   useEffect(() => {
@@ -744,6 +753,7 @@ function DatasetMapPreview({
         ? ["==", ["to-string", ["get", "__mapKey"]], String(selectedFeatureKey)]
         : ["==", ["get", "__mapKey"], "__none__"],
     );
+    syncMapLayerOrder(map);
   }, [selectedFeatureKey, mapReady, paintedGeojson]);
 
   useEffect(() => {
