@@ -2859,8 +2859,8 @@ export default {
         },
       },
       labels: {
-        ovr_winamt: "Win Ammount",
-        ovr_losamt: "Loss Ammount",
+        ovr_winamt: "Win Amount",
+        ovr_losamt: "Loss Amount",
       },
       timeframe: async () => {
         let yearsUrl = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
