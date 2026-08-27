@@ -2508,7 +2508,7 @@
     dd {
       margin: 0;
       font-size: 0.95rem;
-      font-weight: 600;
+      font-weight: 400;
       color: $color_font-dark;
       word-break: break-word;
     }
@@ -2525,7 +2525,7 @@
         text-transform: none;
         letter-spacing: normal;
         font-size: 0.9rem;
-        font-weight: 600;
+        font-weight: 700;
         color: $color_font-dark;
         white-space: normal;
         overflow-wrap: break-word;
@@ -2535,6 +2535,7 @@
       dd {
         flex: 1 1 auto;
         min-width: 0;
+        font-weight: 400;
         text-align: left;
         white-space: normal;
         overflow-wrap: break-word;
@@ -2546,10 +2547,12 @@
       dt {
         flex: 1 1 auto;
         max-width: calc(100% - 4.5rem);
+        font-weight: 700;
       }
 
       dd {
         flex: 0 0 auto;
+        font-weight: 400;
         white-space: nowrap;
         overflow-wrap: normal;
         word-break: normal;
@@ -2558,7 +2561,7 @@
 
     &--emphasis dd {
       font-size: 1.15rem;
-      font-weight: 700;
+      font-weight: 400;
       color: $color_font-dark;
     }
   }
@@ -2585,7 +2588,7 @@
   .dataset-map-preview__detail-metric-value {
     margin: 0;
     font-size: 1.35rem;
-    font-weight: 700;
+    font-weight: 400;
     line-height: 1.2;
     color: $color_font-dark;
     word-break: break-word;
@@ -2593,7 +2596,7 @@
 
   .dataset-map-preview__detail-metric-moe {
     font-size: 0.95rem;
-    font-weight: 600;
+    font-weight: 400;
     color: $color_font-medium--dark;
   }
 

@@ -128,21 +128,21 @@ function featureDetailsToPopupHtml(details, {
       : "";
 
   const rows = [
-    `<div class="dataset-map-preview__hover-tooltip-row"><strong>${escapeHtml(placeLabel)}:</strong> <span>${escapeHtml(details.label)}</span></div>`,
+    `<div class="dataset-map-preview__hover-tooltip-row"><strong>${escapeHtml(placeLabel)}</strong> <span>${escapeHtml(details.label)}</span></div>`,
   ];
   if (details.year) {
     rows.push(
-      `<div class="dataset-map-preview__hover-tooltip-row"><strong>Year:</strong> <span>${escapeHtml(details.year)}</span></div>`,
+      `<div class="dataset-map-preview__hover-tooltip-row"><strong>Year</strong> <span>${escapeHtml(details.year)}</span></div>`,
     );
   }
   if (details.tractBoundary) {
     rows.push(
-      `<div class="dataset-map-preview__hover-tooltip-row"><strong>Boundary:</strong> <span>${escapeHtml(details.tractBoundary)}</span></div>`,
+      `<div class="dataset-map-preview__hover-tooltip-row"><strong>Boundary</strong> <span>${escapeHtml(details.tractBoundary)}</span></div>`,
     );
   }
   if (activeVariableLabel) {
     rows.push(
-      `<div class="dataset-map-preview__hover-tooltip-row dataset-map-preview__hover-tooltip-row--metric"><strong>${escapeHtml(activeVariableLabel)}:</strong> <span>${escapeHtml(valueText)}${escapeHtml(moeText)}</span></div>`,
+      `<div class="dataset-map-preview__hover-tooltip-row dataset-map-preview__hover-tooltip-row--metric"><strong>${escapeHtml(activeVariableLabel)}</strong> <span>${escapeHtml(valueText)}${escapeHtml(moeText)}</span></div>`,
     );
   }
   return `<div class="dataset-map-preview__hover-tooltip">${rows.join("")}</div>`;
