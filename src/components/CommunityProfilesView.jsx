@@ -452,7 +452,6 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 </ChartDetails>
               </div>
             </Tab>
-            {false && (
             <Tab active={activeTab === "municipal-finance"}>
               <header className="print-header">
                 <h3>Municipal Finance</h3>
@@ -560,7 +559,6 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 </div>
               </div>
             </Tab>
-            )}
             <Tab active={activeTab === "public-health"}>
               <header className="print-header">
                 <h3>Public Health</h3>
