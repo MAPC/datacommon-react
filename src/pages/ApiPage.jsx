@@ -12,6 +12,7 @@ import QueryApiSection from "../components/api/QueryApiSection";
 import axios from "axios";
 import { compressDatasetsByGeography } from "../utils/manageDatasets";
 import { formatUpdated } from "../utils/formatUpdated";
+import { supportsTabularGeojsonExport } from "../utils/datasetMapPreview";
 
 const PageContainer = styled.section`
   background: #fff;
@@ -1265,6 +1266,7 @@ const ApiPage = () => {
       schema: selectedDataset.schemaname || "",
       table: selectedDataset.table_name || "",
       yearcolumn: selectedDataset.yearcolumn || "",
+      geography: selectedDataset.geography || "",
     };
   }, [selectedDataset]);
 
@@ -1308,8 +1310,15 @@ const ApiPage = () => {
 
   const availableExportFormats = useMemo(() => {
     const tableIsGeospatial = datasetBasics?.database === "towndata" || datasetBasics?.database === "gisdata";
+    const allowTabularGeojson = supportsTabularGeojsonExport(
+      datasetBasics?.table,
+      datasetBasics?.geography,
+    );
     return Object.entries(EXPORT_FORMATS)
-      .filter(([, config]) => config.isGeospatial === tableIsGeospatial || (!tableIsGeospatial && config.isTabular))
+      .filter(([format, config]) => {
+        if (format === "geojson" && allowTabularGeojson) return true;
+        return config.isGeospatial === tableIsGeospatial || (!tableIsGeospatial && config.isTabular);
+      })
       .map(([format, config]) => ({ value: format, label: config.label }));
   }, [datasetBasics]);
 

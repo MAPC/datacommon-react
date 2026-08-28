@@ -13,12 +13,16 @@ const SIZE_PRESETS = {
 const IFRAME_WIDTH_DEFAULT = SIZE_PRESETS.large.width;
 const IFRAME_HEIGHT_DEFAULT = SIZE_PRESETS.large.height;
 
-const makeIframeSnippet = (embedUrl, title, w, h) =>
-  `<iframe src="${embedUrl}" title="${title || "Embedded dataset table"}" width="${w}" height="${h}" frameborder="0" loading="lazy"></iframe>`;
+const makeIframeSnippet = (embedUrl, title, w, h, viewMode = "table") =>
+  `<iframe src="${embedUrl}" title="${title || (viewMode === "map" ? "Embedded dataset map" : "Embedded dataset table")}" width="${w}" height="${h}" frameborder="0" loading="lazy"></iframe>`;
 
 const digitsOnly = (value) => String(value ?? "").replace(/\D/g, "");
-const getPresetForDimensions = (width, height) => {
-  if (width === SIZE_PRESETS.small.width && height === SIZE_PRESETS.small.height) {
+const getPresetForDimensions = (width, height, viewMode = "table") => {
+  if (
+    viewMode !== "map" &&
+    width === SIZE_PRESETS.small.width &&
+    height === SIZE_PRESETS.small.height
+  ) {
     return "small";
   }
   if (width === SIZE_PRESETS.medium.width && height === SIZE_PRESETS.medium.height) {
@@ -39,6 +43,7 @@ const EmbedTableModal = ({
   embedUrl: embedUrlProp,
   urlTooLong = false,
   adjustUrlFiltersSlot = null,
+  viewMode = "table",
 }) => {
   const [panel, setPanel] = useState("share");
   /** Shown in inputs while typing; only digits (empty allowed briefly). */
@@ -60,9 +65,9 @@ const EmbedTableModal = ({
       setHeightInput(String(IFRAME_HEIGHT_DEFAULT));
       setWidthCommitted(IFRAME_WIDTH_DEFAULT);
       setHeightCommitted(IFRAME_HEIGHT_DEFAULT);
-      setSizePreset(getPresetForDimensions(IFRAME_WIDTH_DEFAULT, IFRAME_HEIGHT_DEFAULT));
+      setSizePreset(getPresetForDimensions(IFRAME_WIDTH_DEFAULT, IFRAME_HEIGHT_DEFAULT, viewMode));
     }
-  }, [isOpen]);
+  }, [isOpen, viewMode]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -75,18 +80,22 @@ const EmbedTableModal = ({
   }, [isOpen, urlTooLong]);
 
   const fallbackSourceUrl = useMemo(() => {
+    const path =
+      viewMode === "map" ? `/browser/datasets/${datasetId}/map` : `/browser/datasets/${datasetId}`;
     if (typeof window === "undefined") {
-      return `/browser/datasets/${datasetId}`;
+      return path;
     }
-    return `${window.location.origin}/browser/datasets/${datasetId}`;
-  }, [datasetId]);
+    return `${window.location.origin}${path}`;
+  }, [datasetId, viewMode]);
 
   const fallbackEmbedUrl = useMemo(() => {
+    const path =
+      viewMode === "map" ? `/browser/datasets/${datasetId}/map` : `/browser/datasets/${datasetId}`;
     if (typeof window === "undefined") {
-      return `/browser/datasets/${datasetId}?embed=1`;
+      return `${path}?embed=1`;
     }
-    return `${window.location.origin}/browser/datasets/${datasetId}?embed=1`;
-  }, [datasetId]);
+    return `${window.location.origin}${path}?embed=1`;
+  }, [datasetId, viewMode]);
 
   const sourceUrl = shareUrlProp ?? fallbackSourceUrl;
   const embedUrl = embedUrlProp ?? fallbackEmbedUrl;
@@ -114,15 +123,15 @@ const EmbedTableModal = ({
   };
 
   const iframeCode = useMemo(
-    () => makeIframeSnippet(embedUrl, title, widthCommitted, heightCommitted),
-    [embedUrl, heightCommitted, title, widthCommitted],
+    () => makeIframeSnippet(embedUrl, title, widthCommitted, heightCommitted, viewMode),
+    [embedUrl, heightCommitted, title, widthCommitted, viewMode],
   );
 
   const commitWidth = () => {
     const c = resolveWidthFromInput();
     setWidthCommitted(c);
     setWidthInput(String(c));
-    setSizePreset(getPresetForDimensions(c, heightCommitted));
+    setSizePreset(getPresetForDimensions(c, heightCommitted, viewMode));
     setCopyStatus("");
   };
 
@@ -130,7 +139,7 @@ const EmbedTableModal = ({
     const c = resolveHeightFromInput();
     setHeightCommitted(c);
     setHeightInput(String(c));
-    setSizePreset(getPresetForDimensions(widthCommitted, c));
+    setSizePreset(getPresetForDimensions(widthCommitted, c, viewMode));
     setCopyStatus("");
   };
 
@@ -164,12 +173,15 @@ const EmbedTableModal = ({
     setHeightCommitted(h);
     setWidthInput(String(w));
     setHeightInput(String(h));
-    setSizePreset(getPresetForDimensions(w, h));
-    copyText(makeIframeSnippet(embedUrl, title, w, h), "Embed code copied!");
+    setSizePreset(getPresetForDimensions(w, h, viewMode));
+    copyText(makeIframeSnippet(embedUrl, title, w, h, viewMode), "Embed code copied!");
   };
 
   const handleSizePresetChange = (e) => {
     const nextPreset = e.target.value;
+    if (viewMode === "map" && nextPreset === "small") {
+      return;
+    }
     setSizePreset(nextPreset);
     setCopyStatus("");
     if (nextPreset === "custom") {
@@ -258,7 +270,9 @@ const EmbedTableModal = ({
             <div className="embed-table-modal-panel" role="tabpanel" aria-label="Share">
               <p className="embed-table-modal-section-title">Copy link to page</p>
               <p className="embed-table-modal-section-hint">
-                This link includes the selected filters (columns, geography, and years).
+                {viewMode === "map"
+                  ? "This link opens the map view and includes the selected map variable, geography, and year."
+                  : "This link includes the selected filters (columns, geography, and years)."}
               </p>
               {shareEmbedFilterHelp}
               <div
@@ -292,7 +306,9 @@ const EmbedTableModal = ({
             <div className="embed-table-modal-panel" role="tabpanel" aria-label="Embed">
               <p className="embed-table-modal-section-title">Copy embed code</p>
               <p className="embed-table-modal-section-hint">
-                The embed URL updates based on the applied filters (columns, geography, and years).
+                {viewMode === "map"
+                  ? "The embed URL uses the map view and updates with the selected map variable, geography, and year."
+                  : "The embed URL updates based on the applied filters (columns, geography, and years)."}
               </p>
               {shareEmbedFilterHelp}
               <div className="embed-table-modal-group embed-table-modal-group--tight">
@@ -305,7 +321,9 @@ const EmbedTableModal = ({
                   value={sizePreset}
                   onChange={handleSizePresetChange}
                 >
-                  <option value="small">{`${SIZE_PRESETS.small.width} x ${SIZE_PRESETS.small.height} (Small)`}</option>
+                  {viewMode !== "map" && (
+                    <option value="small">{`${SIZE_PRESETS.small.width} x ${SIZE_PRESETS.small.height} (Small)`}</option>
+                  )}
                   <option value="medium">{`${SIZE_PRESETS.medium.width} x ${SIZE_PRESETS.medium.height} (Medium)`}</option>
                   <option value="large">{`${SIZE_PRESETS.large.width} x ${SIZE_PRESETS.large.height} (Large)`}</option>
                   <option value="custom">Custom</option>
@@ -399,11 +417,13 @@ EmbedTableModal.propTypes = {
   embedUrl: PropTypes.string,
   urlTooLong: PropTypes.bool,
   adjustUrlFiltersSlot: PropTypes.node,
+  viewMode: PropTypes.oneOf(["table", "map"]),
 };
 
 EmbedTableModal.defaultProps = {
   title: "",
   urlTooLong: false,
+  viewMode: "table",
 };
 
 export default EmbedTableModal;

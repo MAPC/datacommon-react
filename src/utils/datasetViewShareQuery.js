@@ -29,6 +29,8 @@ export function getVisibleSelectedBaseColumnNames(selectedColumns, columnKeys) {
 /**
  * @param {object} options
  * @param {boolean} options.embed - add embed=1
+ * @param {"table"|"map"} [options.viewMode]
+ * @param {string|null} [options.mapVariable] - choropleth column when viewMode is map
  * @param {Array<{name?: string}>} options.columnKeys
  * @param {string[]} options.selectedColumns
  * @param {Array} options.availableGeographies
@@ -39,6 +41,8 @@ export function getVisibleSelectedBaseColumnNames(selectedColumns, columnKeys) {
  */
 export function buildDatasetViewShareSearchParams({
   embed,
+  viewMode = "table",
+  mapVariable = null,
   columnKeys,
   selectedColumns,
   availableGeographies,
@@ -52,15 +56,21 @@ export function buildDatasetViewShareSearchParams({
     params.set("embed", "1");
   }
 
-  const visibleKeys = (columnKeys || []).filter((c) => !isMarginLikeColumn(c));
-  const allBaseNames = visibleKeys.map((c) => c.name);
-  const selectedBases = getVisibleSelectedBaseColumnNames(selectedColumns, columnKeys);
-  const allColumnsSelected =
-    allBaseNames.length > 0 &&
-    allBaseNames.length === selectedBases.length &&
-    allBaseNames.every((n) => selectedBases.includes(n));
-  if (!allColumnsSelected && selectedBases.length > 0) {
-    selectedBases.forEach((name) => params.append("col", String(name)));
+  if (viewMode === "map") {
+    if (mapVariable) {
+      params.set("mapVar", String(mapVariable));
+    }
+  } else {
+    const visibleKeys = (columnKeys || []).filter((c) => !isMarginLikeColumn(c));
+    const allBaseNames = visibleKeys.map((c) => c.name);
+    const selectedBases = getVisibleSelectedBaseColumnNames(selectedColumns, columnKeys);
+    const allColumnsSelected =
+      allBaseNames.length > 0 &&
+      allBaseNames.length === selectedBases.length &&
+      allBaseNames.every((n) => selectedBases.includes(n));
+    if (!allColumnsSelected && selectedBases.length > 0) {
+      selectedBases.forEach((name) => params.append("col", String(name)));
+    }
   }
 
   const geosAvail = availableGeographies || [];
@@ -70,12 +80,19 @@ export function buildDatasetViewShareSearchParams({
   }
 
   if (queryYearColumn && (availableYears || []).length > 0) {
-    const defaultYears = [availableYears[0]];
     const yearsSel = selectedYears || [];
-    const matchesDefault =
-      yearsSel.length === defaultYears.length && yearsSel.every((y, i) => String(y) === String(defaultYears[i]));
-    if (!matchesDefault && yearsSel.length > 0) {
-      yearsSel.forEach((y) => params.append("year", String(y)));
+    if (viewMode === "map") {
+      // Map embeds/shares should always pin the selected year (map uses one year).
+      const mapYears = yearsSel.length ? yearsSel : [availableYears[0]];
+      mapYears.forEach((y) => params.append("year", String(y)));
+    } else {
+      const defaultYears = [availableYears[0]];
+      const matchesDefault =
+        yearsSel.length === defaultYears.length &&
+        yearsSel.every((y, i) => String(y) === String(defaultYears[i]));
+      if (!matchesDefault && yearsSel.length > 0) {
+        yearsSel.forEach((y) => params.append("year", String(y)));
+      }
     }
   }
 
@@ -83,8 +100,14 @@ export function buildDatasetViewShareSearchParams({
 }
 
 /**
- * Read col/geo/year overrides from location.search. Caller applies expandSelectedWithMargins for cols.
- * @returns {{ baseColumnNames: string[]|null, geographies: string[]|null, years: (string|number)[]|null }}
+ * Read col/geo/year/mapVar overrides from location.search.
+ * Caller applies expandSelectedWithMargins for cols.
+ * @returns {{
+ *   baseColumnNames: string[]|null,
+ *   geographies: string[]|null,
+ *   years: (string|number)[]|null,
+ *   mapVariable: string|null,
+ * }}
  */
 export function parseDatasetViewShareSearch(search) {
   const raw = typeof search === "string" ? search : "";
@@ -94,11 +117,13 @@ export function parseDatasetViewShareSearch(search) {
   const baseColumnNames = params.getAll("col").map(String).filter(Boolean);
   const geographies = params.getAll("geo").map(String).filter(Boolean);
   const years = params.getAll("year").map(String).filter(Boolean);
+  const mapVariable = params.get("mapVar");
 
   return {
     baseColumnNames: baseColumnNames.length ? baseColumnNames : null,
     geographies: geographies.length ? geographies : null,
     years: years.length ? years : null,
+    mapVariable: mapVariable ? String(mapVariable) : null,
   };
 }
 

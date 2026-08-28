@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { fetchTableColumnAliases } from '../visualizations/MunicipalFinanceOverridesMap';
 import PropTypes from 'prop-types';
 import styled, { keyframes } from 'styled-components';
+import { unformattedColumns } from '../../constants/columns';
 
 const fadeIn = keyframes`
   from {
@@ -446,12 +447,14 @@ const DataTableModal = ({ show, handleClose, data, title, muni, tableKey }) => {
                   <tr key={index}>
                     {headers.map(header => {
                       const value = row[header];
+                      const displayValue = isNumeric(value) ? value.toLocaleString("en-US", { maximumFractionDigits: 2}) : value;
+                      const isYear = unformattedColumns.includes(header);
                       return (
                         <td 
                           key={`${index}-${header}`}
                           className={isNumeric(value) ? 'numeric' : ''}
                         >
-                          {value}
+                          {isYear ? value : displayValue}
                         </td>
                       );
                     })}

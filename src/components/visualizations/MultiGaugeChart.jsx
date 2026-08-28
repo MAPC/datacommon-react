@@ -166,16 +166,18 @@ const MultiGaugeChart = (props) => {
     });
     const firstValue = percentagesByLabels[0];
     const displayLabel = `${firstValue.percent.toFixed(1)}%`;
-    const valueText = chart
-      .append("text")
-      .attr("x", cx)
-      .attr("y", 35.5)
-      .attr("text-anchor", "middle")
-      .attr("class", "gauge-text")
-      .attr("font-size", "10")
-      .attr("font-weight", "400")
-      .attr("fill", "black")
-      .text(displayLabel);
+    // leaving out the main-label for now
+    // const valueText = chart
+    //   .append("text")
+    //   .attr("x", cx)
+    //   .attr("y", 35.5)
+    //   .attr("text-anchor", "middle")
+    //   .attr("class", "gauge-text")
+    //   .attr("font-size", "10")
+    //   .attr("font-weight", "400")
+    //   .attr("fill", "black")
+    //   .text(displayLabel);
+
     // leaving out the sub-label for now
     // const displaySubLabel = firstValue.label;
     // const labelText = chart
@@ -267,14 +269,6 @@ MultiGaugeChart.propTypes = {
   maxValue: PropTypes.number,
   valueColor: PropTypes.string,
   backgroundColor: PropTypes.string,
-  // zones: PropTypes.arrayOf(
-  //   PropTypes.shape({
-  //     start: PropTypes.number.isRequired, // percentage start (0-100)
-  //     end: PropTypes.number.isRequired, // percentage end (0-100)
-  //     color: PropTypes.string,
-  //     opacity: PropTypes.number,
-  //   }),
-  // ),
   showCenterCircle: PropTypes.bool,
   showUnit: PropTypes.bool,
   showLabels: PropTypes.bool,

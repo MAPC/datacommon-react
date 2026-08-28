@@ -115,12 +115,13 @@ export const fetchSubregionData = createAsyncThunk(
     const subregionMap = {};
 
     payload.rows?.forEach((row) => {
-      const { muni_id, muni_name, subrg_id } = row;
+      const { muni_id, muni_name, subrg_id, subrg_nm, subrg_acr } = row;
 
       if (!subregionMap[subrg_id]) {
         subregionMap[subrg_id] = {
           municipalities: [],
           totalMunis: 0,
+          subregionName: `${subrg_nm} [${subrg_acr}]`,
         };
       }
 

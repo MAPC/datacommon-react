@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import PropTypes from "prop-types";
 import styled from "styled-components";
 import { useSelector } from "react-redux";
 import { createSelector } from "@reduxjs/toolkit";
 import DownloadChartButton from "../field/DownloadChartButton";
 import DownloadChartImageButton from "../field/DownloadChartImageButton";
+import CopyChartImageButton from "../field/CopyChartImageButton";
 
 const ChartHeader = styled.div`
   display: flex;
@@ -41,7 +42,7 @@ const ScreenReaderOnlyTitle = styled.h3`
 
 const ChartTitle = styled.h3`
   margin: 0;
-  flex: 2;
+  flex: 3;
   ${props => props.hideButtons ? 'min-height: 60px;' : ''};
   ${props => props.isGauge ? 'min-height: 52px;' : ''};
 `;
@@ -104,6 +105,12 @@ const normalizeDigitalEquityTableKeyForMetadata = (tableKey) => {
 
 const normalizeMuniFinanceTableKeyForMetadata = (tableKey) => {
   if (!tableKey || typeof tableKey !== "string") return tableKey;
+
+  // handle the case where data comes from econ_municipal_taxes_revenue_m not muni_finance_m
+  if (tableKey.includes('econ_municipal_taxes_revenue_m')){
+    return 'tabular.econ_municipal_taxes_revenue_m'
+  }
+
   const m = tableKey.match(/^([^.\s]+)\.(muni_finance_m)(?:_.+)?$/);
   if (!m) return tableKey;
   return `${m[1]}.${m[2]}`;
@@ -124,7 +131,7 @@ const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAreg
   const primaryTableKey = Object.keys(chart.tables || {})[0];
   const primaryTableKeyForMetadata = normalizeTableKeyForMetadata(primaryTableKey);
 
-  const selectChartData = React.useMemo(
+  const selectChartData = useMemo(
     () => makeSelectChartData(Object.keys(chart.tables), muni),
     [chart.tables, muni]
   );
@@ -163,7 +170,7 @@ const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAreg
     if (typeof chart.timeframe === "function") {
       chart.timeframe(muni).then(setTimeframe);
     }
-  }, [chart.timeframe,muni]);
+  }, [chart.timeframe, muni]);
 
   const handleViewData = () => {
     if (isSubregion) {
@@ -174,6 +181,11 @@ const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAreg
     } else {
       onViewData(data, chart.title, primaryTableKeyForMetadata);
     }
+  };
+
+  const makeDatasetLink = (datasetId, useTimeframe, timeframe) => {
+    const timeframeParam = useTimeframe ? `?year=${timeframe}` : '';
+    return `${window.location.origin}/browser/datasets/${datasetId}${timeframeParam}`;
   };
 
   const isGauge = chart.type === "gauge" || chart.type === "profile-metric";
@@ -237,6 +249,11 @@ const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAreg
               displayName={displayName}
               hideTitle={hideOuterTitle}
             />
+            <CopyChartImageButton
+              chartRef={chartWrapperRef}
+              chartTitle={chart.title || 'Chart'}
+              hideTitle={hideOuterTitle}
+            />
           </ButtonGroup>
         )}
       </ChartHeader>
@@ -267,7 +284,7 @@ const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAreg
             {Object.keys(chart.datasetLinks).map((label) => (
               <a
                 key={label}
-                href={`${window.location.origin}/browser/datasets/${chart.datasetLinks[label]}`}
+                href={makeDatasetLink(chart.datasetLinks[label], chart.useTimeframeInDatasetLink, timeframe)}
                 target="_blank"
                 rel="noopener noreferrer"
               >

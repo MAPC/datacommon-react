@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
+import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
+
 import MapBox from './MapBox';
 import SearchBar from './partials/SearchBar';
 import { fetchSubregionData, selectSubregionData, selectSubregionLoading } from '../reducers/subregionSlice';
-import { fetchRPAregionData, selectRPAregionData, selectRPAregionLoading } from '../reducers/rparegionSlice';
+// import { fetchRPAregionData, selectRPAregionData, selectRPAregionLoading } from '../reducers/rparegionSlice';
 
 const styles = {
   subregionSelector: {
@@ -39,17 +40,7 @@ const styles = {
   }
 };
 
-const SUBREGIONS = {
-  355: 'Inner Core Committee [ICC]',
-  356: 'Minuteman Advisory Group on Interlocal Coordination [MAGIC]',
-  357: 'MetroWest Regional Collaborative [MWRC]',
-  358: 'North Shore Task Force [NSTF]',
-  359: 'North Suburban Planning Council [NSPC]',
-  360: 'South Shore Coalition [SSC]',
-  361: 'South West Advisory Planning Committee [SWAP]',
-  362: 'Three Rivers Interlocal Council [TRIC]'
-};
-
+// TODO: Get RPA regions from the muni datakeys table?
 const RPAREGIONS = {
   352:'MAPC',
   402:'Central Massachusetts',
@@ -62,43 +53,39 @@ const CommunitySelectorView = ({ muniLines, muniFill, municipalityPoly, toProfil
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const subregionData = useSelector(selectSubregionData);
-  const rparegionData = useSelector(selectRPAregionData);
+  // const rparegionData = useSelector(selectRPAregionData);
   const isLoading = useSelector(selectSubregionLoading);
+
   const [selectedSubregion, setSelectedSubregion] = useState('');
-  const [selectedRPAregion, setSelectedRPAregion] = useState('');
+  // const [selectedRPAregion, setSelectedRPAregion] = useState('');
   const [isFocused, setIsFocused] = useState(false);
 
   useEffect(() => {
     dispatch(fetchSubregionData());
-    dispatch(fetchRPAregionData());
+    // dispatch(fetchRPAregionData());
   }, [dispatch]);
 
   const handleSubregionChange = (event) => {
     const subregionId = event.target.value;
     setSelectedSubregion(subregionId);
-    setSelectedRPAregion('');
+    // setSelectedRPAregion('');
     if (subregionId) {
-      navigate(`/profile/subregion/${subregionId}`);
+      const tab = window.open(`/profile/subregion/${subregionId}/demographics`, '_blank');
+      tab.focus();
     }
   };
 
-  const handleRPAregionChange = (event) => {
-    const rpaId = event.target.value;
-    setSelectedRPAregion(rpaId);
-    setSelectedSubregion('');
-    if (rpaId) {
-      navigate(`/profile/rpa/${rpaId}`);
-    }
-  };
+  // const handleRPAregionChange = (event) => {
+  //   const rpaId = event.target.value;
+  //   setSelectedRPAregion(rpaId);
+  //   setSelectedSubregion('');
+  //   if (rpaId) {
+  //     navigate(`/profile/rpa/${rpaId}`);
+  //   }
+  // };
 
   const handleMuniSelect = (muni) => {
-    if (selectedSubregion) {
-      navigate(`/profile/subregion/${selectedSubregion}/${muni.toLowerCase().replace(/\s+/g, '-')}`);
-    } else if (selectedRPAregion) {
-      navigate(`/profile/rparegion/${selectedRPAregion}/${muni.toLowerCase().replace(/\s+/g, '-')}`);
-    } else {
-      toProfile(muni);
-    }
+    toProfile(muni);
   };
 
   return (
@@ -120,8 +107,8 @@ const CommunitySelectorView = ({ muniLines, muniFill, municipalityPoly, toProfil
             disabled={isLoading}
           >
             <option value="">Select a Subregion</option>
-            {Object.entries(SUBREGIONS).map(([id, name]) => (
-              <option key={id} value={id}>{name}</option>
+            {Object.entries(subregionData).map(([id, subregionData]) => (
+              <option key={id} value={id}>{subregionData.subregionName}</option>
             ))}
           </select>
           <div style={styles.gradientBorder}></div>
@@ -160,10 +147,6 @@ const CommunitySelectorView = ({ muniLines, muniFill, municipalityPoly, toProfil
         layers={[muniLines, muniFill]}
         muniPoly={municipalityPoly}
         toProfile={handleMuniSelect}
-        selectedSubregion={selectedSubregion}
-        subregionData={subregionData}
-        selectedRPAregion={selectedRPAregion}
-        rparegionData={rparegionData}
       />
     </section>
   );

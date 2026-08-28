@@ -421,16 +421,6 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 </ChartDetails>
               </div>
             </Tab>
-            <Tab active={activeTab === "governance"}>
-              <header className="print-header">
-                <h3>Governance</h3>
-              </header>
-              <div className="tab__row">
-                <ChartDetails chart={charts.governance.tax_levy} muni={muni} onViewData={handleShowModal}>
-                  <PieChart chart={charts.governance.tax_levy} muni={muni} />
-                </ChartDetails>
-              </div>
-            </Tab>
             <Tab active={activeTab === "environment"}>
               <header className="print-header">
                 <h3>Environment</h3>
@@ -469,31 +459,36 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
               </header>
               <div className="tab__row">
                 <ChartDetails
+                  chart={charts["municipal-finance"].fund_revenue}
+                  muni={muni}
+                  onViewData={handleShowModal}
+                  wrapperClassName="chart-wrapper--fund-revenue-breakdown"
+                >
+                  <TreeMap chart={charts["municipal-finance"].fund_revenue} muni={muni} />
+                </ChartDetails>
+              </div>
+              <div className="tab__row">
+                <ChartDetails
                   chart={charts["municipal-finance"].levy_share_gauge}
                   muni={muni}
                   onViewData={handleShowModal}
                 >
                   <MultiGaugeChart chart={charts["municipal-finance"].levy_share_gauge} muni={muni} />
                 </ChartDetails>
-                {/* TODO: Add this back in once Zoe has updated the underlying data in the table. data has issues for now */}
-                {/* <ChartDetails
-                  chart={charts["municipal-finance"].levy_ceiling_gauge}
-                  muni={muni}
-                  onViewData={handleShowModal}
-                >
-                  <MultiGaugeChart chart={charts["municipal-finance"].levy_ceiling_gauge} muni={muni} />
-                </ChartDetails> */}
                 <ChartDetails
-                  chart={charts["municipal-finance"].levy_new_growth_gauge}
+                  chart={charts["municipal-finance"].taxes_share_gauge}
                   muni={muni}
                   onViewData={handleShowModal}
                 >
-                  <MultiGaugeChart chart={charts["municipal-finance"].levy_new_growth_gauge} muni={muni} />
+                  <MultiGaugeChart chart={charts["municipal-finance"].taxes_share_gauge} muni={muni} />
                 </ChartDetails>
               </div>
               <div className="tab__row">
                 <ChartDetails chart={charts["municipal-finance"].overrides_win_loss_bar} muni={muni} onViewData={handleShowModal}>
                   <StackedBarChart chart={charts["municipal-finance"].overrides_win_loss_bar} muni={muni} />
+                </ChartDetails>
+                <ChartDetails chart={charts["municipal-finance"].excess_levy_capacity_stacked_area} muni={muni} onViewData={handleShowModal}>
+                  <StackedAreaChart chart={charts["municipal-finance"].excess_levy_capacity_stacked_area} muni={muni} />
                 </ChartDetails>
               </div>
               <div className="tab__row">
@@ -522,16 +517,6 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                   <ProfileMetricChart chart={charts["municipal-finance"].total_employees_finance} muni={muni} />
                 </ChartDetails>
               </div>
-              <div className="tab__row">
-                <ChartDetails
-                  chart={charts["municipal-finance"].fund_revenue}
-                  muni={muni}
-                  onViewData={handleShowModal}
-                  wrapperClassName="chart-wrapper--fund-revenue-breakdown"
-                >
-                  <TreeMap chart={charts["municipal-finance"].fund_revenue} muni={muni} />
-                </ChartDetails>
-              </div>
               <div className="tab__row tab__row--full-width-map">
                 <MunicipalFinanceOverridesMap
                   config={charts["municipal-finance"].overrides_map_config}
@@ -549,7 +534,16 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                           target="_blank"
                           rel="noopener noreferrer"
                         >
-                          DLS data dashboard
+                          DLS Data Dashboard
+                        </a>
+                      </li>
+                      <li>
+                        <a
+                          href="https://resources.finalsite.net/images/v1745582857/masconometorg/ruf2wck2udvxx63gp0nf/dlsmunicipalfinanceglossary.pdf"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          DLS Municipal Finance Glossary
                         </a>
                       </li>
                       <li>

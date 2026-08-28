@@ -3,9 +3,11 @@ import PropTypes from "prop-types";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTable } from "@fortawesome/free-solid-svg-icons";
 import { getInventoryRowDatasetId } from "../../utils/datasetInventoryRow";
+import { unformattedColumns } from "../../constants/columns";
 
 const DataRow = ({
-  headers,
+  columnSegments,
+  showHiddenColumnMarkers,
   rowData,
   linkRowsToDatasetView,
   showRowDragControls,
@@ -16,10 +18,10 @@ const DataRow = ({
   onRowDrop,
 }) => {
   const targetId = getInventoryRowDatasetId(rowData);
-  const canLink = Boolean(linkRowsToDatasetView && targetId != null && targetId !== "");
+  const canLink = Boolean(linkRowsToDatasetView && targetId != null && targetId !== "" && rowData?.active === 'Y');
   const openDatasetTooltip = canLink ? "Open dataset table in a new tab" : "";
   const showOpenTableAction = canLink;
-  const showGutter = showRowDragControls || showOpenTableAction;
+  const showGutter = showRowDragControls || linkRowsToDatasetView;
 
   const go = useCallback(() => {
     if (!canLink) {
@@ -39,24 +41,39 @@ const DataRow = ({
     }
   };
 
-  const formatValue = (value) => {
-    if (typeof value === "number" && value % 1 !== 0) {
-      return value.toFixed(2);
+  const formatValue = (value, header) => {
+    const doNotFormat = unformattedColumns.includes(header);
+    if (typeof value === "number" && !doNotFormat) {
+      return value.toLocaleString("en-US", { maximumFractionDigits: 2});
     }
 
     if (typeof value === "string") {
       const parsed = parseFloat(value);
-      if (!isNaN(parsed) && parsed % 1 !== 0) {
-        return parsed.toFixed(2);
+      if (!isNaN(parsed) && !doNotFormat) {
+        return parsed.toLocaleString("en-US", { maximumFractionDigits: 2});
       }
     }
 
     return value;
   };
 
-  const renderedRow = headers
-    .filter((header) => header !== "seq_id")
-    .map((header) => <td key={header}>{formatValue(rowData[header])}</td>);
+  const renderedRow = columnSegments.flatMap((segment, segmentIndex) => {
+    if (segment.type === "hidden") {
+      if (!showHiddenColumnMarkers) return [];
+      return [
+        <td
+          key={`hidden-${segmentIndex}-${segment.columnNames.join("|")}`}
+          className="dataset-table__hidden-columns-marker dataset-table__hidden-columns-marker--body"
+          aria-hidden
+        />,
+      ];
+    }
+
+    const { column } = segment;
+    if (column.name === "seq_id") return [];
+
+    return [<td key={column.name}>{formatValue(rowData[column.name], column.name)}</td>];
+  });
 
   return (
     <tr
@@ -112,7 +129,14 @@ const DataRow = ({
 };
 
 DataRow.propTypes = {
-  headers: PropTypes.arrayOf(PropTypes.string).isRequired,
+  columnSegments: PropTypes.arrayOf(
+    PropTypes.shape({
+      type: PropTypes.oneOf(["visible", "hidden"]).isRequired,
+      column: PropTypes.object,
+      columnNames: PropTypes.arrayOf(PropTypes.string),
+    }),
+  ).isRequired,
+  showHiddenColumnMarkers: PropTypes.bool,
   rowData: PropTypes.object.isRequired,
   linkRowsToDatasetView: PropTypes.bool,
   showRowDragControls: PropTypes.bool,
@@ -124,6 +148,7 @@ DataRow.propTypes = {
 };
 
 DataRow.defaultProps = {
+  showHiddenColumnMarkers: false,
   linkRowsToDatasetView: false,
   showRowDragControls: false,
   isDragging: false,

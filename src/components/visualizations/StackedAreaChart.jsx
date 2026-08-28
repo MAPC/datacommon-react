@@ -99,15 +99,27 @@ class StackedAreaChart extends React.Component {
     const g = this.chart.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
 
     // Process data
-    const keys = [...new Set(this.props.data.map((d) => d.z))].sort();
+    const sortByOrder = this.props.data.length && !!this.props.data[0].order;
+    const dashedLineData = this.props.data.filter(row => row.type === 'dashed-line');
+    const areaData = this.props.data.filter(row => row.type !== 'dashed-line')
+    let keys = [...new Set(this.props.data.map((d) => d.z))];
+    if (sortByOrder) {
+      const orderMapping = {};
+      this.props.data.forEach(row => {
+        orderMapping[row.z] = row.order;
+      });
+      keys = keys.sort((a, b) => orderMapping[a] - orderMapping[b]);
+    } else {
+      keys = keys.sort();
+    }
 
     // Set up color scale to match original ordinal colors
     this.color = d3
       .scaleOrdinal()
       .domain(keys)
-      .range(this.props.colors || (keys.length > primaryColors.length ? extendedColors : primaryColors).slice(0, keys.length));
+      .range(this.props.chart.colors || (keys.length > primaryColors.length ? extendedColors : primaryColors).slice(0, keys.length));
     // Prepare data for stacking
-    let data = this.props.data.reduce((acc, row) => {
+    let data = areaData.reduce((acc, row) => {
       acc[row.x] = { ...(acc[row.x] || {}), ...{ [row.z]: row.y } };
       return acc;
     }, {});
@@ -158,6 +170,36 @@ class StackedAreaChart extends React.Component {
         this.tooltip.style("opacity", 0);
       });
 
+    // Add the dashed line fields if they exist:
+    const dashedLineDataByField = {};
+    dashedLineData.forEach(row => {
+      if (!dashedLineDataByField[row.z]) dashedLineDataByField[row.z] = [];
+      dashedLineDataByField[row.z].push(row);
+    });
+    if (Object.keys(dashedLineDataByField).length > 0) {
+      Object.entries(dashedLineDataByField).forEach(([field, rows]) => {
+        const sortedData = rows.sort((a,b) => a.x - b.x);
+        const svg = this.chart.append('svg')
+          .attr('width', '100%')
+          .attr('height', '100%')
+          .attr("transform", `translate(${margin.left},${margin.top})`)
+          .attr('id', "d3Chart");
+        
+        const valueline = d3.line()
+          .x((d) => x(d.x))
+          .y((d) => y(d.y));
+
+        const dashColor = this.color(sortedData[0].z);
+        svg.append("path")
+          .attr("d", valueline(sortedData))
+          .attr("class", "line")
+          .attr("fill", "none")
+          .attr("stroke", dashColor)
+          .attr("stroke-width", 3)
+          .style("stroke-dasharray", ("5, 2"));
+      });
+    }
+  
     // Add axes
     const xAxis = d3.axisBottom(x).ticks(this.props.xAxis.ticks).tickPadding(10).tickFormat(this.props.xAxis.format);
 
@@ -171,8 +213,8 @@ class StackedAreaChart extends React.Component {
     this.chart
       .append("text")
       .attr("class", "axis-label y-axis-label")
-      .attr("x", -height / 2 - margin.top)
-      .attr("y", margin.left / 3)
+      .attr("x", -height / 2 - margin.top )
+      .attr("y", margin.left / 3 - 10)
       .attr("transform", "rotate(-90)")
       .attr("text-anchor", "middle")
       .text(this.props.yAxis.label);
@@ -187,7 +229,8 @@ class StackedAreaChart extends React.Component {
 
     // Update legend
     this.legend.selectAll("*").remove();
-    drawLegend(this.legend, this.color, keys);
+    const dashedLineKeys = new Set(dashedLineData.map(d => d.z));
+    drawLegend(this.legend, this.color, keys, null, [...dashedLineKeys]);
   }
 
   renderBlankChart() {

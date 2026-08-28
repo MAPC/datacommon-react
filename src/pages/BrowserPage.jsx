@@ -1,11 +1,15 @@
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faLock } from "@fortawesome/free-solid-svg-icons";
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, Link } from "react-router-dom";
 import styled from 'styled-components';
-import { fetchDatasets } from '../reducers/datasetSlice';
+
 import MetadataModal from "../components/partials/MetadataModal";
+import { fetchDatasets } from '../reducers/datasetSlice';
+import { filterDatasets, highlightDatasets, sortDatasets, compressDatasetsByGeography } from "../utils/manageDatasets";
+import { pickDatasetOfTheWeek } from "../utils/featuredDataset";
 import { formatUpdated } from '../utils/formatUpdated';
-import { filterDatasets, highlightDatasets, sortDatasets } from "../utils/manageDatasets";
 
 const PageContainer = styled.section`
   &.route.categories {
@@ -451,6 +455,19 @@ const DatasetCount = styled.div`
   }
 `;
 
+const BulkDownloadLink = styled(Link)`
+  display: inline-block;
+  margin-top: 1rem;
+  color: #5aba8c;
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+`;
+
 const SearchAndGeoFilterContainer = styled.div`
   display: flex;
   flex-direction: column;
@@ -511,6 +528,48 @@ const SearchInput = styled.input`
   &::placeholder {
     color: #999;
   }
+`;
+
+const DatasetsEmptyState = styled.div`
+  text-align: center;
+  padding: 1rem 1rem 0.5rem;
+  max-width: 720px;
+  margin: 0 auto;
+  color: #555;
+  font-size: 1rem;
+  line-height: 1.6;
+
+  p:last-child {
+    margin-bottom: 0;
+  }
+`;
+
+const InventoryLink = styled(Link)`
+  color: #4ea56c;
+  font-weight: 600;
+  text-decoration: underline;
+
+  &:hover {
+    color: #367a4e;
+  }
+`;
+
+const InventoryCardSection = styled.div`
+  margin-bottom: 1.5rem;
+`;
+
+const FeaturedDatasetSection = styled.div`
+  margin-top: 0.75rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #e0e0e0;
+`;
+
+const FeaturedDatasetTitle = styled.h2`
+  margin: 0 0 1.5rem 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #333;
+  text-align: center;
 `;
 
 const BrowserPage = () => {
@@ -768,6 +827,18 @@ const BrowserPage = () => {
     return count;
   }, [displayDatasets]);
 
+  const inventoryDataset = useMemo(() => {
+    const rows = datasets.filter(d => d.table_name === '_data_browser');
+    if (rows.length === 0) {
+      return null;
+    }
+    return compressDatasetsByGeography(rows)[0] ?? null;
+  }, [datasets]);
+
+  const datasetOfTheWeek = useMemo(() => {
+    return noDupesDatasets ? pickDatasetOfTheWeek(noDupesDatasets) : pickDatasetOfTheWeek(datasets);
+  }, [noDupesDatasets, datasets]);
+
   const renderHighlightedText = (text, datasetId, key) => {
     if (!text) {
       return null;
@@ -980,9 +1051,72 @@ const BrowserPage = () => {
     setSearchQuery('');
   };
 
+  const filtersActive = areFiltersPresent();
+
   const toDataset = (datasetId) => {
     // open in new tab to preserve user's search & filters from the datasets landing page
     window.open(`/browser/datasets/${datasetId}`, '_blank', 'noreferrer');
+  };
+
+  const renderCompressedDatasetCard = (compressedDataset) => {
+    const compressedDatasetId = compressedDataset.seq_id;
+    const selectedDatasetFromTab = getSelectedDataset(compressedDataset);
+    return (
+      <DatasetContainer key={compressedDatasetId}>
+        <DatasetTabs>
+          {compressedDataset.geoIdPairs.filter(pair => !!pair.geography).map(geoIdPair =>
+            <GeographyTab
+              key={`${compressedDataset.id}_${geoIdPair.geography}`}
+              className={isTabSelected(selectedGeographyTabs, compressedDataset, geoIdPair.geography) ? "selected" : ""}
+              onClick={() => onGeoTabClicked(compressedDatasetId, geoIdPair.geography)}
+            >
+              {geoIdPair.geography}
+            </GeographyTab>
+          )}
+        </DatasetTabs>
+        <DatasetBox
+          key={selectedDatasetFromTab.seq_id}
+          onClick={() => toDataset(selectedDatasetFromTab.seq_id)}
+        >
+          <DatasetHeaderContainer>
+            <DatasetHeader>
+              {selectedDatasetFromTab?.active === 'N' &&
+                <FontAwesomeIcon icon={faLock} style={{ color: '#af971a', marginRight: '8px' }} title="This dataset is not active"/>
+              }
+              {renderHighlightedText(selectedDatasetFromTab.menu3, selectedDatasetFromTab.seq_id, 'menu3')}
+            </DatasetHeader>
+            <ViewMetadataButton
+              onClick={(e) => {
+                e.stopPropagation();
+                handleViewMetadata(selectedDatasetFromTab);
+              }}
+            >
+              View Metadata
+            </ViewMetadataButton>
+          </DatasetHeaderContainer>
+          <DatasetBody>
+            <DatasetInfo>
+              <InfoRow>
+                <InfoLabel>Table:</InfoLabel>
+                <InfoValue>
+                  {renderHighlightedText(selectedDatasetFromTab.table_name, selectedDatasetFromTab.seq_id, 'table_name')}
+                </InfoValue>
+              </InfoRow>
+              <InfoRow>
+                <InfoLabel>Source:</InfoLabel>
+                <InfoValue>{selectedDatasetFromTab.source}</InfoValue>
+              </InfoRow>
+            </DatasetInfo>
+            <DatasetActions>
+              <LastUpdated>
+                <LastUpdatedLabel>Last updated:</LastUpdatedLabel>
+                {formatUpdated(selectedDatasetFromTab.updated)}
+              </LastUpdated>
+            </DatasetActions>
+          </DatasetBody>
+        </DatasetBox>
+      </DatasetContainer>
+    );
   };
 
   return (
@@ -996,6 +1130,9 @@ const BrowserPage = () => {
         <DatasetCount>
           <strong>{noDupesDatasets?.length || 0}</strong> {noDupesDatasets?.length === 1 ? 'dataset' : 'datasets'} available
         </DatasetCount>
+        <BulkDownloadLink to="/browser/bulk-download">
+          Download data for planning 
+        </BulkDownloadLink>
       </PageHeader>
       <MainContent>
         <Sidebar>
@@ -1139,95 +1276,73 @@ const BrowserPage = () => {
             </GeographyBarContainer>
           </SearchAndGeoFilterContainer>
           
-          <ContentHeader>
-            <div>
-              <strong>{foundDatasetCount}</strong> {foundDatasetCount === 1 ? 'dataset' : 'datasets'} found
-            </div>
-            <HeaderControls>
-              <SortContainer>
-                <SortLabel htmlFor="sort-select">Sort by:</SortLabel>
-                <SortSelect
-                  id="sort-select"
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                >
-                  <option value="Relevance">Relevance</option>
-                  <option value="A to Z">A to Z</option>
-                  <option value="Z to A">Z to A</option>
-                  <option value="Newest First">Newest First</option>
-                  <option value="Oldest First">Oldest First</option>
-                </SortSelect>
-              </SortContainer>
-              {areFiltersPresent() && (
+          {filtersActive && (
+            <ContentHeader>
+              <div>
+                <strong>{foundDatasetCount}</strong> {foundDatasetCount === 1 ? 'dataset' : 'datasets'} found
+              </div>
+              <HeaderControls>
+                <SortContainer>
+                  <SortLabel htmlFor="sort-select">Sort by:</SortLabel>
+                  <SortSelect
+                    id="sort-select"
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                  >
+                    <option value="Relevance">Relevance</option>
+                    <option value="A to Z">A to Z</option>
+                    <option value="Z to A">Z to A</option>
+                    <option value="Newest First">Newest First</option>
+                    <option value="Oldest First">Oldest First</option>
+                  </SortSelect>
+                </SortContainer>
                 <ShareLinkContainer>
                   <ShareLinkButton type="button" onClick={handleCopyShareLink}>
                     Share Search Result
                   </ShareLinkButton>
                   {shareCopied && <ShareStatusText>Link copied!</ShareStatusText>}
                 </ShareLinkContainer>
-              )}
-            </HeaderControls>
-          </ContentHeader>
+              </HeaderControls>
+            </ContentHeader>
+          )}
 
-          <DatasetGrid ref={datasetGridRef}>
-            {sortedDatasets.map((compressedDataset) => {
-              const compressedDatasetId = compressedDataset.seq_id || compressedDataset.id;
-              const selectedDatasetFromTab = getSelectedDataset(compressedDataset);
-              return (
-                <DatasetContainer>
-                  <DatasetTabs>
-                    {compressedDataset.geoIdPairs.filter(pair => !!pair.geography).map(geoIdPair =>
-                      <GeographyTab
-                        key={`${compressedDataset.id}_${geoIdPair.geography}`}
-                        className={isTabSelected(selectedGeographyTabs, compressedDataset, geoIdPair.geography) ? "selected" : ""}
-                        onClick={() => onGeoTabClicked(compressedDatasetId, geoIdPair.geography)}
-                      >
-                        {geoIdPair.geography}
-                      </GeographyTab>
-                    )}
-                  </DatasetTabs>
-                  <DatasetBox
-                    key={selectedDatasetFromTab.seq_id}
-                    onClick={() => toDataset(selectedDatasetFromTab.seq_id)}
-                  >
-                    <DatasetHeaderContainer>
-                      <DatasetHeader>
-                        {renderHighlightedText(selectedDatasetFromTab.menu3, selectedDatasetFromTab.seq_id, 'menu3')}
-                      </DatasetHeader>
-                      <ViewMetadataButton
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleViewMetadata(selectedDatasetFromTab);
-                        }}
-                      >
-                        View Metadata
-                      </ViewMetadataButton>
-                    </DatasetHeaderContainer>
-                    <DatasetBody>
-                      <DatasetInfo>
-                        <InfoRow>
-                          <InfoLabel>Table:</InfoLabel>
-                          <InfoValue>
-                            {renderHighlightedText(selectedDatasetFromTab.table_name, selectedDatasetFromTab.seq_id, 'table_name')}
-                          </InfoValue>
-                        </InfoRow>
-                        <InfoRow>
-                          <InfoLabel>Source:</InfoLabel>
-                          <InfoValue>{selectedDatasetFromTab.source}</InfoValue>
-                        </InfoRow>
-                      </DatasetInfo>
-                      <DatasetActions>
-                        <LastUpdated>
-                          <LastUpdatedLabel>Last updated:</LastUpdatedLabel>
-                          {formatUpdated(selectedDatasetFromTab.updated)}
-                        </LastUpdated>
-                      </DatasetActions>
-                    </DatasetBody>
-                  </DatasetBox>
-                </DatasetContainer>
-              );
-            })}
-          </DatasetGrid>
+          {filtersActive ? (
+            <DatasetGrid ref={datasetGridRef}>
+              {sortedDatasets.map(renderCompressedDatasetCard)}
+            </DatasetGrid>
+          ) : (
+            <>
+              {inventoryDataset && (
+                <InventoryCardSection>
+                  {renderCompressedDatasetCard(inventoryDataset)}
+                </InventoryCardSection>
+              )}
+              <DatasetsEmptyState>
+                <p>
+                  Search for data in the search bar above. Use the Filters on the left to narrow your search.
+                </p>
+                <p>
+                  For a list of all of our datasets, see the{' '}
+                  {inventoryDataset?.datasets?.[0]?.seq_id ? (
+                    <InventoryLink to={`/browser/datasets/${inventoryDataset.datasets[0].seq_id}`}>
+                      MAPC Dataset Inventory
+                    </InventoryLink>
+                  ) : (
+                    'MAPC Dataset Inventory'
+                  )}{' '}
+                </p>
+                <p>
+                  Or start by exploring our dataset of the week!
+                </p>
+              </DatasetsEmptyState>
+              {datasetOfTheWeek && (
+                <FeaturedDatasetSection>
+                  <FeaturedDatasetTitle>Dataset of the Week</FeaturedDatasetTitle>
+                  {renderCompressedDatasetCard(datasetOfTheWeek)}
+                </FeaturedDatasetSection>
+              )}
+            </>
+          )}
         </ContentArea>
       </MainContent>
 

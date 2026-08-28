@@ -95,6 +95,40 @@ export function filterDatasets({
   return filtered;
 }
 
+// Helper function for highlightDatasets, helps handle search highlights that overlap (e.g. munici & nicipal)
+function generateNewHighlight(existingHighlight, newHighlight) {
+  // no existing highlights
+  if (!existingHighlight) return newHighlight;
+
+  let updatedHighlight;
+  existingHighlight.indices.forEach(existingHL => {
+    if (updatedHighlight !== undefined) return; // break if set
+
+    // fully contained in existing highlight
+    if (newHighlight[0] >= existingHL[0] && newHighlight[1] <= existingHL[1]) {
+      updatedHighlight = null;
+      return;
+    }
+
+    // starts inside existing highlight:
+    if (newHighlight[0] >= existingHL[0] && newHighlight[0] <= existingHL[1]) {
+      updatedHighlight = [existingHL[1] + 1, newHighlight[1]];
+      return;
+    }
+
+    // ends inside existing highlight:
+    if (newHighlight[1] >= existingHL[0] && newHighlight[1] <= existingHL[1]) {
+      updatedHighlight = [newHighlight[0], existingHL[0] - 1];
+      return;
+    }
+  });
+
+  if (updatedHighlight === undefined) {
+    return newHighlight;
+  } else {
+    return updatedHighlight;
+  }
+}
 
 /**
  * Creates and returns an object containing a mapping of dataset ids to the highlighted text in each dataset. 
@@ -138,11 +172,18 @@ export function highlightDatasets({ datasets = [], searchQuery = '' }) {
           searchTokens.forEach(searchTerm => {
             const highlightRegex = new RegExp(searchTerm, 'gi');
             tableName.replace(highlightRegex, (matched, offset) => {
-              const alreadyMatched = highlights[datasetId].find(hl => hl.key == 'table_name' && hl.indices.find(i => i[0] == offset));
-              if (!alreadyMatched) {
+              const newHighlightIdxs = [offset, offset + matched.length - 1];
+              const existingHighlights = highlights[datasetId].find(hl => hl.key === 'table_name');
+
+              const trimmedNewHighlightIdxs = generateNewHighlight(existingHighlights, newHighlightIdxs);
+              if (!trimmedNewHighlightIdxs) return; // fully overlapped, no changes
+
+              if (existingHighlights) {
+                existingHighlights.indices.push(trimmedNewHighlightIdxs);
+              } else {
                 highlights[datasetId].push({
                   key: 'table_name',
-                  indices: [[offset, offset + matched.length - 1]]
+                  indices: [newHighlightIdxs]
                 });
               }
             });
@@ -153,11 +194,18 @@ export function highlightDatasets({ datasets = [], searchQuery = '' }) {
           searchTokens.forEach(searchTerm => {
             const highlightRegex = new RegExp(searchTerm, 'gi');
             datasetName.replace(highlightRegex, (matched, offset) => {
-              const alreadyMatched = highlights[datasetId].find(hl => hl.key == 'menu3' && hl.indices.find(i => i[0] == offset));
-              if (!alreadyMatched) {
+              const newHighlightIdxs = [offset, offset + matched.length - 1];
+              const existingHighlights = highlights[datasetId].find(hl => hl.key === 'menu3');
+
+              const trimmedNewHighlightIdxs = generateNewHighlight(existingHighlights, newHighlightIdxs);
+              if (!trimmedNewHighlightIdxs) return; // fully overlapped, no changes
+
+              if (existingHighlights) {
+                existingHighlights.indices.push(trimmedNewHighlightIdxs);
+              } else {
                 highlights[datasetId].push({
                   key: 'menu3',
-                  indices: [[offset, offset + matched.length - 1]]
+                  indices: [newHighlightIdxs]
                 });
               }
             });
@@ -195,7 +243,7 @@ export function sortDatasets({ datasets = [], sortOrder = 'Relevance', searchQue
       const searchTokens = trimmedSearch.split(" ").filter(st => !!st).map(st => st.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
       // Count number to table_name and dataset name (menu3) matches
       // prioritize higher number of matches and earlier avg index of terms
-      // deprioritize datasets containing the word 'by'
+      // de-prioritize datasets containing the word 'by'
       return sorted.sort((a, b) => {
         const datasetNameA = a.menu3 || '';
         const tableNameA = a.table_name || '';

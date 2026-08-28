@@ -1,12 +1,13 @@
 import React from "react";
 import axios from "axios";
 import { useSelector, useDispatch } from "react-redux";
-import { useLocation, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { css } from "@emotion/react";
 import MoonLoader from "react-spinners/MoonLoader";
 import { fetchDatasets } from "../reducers/datasetSlice";
 import DatasetHeader from "../components/partials/DatasetHeader";
 import DatasetTable from "../components/partials/DatasetTable";
+import DatasetMapPreview from "../components/partials/DatasetMapPreview";
 import { isDatasetInventoryCatalog } from "../utils/datasetInventoryRow";
 import {
   parseDatasetViewShareSearch,
@@ -14,6 +15,11 @@ import {
   resolveYearsFromUrl,
 } from "../utils/datasetViewShareQuery";
 import { syncPreviewColumnOrder } from "../utils/datasetTablePreview";
+import {
+  detectDatasetGeographyType,
+  isMapPreviewSupported,
+  resolveTableGeographyColumn,
+} from "../utils/datasetMapPreview";
 
 const override = css`
   height: 3.5rem;
@@ -21,13 +27,27 @@ const override = css`
   width: 3.5rem;
 `;
 
+function viewModeFromLocation(location, params) {
+  if (params?.viewMode === "map") return "map";
+  if ((location?.pathname || "").endsWith("/map")) return "map";
+  return "table";
+}
+
+function datasetViewerPath(datasetId, viewMode, search = "") {
+  const base =
+    viewMode === "map"
+      ? `/browser/datasets/${datasetId}/map`
+      : `/browser/datasets/${datasetId}`;
+  return `${base}${search || ""}`;
+}
+
 class DataViewerClass extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
       currentPage: 1,
       loading: true,
-      rowsPerPage: 25,
+      rowsPerPage: 10,
       selectedColumns: [], // Will be initialized with all columns
       marginColumnsByBase: {},
       availableGeographies: [],
@@ -36,9 +56,15 @@ class DataViewerClass extends React.Component {
       linkInventoryRows: false,
       previewColumnOrder: [],
       previewRowOrder: [],
+      columnFilters: [],
+      viewMode: viewModeFromLocation(props.location, props.params),
+      mapVariable: null,
+      geographyType: null,
+      menu1: null,
     };
     this.updateSelectedYears = this.updateSelectedYears.bind(this);
     this.updateSelectedColumns = this.updateSelectedColumns.bind(this);
+    this.showHiddenColumns = this.showHiddenColumns.bind(this);
     this.updatePage = this.updatePage.bind(this);
     this.updateRowsPerPage = this.updateRowsPerPage.bind(this);
     this.loadDatasetData = this.loadDatasetData.bind(this);
@@ -46,6 +72,10 @@ class DataViewerClass extends React.Component {
     this.onPreviewColumnOrderChange = this.onPreviewColumnOrderChange.bind(this);
     this.onPreviewRowOrderChange = this.onPreviewRowOrderChange.bind(this);
     this.onResetPreviewLayout = this.onResetPreviewLayout.bind(this);
+    this.onViewModeChange = this.onViewModeChange.bind(this);
+    this.onMapVariableChange = this.onMapVariableChange.bind(this);
+    this.addFilterToList = this.addFilterToList.bind(this);
+    this.removeFilterFromList = this.removeFilterFromList.bind(this);
     this.hasLoaded = false; // Flag to prevent duplicate API calls in StrictMode
   }
 
@@ -215,20 +245,22 @@ class DataViewerClass extends React.Component {
       return;
     }
 
+
     // construct the query for the data in the table and handle some special cases.
     let limit = 15000;
+    // these tables are large and need a much higher limit
+    // TODO: setup backend pagination and only fetch 25 results at a time?
     if (dataset.table_name === "econ_es202_naics_4d_m" || dataset.table_name === "econ_es202_naics_2d_m" || dataset.table_name === "econ_es202_naics_3d_m") {
-      // these tables are large and need a much higher limit
-      // TODO: setup backend pagination and only fetch 25 results at a time?
       limit = 460000 ;
     }
     let tableQueryUrl = `/api?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=${dataset.db_name}&schema=${dataset.schemaname}&table=${dataset.table_name}&limit=${limit}`;
     if (dataset.yearcolumn) {
       tableQueryUrl = `${tableQueryUrl}&orderByColumn=${dataset.yearcolumn}&orderByDirection=DESC`;
     }
-    if (dataset.table_name === "_data_browser") {
-      // filter on active datasets if viewing the data browser
-      tableQueryUrl = `${tableQueryUrl}&filters=active:Y`;
+    // Handle only showing select columns in the _data_browser
+    if (dataset.table_name == "_data_browser") {
+      const browserColumns = ["seq_id", "menu1", "menu2", "menu3", "geography", "source", "active", "updated"];
+      tableQueryUrl = `${tableQueryUrl}&columns=${browserColumns.join(',')}`
     }
     const tableQuery = axios.get(tableQueryUrl);
 
@@ -281,16 +313,18 @@ class DataViewerClass extends React.Component {
         const yearOverride = resolveYearsFromUrl(parsedShare, distinctYears);
         if (yearOverride) selectedYears = yearOverride;
 
-        // Initialize geography filter for municipal (_m) tables in the tabular schema
-        let selectedGeographies;
-        let availableGeographies;
-        let geographyColumn;
+        // Geography from `_data_browser.geography`, or Boundaries category (own `shape`).
+        let selectedGeographies = [];
+        let availableGeographies = [];
+        let geographyColumn = null;
+        const geographyType = detectDatasetGeographyType(
+          dataset.table_name,
+          dataset.geography,
+          { menu1: dataset.menu1 },
+        );
         if (dataset.schemaname === "tabular") {
-          geographyColumn = null;
-          availableGeographies = [];
-          if (dataset.table_name && dataset.table_name.endsWith("_m")) { // TODO: switch to using the geography column from data browser
-            const candidateColumns = ["muni_name", "municipal", "muni"];
-            geographyColumn = candidateColumns.find((col) => tableResults[0] && col in tableResults[0]) || null;
+          if (geographyType === "municipal") {
+            geographyColumn = resolveTableGeographyColumn(tableResults[0]);
             if (geographyColumn) {
               const geoSet = new Set();
               tableResults.forEach((row) => {
@@ -305,6 +339,15 @@ class DataViewerClass extends React.Component {
           selectedGeographies = availableGeographies;
           const geoOverride = resolveGeographiesFromUrl(parsedShare, availableGeographies);
           if (geoOverride) selectedGeographies = geoOverride;
+        }
+
+        const wantMap =
+          viewModeFromLocation(this.props.location, this.props.params) === "map" &&
+          isMapPreviewSupported(geographyType);
+        let mapVariable = null;
+        if (wantMap && parsedShare.mapVariable) {
+          const hasColumn = columnKeys.some((col) => String(col?.name) === String(parsedShare.mapVariable));
+          if (hasColumn) mapVariable = parsedShare.mapVariable;
         }
 
         const previewColumnOrder = syncPreviewColumnOrder([], selectedColumns, columnKeys);
@@ -324,16 +367,31 @@ class DataViewerClass extends React.Component {
           database: dataset.db_name,
           title: dataset.menu3,
           source: dataset.source,
+          menu1: dataset.menu1 || null,
           queryYearColumn: dataset.yearcolumn,
           updatedAt: dataset.updated,
           geographyColumn,
+          geographyType,
           availableGeographies,
           selectedGeographies,
           linkInventoryRows: isDatasetInventoryCatalog(dataset),
           previewColumnOrder,
           previewRowOrder: [],
+          viewMode: wantMap ? "map" : "table",
+          mapVariable,
           loading: false,
         });
+
+        if (
+          viewModeFromLocation(this.props.location, this.props.params) === "map" &&
+          !isMapPreviewSupported(geographyType) &&
+          this.props.navigate
+        ) {
+          this.props.navigate(
+            datasetViewerPath(this.props.params.id, "table", this.props.location?.search || ""),
+            { replace: true },
+          );
+        }
 
       }).catch((error) => {
         this.setState({ loading: false, error: "Please try again later" });
@@ -348,6 +406,10 @@ class DataViewerClass extends React.Component {
 
   updateSelectedYears(e, year) {
     this.setState((prevState) => {
+      // Map choropleth is single-year: clicking a year selects only that year.
+      if (prevState.viewMode === "map") {
+        return { selectedYears: [year] };
+      }
       if (prevState.selectedYears.includes(year)) {
         const index = prevState.selectedYears.indexOf(year);
         const front = prevState.selectedYears.slice(0, index);
@@ -382,6 +444,30 @@ class DataViewerClass extends React.Component {
     });
   }
 
+  showHiddenColumns(columnNames) {
+    if (!columnNames?.length) return;
+
+    this.setState((prevState) => {
+      const marginColumnsByBase = prevState.marginColumnsByBase || {};
+      let selectedColumns = [...prevState.selectedColumns];
+
+      columnNames.forEach((columnName) => {
+        if (selectedColumns.includes(columnName)) return;
+        selectedColumns.push(columnName);
+        (marginColumnsByBase[columnName] || []).forEach((col) => {
+          if (!selectedColumns.includes(col)) selectedColumns.push(col);
+        });
+      });
+
+      const previewColumnOrder = syncPreviewColumnOrder(
+        prevState.previewColumnOrder,
+        selectedColumns,
+        prevState.columnKeys,
+      );
+      return { selectedColumns, previewColumnOrder };
+    });
+  }
+
   onPreviewColumnOrderChange(previewColumnOrder) {
     this.setState({ previewColumnOrder });
   }
@@ -396,6 +482,51 @@ class DataViewerClass extends React.Component {
       previewRowOrder: [],
       currentPage: 1,
     }));
+  }
+
+  componentDidUpdate(prevProps) {
+    const prevMode = viewModeFromLocation(prevProps.location, prevProps.params);
+    const nextMode = viewModeFromLocation(this.props.location, this.props.params);
+    if (prevMode === nextMode) return;
+
+    this.setState((prevState) => {
+      if (nextMode === "map") {
+        if (!isMapPreviewSupported(prevState.geographyType)) {
+          return prevState;
+        }
+        const years = prevState.availableYears || [];
+        const latestYear = years.length ? years[0] : null;
+        return {
+          viewMode: "map",
+          selectedYears: latestYear != null ? [latestYear] : [],
+        };
+      }
+      return { viewMode: "table" };
+    });
+  }
+
+  onViewModeChange(viewMode) {
+    const datasetId = this.props.params.id;
+    const search = this.props.location?.search || "";
+    if (this.props.navigate) {
+      this.props.navigate(datasetViewerPath(datasetId, viewMode, search));
+    }
+
+    this.setState((prevState) => {
+      if (viewMode === "map") {
+        const years = prevState.availableYears || [];
+        const latestYear = years.length ? years[0] : null;
+        return {
+          viewMode,
+          selectedYears: latestYear != null ? [latestYear] : [],
+        };
+      }
+      return { viewMode };
+    });
+  }
+
+  onMapVariableChange(mapVariable) {
+    this.setState({ mapVariable });
   }
 
   updatePage(newPage) {
@@ -427,6 +558,23 @@ class DataViewerClass extends React.Component {
     });
   }
 
+  addFilterToList(filter) {
+    const newFilters = [...this.state.columnFilters];
+    newFilters.push(filter);
+
+    this.setState({ columnFilters: newFilters });
+  }
+
+  removeFilterFromList(filter) {
+    const newFilters = this.state.columnFilters.filter(f => {
+      return f.columnKey !== filter.columnKey ||
+        f.filterType !== filter.filterType ||
+        f.textValue !== filter.textValue;
+    });
+
+    this.setState({ columnFilters: newFilters });
+  }
+
   render() {
     let pageContents;
 
@@ -444,6 +592,7 @@ class DataViewerClass extends React.Component {
         </div>
       );
     } else {
+      const mapPreviewSupported = isMapPreviewSupported(this.state.geographyType);
       pageContents = (
         <section className="datasets">
           <DatasetHeader
@@ -462,32 +611,70 @@ class DataViewerClass extends React.Component {
             updateSelectedGeographies={this.updateSelectedGeographies}
             geographyColumn={this.state.geographyColumn}
             rowsPerPage={this.state.rowsPerPage}
+            numberOfRows={this.state.rows.length}
             updateRowsPerPage={this.updateRowsPerPage}
             source={this.state.source}
             table={this.state.table}
             title={this.state.title}
+            columnFilters={this.state.columnFilters}
+            removeColumnFilter={this.removeFilterFromList}
             updateSelectedColumns={this.updateSelectedColumns}
             updateSelectedYears={this.updateSelectedYears}
             universe={this.state.universe}
             updatedAt={this.state.updatedAt}
+            viewMode={this.state.viewMode}
+            onViewModeChange={this.onViewModeChange}
+            mapPreviewSupported={mapPreviewSupported}
+            mapVariable={this.state.mapVariable}
+            geographyType={this.state.geographyType}
           />
-          <DatasetTable
-            currentPage={this.state.currentPage}
-            columnKeys={this.state.columnKeys}
-            rows={this.state.rows}
-            queryYearColumn={this.state.queryYearColumn}
-            rowsPerPage={this.state.rowsPerPage}
-            selectedColumns={this.state.selectedColumns}
-            selectedYears={this.state.selectedYears}
-            selectedGeographies={this.state.selectedGeographies}
-            geographyColumn={this.state.geographyColumn}
-            linkRowsToDatasetView={this.state.linkInventoryRows}
-            updatePage={this.updatePage}
-            updateSelectedColumns={this.updateSelectedColumns}
-            previewColumnOrder={this.state.previewColumnOrder}
-            previewRowOrder={this.state.previewRowOrder}
-            onResetPreviewLayout={this.onResetPreviewLayout}
-          />
+          {this.state.viewMode === "map" && mapPreviewSupported ? (
+            <DatasetMapPreview
+              rows={this.state.rows}
+              columnKeys={this.state.columnKeys}
+              queryYearColumn={this.state.queryYearColumn}
+              selectedYears={this.state.selectedYears}
+              geographyColumn={this.state.geographyColumn}
+              selectedGeographies={this.state.selectedGeographies}
+              availableGeographies={this.state.availableGeographies}
+              columnFilters={this.state.columnFilters}
+              geographyType={this.state.geographyType}
+              mapVariable={this.state.mapVariable}
+              onMapVariableChange={this.onMapVariableChange}
+              menu1={this.state.menu1}
+              title={this.state.title}
+              source={this.state.source}
+              datasetId={this.props.params.id}
+              database={this.state.database}
+              schema={this.state.schema}
+              table={this.state.table}
+            />
+          ) : (
+            <DatasetTable
+              currentPage={this.state.currentPage}
+              columnKeys={this.state.columnKeys}
+              rows={this.state.rows}
+              queryYearColumn={this.state.queryYearColumn}
+              rowsPerPage={this.state.rowsPerPage}
+              selectedColumns={this.state.selectedColumns}
+              selectedYears={this.state.selectedYears}
+              selectedGeographies={this.state.selectedGeographies}
+              geographyColumn={this.state.geographyColumn}
+              linkRowsToDatasetView={this.state.linkInventoryRows}
+              updatePage={this.updatePage}
+              updateSelectedColumns={this.updateSelectedColumns}
+              showHiddenColumns={this.showHiddenColumns}
+              addNewColumnFilter={this.addFilterToList}
+              columnFilters={this.state.columnFilters}
+              previewColumnOrder={this.state.previewColumnOrder}
+              previewRowOrder={this.state.previewRowOrder}
+              onPreviewColumnOrderChange={this.onPreviewColumnOrderChange}
+              onPreviewRowOrderChange={
+                this.state.linkInventoryRows ? undefined : this.onPreviewRowOrderChange
+              }
+              onResetPreviewLayout={this.onResetPreviewLayout}
+            />
+          )}
         </section>
       );
     }
@@ -499,6 +686,7 @@ class DataViewerClass extends React.Component {
 const DataViewerPage = () => {
   const params = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
   const dispatch = useDispatch();
   const datasets = useSelector((state) => state.dataset.cache);
 
@@ -506,6 +694,7 @@ const DataViewerPage = () => {
     <DataViewerClass
       params={params}
       location={location}
+      navigate={navigate}
       datasets={datasets}
       fetchDatasets={() => dispatch(fetchDatasets())}
     />

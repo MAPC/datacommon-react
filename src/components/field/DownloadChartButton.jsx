@@ -1,8 +1,10 @@
-import React from "react";
 import PropTypes from "prop-types";
+import React from "react";
 import { useSelector } from "react-redux";
 import { createSelector } from "@reduxjs/toolkit";
 import styled from "styled-components";
+
+import { selectSubregionData } from "../../reducers/subregionSlice";
 
 const StyledButton = styled.button`
   background: transparent;
@@ -25,16 +27,6 @@ const StyledButton = styled.button`
     font-size: 14px;
   }
 `;
-const SUBREGIONS = {
-  355: 'Inner Core Committee [ICC]',
-  356: 'Minuteman Advisory Group on Interlocal Coordination [MAGIC]',
-  357: 'MetroWest Regional Collaborative [MWRC]',
-  358: 'North Shore Task Force [NSTF]',
-  359: 'North Suburban Planning Council [NSPC]',
-  360: 'South Shore Coalition [SSC]',
-  361: 'South West Advisory Planning Committee [SWAP]',
-  362: 'Three Rivers Interlocal Council [TRIC]'
-};
 
 const makeSelectChartData = (tables, muni) =>
   createSelector([(state) => state.chart.cache], (cache) =>
@@ -52,11 +44,11 @@ export default function DownloadChartButton({ chart, muni, isSubregion, isRPAreg
     () => makeSelectChartData(Object.keys(chart.tables), muni),
     [chart.tables, muni]
   );
-  
   const chartData = useSelector(selectChartData);
+  const subregionData = useSelector(selectSubregionData);
 
-   // Add selector for subregion cache
-   const selectSubregionCache = createSelector(
+  // Add selector for subregion cache
+  const selectSubregionCache = createSelector(
     [(state) => state.subregion.cache],
     (cache) => {
       if (isSubregion) {
@@ -66,31 +58,32 @@ export default function DownloadChartButton({ chart, muni, isSubregion, isRPAreg
       return [];
     }
   );
-
-  const selectRPAregionCache = createSelector(
-    [(state) => state.rparegion.cache],
-    (cache) => {
-      if (isRPAregion) {
-        const tableName = Object.keys(chart.tables)[0];
-        return cache[tableName]?.[muni] || [];
-      }
-      return [];
-    }
-  );
-
   const subregionCache = useSelector(selectSubregionCache);
-  const rpaCache = useSelector(selectRPAregionCache);
+
+  // const selectRPAregionCache = createSelector(
+  //   [(state) => state.rparegion.cache],
+  //   (cache) => {
+  //     if (isRPAregion) {
+  //       const tableName = Object.keys(chart.tables)[0];
+  //       return cache[tableName]?.[muni] || [];
+  //     }
+  //     return [];
+  //   }
+  // );
+  // const rpaCache = useSelector(selectRPAregionCache);
+
   const downloadCsv = () => {
     try {
       const tableName = Object.keys(chartData)[0];
       let data;
-      if (isRPAregion) {
-        data = rpaCache;
+      if (isSubregion) {
+        data = subregionCache;
+      // } else if (isRPAregion) {
+      //   data = rpaCache;
       } else {
-        data = isSubregion ? subregionCache : chartData[tableName];
+        data = chartData[tableName];
       }
 
-    
       if (!data || data.length === 0) {
         console.error("No data available for the selected municipality.");
         return;
@@ -100,9 +93,9 @@ export default function DownloadChartButton({ chart, muni, isSubregion, isRPAreg
       const headers = Object.keys(data[0]);
       let firstRow;
       if (isSubregion) {
-        firstRow = ['Subregion:', SUBREGIONS[muni]];
-      } else if (isRPAregion) {
-        firstRow = ['RPAregion:', "MAPC"];
+        firstRow = ['Subregion:', subregionData[muni]?.subregionName];
+      // } else if (isRPAregion) {
+      //   firstRow = ['RPAregion:', "MAPC"];
       } else {
         firstRow = ['Municipality:', muni];
       }
@@ -129,7 +122,7 @@ export default function DownloadChartButton({ chart, muni, isSubregion, isRPAreg
       if (displayName) {
         nameSuffix = displayName;
       } else if (isSubregion) {
-        nameSuffix = SUBREGIONS[muni]?.match(/\[([^\]]+)\]/)?.[1] || muni;
+        nameSuffix = subregionData[muni]?.subregionName?.match(/\[([^\]]+)\]/)?.[1] || muni;
       } else {
         nameSuffix = muni;
       }

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import PropTypes from "prop-types";
 import { useLocation } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEllipsisVertical, faShareNodes, faTable } from "@fortawesome/free-solid-svg-icons";
+import { faEllipsisVertical, faMap, faShareNodes, faTable } from "@fortawesome/free-solid-svg-icons";
 import { faMessage } from "@fortawesome/free-regular-svg-icons";
 
 import { formatUpdated } from "../../utils/formatUpdated";
@@ -11,11 +11,11 @@ import EmbedTableModal from "./EmbedTableModal";
 import MetadataModal from "./MetadataModal";
 import { buildDatasetViewShareSearchParams, DATASET_VIEW_SHARE_MAX_URL_LENGTH } from "../../utils/datasetViewShareQuery";
 
-const setSelectYears = (availableYears, updateSelectedYears, selectedYears) => {
+const setSelectYears = (availableYears, updateSelectedYears, selectedYears, { singleSelect = false } = {}) => {
   if (availableYears.length > 0) {
     return (
       <div className="year-filter">
-        <span>Select Years:</span>
+        <span>{singleSelect ? "Select Year:" : "Select Years:"}</span>
         <ul>
           {availableYears.map((year) => (
             <li key={year.toString()} onClick={(e) => updateSelectedYears(e, year)} className={selectedYears.includes(year) ? "selected" : ""}>
@@ -400,6 +400,15 @@ const ColumnSelectorDropdown = ({ columnKeys, updateSelectedColumns, selectedCol
     return pairs;
   };
 
+  // sort selected columns to the top, but only when isOpen changes
+  // only re-order columns in the dropdown when it opens/closes to prevent jumping on select/deselect
+  const sortedColumnsBySelected = useMemo(() => {
+    const selected = columnKeys.filter(col => selectedColumns.includes(col.name));
+    const notSelected = columnKeys.filter(col => !selectedColumns.includes(col.name));
+
+    return [...selected, ...notSelected];
+  }, [isOpen])
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       const raw = event.target;
@@ -443,7 +452,7 @@ const ColumnSelectorDropdown = ({ columnKeys, updateSelectedColumns, selectedCol
       /[a-z0-9_]mep$/i.test(name)
     );
   };
-  const visibleColumnKeys = columnKeys.filter((col) => !isMarginColumn(col));
+  const visibleColumnKeys = sortedColumnsBySelected.filter((col) => !isMarginColumn(col));
 
   // Same order as metadata / columnKeys (non-MOE rows only)
   const sortedColumnKeys = [...visibleColumnKeys];
@@ -601,6 +610,31 @@ const setUpdatedAt = (updatedAt) => (
   </li>
 );
 
+const FilterPill = ({ filter, removeColumnFilter }) => {
+  const typeToDisplayName = {
+    contains: 'contains',
+    is: 'is',
+    greaterThan: '>',
+    lessThan: '<',
+    equals: '=',
+    isEmpty: 'is empty',
+    isNotEmpty: 'is not empty',
+  }
+
+  const numericTypes = ['greaterThan', 'lessThan', 'equals'];
+
+  const key = `${filter.columnName}.${filter.filterType}.${filter.textValue || ''}`
+  const valueText = numericTypes.includes(filter.filterType) ? filter.textValue : `'${filter.textValue}'`;
+  return (
+    <div className="dataset-filter-pill">
+      {filter.columnAlias} {typeToDisplayName[filter.filterType]} {filter.textValue ? valueText : ''}
+      <span className="filter-pill-close" onClick={() => removeColumnFilter(filter)}>
+        X
+      </span>
+    </div>
+  )
+}
+
 function DatasetHeader({
   title = "",
   table = "",
@@ -621,10 +655,18 @@ function DatasetHeader({
   updatedAt = "",
   availableGeographies = [],
   selectedGeographies = [],
+  columnFilters = [],
+  removeColumnFilter,
   updateSelectedGeographies,
   geographyColumn,
   rowsPerPage,
   updateRowsPerPage,
+  numberOfRows,
+  viewMode = "table",
+  onViewModeChange,
+  mapPreviewSupported = false,
+  mapVariable = null,
+  geographyType = null,
 }) {
   const location = useLocation();
   const isEmbedView = new URLSearchParams(location.search).get("embed") === "1";
@@ -636,8 +678,11 @@ function DatasetHeader({
 
   const { sharePageUrl, embedPageUrl, shareUrlTooLong } = useMemo(() => {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
-    const basePath = `${origin}/browser/datasets/${datasetId}`;
+    const viewSuffix = viewMode === "map" ? "/map" : "";
+    const basePath = `${origin}/browser/datasets/${datasetId}${viewSuffix}`;
     const shareArgs = {
+      viewMode,
+      mapVariable: viewMode === "map" ? mapVariable : null,
       columnKeys,
       selectedColumns,
       availableGeographies,
@@ -658,6 +703,8 @@ function DatasetHeader({
     return { sharePageUrl, embedPageUrl, shareUrlTooLong };
   }, [
     datasetId,
+    viewMode,
+    mapVariable,
     columnKeys,
     selectedColumns,
     selectedGeographies,
@@ -714,6 +761,23 @@ function DatasetHeader({
   }, [actionsOpen]);
 
   return (
+    isEmbedView && viewMode === "map" ? (
+      <div className="embed-map-header-actions" role="group" aria-label="Embed map header">
+        <h2 className="embed-map-header-title">{title}</h2>
+        <button
+          type="button"
+          className="embed-view-source-icon-btn"
+          onClick={() => {
+            const url = new URL(`/browser/datasets/${datasetId}/map`, window.location.origin);
+            window.open(url.href, "_blank", "noopener,noreferrer");
+          }}
+          title="View source data"
+          aria-label="View source data in DataCommon in a new tab"
+        >
+          <FontAwesomeIcon icon={faEllipsisVertical} />
+        </button>
+      </div>
+    ) : (
     <div className={isEmbedView ? "page-header page-header-embed" : "page-header"}>
       <div className="container tight">
         {isEmbedView && (
@@ -722,7 +786,11 @@ function DatasetHeader({
               type="button"
               className="embed-view-source-icon-btn"
               onClick={() => {
-                const url = new URL(`/browser/datasets/${datasetId}`, window.location.origin);
+                const path =
+                  viewMode === "map"
+                    ? `/browser/datasets/${datasetId}/map`
+                    : `/browser/datasets/${datasetId}`;
+                const url = new URL(path, window.location.origin);
                 window.open(url.href, "_blank", "noopener,noreferrer");
               }}
               title="View source data"
@@ -751,23 +819,49 @@ function DatasetHeader({
               </li>
               {setUpdatedAt(updatedAt)}
             </ul>
-            {setSelectYears(availableYears, updateSelectedYears, selectedYears)}
-            <div style={{ marginTop: "12px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
-              <ColumnSelectorDropdown
-                columnKeys={columnKeys}
-                updateSelectedColumns={updateSelectedColumns}
-                selectedColumns={selectedColumns}
-              />
-              <GeographyFilter
-                availableGeographies={availableGeographies}
-                selectedGeographies={selectedGeographies}
-                updateSelectedGeographies={updateSelectedGeographies}
-              />
-            </div>
+            {setSelectYears(availableYears, updateSelectedYears, selectedYears, {
+              singleSelect: viewMode === "map",
+            })}
+            {viewMode !== "map" && (
+              <div style={{ marginTop: "12px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
+                <ColumnSelectorDropdown
+                  columnKeys={columnKeys}
+                  updateSelectedColumns={updateSelectedColumns}
+                  selectedColumns={selectedColumns}
+                />
+                <GeographyFilter
+                  availableGeographies={availableGeographies}
+                  selectedGeographies={selectedGeographies}
+                  updateSelectedGeographies={updateSelectedGeographies}
+                />
+              </div>
+            )}
           </div>
           {!isEmbedView && (
             <div className="details-content-column download-section">
               <div className="details-content-column download-links">
+                {mapPreviewSupported && onViewModeChange && (
+                  <div className="dataset-view-toggle" role="group" aria-label="Dataset view">
+                    <button
+                      type="button"
+                      className={`dataset-view-toggle__btn${viewMode === "table" ? " dataset-view-toggle__btn--active" : ""}`}
+                      onClick={() => onViewModeChange("table")}
+                      aria-pressed={viewMode === "table"}
+                    >
+                      <FontAwesomeIcon icon={faTable} size="sm" aria-hidden="true" />
+                      Table
+                    </button>
+                    <button
+                      type="button"
+                      className={`dataset-view-toggle__btn${viewMode === "map" ? " dataset-view-toggle__btn--active" : ""}`}
+                      onClick={() => onViewModeChange("map")}
+                      aria-pressed={viewMode === "map"}
+                    >
+                      <FontAwesomeIcon icon={faMap} size="sm" aria-hidden="true" />
+                      Map
+                    </button>
+                  </div>
+                )}
                 <div className="dataset-actions-dropdown" ref={actionsDropdownRef}>
                   <button
                     type="button"
@@ -830,26 +924,43 @@ function DatasetHeader({
                   Export
                 </button>
               </div>
-              <div className="rows-per-page-selector">
-                <label htmlFor="rows-per-page" className="rows-per-page-label">
-                  Rows per page:
-                </label>
-                <select
-                  id="rows-per-page"
-                  className="rows-per-page-dropdown"
-                  value={rowsPerPage}
-                  onChange={(e) => updateRowsPerPage(Number(e.target.value))}
-                >
-                  <option value={10}>10</option>
-                  <option value={25}>25</option>
-                  <option value={50}>50</option>
-                  <option value={100}>100</option>
-                  <option value={500}>500</option>
-                </select>
-              </div>
+              {viewMode === "table" && (
+                <div className="rows-per-page-selector">
+                  <label htmlFor="rows-per-page" className="rows-per-page-label">
+                    Rows per page:
+                  </label>
+                  <select
+                    id="rows-per-page"
+                    className="rows-per-page-dropdown"
+                    value={rowsPerPage}
+                    onChange={(e) => updateRowsPerPage(Number(e.target.value))}
+                  >
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                    <option value={500}>500</option>
+                  </select>
+                </div>
+              )}
             </div>
           )}
         </div>
+        {columnFilters.length > 0 && <div className="filter-display-container">
+          <div>Filters:</div>
+          <div className="filter-pill-list-container">
+            {columnFilters.map(filter => (
+              <FilterPill 
+                key={`${filter.columnName}.${filter.filterType}.${filter.textValue || ''}`}
+                filter={filter}
+                removeColumnFilter={removeColumnFilter}
+              />
+            ))}
+          </div>
+        </div>}
+        {viewMode !== "map" && numberOfRows === 15000 && <div className="truncated-table-warning">
+          This data has been truncated for viewing in the browser. Only the first 15,000 rows are available. Please download the full dataset to see all available data.
+        </div>}
       </div>
       <ExportDataModal
         isOpen={downloadModalOpen}
@@ -868,6 +979,7 @@ function DatasetHeader({
         availableGeographies={availableGeographies}
         geographyColumn={geographyColumn}
         availableYears={availableYears}
+        geographyType={geographyType}
       />
       <EmbedTableModal
         isOpen={embedModalOpen}
@@ -878,6 +990,7 @@ function DatasetHeader({
         embedUrl={embedPageUrl}
         urlTooLong={shareUrlTooLong}
         adjustUrlFiltersSlot={embedModalAdjustFilters}
+        viewMode={viewMode}
       />
       <MetadataModal
         show={metadataModalOpen}
@@ -890,6 +1003,7 @@ function DatasetHeader({
         }}
       />
     </div>
+    )
   );
 }
 
@@ -907,6 +1021,8 @@ DatasetHeader.propTypes = {
   source: PropTypes.string,
   table: PropTypes.string,
   title: PropTypes.string,
+  columnFilters: PropTypes.arrayOf(PropTypes.object),
+  removeColumnFilter: PropTypes.func,
   updateSelectedColumns: PropTypes.func,
   updateSelectedYears: PropTypes.func.isRequired,
   availableGeographies: PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.string, PropTypes.number])),
@@ -917,6 +1033,12 @@ DatasetHeader.propTypes = {
   updatedAt: PropTypes.string,
   rowsPerPage: PropTypes.number,
   updateRowsPerPage: PropTypes.func,
+  numberOfRows: PropTypes.number,
+  viewMode: PropTypes.oneOf(["table", "map"]),
+  onViewModeChange: PropTypes.func,
+  mapPreviewSupported: PropTypes.bool,
+  mapVariable: PropTypes.string,
+  geographyType: PropTypes.oneOf(["municipal", "census_tracts", "block_groups"]),
 };
 
 export default DatasetHeader;

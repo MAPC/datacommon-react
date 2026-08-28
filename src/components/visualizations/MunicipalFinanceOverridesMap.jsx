@@ -6,10 +6,9 @@ import PropTypes from "prop-types";
 import { MAP_CONFIG } from "../../constants/mapConfig";
 import locations from "../../constants/locations";
 import colors from "../../constants/colors";
-import { fetchYears } from "../../constants/charts";
 
 /**
- * Fetches column `name` → `alias` from `/api/metadata`
+ * Fetches column `name` -> `alias` from `/api/metadata`
  * @param {{ database?: string, schema: string, table: string }} params
  * @returns {Promise<Record<string, string>>}
  */
@@ -18,37 +17,23 @@ export async function fetchTableColumnAliases(params) {
   if (!schema || !table) return {};
 
   const res = await fetch(
-    `/api/metadata?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=${encodeURIComponent(database)}&schema=${encodeURIComponent(schema)}&table=${encodeURIComponent(table)}`,
+    `/api/metadata?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=${encodeURIComponent(database)}&schema=${encodeURIComponent(schema)}&table=${encodeURIComponent(table)}&useNewMetadata=true`,
   );
   if (!res.ok) {
     throw new Error(`Metadata HTTP error: ${res.status}`);
   }
   const json = await res.json();
-  
-  const metadataArray = metadataResponseToRowArray(json);
+  const metadataArray = json.muni_finance_m;
 
-  const next = {};
+  const metadataMap = {};
   metadataArray.forEach((col) => {
-    const name =col.name
-    next[name] = col.alias
+    const name = col.name;
+    metadataMap[name] = col.alias;
   });
-  return next;
+  return metadataMap;
 }
 
-
-function metadataResponseToRowArray(container) {
-  if (!container) return [];
-  if (Array.isArray(container)) return container;
-  if (typeof container !== "object") return [];
-
-  const rows = Object.values(container).find((v) => Array.isArray(v));
-  if (rows) return rows;
-
-  const gis = container.documentation?.metadata?.eainfo?.detailed?.attr;
-  return Array.isArray(gis) ? gis : [];
-}
-
-mapboxgl.accessToken = MAP_CONFIG.accessToken;
+mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_API_TOKEN;
 
 const INITIAL_MAP_PADDING = { top: 28, bottom: 28, left: 28, right: 28 };
 
@@ -69,14 +54,14 @@ function isNullLikeAmt(v) {
 }
 
 function classifyRow(row) {
-  const winNull = isNullLikeAmt(row.win_amt);
-  const lossNull = isNullLikeAmt(row.loss_amt);
-  const win = winNull ? NaN : Number(row.win_amt);
-  const loss = lossNull ? NaN : Number(row.loss_amt);
+  const winNull = isNullLikeAmt(row.ovr_winamt);
+  const lossNull = isNullLikeAmt(row.ovr_losamt);
+  const win = winNull ? NaN : Number(row.ovr_winamt);
+  const loss = lossNull ? NaN : Number(row.ovr_losamt);
   const winPositive = Number.isFinite(win) && win > 0;
   const lossPositive = Number.isFinite(loss) && loss > 0;
 
-  // success = at least one successful override (win_amt > 0), including when loss_amt > 0 as well.
+  // success = at least one successful override (ovr_winamt > 0), including when ovr_losamt > 0 as well.
   if (winPositive) return "success";
   if (winNull && lossPositive) return "loss_only";
   if (winNull && lossNull) return "no_overrides_attempted";
@@ -85,7 +70,7 @@ function classifyRow(row) {
 }
 
 function formatUsd(v) {
-  const n = typeof v === "number" ? v : Number(v);
+  const n = Number(v);
   if (!Number.isFinite(n)) return "—";
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -94,39 +79,26 @@ function formatUsd(v) {
   }).format(n);
 }
 
-/** popup field label when metadata has no alias for this column (e.g. show "Tot Rev" style from tot_rev). */
-function popupColumnLabel(col) {
-  return String(col || "")
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (ch) => ch.toUpperCase());
-}
-
-function escapeHtmlText(s) {
-  return String(s ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function parsePopupColumnLabels(p) {
-  const raw = p.popupLabelsJson;
-  if (raw && typeof raw === "object" && !Array.isArray(raw)) return raw;
-  if (typeof raw === "string" && raw) {
-    try {
-      const parsed = JSON.parse(raw);
-      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
-    } catch {
-      return {};
-    }
-  }
-  return {};
-}
-
-function formatPopupCell(column, value) {
+function formatFieldCell(column, value) {
   if (value == null || value === "") return "—";
   if (column === "fiscal_yr") return String(value);
   return formatUsd(value);
+}
+
+function getSidebarFields(properties = {}, columns = [], labels = {}) {
+  return columns
+    .filter((col) => col && col !== "municipal")
+    .map((col) => ({
+      key: col,
+      label: labels[col] || col,
+      value: formatFieldCell(col, properties[col]),
+    }));
+}
+
+function muniProfileSlug(name) {
+  return String(name)
+    .trim()
+    .toLowerCase()
 }
 
 function buildRowLookup(rows, yearColumn, mapFiscalYear) {
@@ -145,7 +117,7 @@ function buildRowLookup(rows, yearColumn, mapFiscalYear) {
 
   const map = new Map();
   candidates.forEach((row) => {
-    const key = normalizeTownName(row.muni_name);
+    const key = normalizeTownName(row.municipal);
     if (!key) return;
     const prev = map.get(key);
     if (!prev) {
@@ -187,56 +159,9 @@ function geometryToBounds(geometry) {
   return bounds.isEmpty() ? null : bounds;
 }
 
-function parsePopupColumnOrder(p) {
-  const raw = p.popupColumnOrder;
-  if (Array.isArray(raw)) return raw;
-  if (typeof raw === "string" && raw) {
-    try {
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  }
-  return [];
-}
-
-function buildOverridePopupHtml(p) {
-  const displayName = String(p.popupMuniName ?? "");
-  const slug = String(p.popupMuniName || "")
-    .toLowerCase()
-  const profileUrl = `/profile/${slug}`;
-  const order = parsePopupColumnOrder(p);
-  const labelByCol = parsePopupColumnLabels(p);
-  const dl = order
-    .filter((col) => col && col !== "muni_name")
-    .map((col) => {
-      const alias = labelByCol[col];
-      const label = alias != null && String(alias).trim() !== "" ? String(alias).trim() : popupColumnLabel(col);
-      return `<dt style="margin:0;font-weight:600">${escapeHtmlText(label)}</dt><dd style="margin:0 0 8px">${formatPopupCell(col, p[`popup_${col}`])}</dd>`;
-    })
-    .join("");
-
-  return `
-        <div class="muni-finance-override-popup" style="font-family:skolar-sans-latin,Helvetica,sans-serif;min-width:220px;max-width:280px;padding:2px 0;line-height:1.45">
-          <strong style="font-size:15px;color:#1F4E46">${displayName}</strong>
-          <dl style="margin:10px 0 0;font-size:13px;color:#333">
-            ${dl}
-          </dl>
-          <a href="${profileUrl}" target="_blank" rel="noopener noreferrer" style="font-size:12px;color:#287CCB">View community profile</a>
-        </div>`;
-}
-
-function openOverridePopup(map, popup, properties, lngLat) {
-  if (!popup || !map || lngLat == null) return;
-  popup.remove();
-  popup.setLngLat(lngLat).setHTML(buildOverridePopupHtml(properties)).addTo(map);
-}
-
-function enrichGeojson(baseGeojson, rowByTown, mapColumns, mapFiscalYear, popupColumnLabels) {
+function enrichGeojson(baseGeojson, rowByTown, mapColumns, mapFiscalYear) {
   if (!baseGeojson?.features) return { type: "FeatureCollection", features: [] };
   const cols = mapColumns || [];
-  const labelsJson = JSON.stringify(popupColumnLabels && typeof popupColumnLabels === "object" ? popupColumnLabels : {});
   const showMapYear =
     mapFiscalYear != null &&
     mapFiscalYear !== "" &&
@@ -251,17 +176,14 @@ function enrichGeojson(baseGeojson, rowByTown, mapColumns, mapFiscalYear, popupC
       const row = rowByTown.get(key);
       const category = row ? classifyRow(row) : "no_overrides_attempted";
       const props = {
-        town: f.properties?.town,
+        town,
         overrideCategory: category,
-        popupMuniName: town,
-        popupColumnOrder: JSON.stringify(cols),
-        popupLabelsJson: labelsJson,
       };
       for (const col of cols) {
-        props[`popup_${col}`] = row?.[col];
+        props[col] = row?.[col];
       }
       if (showMapYear) {
-        props.popup_fiscal_yr = Number(mapFiscalYear);
+        props.fiscal_yr = Number(mapFiscalYear);
       }
       return {
         ...f,
@@ -275,7 +197,6 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
   const baseGeojson = useSelector((state) => state.municipality.geojson);
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
-  const popupRef = useRef(null);
   const layerHandlersRef = useRef({});
   const [rows, setRows] = useState([]);
   const [loadError, setLoadError] = useState(null);
@@ -283,39 +204,46 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
   const [mapReady, setMapReady] = useState(false);
   const [fiscalYear, setFiscalYear] = useState(null);
   const [outlineHighlightFeature, setOutlineHighlightFeature] = useState(null);
-  const [metadataPopupLabels, setMetadataPopupLabels] = useState({});
+  const [selectedProperties, setSelectedProperties] = useState(null);
+  const [metadataColumnLabels, setMetadataColumnLabels] = useState({});
 
   const profileTownKey = municipalFeature?.properties?.town;
-
-  const mergedPopupColumnLabels = useMemo(
-    () => ({ ...metadataPopupLabels, ...(config.popupColumnLabels || {}) }),
-    [metadataPopupLabels, config.popupColumnLabels],
-  );
 
   const outlineSetterRef = useRef(setOutlineHighlightFeature);
   outlineSetterRef.current = setOutlineHighlightFeature;
 
-  const ignoreNextPopupCloseRef = useRef(false);
-  const profilePopupTimerRef = useRef(null);
-  const suppressPopupDuringPrintRef = useRef(false);
+  const selectedSetterRef = useRef(setSelectedProperties);
+  selectedSetterRef.current = setSelectedProperties;
 
-  const clearOutlineOnPopupCloseRef = useRef(() => {});
-  clearOutlineOnPopupCloseRef.current = () => {
-    if (ignoreNextPopupCloseRef.current) return;
-    setOutlineHighlightFeature(null);
-  };
+  const profileSelectTimerRef = useRef(null);
+  const suppressSelectionDuringPrintRef = useRef(false);
 
   const mapTitle = useMemo(() => {
-    const tpl = config.mapTitleTemplate || "2024 Municipal Override Map";
+    const tpl = config.mapTitleTemplate;
     const y = fiscalYear != null ? String(fiscalYear) : "…";
     return tpl.replace(/\{year\}/g, y);
   }, [config.mapTitleTemplate, fiscalYear]);
+
+  const sidebarFields = useMemo(
+    () =>
+      selectedProperties
+        ? getSidebarFields(selectedProperties, config.mapColumns, metadataColumnLabels)
+        : [],
+    [selectedProperties, config.mapColumns, metadataColumnLabels],
+  );
+
+  const selectedDisplayName = selectedProperties
+    ? String(selectedProperties.town ?? "")
+    : "";
+
+  const selectedProfileUrl = selectedDisplayName
+    ? `/profile/${muniProfileSlug(selectedDisplayName.toLowerCase().replace(/\s+/g, '-'))}/municipal-finance`
+    : null;
 
   const latestDataRef = useRef({
     rows,
     baseGeojson,
     mapColumns: config.mapColumns,
-    popupColumnLabels: mergedPopupColumnLabels,
     fiscalYear,
     yearColumn: config.yearColumn || "fiscal_yr",
     municipalFeature,
@@ -324,19 +252,17 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
     rows,
     baseGeojson,
     mapColumns: config.mapColumns,
-    popupColumnLabels: mergedPopupColumnLabels,
     fiscalYear,
     yearColumn: config.yearColumn || "fiscal_yr",
     municipalFeature,
   };
 
-  const closeOverrideMapPopup = useCallback(() => {
-    if (profilePopupTimerRef.current != null) {
-      window.clearTimeout(profilePopupTimerRef.current);
-      profilePopupTimerRef.current = null;
+  const clearSelection = useCallback(() => {
+    if (profileSelectTimerRef.current != null) {
+      window.clearTimeout(profileSelectTimerRef.current);
+      profileSelectTimerRef.current = null;
     }
-    ignoreNextPopupCloseRef.current = true;
-    popupRef.current?.remove();
+    selectedSetterRef.current(null);
     outlineSetterRef.current(null);
     const map = mapRef.current;
     const outlineSrc = map?.getSource(SELECTED_OUTLINE_SOURCE_ID);
@@ -344,26 +270,19 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
       outlineSrc.setData({ type: "FeatureCollection", features: [] });
     }
     map?.resize();
-    requestAnimationFrame(() => {
-      ignoreNextPopupCloseRef.current = false;
-    });
   }, []);
 
   const fitMapToInitialView = useCallback((map) => {
     if (!map) return;
     map.resize();
-    map.fitBounds(MAP_CONFIG.bounds, {
-      padding: INITIAL_MAP_PADDING,
-      animate: false,
-    });
     if (typeof map.triggerRepaint === "function") {
       map.triggerRepaint();
     }
   }, []);
 
   const prepareOverrideMapForPrint = useCallback(() => {
-    suppressPopupDuringPrintRef.current = true;
-    closeOverrideMapPopup();
+    suppressSelectionDuringPrintRef.current = true;
+    clearSelection();
     outlineSetterRef.current(null);
 
     const map = mapRef.current;
@@ -390,10 +309,10 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
     } else {
       map.once("load", applyInitialView);
     }
-  }, [closeOverrideMapPopup, fitMapToInitialView]);
+  }, [clearSelection, fitMapToInitialView]);
 
   const restoreMapAfterPrint = useCallback(() => {
-    suppressPopupDuringPrintRef.current = false;
+    suppressSelectionDuringPrintRef.current = false;
     const map = mapRef.current;
     const mf = latestDataRef.current.municipalFeature;
     if (!map?.isStyleLoaded() || !mf?.geometry) return;
@@ -414,39 +333,23 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
     }
   }, []);
 
-  const openProfilePopupForCurrentData = useCallback(() => {
-    if (suppressPopupDuringPrintRef.current) return;
-    const map = mapRef.current;
-    if (!map || !popupRef.current) return;
+  const selectProfileTownForCurrentData = useCallback(() => {
+    if (suppressSelectionDuringPrintRef.current) return;
     const {
       rows: r,
       baseGeojson: bg,
       mapColumns: mc,
-      popupColumnLabels: pcl,
       fiscalYear: fy,
       yearColumn: yc,
       municipalFeature: mf,
     } = latestDataRef.current;
     if (!mf?.geometry) return;
     const rowByTown = buildRowLookup(r, yc, fy);
-    const data = enrichGeojson(bg, rowByTown, mc, fy, pcl);
+    const data = enrichGeojson(bg, rowByTown, mc, fy);
     const townName = mf.properties?.town;
     const key = normalizeTownName(townName);
     const match = data.features.find((f) => normalizeTownName(f.properties?.town) === key);
-    const labelsJson = JSON.stringify(pcl && typeof pcl === "object" ? pcl : {});
-    const props = match?.properties || {
-      popupMuniName: townName,
-      popupColumnOrder: JSON.stringify(mc || []),
-      popupLabelsJson: labelsJson,
-    };
-    const b = geometryToBounds(mf.geometry);
-    if (!b) return;
-    map.resize();
-    ignoreNextPopupCloseRef.current = true;
-    openOverridePopup(map, popupRef.current, props, b.getCenter());
-    requestAnimationFrame(() => {
-      ignoreNextPopupCloseRef.current = false;
-    });
+    selectedSetterRef.current(match?.properties || { town: townName });
   }, []);
 
   useEffect(() => {
@@ -456,9 +359,14 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
       setLoadError(null);
       const yearCol = config.yearColumn || "fiscal_yr";
       try {
-        const years = await fetchYears(config.tableSchema, config.tableName, yearCol, 1, "DESC");
-        const raw = years?.[0];
-        const y = raw != null && raw !== "" ? Number(raw) : NaN;
+        let yearsUrl = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=muni_finance_m`;
+        yearsUrl = `${yearsUrl}&columns=DISTINCT(fiscal_yr)&orderByColumn=fiscal_yr&orderByDirection=DESC`;
+        yearsUrl = `${yearsUrl}&filters=ovr_winamt!!,ovr_losamt!!,rev_total!!,exp_total!!`;
+        const yearResp = await fetch(yearsUrl);
+        const yearPayload = (await yearResp.json()) || {};
+        const latestYear = yearPayload.rows[0].fiscal_yr 
+        const y = latestYear;
+
         if (!Number.isFinite(y)) {
           if (!cancelled) {
             setFiscalYear(null);
@@ -470,7 +378,8 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
         if (!cancelled) setFiscalYear(y);
 
         const cols = config.mapColumns.join(",");
-        const url = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=${config.tableSchema}&table=${config.tableName}&columns=${cols}&filters=${yearCol}:${y}&limit=${config.fetchLimit || 500}`;
+        let url = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=${config.tableSchema}&table=${config.tableName}&columns=${cols}`;
+        url = `${url}&filters=${yearCol}:${y}&limit=${config.fetchLimit || 500}`;
         const res = await fetch(url);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const payload = (await res.json()) || {};
@@ -497,7 +406,7 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
     const schema = config.tableSchema;
     const table = config.tableName;
     if (!schema || !table) {
-      setMetadataPopupLabels({});
+      setMetadataColumnLabels({});
       return () => {
         cancelled = true;
       };
@@ -505,10 +414,10 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
     (async () => {
       try {
         const labels = await fetchTableColumnAliases({ database: "ds", schema, table });
-        if (!cancelled) setMetadataPopupLabels(labels);
+        if (!cancelled) setMetadataColumnLabels(labels);
       } catch (e) {
         console.error("MunicipalFinanceOverridesMap metadata labels failed", e);
-        if (!cancelled) setMetadataPopupLabels({});
+        if (!cancelled) setMetadataColumnLabels({});
       }
     })();
     return () => {
@@ -533,13 +442,11 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
     if (!mapContainerRef.current) return undefined;
     const map = new mapboxgl.Map({
       container: mapContainerRef.current,
+      center: MAP_CONFIG.center,
+      zoom: MAP_CONFIG.zoom,
       style: MAP_CONFIG.style,
       dragPan: true,
       dragRotate: false,
-    });
-    map.fitBounds(MAP_CONFIG.bounds, {
-      padding: INITIAL_MAP_PADDING,
-      animate: false,
     });
     const navCfg = MAP_CONFIG.navigationControl || {};
     map.addControl(
@@ -551,12 +458,6 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
       "top-right",
     );
     mapRef.current = map;
-    popupRef.current = new mapboxgl.Popup({
-      closeButton: true,
-      closeOnClick: false,
-      focusAfterOpen: false,
-    });
-    popupRef.current.on("close", () => clearOutlineOnPopupCloseRef.current());
 
     const onMouseEnter = () => {
       map.getCanvas().style.cursor = "pointer";
@@ -568,16 +469,12 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
       const f = e.features && e.features[0];
       if (!f?.geometry) return;
       if (f.geometry.type !== "Polygon" && f.geometry.type !== "MultiPolygon") return;
-      ignoreNextPopupCloseRef.current = true;
       outlineSetterRef.current({
         type: "Feature",
         properties: { ...f.properties },
         geometry: f.geometry,
       });
-      openOverridePopup(map, popupRef.current, f.properties || {}, e.lngLat);
-      requestAnimationFrame(() => {
-        ignoreNextPopupCloseRef.current = false;
-      });
+      selectedSetterRef.current(f.properties || {});
     };
 
     const onLoad = () => {
@@ -640,7 +537,6 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
         map.off("mouseleave", FILL_LAYER_ID, h.onMouseLeave);
       }
       layerHandlersRef.current = {};
-      popupRef.current?.remove();
       map.remove();
       mapRef.current = null;
       setMapReady(false);
@@ -653,7 +549,7 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
     const map = mapRef.current;
     const yearCol = config.yearColumn || "fiscal_yr";
     const rowByTown = buildRowLookup(rows, yearCol, fiscalYear);
-    const data = enrichGeojson(baseGeojson, rowByTown, config.mapColumns, fiscalYear, mergedPopupColumnLabels);
+    const data = enrichGeojson(baseGeojson, rowByTown, config.mapColumns, fiscalYear);
     const fillSrc = map.getSource(SOURCE_ID);
     if (fillSrc) fillSrc.setData(data);
 
@@ -677,27 +573,26 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
     config.yearColumn,
     fiscalYear,
     outlineHighlightFeature,
-    mergedPopupColumnLabels,
   ]);
 
   useEffect(() => {
-    if (!mapReady || !outlineHighlightFeature?.geometry || !popupRef.current) return undefined;
+    if (!mapReady || !outlineHighlightFeature?.geometry) return undefined;
     const mf = municipalFeature;
     if (!mf?.properties?.town) return undefined;
     const outlineTown = normalizeTownName(outlineHighlightFeature.properties?.town);
     const profileNorm = normalizeTownName(mf.properties.town);
     if (outlineTown !== profileNorm) return undefined;
 
-    profilePopupTimerRef.current = window.setTimeout(() => {
-      profilePopupTimerRef.current = null;
-      if (suppressPopupDuringPrintRef.current) return;
-      openProfilePopupForCurrentData();
+    profileSelectTimerRef.current = window.setTimeout(() => {
+      profileSelectTimerRef.current = null;
+      if (suppressSelectionDuringPrintRef.current) return;
+      selectProfileTownForCurrentData();
     }, 500);
 
     return () => {
-      if (profilePopupTimerRef.current != null) {
-        window.clearTimeout(profilePopupTimerRef.current);
-        profilePopupTimerRef.current = null;
+      if (profileSelectTimerRef.current != null) {
+        window.clearTimeout(profileSelectTimerRef.current);
+        profileSelectTimerRef.current = null;
       }
     };
   }, [
@@ -705,9 +600,7 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
     outlineHighlightFeature,
     rows.length,
     municipalFeature,
-    mergedPopupColumnLabels,
-    config.popupColumnLabels,
-    openProfilePopupForCurrentData,
+    selectProfileTownForCurrentData,
   ]);
 
   useEffect(() => {
@@ -717,17 +610,17 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
     };
     const onPrepareForPrint = () => prepareOverrideMapForPrint();
     // Legacy event name used by Print charts button
-    const onCloseMapPopups = () => prepareOverrideMapForPrint();
+    const onClearMapSelection = () => prepareOverrideMapForPrint();
 
     window.addEventListener("beforeprint", onBeforePrint);
     window.addEventListener("afterprint", onAfterPrint);
     window.addEventListener("datacommon-prepare-override-map-for-print", onPrepareForPrint);
-    window.addEventListener("datacommon-close-map-popups", onCloseMapPopups);
+    window.addEventListener("datacommon-close-map-popups", onClearMapSelection);
     return () => {
       window.removeEventListener("beforeprint", onBeforePrint);
       window.removeEventListener("afterprint", onAfterPrint);
       window.removeEventListener("datacommon-prepare-override-map-for-print", onPrepareForPrint);
-      window.removeEventListener("datacommon-close-map-popups", onCloseMapPopups);
+      window.removeEventListener("datacommon-close-map-popups", onClearMapSelection);
     };
   }, [prepareOverrideMapForPrint, restoreMapAfterPrint]);
 
@@ -744,7 +637,7 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
   }, [mapReady]);
 
   useEffect(() => {
-    if (suppressPopupDuringPrintRef.current) return undefined;
+    if (suppressSelectionDuringPrintRef.current) return undefined;
     if (!mapReady || !municipalFeature?.geometry || !mapRef.current) {
       return undefined;
     }
@@ -763,6 +656,11 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
     });
   }, [mapReady, profileTownKey, municipalFeature]);
 
+  const makeDatasetLink = (datasetId, useTimeframe, timeframe) => {
+    const timeframeParam = useTimeframe ? `?year=${timeframe}` : '';
+    return `${window.location.origin}/browser/datasets/${datasetId}${timeframeParam}`;
+  };
+
   return (
     <section className="municipal-finance-overrides-map" aria-labelledby="municipal-overrides-map-title">
       <h4 id="municipal-overrides-map-title" className="chart__title" style={{ marginBottom: "0.75rem" }}>
@@ -773,17 +671,84 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
           {loadError}
         </p>
       ) : null}
-      <div
-        ref={mapContainerRef}
-        style={{
-          width: "100%",
-          height: 400,
-          maxWidth: "100%",
-          border: "1px solid rgba(0,0,0,0.12)",
-          borderRadius: 4,
-          background: "#f8fafc",
-        }}
-      />
+      <div className="municipal-finance-overrides-map__layout">
+        <div
+          ref={mapContainerRef}
+          className="municipal-finance-overrides-map__canvas"
+          style={{
+            width: "100%",
+            height: 400,
+            maxWidth: "100%",
+            border: "1px solid rgba(0,0,0,0.12)",
+            borderRadius: 4,
+            background: "#f8fafc",
+          }}
+        />
+        <aside
+          className="municipal-finance-overrides-map__sidebar"
+          aria-live="polite"
+          aria-label="Municipality override details"
+        >
+          <div className="municipal-finance-overrides-map__sidebar-body">
+            {selectedProperties ? (
+              <>
+                <strong className="municipal-finance-overrides-map__sidebar-title">{selectedDisplayName}</strong>
+                <dl className="municipal-finance-overrides-map__sidebar-fields">
+                  {sidebarFields.map((field) => (
+                    <div key={field.key} className="municipal-finance-overrides-map__sidebar-row">
+                      <dt>{field.label}</dt>
+                      <dd>{field.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+                {selectedProfileUrl ? (
+                  <a
+                    className="municipal-finance-overrides-map__sidebar-link"
+                    href={selectedProfileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    View community profile
+                  </a>
+                ) : null}
+              </>
+            ) : (
+              <p className="municipal-finance-overrides-map__sidebar-empty">
+                Click a municipality on the map to see total revenue, expenditures, and override amounts.
+              </p>
+            )}
+          </div>
+          <div className="metadata municipal-finance-overrides-map__source">
+            <div className="source-timeframe">
+              <div className="source">
+                Source:
+                {" "}
+                {config.source || "Unknown"}
+              </div>
+              <div className="timeframe">
+                Years:
+                {" "}
+                {fiscalYear != null ? String(fiscalYear) : "…"}
+              </div>
+            </div>
+            {config.datasetLinks ? (
+              <div className="link">
+                <span>Link to: </span>
+                {Object.keys(config.datasetLinks).map((label) => (
+                  <a
+                    key={label}
+                    href={makeDatasetLink(config.datasetLinks[label], config.useTimeframeInDatasetLink, fiscalYear)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {label}
+                  </a>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </aside>
+      </div>
       {loading ? (
         <p className="metadata" style={{ marginTop: "0.5rem" }}>
           Loading map…
@@ -840,8 +805,9 @@ MunicipalFinanceOverridesMap.propTypes = {
     tableSchema: PropTypes.string.isRequired,
     tableName: PropTypes.string.isRequired,
     mapColumns: PropTypes.arrayOf(PropTypes.string).isRequired,
-    popupColumnLabels: PropTypes.objectOf(PropTypes.string),
     fetchLimit: PropTypes.number,
+    source: PropTypes.string,
+    datasetLinks: PropTypes.objectOf(PropTypes.oneOfType([PropTypes.string, PropTypes.number])),
     legend: PropTypes.arrayOf(
       PropTypes.shape({
         key: PropTypes.string.isRequired,

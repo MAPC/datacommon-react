@@ -5,6 +5,8 @@ import { createBrowserRouter, RouterProvider, useParams, Navigate } from "react-
 import App from "./App";
 import Home from "./pages/HomePage";
 import BrowserPage from "./pages/BrowserPage";
+import BulkDownloadIntroPage from "./pages/BulkDownloadIntroPage";
+import BulkDownloadBundlePage from "./pages/BulkDownloadBundlePage";
 import DataViewerPage from "./pages/DataViewerPage";
 import CommunitySelectorPage from "./pages/CommunitySelectorPage";
 import GalleryPage from "./pages/GalleryPage";
@@ -16,9 +18,15 @@ import "../src/assets/styles/app.scss";
 import CommunityProfilesPage from "./pages/CommunityProfilesPage";
 import SubregionProfilesPage from "./pages/SubregionProfilesPage";
 import RPAregionProfilesPage from "./pages/RPAregionProfilesPage";
+import LoginPage from "./pages/LoginPage"; 
 import tabs from "./constants/tabs";
 import municipalities from "./assets/data/ma-munis.json";
 import "./utils/introModal"; 
+import PasswordResetPage from "./pages/PasswordResetPage";
+import AdminWrapper from "./pages/AdminWrapper";
+import AdminTeammatesPage from "./pages/AdminTeammatesPage";
+import AdminListJobsPage from "./pages/AdminListJobsPage";
+import EmailVerificationPage from "./pages/EmailVerificationPage";
 
 // Create arrays of valid options
 const muniOptions = municipalities.features.map(
@@ -101,8 +109,16 @@ const router = createBrowserRouter([
             element: <BrowserPage />,
           },
           {
-            path: "datasets/:id",
+            path: "datasets/:id/:viewMode?",
             element: <DataViewerPage />,
+          },
+          {
+            path: "bulk-download",
+            element: <BulkDownloadIntroPage />,
+          },
+          {
+            path: "bulk-download/:bundleId",
+            element: <BulkDownloadBundlePage />,
           },
         ],
       },
@@ -118,23 +134,10 @@ const router = createBrowserRouter([
         path: "/profile/subregion/:subregionId/:tab?",
         element: <SubregionProfileRoute tabOptions={tabOptions} />
       },
-      {
-        path: "/profile/rpa/:rpaId/:tab?",
-        element: <RPAProfileRoute tabOptions={tabOptions} />
-      },
-      {
-        path:"gallery",
-        children:[
-          {
-            index:true,
-            element:<GalleryPage />
-          },
-          {
-            path:":year/:month",
-            element:<CalenderEntry />
-          }
-        ]
-      },
+      // {
+      //   path: "/profile/rpa/:rpaId/:tab?",
+      //   element: <RPAProfileRoute tabOptions={tabOptions} />
+      // },
       {
         path: "gallery",
         children: [
@@ -159,6 +162,33 @@ const router = createBrowserRouter([
       {
         path: "developers",
         element: <ApiPage />,
+      },
+      {
+        path: "login",
+        element: <LoginPage />
+      },
+      {
+        path: "/password-reset/:token",
+        element: <PasswordResetPage />
+      },
+      {
+        path: "/verify-account/:token",
+        element: <EmailVerificationPage />
+      },
+      // Admin routes, all routes should go through the admin parent that verifies login / admin status.
+      {
+        path: "admin",
+        element: <AdminWrapper />,
+        children: [
+          {
+            path: "teammates",
+            element: <AdminTeammatesPage />
+          },
+          {
+            path: "jobs",
+            element: <AdminListJobsPage />
+          }
+        ]
       }
     ],
   },
