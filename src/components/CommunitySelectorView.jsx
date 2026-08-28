@@ -92,6 +92,7 @@ const CommunitySelectorView = ({ muniLines, muniFill, municipalityPoly, toProfil
     <section className="component CommunitySelector">
       <div className="search-box">
         <p>Search any community in Massachusetts to view their profile:</p>
+
         <div style={styles.subregionSelector}>
           <select 
             value={selectedSubregion}

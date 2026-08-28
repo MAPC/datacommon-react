@@ -280,6 +280,7 @@ class DatasetTable extends React.Component {
     this.setState({ dragRowIndex: null });
   }
 
+
   sortData(data, columnName, direction) {
     if (!columnName) return data;
 
@@ -483,7 +484,9 @@ class DatasetTable extends React.Component {
     const effectiveSortDirection = sortColumn ? sortDirection : "asc";
     const sortedRows = this.sortData(allRows, effectiveSortColumn, effectiveSortDirection);
 
-    const showRowDragControls = Boolean(!linkRowsToDatasetView && onPreviewRowOrderChange);
+    const showRowDragControls = Boolean(
+      !linkRowsToDatasetView && (updateSelectedColumns || onPreviewRowOrderChange),
+    );
     const showRowGutter = showRowDragControls || linkRowsToDatasetView;
     const canCustomizeLayout = Boolean(
       showRowDragControls || onPreviewColumnOrderChange,

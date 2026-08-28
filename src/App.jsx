@@ -16,7 +16,7 @@ function App() {
       <main>
         <Outlet />
       </main>
-      <Footer />
+      {!hideSiteChrome && <Footer />}
     </section>
   )
 }
