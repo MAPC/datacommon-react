@@ -70,7 +70,8 @@ const CommunitySelectorView = ({ muniLines, muniFill, municipalityPoly, toProfil
     setSelectedSubregion(subregionId);
     // setSelectedRPAregion('');
     if (subregionId) {
-      navigate(`/profile/subregion/${subregionId}`);
+      const tab = window.open(`/profile/subregion/${subregionId}/demographics`, '_blank');
+      tab.focus();
     }
   };
 
