@@ -117,7 +117,7 @@ class StackedAreaChart extends React.Component {
     this.color = d3
       .scaleOrdinal()
       .domain(keys)
-      .range(this.props.colors || (keys.length > primaryColors.length ? extendedColors : primaryColors).slice(0, keys.length));
+      .range(this.props.chart.colors || (keys.length > primaryColors.length ? extendedColors : primaryColors).slice(0, keys.length));
     // Prepare data for stacking
     let data = areaData.reduce((acc, row) => {
       acc[row.x] = { ...(acc[row.x] || {}), ...{ [row.z]: row.y } };

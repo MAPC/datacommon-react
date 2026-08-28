@@ -252,7 +252,7 @@ const SubregionProfilesView = () => {
                     {row.map(muni => (
                       <MunicipalityLinkWrapper key={muni.muni_id}>
                         <StyledLink 
-                          to={`/profile/${muni.muni_name.toLowerCase().replace(/\s+/g, '-')}`}
+                          to={`/profile/${muni.muni_name.toLowerCase().replace(/\s+/g, '-')}/${tab || 'demographics'}`}
                           target="_blank"
                           rel="noopener noreferrer"
                         >
@@ -382,7 +382,7 @@ const SubregionProfilesView = () => {
                 <h3>Education</h3>
               </header>
               <div className="tab__row">
-                <ChartDetails 
+                {/* <ChartDetails
                   chart={charts.education.school_enrollment} 
                   muni={subregionId}
                   onViewData={handleShowModal}
@@ -394,7 +394,11 @@ const SubregionProfilesView = () => {
                     horizontal={true}
                     isSubregion={true}
                   />
-                </ChartDetails>
+                </ChartDetails> */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', marginRight: '150px'}}>
+                  <div>School enrollment is not available at the subregion level.</div>
+                  <div>Please select a municipality to see its enrollment.</div>
+                </div>
                 <ChartDetails 
                   chart={charts.education.edu_attainment_by_race} 
                   muni={subregionId}

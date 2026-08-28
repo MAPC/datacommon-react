@@ -2904,6 +2904,7 @@ export default {
         label: "2024 USD",
         format: format.number.localeString,
       },
+      colors: ['#1F4E46', '#FDD93A', '#287CCB', '#79BF60', '#ED948D'],
       tables: {
         "tabular.muni_finance_m_excess_capacity_area": {
           yearCol: "fiscal_yr",
