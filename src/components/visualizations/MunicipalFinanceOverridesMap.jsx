@@ -237,7 +237,7 @@ export default function MunicipalFinanceOverridesMap({ config, municipalFeature 
     : "";
 
   const selectedProfileUrl = selectedDisplayName
-    ? `/profile/${muniProfileSlug(selectedDisplayName)}/municipal-finance`
+    ? `/profile/${muniProfileSlug(selectedDisplayName.toLowerCase().replace(/\s+/g, '-'))}/municipal-finance`
     : null;
 
   const latestDataRef = useRef({
