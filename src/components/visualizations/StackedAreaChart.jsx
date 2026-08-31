@@ -84,7 +84,7 @@ class StackedAreaChart extends React.Component {
   }
 
   renderChart() {
-    const bonusLeftMargin = maxToMargin(d3.max(this.props.data, (d) => d.y));
+    const bonusLeftMargin = maxToMargin(d3.max(this.props.data, (d) => d.y)) + 25;
     const margin = {
       ...defaultMargin,
       left: defaultMargin.left + bonusLeftMargin,
