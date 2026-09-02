@@ -46,8 +46,11 @@ const Header = () => {
       return '';
     }
 
-    const words = userName.split(" ");
-    const letters = words.map(w => w.length > 0 ? w[0] : '');
+    let words = userName.split(" ");
+    if (words.length > 3) {
+      words = words.slice(0, 3);
+    }
+    const letters = words.map(w => w.length > 0 ? w[0].toUpperCase() : '');
     return letters.join('');
   }, [userName]);
 

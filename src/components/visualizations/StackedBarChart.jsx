@@ -10,7 +10,7 @@ import { isArray } from "vega";
 const primaryColors = Array.from(colors.CHART.PRIMARY.values());
 const extendedColors = Array.from(colors.CHART.EXTENDED.values());
 
-const LEFT_LABEL_MAX = 20;
+const LEFT_LABEL_MAX = 35;
 
 const container = {
   width: 500,
@@ -152,7 +152,7 @@ const StackedBarChart = (props) => {
     const bonusLeftMargin = maxTextToMargin(clippedMaxLeftLabel, 12);
 
     const margin = Object.assign({}, defaultMargin, {
-      left: defaultMargin.left + bonusLeftMargin,
+      left: defaultMargin.left + (bonusLeftMargin || 15),
     });
     const width = container.width - margin.left - margin.right;
     const height = container.height - margin.top - margin.bottom;

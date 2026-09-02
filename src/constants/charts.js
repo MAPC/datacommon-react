@@ -18,6 +18,7 @@ const format = {
     // For charts where the data is already in percent (0-100), not a ratio (0-1)
     integerPercent: (d) => (notNothing(d) ? `${d.toFixed(0)}%` : ""),
     localeString: (d) => (notNothing(d) ? d.toLocaleString() : ""),
+    currency : (d) => (notNothing(d) ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD'}).format(d) : "")
   },
 };
 
@@ -2834,7 +2835,7 @@ export default {
       type: "stacked-bar",
       title: "Override Wins and Losses",
       xAxis: { label: "Year", format: format.string.default },
-      yAxis: { label: "Win / Loss Ammount (2024 USD)", format: format.number.localeString },
+      yAxis: { label: "Win / Loss Ammount (2024 USD)", format: format.number.currency },
       noDataMessage: "No override data found in this timeframe.",
       tables: {
         "tabular.muni_finance_m_override_win_loss": {
@@ -2902,7 +2903,7 @@ export default {
       xAxis: { label: "Year", format: format.string.default },
       yAxis: {
         label: "2024 USD",
-        format: format.number.localeString,
+        format: format.number.currency,
       },
       colors: ['#1F4E46', '#FDD93A', '#287CCB', '#053959', '#d57c76'],
       tables: {
