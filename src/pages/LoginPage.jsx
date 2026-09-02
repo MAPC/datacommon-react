@@ -201,7 +201,7 @@ const LoginPage = () => {
                 </LoginEmailLabel>
                 <LoginEmailInput 
                   id="datacommon-login-email"
-                  style={{'marginLeft': '60px'}}
+                  style={{'marginLeft': '61px'}}
                   value={emailInputValue}
                   onChange={e => setEmailInputValue(e.target.value)}
                   placeholder="Email..."
@@ -266,14 +266,14 @@ const LoginPage = () => {
                 </LoginEmailDescription>
                 <div>
                   <LoginEmailLabel htmlFor="datacommon-account-create-name">
-                    Name:
+                    Full Name:
                   </LoginEmailLabel>
                   <LoginEmailInput 
                     id="datacommon-account-create-name"
-                    style={{'marginLeft': '88px'}}
+                    style={{'marginLeft': '58px'}}
                     value={nameInputValue}
                     onChange={e => setNameInputValue(e.target.value)}
-                    placeholder="Name..."
+                    placeholder="Full Name..."
                   />
                 </div>
                 <div>
@@ -282,7 +282,7 @@ const LoginPage = () => {
                   </LoginEmailLabel>
                   <LoginEmailInput 
                     id="datacommon-account-create-email"
-                    style={{'marginLeft': '90px'}}
+                    style={{'marginLeft': '89px'}}
                     value={emailInputValue}
                     onChange={e => setEmailInputValue(e.target.value)}
                     placeholder="Email..."
@@ -295,7 +295,7 @@ const LoginPage = () => {
                   <LoginEmailInput 
                     id="datacommon-login-password-set"
                     type="password"
-                    style={{'marginLeft': '60px'}}
+                    style={{'marginLeft': '59px'}}
                     value={newPassword}
                     onChange={e => setNewPassword(e.target.value)}
                     placeholder="Password..."
