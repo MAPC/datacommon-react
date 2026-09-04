@@ -135,6 +135,15 @@
     background: #fff;
     border: 1px solid #e0e0e0;
   }
+
+  .SearchBar {
+    min-width: 0;
+    width: 100%;
+
+    input::placeholder {
+      font-size: 0.8rem;
+    }
+  }
 }
 
 .bulk-download__panel-header {
