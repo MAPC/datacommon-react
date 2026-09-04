@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { useDispatch, useSelector } from 'react-redux';
 import { setResults, setHovering, clearContext } from '../../reducers/searchSlice';
@@ -10,16 +10,22 @@ const SearchBar = ({
   searchColumn, 
   onSelect, 
   placeholder, 
-  className = '' 
+  className = '',
+  additionalSearchable = [],
 }) => {
   const dispatch = useDispatch();
   const searchState = useSelector((state) => state.search[contextKey]);
   
   // Get searchable data based on context
-  const searchableData = useSelector((state) => 
+  const baseSearchableData = useSelector((state) => 
     contextKey === 'municipality' 
       ? state.municipality.searchable 
       : state.dataset.searchable
+  );
+
+  const searchableData = useMemo(
+    () => [...(additionalSearchable || []), ...(baseSearchableData || [])],
+    [additionalSearchable, baseSearchableData],
   );
   
   // Handle search input changes
@@ -98,6 +104,7 @@ SearchBar.propTypes = {
   onSelect: PropTypes.func.isRequired,
   placeholder: PropTypes.string.isRequired,
   className: PropTypes.string,
+  additionalSearchable: PropTypes.arrayOf(PropTypes.string),
 };
 
 export default SearchBar; 

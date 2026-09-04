@@ -1,5 +1,5 @@
 import locations from "../constants/locations";
-import { buildBulkExportTableEntry } from "../constants/bulkDownloadBundles";
+import { buildBulkExportTableEntry, expandBulkDownloadGeographyValues } from "../constants/bulkDownloadBundles";
 
 export const BULK_DOWNLOAD_EXPORT_FAILED = "Failed to export data.";
 
@@ -219,12 +219,14 @@ export async function requestBulkExport({
 
   const defaultExtension = format === "zip" ? "zip" : "xlsx";
 
+  const geographyValues = expandBulkDownloadGeographyValues(municipalities);
+
   const payload = {
     token: import.meta.env.VITE_MAPC_API_TOKEN,
     format,
     bundleSlug,
-    municipalities,
-    geography: { values: municipalities },
+    municipalities: geographyValues,
+    geography: { values: geographyValues },
     useMetadataColumns,
     tables: tables.map((tableConfig) => buildBulkExportTableEntry(tableConfig)),
   };
