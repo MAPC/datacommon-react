@@ -5,7 +5,7 @@ import PropTypes from "prop-types";
 import SearchBar from "../components/partials/SearchBar";
 import capitalize from "../utils/capitalize";
 import { fetchDatasets } from "../reducers/datasetSlice";
-import { getTableDisplayInfo, tableHasYearFilter } from "../constants/bulkDownloadBundles";
+import { getTableDisplayInfo, tableHasYearFilter, BULK_DOWNLOAD_EXTRA_GEOGRAPHIES, BULK_DOWNLOAD_EXTRA_GEOGRAPHY_NAMES } from "../constants/bulkDownloadBundles";
 import {
   downloadBlob,
   requestBulkExport,
@@ -200,9 +200,9 @@ const BulkDownloadBundlePage = () => {
           <nav className="bulk-download__breadcrumb" aria-label="Breadcrumb">
             <Link to="/browser">Data Browser</Link>
             <span aria-hidden="true"> / </span>
-            <Link to="/browser/bulk-download">Download data for planning</Link>
+            <Link to="/browser/bulk-download">Data for Planning</Link>
           </nav>
-          <h1>Download data for planning</h1>
+          <h1>Data for Planning</h1>
         </div>
         <div className="bulk-download__layout container tight">
           <BulkDownloadBundleSkeleton />
@@ -220,7 +220,10 @@ const BulkDownloadBundlePage = () => {
   const canDownload = municipalities.length > 0 && selectedTableNames.length > 0 && !yearsLoading;
 
   const handleMuniSelect = (muniSlug) => {
-    const name = capitalize(muniSlug);
+    const extraMatch = BULK_DOWNLOAD_EXTRA_GEOGRAPHIES.find(
+      (geo) => geo.name.toLowerCase() === String(muniSlug).toLowerCase(),
+    );
+    const name = extraMatch ? extraMatch.name : capitalize(muniSlug);
     setMunicipalities((prev) => (prev.includes(name) ? prev : [...prev, name]));
     setDownloadError("");
   };
@@ -281,7 +284,7 @@ const BulkDownloadBundlePage = () => {
         <nav className="bulk-download__breadcrumb" aria-label="Breadcrumb">
           <Link to="/browser">Data Browser</Link>
           <span aria-hidden="true"> / </span>
-          <Link to="/browser/bulk-download">Download data for planning</Link>
+          <Link to="/browser/bulk-download">Data for Planning</Link>
           <span aria-hidden="true"> / </span>
           <span>{bundle.title}</span>
         </nav>
@@ -298,7 +301,13 @@ const BulkDownloadBundlePage = () => {
               <section className="bulk-download__panel">
                 <h2>Municipality</h2>
                 <p className="bulk-download__hint">Required — search and select one or more Massachusetts cities or towns.</p>
-                <SearchBar contextKey="municipality" onSelect={handleMuniSelect} placeholder="Search for a community…" className="small" />
+                <SearchBar
+                  contextKey="municipality"
+                  onSelect={handleMuniSelect}
+                  placeholder="Search for a community, MAPC, or Massachusetts"
+                  className="small"
+                  additionalSearchable={BULK_DOWNLOAD_EXTRA_GEOGRAPHY_NAMES}
+                />
                 {municipalities.length > 0 && (
                   <ul className="bulk-download__muni-list" aria-label="Selected municipalities">
                     {municipalities.map((name) => (

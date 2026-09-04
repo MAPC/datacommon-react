@@ -455,19 +455,6 @@ const DatasetCount = styled.div`
   }
 `;
 
-const BulkDownloadLink = styled(Link)`
-  display: inline-block;
-  margin-top: 1rem;
-  color: #5aba8c;
-  font-size: 0.95rem;
-  font-weight: 600;
-  text-decoration: none;
-
-  &:hover {
-    text-decoration: underline;
-  }
-`;
-
 const SearchAndGeoFilterContainer = styled.div`
   display: flex;
   flex-direction: column;
@@ -1130,9 +1117,6 @@ const BrowserPage = () => {
         <DatasetCount>
           <strong>{noDupesDatasets?.length || 0}</strong> {noDupesDatasets?.length === 1 ? 'dataset' : 'datasets'} available
         </DatasetCount>
-        <BulkDownloadLink to="/browser/bulk-download">
-          Download data for planning 
-        </BulkDownloadLink>
       </PageHeader>
       <MainContent>
         <Sidebar>

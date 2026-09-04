@@ -6,6 +6,9 @@ import logoImg from "../assets/images/logo.svg";
 import { getCookie } from "../utils/cookies";
 
 function handleActivePage(subdirectory, link = "/home") {
+  if (link === "/browser" && subdirectory.startsWith("/browser/bulk-download")) {
+    return null;
+  }
   if (subdirectory.startsWith(link)) {
     return "active";
   }
@@ -79,6 +82,14 @@ const Header = () => {
                 href="/browser"
               >
                 Datasets
+              </a>
+            </li>
+            <li>
+              <a
+                className={handleActivePage(location.pathname, "/browser/bulk-download")}
+                href="/browser/bulk-download"
+              >
+                Data for Planning
               </a>
             </li>
             <li>
