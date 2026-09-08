@@ -1,28 +1,20 @@
 /** Helpers for bulk download bundle table config (loaded from DB via bulkDownloadApi). */
 
-import { getDatasetGeography, getDatasetGeographyLabel } from "../utils/manageDatasets";
-
 /** max tables (bundle + inventory) that can be included in one download. */
 export const MAX_BULK_DOWNLOAD_TABLES = 40;
 
 /** Map a Data Inventory dataset to a bulk-download table config. */
 export function tableConfigFromInventoryDataset(dataset) {
-  const geography = getDatasetGeography(dataset);
-  const isMunicipal = geography === "municipal";
   return {
     table: dataset.table_name,
     datasetId: dataset.seq_id != null && dataset.seq_id !== "" ? String(dataset.seq_id) : null,
     database: dataset.db_name || "ds",
     schema: dataset.schemaname || "tabular",
     geoColumn: String(dataset.geocolumn || dataset.geo_column || "").trim(),
-    skipGeographyFilter: !isMunicipal,
     source: dataset.source || "",
     yearColumn: dataset.yearcolumn || "",
     availableYears: [],
     isCustom: true,
-    isNonMunicipal: !isMunicipal,
-    geography,
-    geographyLabel: getDatasetGeographyLabel(dataset),
   };
 }
 
@@ -44,6 +36,40 @@ export const BULK_DOWNLOAD_EXTRA_GEOGRAPHY_NAMES = BULK_DOWNLOAD_EXTRA_GEOGRAPHI
   (geo) => geo.name,
 );
 
+const MAPC_GEOGRAPHY = BULK_DOWNLOAD_EXTRA_GEOGRAPHIES.find((geo) => geo.muniId === 352);
+
+function addUniqueName(names, seen, name) {
+  const trimmed = String(name || "").trim();
+  if (!trimmed) return;
+  const key = trimmed.toLowerCase();
+  if (seen.has(key)) return;
+  seen.add(key);
+  names.push(trimmed);
+}
+
+/** Match a selected name against extra geography display names or aliases. */
+export function findBulkDownloadExtraGeography(selectedName) {
+  const needle = String(selectedName).toLowerCase();
+  return BULK_DOWNLOAD_EXTRA_GEOGRAPHIES.find((place) => {
+    if (place.name.toLowerCase() === needle) return true;
+    return (place.municipalAliases || []).some((alias) => alias.toLowerCase() === needle);
+  });
+}
+
+/**
+ * Search names for the municipality dropdown: rows from bulk_download_datakeys_all,
+ * plus MAPC aliases that may not appear as the stored municipal name.
+ */
+export function buildBulkDownloadMunicipalitySearchable(rows = []) {
+  const names = [];
+  const seen = new Set();
+
+  (MAPC_GEOGRAPHY?.municipalAliases || []).forEach((alias) => addUniqueName(names, seen, alias));
+  rows.forEach((row) => addUniqueName(names, seen, row.municipal));
+
+  return names;
+}
+
 /**
  * Turn the names the user picked into the names stored in the tables.
  * Example: "MAPC" is stored as "MAPC" in most tables, but as
@@ -53,9 +79,7 @@ export function expandBulkDownloadGeographyValues(selectedNames = []) {
   const namesToSend = [];
 
   for (const selectedName of selectedNames) {
-    const specialPlace = BULK_DOWNLOAD_EXTRA_GEOGRAPHIES.find(
-      (place) => place.name.toLowerCase() === String(selectedName).toLowerCase(),
-    );
+    const specialPlace = findBulkDownloadExtraGeography(selectedName);
 
     if (specialPlace) {
       namesToSend.push(...specialPlace.municipalAliases);
@@ -88,9 +112,7 @@ export function buildBulkExportTableEntry(tableConfig) {
     years,
   };
 
-  if (!tableConfig.skipGeographyFilter) {
-    entry.geoColumn = tableConfig.geoColumn || "municipal";
-  }
+  entry.geoColumn = tableConfig.geoColumn || "municipal";
 
   if (hasYearFilter && years.length > 0) {
     entry.yearColumn = tableConfig.yearColumn;

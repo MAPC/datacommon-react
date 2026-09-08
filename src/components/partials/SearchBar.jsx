@@ -12,16 +12,18 @@ const SearchBar = ({
   placeholder, 
   className = '',
   additionalSearchable = [],
+  searchable = null,
 }) => {
   const dispatch = useDispatch();
   const searchState = useSelector((state) => state.search[contextKey]);
   
-  // Get searchable data based on context
-  const baseSearchableData = useSelector((state) => 
+  // Get searchable data based on context, unless a custom list is provided
+  const reduxSearchableData = useSelector((state) => 
     contextKey === 'municipality' 
       ? state.municipality.searchable 
       : state.dataset.searchable
   );
+  const baseSearchableData = searchable ?? reduxSearchableData;
 
   const searchableData = useMemo(
     () => [...(additionalSearchable || []), ...(baseSearchableData || [])],
@@ -105,6 +107,7 @@ SearchBar.propTypes = {
   placeholder: PropTypes.string.isRequired,
   className: PropTypes.string,
   additionalSearchable: PropTypes.arrayOf(PropTypes.string),
+  searchable: PropTypes.array,
 };
 
 export default SearchBar; 

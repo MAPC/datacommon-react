@@ -13,6 +13,7 @@ export const BULK_DOWNLOAD_EXPORT_FAILED_MESSAGE = {
 const BULK_DOWNLOAD_BUNDLE_LIST = "_bulk_download_bundle";
 const BULK_DOWNLOAD_BUNDLE_TABLE_LIST_VIEW = "_bulk_download_bundle_table_list";
 const BULK_DOWNLOAD_BUNDLE_TABLES_STORED_PROCEDURE = "bulk-download-bundle-tables";
+const BULK_DOWNLOAD_DATAKEYS_TABLE = "bulk_download_datakeys_all";
 
 function formatDateStamp(date = new Date()) {
   const year = date.getFullYear();
@@ -139,6 +140,30 @@ async function fetchBundleListApiRows(bundleId) {
   }
 
   return [bundleRows, tableData.rows || []];
+}
+
+function parseBulkDownloadMunicipalityRows(rows = []) {
+  return rows
+    .map((row) => ({
+      muniId: Number(row.muni_id),
+      municipal: String(row.municipal ?? "").trim(),
+    }))
+    .filter((row) => row.municipal)
+    .sort((a, b) => a.municipal.localeCompare(b.municipal, undefined, { sensitivity: "base" }));
+}
+
+/** load geography options from bulk_download_datakeys_all */
+export async function fetchBulkDownloadMunicipalities() {
+  const token = import.meta.env.VITE_MAPC_API_TOKEN;
+  const url = `${locations.BROWSER_API}?token=${token}&database=ds&schema=tabular&table=${BULK_DOWNLOAD_DATAKEYS_TABLE}&columns=muni_id,municipal&limit=1000`;
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    return [];
+  }
+
+  const data = await response.json();
+  return parseBulkDownloadMunicipalityRows(data.rows || []);
 }
 
 export async function fetchBulkDownloadBundles() {
@@ -270,9 +295,8 @@ export async function requestBulkExport({
     throw new Error("Please select at least one table.");
   }
 
-  const needsMunicipality = tables.some((tableConfig) => !tableConfig.skipGeographyFilter);
-  if (needsMunicipality && municipalities.length === 0) {
-    throw new Error("Select at least one municipality.");
+  if (municipalities.length === 0) {
+    throw new Error("Select at least one geography.");
   }
 
   const defaultExtension = format === "zip" ? "zip" : "xlsx";
