@@ -12,13 +12,14 @@ import {
   tableHasYearFilter,
   tableConfigFromInventoryDataset,
   MAX_BULK_DOWNLOAD_TABLES,
-  BULK_DOWNLOAD_EXTRA_GEOGRAPHIES,
-  BULK_DOWNLOAD_EXTRA_GEOGRAPHY_NAMES,
+  findBulkDownloadExtraGeography,
+  buildBulkDownloadMunicipalitySearchable,
 } from "../constants/bulkDownloadBundles";
 import {
   downloadBlob,
   requestBulkExport,
   fetchBulkDownloadBundle,
+  fetchBulkDownloadMunicipalities,
   fetchAvailableYearsForTable,
   fetchGeoColumnForTable,
   resolveDefaultSelectedYears,
@@ -87,9 +88,6 @@ const TableRow = ({
           {source && <span className="bulk-download__table-source">{source}</span>}
           <span className="bulk-download__table-meta">
             <code>{tableConfig.table}</code>
-            {tableConfig.isNonMunicipal && (
-              <span className="bulk-download__geo-badge">{tableConfig.geographyLabel}</span>
-            )}
           </span>
         </span>
         {isCustom && (
@@ -126,12 +124,6 @@ const TableRow = ({
               </div>
             )}
           </>
-        )}
-        {tableConfig.isNonMunicipal && (
-          <p className="bulk-download__table-years-note">
-            This table uses {tableConfig.geographyLabel} geography — it is not filtered by municipality. Select years to
-            include.
-          </p>
         )}
       </div>
     </li>
@@ -268,6 +260,8 @@ const BulkDownloadBundlePage = () => {
 
   const [bundle, setBundle] = useState(null);
   const [bundleLoading, setBundleLoading] = useState(true);
+  const [municipalityOptions, setMunicipalityOptions] = useState([]);
+  const [municipalitiesLoading, setMunicipalitiesLoading] = useState(true);
   const [municipalities, setMunicipalities] = useState([]);
   const [customTables, setCustomTables] = useState([]);
   const [selectedTableNames, setSelectedTableNames] = useState([]);
@@ -291,6 +285,31 @@ const BulkDownloadBundlePage = () => {
       dispatch(fetchDatasets());
     }
   }, [dispatch, status]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadMunicipalities = async () => {
+      try {
+        const rows = await fetchBulkDownloadMunicipalities();
+        if (!cancelled) setMunicipalityOptions(rows);
+      } catch {
+        if (!cancelled) setMunicipalityOptions([]);
+      } finally {
+        if (!cancelled) setMunicipalitiesLoading(false);
+      }
+    };
+
+    loadMunicipalities();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const municipalitySearchable = useMemo(
+    () => buildBulkDownloadMunicipalitySearchable(municipalityOptions),
+    [municipalityOptions],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -461,15 +480,12 @@ const BulkDownloadBundlePage = () => {
     return <Navigate to="/browser/bulk-download" replace />;
   }
 
-  const isPageLoading = status !== "succeeded" || yearsLoading;
+  const isPageLoading = status !== "succeeded" || yearsLoading || municipalitiesLoading;
   const allTablesSelected = selectedTableNames.length === displayTables.length;
-  const hasMunicipalTables = selectedTableConfigs.some((t) => !t.skipGeographyFilter);
-  const canDownload = selectedTableNames.length > 0 && !yearsLoading && (!hasMunicipalTables || municipalities.length > 0);
+  const canDownload = selectedTableNames.length > 0 && !yearsLoading && municipalities.length > 0;
 
   const handleMuniSelect = (muniSlug) => {
-    const extraMatch = BULK_DOWNLOAD_EXTRA_GEOGRAPHIES.find(
-      (geo) => geo.name.toLowerCase() === String(muniSlug).toLowerCase(),
-    );
+    const extraMatch = findBulkDownloadExtraGeography(muniSlug);
     const name = extraMatch ? extraMatch.name : capitalize(muniSlug);
     setMunicipalities((prev) => (prev.includes(name) ? prev : [...prev, name]));
     setDownloadError("");
@@ -500,8 +516,8 @@ const BulkDownloadBundlePage = () => {
       return;
     }
 
-    if (hasMunicipalTables && municipalities.length === 0) {
-      setDownloadError("Select at least one municipality.");
+    if (municipalities.length === 0) {
+      setDownloadError("Select at least one geography.");
       return;
     }
 
@@ -515,7 +531,7 @@ const BulkDownloadBundlePage = () => {
       const geoColumnByTable = {};
       const tablesForExport = await Promise.all(
         selectedTableConfigs.map(async (tableConfig) => {
-          if (!tableConfig.isCustom || tableConfig.skipGeographyFilter) {
+          if (!tableConfig.isCustom) {
             return tableConfig;
           }
           if (tableConfig.geoColumn) {
@@ -552,7 +568,7 @@ const BulkDownloadBundlePage = () => {
       downloadBlob(blob, filename);
       setDownloadStatus("");
     } catch (err) {
-      const isValidationError = err.message === "Select at least one municipality." || err.message === "Please select at least one table.";
+      const isValidationError = err.message === "Select at least one geography." || err.message === "Please select at least one table.";
       setDownloadError(isValidationError ? err.message : BULK_DOWNLOAD_EXPORT_FAILED);
       setDownloadStatus("");
     } finally {
@@ -581,18 +597,16 @@ const BulkDownloadBundlePage = () => {
           <>
             <aside className="bulk-download__sidebar">
               <section className="bulk-download__panel">
-                <h2>Municipality</h2>
+                <h2>Geography</h2>
                 <p className="bulk-download__hint">
-                  {hasMunicipalTables
-                    ? "Required — search and select one or more Massachusetts cities or towns."
-                    : "Optional for the tables currently selected. Non-municipal tables are not filtered by city or town."}
+                  Required - search and select one or more geographies in Massachusetts
                 </p>
                 <SearchBar
                   contextKey="municipality"
                   onSelect={handleMuniSelect}
-                  placeholder="Search for a community, MAPC, or Massachusetts"
+                  placeholder="Search for a geography in Massachusetts"
                   className="small"
-                  additionalSearchable={BULK_DOWNLOAD_EXTRA_GEOGRAPHY_NAMES}
+                  searchable={municipalitySearchable}
                 />
                 {municipalities.length > 0 && (
                   <ul className="bulk-download__muni-list" aria-label="Selected municipalities">
@@ -631,8 +645,8 @@ const BulkDownloadBundlePage = () => {
                 <button type="button" className="bulk-download__download-btn" disabled={!canDownload || isDownloading} onClick={handleDownload}>
                   {isDownloading ? "Preparing…" : "Download"}
                 </button>
-                {hasMunicipalTables && !municipalities.length && (
-                  <p className="bulk-download__validation">Select at least one municipality to continue.</p>
+                {municipalities.length === 0 && (
+                  <p className="bulk-download__validation">Select at least one geography to continue.</p>
                 )}
                 {selectedTableNames.length === 0 && <p className="bulk-download__validation">Select at least one table.</p>}
                 {selectedTableNames.length > MAX_BULK_DOWNLOAD_TABLES && (
