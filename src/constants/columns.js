@@ -11,7 +11,7 @@ export const unformattedColumns = [
   // block group columns:
   "bg10_id", "bg20_id", 
   // blocks columns:
-  "blk10_id", "blk20_id",
+  "blk10_id", "blk20_id", "bl20_id", "bl10_id",
   // 250m grid columns
   "g250m_id",
   // zip codes:
