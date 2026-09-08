@@ -24,12 +24,7 @@ export const BULK_DOWNLOAD_EXTRA_GEOGRAPHIES = [
     name: "MAPC",
     muniId: 352,
     municipalAliases: ["MAPC", "Metropolitan Area Planning Council"],
-  },
-  {
-    name: "Massachusetts",
-    muniId: 353,
-    municipalAliases: ["Massachusetts"],
-  },
+  }
 ];
 
 export const BULK_DOWNLOAD_EXTRA_GEOGRAPHY_NAMES = BULK_DOWNLOAD_EXTRA_GEOGRAPHIES.map(
@@ -56,16 +51,35 @@ export function findBulkDownloadExtraGeography(selectedName) {
   });
 }
 
+function getHiddenMunicipalAliasKeys() {
+  const hidden = new Set();
+
+  BULK_DOWNLOAD_EXTRA_GEOGRAPHIES.forEach((geo) => {
+    (geo.municipalAliases).forEach((alias) => {
+      if (alias.toLowerCase() !== geo.name.toLowerCase()) {
+        hidden.add(alias.toLowerCase());
+      }
+    });
+  });
+
+  return hidden;
+}
+
 /**
  * Search names for the municipality dropdown: rows from bulk_download_datakeys_all,
- * plus MAPC aliases that may not appear as the stored municipal name.
+ * plus extra-geography display names (aliases stay as query mappings only).
  */
 export function buildBulkDownloadMunicipalitySearchable(rows = []) {
   const names = [];
   const seen = new Set();
+  const hiddenAliases = getHiddenMunicipalAliasKeys();
 
-  (MAPC_GEOGRAPHY?.municipalAliases || []).forEach((alias) => addUniqueName(names, seen, alias));
-  rows.forEach((row) => addUniqueName(names, seen, row.municipal));
+  addUniqueName(names, seen, MAPC_GEOGRAPHY?.name);
+  rows.forEach((row) => {
+    const municipal = row.municipal.trim();
+    if (hiddenAliases.has(municipal.toLowerCase())) return;
+    addUniqueName(names, seen, municipal);
+  });
 
   return names;
 }
