@@ -1,5 +1,7 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+
 import locations from "../constants/locations";
+import { getCookie } from "../utils/cookies";
 
 const initialState = {
   cache: [],
@@ -10,8 +12,23 @@ const initialState = {
 };
 
 export const fetchDatasets = createAsyncThunk("dataset/fetchDatasets", async () => {
+  // check if the user can view non-active datasets
+  const cookie = getCookie('datacommon_mapc_token');
+  let user;
+  if (cookie) {
+    const loggedInUserResp = await fetch(`${locations.BROWSER_API}/api/users/me`);
+    const userJson = await loggedInUserResp.json();
+    user = userJson.user;
+  }
+
+  let activeFilter = 'filters=active:Y';
+  const validRoles = ['MAPC_USER', 'ADMIN', 'SADMIN'];
+  if (user && user.organization === 'MAPC' && validRoles.includes(user.role)) {
+    activeFilter = '';
+  }
+
   const response = await fetch(
-    `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_data_browser&filters=active:Y`,
+    `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_data_browser&${activeFilter}`,
   );
   
   if (!response.ok) {

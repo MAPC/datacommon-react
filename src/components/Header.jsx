@@ -1,8 +1,14 @@
-import React from "react";
-import { useLocation } from "react-router-dom";
+import axios from "axios";
+import React, { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+
 import logoImg from "../assets/images/logo.svg";
+import { getCookie } from "../utils/cookies";
 
 function handleActivePage(subdirectory, link = "/home") {
+  if (link === "/browser" && subdirectory.startsWith("/browser/bulk-download")) {
+    return null;
+  }
   if (subdirectory.startsWith(link)) {
     return "active";
   }
@@ -14,7 +20,42 @@ function handleActivePage(subdirectory, link = "/home") {
 }
 
 const Header = () => {
+  const [userName, setUserName] = useState(null);
   const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // If the user has a login cookie set, fetch their name to display in the Icon.
+    const cookie = getCookie('datacommon_mapc_token');
+    if (cookie) {
+      axios.get("/api/users/me")
+        .then(res => {
+          if (res.data?.user?.name) {
+            setUserName(res.data.user.name);
+          } else {
+            setUserName(null);
+          }
+        }).catch(err => {
+          setUserName(null);
+        });
+    } else {
+      // user has no cookie
+      setUserName(null);
+    }
+  }, [location.pathname]);
+
+  const initialsString = useMemo(() => {
+    if (!userName) {
+      return '';
+    }
+
+    let words = userName.split(" ");
+    if (words.length > 3) {
+      words = words.slice(0, 3);
+    }
+    const letters = words.map(w => w.length > 0 ? w[0].toUpperCase() : '');
+    return letters.join('');
+  }, [userName]);
 
   return (
     <header className="container">
@@ -45,6 +86,14 @@ const Header = () => {
             </li>
             <li>
               <a
+                className={handleActivePage(location.pathname, "/browser/bulk-download")}
+                href="/browser/bulk-download"
+              >
+                Data for Planning
+              </a>
+            </li>
+            <li>
+              <a
                 className={handleActivePage(location.pathname, "/gallery")}
                 href="/gallery"
               >
@@ -70,6 +119,13 @@ const Header = () => {
           </ul>
         </div>
       </nav>
+      {userName && 
+        <div className="header-user-icon-container" onClick={() => navigate("/admin/teammates")}>
+          <div className="header-user-icon">
+            {initialsString}
+          </div>
+        </div>
+      }
     </header>
   );
 };

@@ -33,11 +33,16 @@ export function buildTreeMapDataFromRow(metricDefs, row) {
 }
 
 function partitionTreeData(data) {
-  if (!Array.isArray(data)) return { tiles: [], summary: null };
+  if (!Array.isArray(data)) return { tiles: [], zeroTiles: [], summary: null };
   const normalized = data
     .map((d) => {
       const rawValue = d.value;
-      const parsedValue = typeof rawValue === "number" ? rawValue : Number(rawValue);
+      const parsedValue =
+        rawValue == null || rawValue === ""
+          ? NaN
+          : typeof rawValue === "number"
+            ? rawValue
+            : Number(rawValue);
       return {
         key: d.key,
         label: d.label,
@@ -48,26 +53,37 @@ function partitionTreeData(data) {
     })
     .filter((d) => {
       if (d.summaryOnly) {
-        return Boolean(d.key) && Number.isFinite(d.value);
+        return Boolean(d.key);
       }
       return Boolean(d.key) && Number.isFinite(d.value) && d.value >= 0;
     });
   const summary = normalized.find((d) => d.summaryOnly) || null;
-  const tiles = normalized.filter((d) => !d.summaryOnly);
-  return { tiles, summary };
+  const categoryTiles = normalized.filter((d) => !d.summaryOnly);
+  // Zero-value categories cannot form a visible proportional tile; show them as a note instead.
+  const tiles = categoryTiles.filter((d) => d.value > 0);
+  const zeroTiles = categoryTiles.filter((d) => d.value === 0);
+  return { tiles, zeroTiles, summary };
 }
 
 function createColorHelpers(tileData, chart) {
   const primaryColors = Array.from(colors.CHART.PRIMARY.values());
   const fromConfig =
     chart && Array.isArray(chart.colors) && chart.colors.length > 0 ? chart.colors : null;
-  const palette = fromConfig
-    ? fromConfig
+  const tileCount = (tileData || []).length;
+  let palette = fromConfig
+    ? [...fromConfig]
     : primaryColors.length >= 4
       ? primaryColors.slice(-4)
       : primaryColors.length > 0
-        ? primaryColors
+        ? [...primaryColors]
         : [colors.BRAND.SECONDARY];
+
+  // Prevent ordinal wrap-around reuse when there are more tiles than configured colors.
+  if (tileCount > palette.length) {
+    const extras = primaryColors.filter((color) => !palette.includes(color));
+    palette = [...palette, ...extras].slice(0, Math.max(tileCount, palette.length));
+  }
+
   const colorScale = d3
     .scaleOrdinal()
     .domain((tileData || []).map((d) => String(d.key || d.label || "")))
@@ -85,141 +101,11 @@ function createColorHelpers(tileData, chart) {
 /** Area ∝ value^exponent; 1 = true proportion, lower = more compression for readability. */
 export const TREEMAP_LAYOUT_VALUE_EXPONENT = 0.88;
 
-const TILE_LABEL_FONT = 13;
-const TILE_VALUE_FONT = 14;
-const TILE_EDGE_PADDING = 16;
-const TAX_LEVY_TILE_KEY = "tax_levy";
-/** Leave room for side tiles' labels; fund revenue only. */
-const DEFAULT_TAX_LEVY_MAX_LAYOUT_SHARE = 0.56;
-const TEXT_AWARE_SVG_HEIGHT = 400;
-
-/** Pixel size needed to render full category label + exact value at standard tile fonts. */
-export function measureTileTextMinimums(label, value, formatValue) {
-  const categoryLabel = String(label || "");
-  const valueText = formatTileValueLabel(value, formatValue);
-  let valueLines = [valueText];
-
-  const labelWidth = lineWidth(categoryLabel, TILE_LABEL_FONT);
-  let valueWidth = lineWidth(valueText, TILE_VALUE_FONT);
-  if (valueWidth > 320) {
-    valueLines = splitValueIntoLines(valueText);
-    valueWidth = Math.max(...valueLines.map((line) => lineWidth(line, TILE_VALUE_FONT)));
-  }
-
-  const minWidth = Math.ceil(Math.max(labelWidth, valueWidth, 72));
-  const labelBlock = Math.ceil(TILE_LABEL_FONT * 1.15); // 1.15 is the line height factor, so the lable won't be cut off
-  const valueBlock = valueLines.length * Math.ceil(TILE_VALUE_FONT * 1.2); // 1.2 is the line height factor 
-  const minHeight = Math.ceil(TILE_EDGE_PADDING + labelBlock + 6 + valueBlock + 8);
-
-  return { minWidth, minHeight, minArea: minWidth * minHeight, valueLines };
-}
-
-/**
- * Fund revenue: smallest value sets the baseline; others scale by dollar ratio.
- * Tax levy is capped so side tiles stay tall enough for full labels and amounts.
- */
-export function computeTextAwareLayoutValues(tiles, formatValue, options = {}) {
-  if (!tiles?.length) return [];
-
-  const measured = tiles.map((tile) => ({
-    tile,
-    text: measureTileTextMinimums(tile.label, tile.value, formatValue),
-  }));
-
-  const smallestValueTile = measured.reduce(
-    (smallestSoFar, currentTile ) =>
-      currentTile.tile.value < smallestSoFar.tile.value ? currentTile : smallestSoFar,
-    measured[0],
-  );
-  const smallestValue = Math.max(smallestValueTile.tile.value, 0);
-  const smallestTextArea = smallestValueTile.text.minArea;
-
-  if (smallestValue === 0) {
-    return measured.map(({ tile, text }) => ({
-      ...tile,
-      layoutValue: text.minArea,
-      textMinWidth: text.minWidth,
-      textMinHeight: text.minHeight,
-      valueLines: text.valueLines,
-    }));
-  }
-
-  const taxLevyMaxShare = options.taxLevyMaxLayoutShare ?? DEFAULT_TAX_LEVY_MAX_LAYOUT_SHARE;
-
-  let layoutData = measured.map(({ tile, text }) => {
-    const proportionalWeight = (tile.value / smallestValue) * smallestTextArea;
-    const isSmallestValueTile = tile.value === smallestValueTile.tile.value;
-    const isTaxLevy = tile.key === TAX_LEVY_TILE_KEY;
-
-    let layoutValue = proportionalWeight;
-    if (isSmallestValueTile || !isTaxLevy) {
-      layoutValue = Math.max(proportionalWeight, text.minArea);
-    }
-
-    return {
-      ...tile,
-      layoutValue,
-      textMinWidth: text.minWidth,
-      textMinHeight: text.minHeight,
-      valueLines: text.valueLines,
-    };
-  });
-
-  const taxLevyTile = layoutData.find((tile) => tile.key === TAX_LEVY_TILE_KEY);
-  if (taxLevyTile && taxLevyMaxShare < 1) {
-    const totalLayoutWeight = layoutData.reduce((sum, tile) => sum + tile.layoutValue, 0);
-    const maxTaxLevyWeight = totalLayoutWeight * taxLevyMaxShare;
-    if (taxLevyTile.layoutValue > maxTaxLevyWeight) {
-      taxLevyTile.layoutValue = maxTaxLevyWeight;
-    }
-  }
-
-  if (options?.chartWidth > 0 && options?.chartHeight > 0) {
-    layoutData = refineLayoutValuesForText(layoutData, options.chartWidth, options.chartHeight);
-  }
-
-  return layoutData;
-}
-
-/**
- * D3 only guarantees area, not width/height — a tile can be too skinny or too flat for its label.
- * Lay out once, check each box, and nudge up anything that would clip text until everything fits.
- */
-export function refineLayoutValuesForText(layoutData, chartWidth, chartHeight) {
-  const paddingInner = 4;
-  const paddingOuter = 2;
-  let next = layoutData.map((tile) => ({ ...tile }));
-
-  for (let attempt = 0; attempt < 12; attempt += 1) {
-    const root = d3
-      .hierarchy({ children: next })
-      .sum((d) => d.layoutValue)
-      .sort((a, b) => b.value - a.value);
-    d3.treemap().size([chartWidth, chartHeight]).paddingInner(paddingInner).paddingOuter(paddingOuter)(root);
-
-    let changed = false;
-    const byKey = new Map(root.leaves().map((leaf) => [leaf.data.key, leaf]));
-
-    next = next.map((tile) => {
-      const leaf = byKey.get(tile.key);
-      if (!leaf) return tile;
-
-      const width = leaf.x1 - leaf.x0;
-      const height = leaf.y1 - leaf.y0;
-      if (width >= tile.textMinWidth && height >= tile.textMinHeight) return tile;
-
-      const scaleW = tile.textMinWidth / Math.max(width, 1);
-      const scaleH = tile.textMinHeight / Math.max(height, 1);
-      const scale = Math.max(scaleW, scaleH, 1.05);
-      changed = true;
-      return { ...tile, layoutValue: tile.layoutValue * scale * scale };
-    });
-
-    if (!changed) break;
-  }
-
-  return next;
-}
+const TILE_LABEL_FONT = 11;
+const TILE_VALUE_FONT = 11;
+/** Floor so white text stays readable on light tiles when space is tight. */
+const MIN_TILE_LABEL_FONT = 10;
+const MIN_TILE_VALUE_FONT = 8;
 
 /**
  * Cap the largest tile's layout weight and redistribute so it renders shorter/wider.
@@ -249,17 +135,18 @@ export function capDominantTileLayoutValues(layoutValues, maxShare = 0.52) {
 
 /**
  * Turn each category's dollar amount into a layout weight for D3 treemap.
- * Fund revenue uses text-based sizing; other charts use the default path below.
  */
 export function computeTreemapLayoutValues(tiles, options = {}) {
-  const useTextBasedSizing =
-    options.textAware && typeof options.formatValue === "function";
-
-  if (useTextBasedSizing) {
-    return computeTextAwareLayoutValues(tiles, options.formatValue, {
-      chartWidth: options.chartWidth,
-      chartHeight: options.chartHeight,
-    });
+  if (options.trueProportions) {
+    // Area ∝ dollar value, with a tiny floor so near-zero categories still get a visible colored block.
+    const values = (tiles || []).map((tile) => Math.max(tile.value, 0));
+    const total = values.reduce((sum, value) => sum + value, 0);
+    const minShare = Number.isFinite(options.minVisibleShare) ? options.minVisibleShare : 0.004;
+    const floor = total > 0 ? total * minShare : 0;
+    return (tiles || []).map((tile, index) => ({
+      ...tile,
+      layoutValue: Math.max(values[index], floor),
+    }));
   }
 
   // Default treemap sizing 
@@ -297,15 +184,17 @@ export function formatTileValueLabel(value, formatValue) {
   return formatValue(n);
 }
 
-const TEXT_PADDING = 14;
-const CHAR_WIDTH_RATIO = 0.43;
+const TEXT_PADDING = 2;
+const CHAR_WIDTH_RATIO = 0.56;
 
 /** Shrink font so full text fits on one line; never truncate or abbreviate. */
 export function fitFontSize(text, availableWidth, { base = 15, min = 8 } = {}) {
   const widthAt = (fontSize) => String(text).length * CHAR_WIDTH_RATIO * fontSize + TEXT_PADDING;
-  if (availableWidth >= widthAt(base)) return base;
-  const scaled = Math.floor(base * (availableWidth / widthAt(base)));
-  return Math.max(min, scaled);
+  let fontSize = base;
+  while (fontSize > min && widthAt(fontSize) > availableWidth) {
+    fontSize -= 1;
+  }
+  return fontSize;
 }
 
 /** Break a long currency string across lines without dropping digits. */
@@ -318,13 +207,69 @@ export function splitValueIntoLines(valueText) {
   return [text];
 }
 
+function splitLabelAtMid(label) {
+  const words = String(label || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (words.length <= 1) return [String(label || "").trim()];
+
+  // Choose the break that minimizes the longest line (fits narrow tiles better).
+  let best = [words[0], words.slice(1).join(" ")];
+  let bestScore = Math.max(best[0].length, best[1].length);
+  for (let i = 1; i < words.length; i += 1) {
+    const left = words.slice(0, i).join(" ");
+    const right = words.slice(i).join(" ");
+    const score = Math.max(left.length, right.length);
+    if (score < bestScore) {
+      bestScore = score;
+      best = [left, right];
+    }
+  }
+  return best;
+}
+
+/**
+ * Prefer wrapping multi-word labels (e.g. "Local Receipt") over shrinking the font.
+ * Wrap when the full label does not fit at the preferred font size.
+ */
+export function splitLabelIntoLines(label, options = {}) {
+  const text = String(label || "").trim();
+  if (!text) return [""];
+
+  const {
+    availableWidth,
+    preferFontSize = TILE_LABEL_FONT,
+    minFontSize = MIN_TILE_LABEL_FONT,
+  } = options;
+  if (availableWidth == null) return [text];
+
+  if (lineWidth(text, preferFontSize) <= availableWidth) return [text];
+
+  const wrapped = splitLabelAtMid(text);
+  if (wrapped.length > 1) {
+    const longest = wrapped.reduce((a, b) => (a.length >= b.length ? a : b));
+    // Wrap when it fits at preferred size, or when a single line cannot fit at the min size.
+    if (
+      lineWidth(longest, preferFontSize) <= availableWidth ||
+      lineWidth(text, minFontSize) > availableWidth
+    ) {
+      return wrapped;
+    }
+  }
+
+  return [text];
+}
+
 function lineWidth(text, fontSize) {
   return String(text).length * CHAR_WIDTH_RATIO * fontSize + TEXT_PADDING;
 }
 
-function getValueDisplay(valueText, width, height, hasCategoryLabel) {
-  const availableHeight = hasCategoryLabel ? height - 36 : height - 16;
-  let fontSize = fitFontSize(valueText, width, { base: 15, min: 8 });
+function getValueDisplay(valueText, width, height, labelLineCount, labelLineHeight) {
+  const resolvedLabelLineHeight = labelLineHeight || Math.ceil(TILE_LABEL_FONT * 1.15);
+  const labelBlock = labelLineCount > 0 ? labelLineCount * resolvedLabelLineHeight + 6 : 0;
+  const availableHeight = Math.max(0, height - labelBlock - 8);
+  let fontSize = fitFontSize(valueText, width, { base: TILE_VALUE_FONT, min: MIN_TILE_VALUE_FONT });
   let lines = [valueText];
 
   if (lineWidth(valueText, fontSize) > width) {
@@ -332,19 +277,21 @@ function getValueDisplay(valueText, width, height, hasCategoryLabel) {
     if (split.length > 1) {
       lines = split;
       const longest = lines.reduce((a, b) => (a.length >= b.length ? a : b));
-      fontSize = fitFontSize(longest, width, { base: 15, min: 8 });
+      fontSize = fitFontSize(longest, width, { base: TILE_VALUE_FONT, min: MIN_TILE_VALUE_FONT });
     } else {
-      fontSize = fitFontSize(valueText, width, { base: 15, min: 8 });
+      fontSize = fitFontSize(valueText, width, { base: TILE_VALUE_FONT, min: MIN_TILE_VALUE_FONT });
     }
   }
 
-  const lineHeight = Math.ceil(fontSize * 1.2);
-  const blockHeight = lineHeight * lines.length;
+  let lineHeight = Math.ceil(fontSize * 1.2);
+  let blockHeight = lineHeight * lines.length;
   if (blockHeight > availableHeight && availableHeight > 0) {
-    fontSize = Math.max(8, Math.floor((fontSize * availableHeight) / blockHeight));
+    fontSize = Math.max(MIN_TILE_VALUE_FONT, Math.floor((fontSize * availableHeight) / blockHeight));
+    lineHeight = Math.ceil(fontSize * 1.2);
+    blockHeight = lineHeight * lines.length;
   }
 
-  return { lines, fontSize, lineHeight };
+  return { lines, fontSize, lineHeight, blockHeight };
 }
 
 /** Label + value layout for every tile; all strings stay complete (no … or compact $). */
@@ -352,39 +299,64 @@ export function getTileTextLayout(d, formatValue) {
   const { width, height } = getTileSize(d);
   const categoryLabel = String(d.data.label || "");
   const valueText = formatTileValueLabel(d.data.value, formatValue);
-  const labelY = 15;
-  const textMinWidth = d.data.textMinWidth;
-  const textMinHeight = d.data.textMinHeight;
-  const meetsTextMinimum =
-    textMinWidth != null && textMinHeight != null && width >= textMinWidth && height >= textMinHeight;
+  const labelY = 14;
+  // Narrow tiles need less left padding so long words like "Entreprise" can fit.
+  const textX = width < 80 ? 4 : 8;
+  const textWidth = Math.max(0, width - textX * 2);
+  // Always reserve room for the amount so wrapping a long title cannot hide the number.
+  const minValueReserve = Math.ceil(MIN_TILE_VALUE_FONT * 1.2) + 6;
+  const showCategoryLabel = height >= 24 && width >= 16 && categoryLabel.length > 0;
+  const maxLabelBlockHeight = showCategoryLabel
+    ? Math.max(0, height - labelY - minValueReserve)
+    : 0;
 
-  if (meetsTextMinimum) {
-    const valueLines = Array.isArray(d.data.valueLines) ? d.data.valueLines : [valueText];
-    const valueLineHeight = Math.ceil(TILE_VALUE_FONT * 1.2);
-    return {
-      showCategoryLabel: categoryLabel.length > 0,
-      categoryLabel,
-      categoryFontSize: `${TILE_LABEL_FONT}px`,
-      labelY,
-      valueLines,
-      valueStartY: labelY + Math.ceil(TILE_LABEL_FONT * 1.15) + 4,
-      valueFontSize: `${TILE_VALUE_FONT}px`,
-      valueLineHeight,
-    };
+  let categoryLines = [categoryLabel];
+  let categoryFontSize = TILE_LABEL_FONT;
+  let labelLineHeight = Math.ceil(TILE_LABEL_FONT * 1.15);
+
+  if (showCategoryLabel) {
+    categoryLines = splitLabelIntoLines(categoryLabel, {
+      availableWidth: textWidth,
+      preferFontSize: TILE_LABEL_FONT,
+      minFontSize: MIN_TILE_LABEL_FONT,
+    });
+    const longestLabelLine = categoryLines.reduce((a, b) => (a.length >= b.length ? a : b), "");
+    categoryFontSize = fitFontSize(longestLabelLine, textWidth, {
+      base: TILE_LABEL_FONT,
+      min: MIN_TILE_LABEL_FONT,
+    });
+    labelLineHeight = Math.ceil(categoryFontSize * 1.15);
+
+    // Only collapse wrap if two lines cannot fit even at the minimum font size.
+    const minWrappedBlock = categoryLines.length * Math.ceil(MIN_TILE_LABEL_FONT * 1.15);
+    if (categoryLines.length > 1 && minWrappedBlock > maxLabelBlockHeight) {
+      categoryLines = [categoryLabel];
+      categoryFontSize = fitFontSize(categoryLabel, textWidth, {
+        base: TILE_LABEL_FONT,
+        min: MIN_TILE_LABEL_FONT,
+      });
+      labelLineHeight = Math.ceil(categoryFontSize * 1.15);
+    }
   }
 
-  const showCategoryLabel = height >= 18 && width >= 16 && categoryLabel.length > 0;
-  const categoryFontSize = fitFontSize(categoryLabel, width, { base: TILE_LABEL_FONT, min: 9 });
-  const valueBlock = getValueDisplay(valueText, width, height, showCategoryLabel);
+  const valueBlock = getValueDisplay(
+    valueText,
+    textWidth,
+    height - labelY,
+    showCategoryLabel ? categoryLines.length : 0,
+    labelLineHeight,
+  );
   const valueStartY = showCategoryLabel
-    ? labelY + Math.ceil(categoryFontSize * 1.15) + 4
-    : Math.max(14, (height - valueBlock.lineHeight * valueBlock.lines.length) / 2 + valueBlock.fontSize);
+    ? labelY + categoryLines.length * labelLineHeight + 2
+    : Math.max(12, (height - valueBlock.blockHeight) / 2 + valueBlock.fontSize);
 
   return {
     showCategoryLabel,
-    categoryLabel,
+    categoryLines,
     categoryFontSize: `${categoryFontSize}px`,
     labelY,
+    labelLineHeight,
+    textX,
     valueLines: valueBlock.lines,
     valueStartY,
     valueFontSize: `${valueBlock.fontSize}px`,
@@ -393,23 +365,32 @@ export function getTileTextLayout(d, formatValue) {
 }
 
 function appendTileText(group, layout, fill) {
+  const textX = layout.textX ?? 8;
+
   if (layout.showCategoryLabel) {
-    group
+    const labelText = group
       .append("text")
       .attr("class", "tile-label")
-      .attr("x", 8)
+      .attr("x", textX)
       .attr("y", layout.labelY)
       .style("font-size", layout.categoryFontSize)
       .style("font-weight", 600)
       .style("fill", fill)
-      .style("pointer-events", "none")
-      .text(layout.categoryLabel);
+      .style("pointer-events", "none");
+
+    (layout.categoryLines || []).forEach((line, index) => {
+      labelText
+        .append("tspan")
+        .attr("x", textX)
+        .attr("dy", index === 0 ? 0 : layout.labelLineHeight)
+        .text(line);
+    });
   }
 
   const valueText = group
     .append("text")
     .attr("class", "tile-value")
-    .attr("x", 8)
+    .attr("x", textX)
     .attr("y", layout.valueStartY)
     .style("font-size", layout.valueFontSize)
     .style("font-weight", 500)
@@ -419,7 +400,7 @@ function appendTileText(group, layout, fill) {
   layout.valueLines.forEach((line, index) => {
     valueText
       .append("tspan")
-      .attr("x", 8)
+      .attr("x", textX)
       .attr("dy", index === 0 ? 0 : layout.valueLineHeight)
       .text(line);
   });
@@ -492,8 +473,9 @@ class TreeMap extends React.Component {
   renderChart() {
     const margin = defaultMargin;
     const { chart } = this.props;
-    const textAware = Boolean(chart?.treemapTextAwareLayout);
-    const svgHeight = textAware ? TEXT_AWARE_SVG_HEIGHT : container.height;
+    const trueProportions = Boolean(chart?.treemapTrueProportions);
+    const externalLabels = Boolean(chart?.treemapExternalLabels) || trueProportions;
+    const svgHeight = container.height;
     const svgWidth = container.width;
     const width = svgWidth - margin.left - margin.right;
     const height = svgHeight - margin.top - margin.bottom;
@@ -514,18 +496,11 @@ class TreeMap extends React.Component {
       chart && Number.isFinite(chart.treemapLayoutExponent) ? chart.treemapLayoutExponent : undefined;
     const maxTileShare =
       chart && Number.isFinite(chart.treemapMaxTileShare) ? chart.treemapMaxTileShare : undefined;
-    const taxLevyMaxLayoutShare =
-      chart && Number.isFinite(chart.treemapTaxLevyMaxLayoutShare)
-        ? chart.treemapTaxLevyMaxLayoutShare
-        : undefined;
     const layoutData = computeTreemapLayoutValues(tiles, {
       exponent: layoutExponent,
-      maxTileShare: textAware ? 1 : maxTileShare,
-      textAware,
+      maxTileShare,
+      trueProportions,
       formatValue,
-      chartWidth: width,
-      chartHeight: height,
-      taxLevyMaxLayoutShare,
     });
 
     const root = d3
@@ -533,22 +508,63 @@ class TreeMap extends React.Component {
       .sum((d) => d.layoutValue || d.value)
       .sort((a, b) => b.value - a.value);
 
-    d3.treemap().size([width, height]).paddingInner(4).paddingOuter(2)(root);
+    // Thin padding so extreme true-proportion tiles are less likely to vanish 
+    const innerPad = trueProportions ? 1 : 4;
+    const outerPad = trueProportions ? 1 : 2;
+    d3.treemap().size([width, height]).paddingInner(innerPad).paddingOuter(outerPad)(root);
 
-    const { getFillColor, getTextColor } = createColorHelpers(tiles);
+    const { getFillColor, getTextColor } = createColorHelpers(tiles, chart);
 
     this.chart.selectAll("*").remove();
     const g = this.chart.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
 
-    const leaves = g.selectAll("g.node").data(root.leaves()).join("g").attr("class", "node").attr("transform", (d) => `translate(${d.x0},${d.y0})`);
+    const leaves = g
+      .selectAll("g.node")
+      .data(root.leaves())
+      .join("g")
+      .attr("class", "node")
+      .attr("transform", (d) => `translate(${d.x0},${d.y0})`);
+
+    const tileWidth = (d) => Math.max(0, d.x1 - d.x0);
+    const tileHeight = (d) => Math.max(0, d.y1 - d.y0);
+    // Keep a visible colored block even when the proportional slice is tiny.
+    const minVisual = trueProportions ? 2 : 0;
 
     leaves
       .append("rect")
-      .attr("width", (d) => Math.max(0, d.x1 - d.x0))
-      .attr("height", (d) => Math.max(0, d.y1 - d.y0))
+      .attr("class", "tile-visual")
+      .attr("x", (d) => {
+        const w = tileWidth(d);
+        return w >= minVisual ? 0 : (w - minVisual) / 2;
+      })
+      .attr("y", (d) => {
+        const h = tileHeight(d);
+        return h >= minVisual ? 0 : (h - minVisual) / 2;
+      })
+      .attr("width", (d) => Math.max(minVisual, tileWidth(d)))
+      .attr("height", (d) => Math.max(minVisual, tileHeight(d)))
       .attr("fill", (d) => getFillColor(d.data))
       .attr("stroke", "#fff")
       .attr("stroke-width", 1)
+      .style("pointer-events", "none");
+
+    // Invisible hit targets so tiny true-proportion tiles remain hoverable.
+    const minHit = 12;
+    leaves
+      .append("rect")
+      .attr("class", "tile-hit")
+      .attr("x", (d) => {
+        const w = tileWidth(d);
+        return w >= minHit ? 0 : (w - minHit) / 2;
+      })
+      .attr("y", (d) => {
+        const h = tileHeight(d);
+        return h >= minHit ? 0 : (h - minHit) / 2;
+      })
+      .attr("width", (d) => Math.max(minHit, tileWidth(d)))
+      .attr("height", (d) => Math.max(minHit, tileHeight(d)))
+      .attr("fill", "transparent")
+      .style("cursor", "pointer")
       .on("mouseover", (event, d) => {
         this.tooltip
           .html(
@@ -565,18 +581,34 @@ class TreeMap extends React.Component {
         this.tooltip.style("opacity", 0);
       });
 
+    // Show title + amount inside tiles that are large enough; small tiles rely on legend/tooltip.
+    const minLabelWidth =
+      chart && Number.isFinite(chart.treemapMinLabelWidth) ? chart.treemapMinLabelWidth : 88;
+    const minLabelHeight =
+      chart && Number.isFinite(chart.treemapMinLabelHeight) ? chart.treemapMinLabelHeight : 52;
     leaves.each(function (d) {
+      const w = tileWidth(d);
+      const h = tileHeight(d);
+      if (externalLabels && (w < minLabelWidth || h < minLabelHeight)) return;
       appendTileText(d3.select(this), getTileTextLayout(d, formatValue), getTextColor(d.data));
     });
   }
 
   render() {
-    const { tiles, summary } = partitionTreeData(this.props.data);
+    const { tiles, zeroTiles, summary } = partitionTreeData(this.props.data);
     const { getFillColor } = createColorHelpers(tiles, this.props.chart);
     const formatBig = this.resolveValueFormatter();
-    const svgDisplayHeight = this.props.chart?.treemapTextAwareLayout
-      ? `${TEXT_AWARE_SVG_HEIGHT}px`
-      : "320px";
+    const trueProportions = Boolean(this.props.chart?.treemapTrueProportions);
+    const externalLabels =
+      Boolean(this.props.chart?.treemapExternalLabels) || trueProportions;
+    const svgDisplayHeight = "320px";
+    const legendTiles = [...tiles].sort((a, b) => b.value - a.value);
+    const zeroNote =
+      zeroTiles.length === 0
+        ? null
+        : zeroTiles.length === 1
+          ? `${zeroTiles[0].label} is $0 and is not shown in the chart.`
+          : `${zeroTiles.map((tile) => tile.label).join(", ")} are $0 and are not shown in the chart.`;
     return (
       <div className="component chart TreeMap">
         <div
@@ -651,15 +683,27 @@ class TreeMap extends React.Component {
             />
           </div>
         </div>
-        {tiles.length > 0 ? (
+        {legendTiles.length > 0 ? (
           <div
-            className="treemap-legend"
-            style={{ marginTop: "0.05rem", display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "center" }}
+            className={`treemap-legend${externalLabels ? " treemap-legend--with-values" : ""}`}
+            style={{
+              marginTop: "0.65rem",
+              display: "flex",
+              gap: externalLabels ? "0.55rem 1.25rem" : "0.75rem",
+              flexWrap: "wrap",
+              alignItems: "center",
+            }}
           >
-            {tiles.map((node) => (
+            {legendTiles.map((node) => (
               <div
                 key={node.key || node.label}
-                style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", color: "#4a4a4a" }}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.4rem",
+                  color: "#4a4a4a",
+                  fontSize: externalLabels ? "0.875rem" : undefined,
+                }}
               >
                 <span
                   aria-hidden
@@ -668,13 +712,35 @@ class TreeMap extends React.Component {
                     height: "12px",
                     borderRadius: "2px",
                     display: "inline-block",
+                    flexShrink: 0,
                     background: getFillColor(node),
                   }}
                 />
-                <span>{node.label}</span>
+                <span>
+                  {node.label}
+                  {externalLabels ? (
+                    <>
+                      {": "}
+                      <strong style={{ fontWeight: 600, color: "#333" }}>{formatBig(node.value)}</strong>
+                    </>
+                  ) : null}
+                </span>
               </div>
             ))}
           </div>
+        ) : null}
+        {zeroNote ? (
+          <p
+            className="treemap-zero-note"
+            style={{
+              margin: "0.5rem 0 0",
+              fontSize: "0.85rem",
+              lineHeight: 1.4,
+              color: "#555",
+            }}
+          >
+            {zeroNote}
+          </p>
         ) : null}
       </div>
     );

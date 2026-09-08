@@ -1,5 +1,5 @@
 import locations from "../constants/locations";
-import { buildBulkExportTableEntry } from "../constants/bulkDownloadBundles";
+import { buildBulkExportTableEntry, expandBulkDownloadGeographyValues } from "../constants/bulkDownloadBundles";
 
 export const BULK_DOWNLOAD_EXPORT_FAILED = "Failed to export data.";
 
@@ -44,6 +44,18 @@ function parseYearList(value) {
   return [];
 }
 
+/**
+ * Pre-select the latest available year (availableYears are ordered newest-first).
+ * @param {string[]} availableYears
+ * @returns {string[]}
+ */
+export function resolveDefaultSelectedYears(availableYears) {
+  if (!availableYears?.length) {
+    return [];
+  }
+  return [String(availableYears[0])];
+}
+
 /** Map one _bulk_download_bundle_table_list row to a frontend table config. */
 function toBundleTableConfig(row, availableYears = []) {
   const datasetId = row.dataset_id;
@@ -82,7 +94,8 @@ function groupBundleListFromRows(bundleRows, tableRows) {
       id: bundleId,
       title: row.title,
       description: row.description,
-      geographyType: row.geography_type || row.geographyType || "municipality",
+      geographyType: row.geographyType || "municipality",
+      sortOrder: Number(row.sortOrder ?? row.sort_order ?? 0),
       tables: tablesByBundleId[bundleId] || [],
     };
     return acc;
@@ -100,8 +113,6 @@ async function fetchBundleListApiRows(bundleId) {
   if (bundleId) {
     bundleUrl = `${bundleUrl}&filters=id:${bundleId}`;
     tableUrl = `${tableUrl}&filters=bundle_id:${bundleId}`;
-  } else {
-    bundleUrl = `${bundleUrl}&filters=active:Y`;
   }
 
   const [bundleResponse, tableResponse] = await Promise.all([
@@ -122,12 +133,20 @@ async function fetchBundleListApiRows(bundleId) {
     tableResponse.json(),
   ]);
 
-  return [bundleData.rows || [], tableData.rows || []];
+  let bundleRows = bundleData.rows || [];
+  if (!bundleId) {
+    bundleRows = bundleRows.filter((row) => String(row.active ?? "Y").toUpperCase() === "Y");
+  }
+
+  return [bundleRows, tableData.rows || []];
 }
 
 export async function fetchBulkDownloadBundles() {
   const [bundleRows, tableRows] = await fetchBundleListApiRows();
-  return groupBundleListFromRows(bundleRows, tableRows);
+  const bundles = groupBundleListFromRows(bundleRows, tableRows);
+  return Object.fromEntries(
+    Object.entries(bundles).sort(([, a], [, b]) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
+  );
 }
 
 const INVENTORY_GEO_COLUMN_CANDIDATES = ["muni_name", "municipal", "muni"];
@@ -258,12 +277,14 @@ export async function requestBulkExport({
 
   const defaultExtension = format === "zip" ? "zip" : "xlsx";
 
+  const geographyValues = expandBulkDownloadGeographyValues(municipalities);
+
   const payload = {
     token: import.meta.env.VITE_MAPC_API_TOKEN,
     format,
     bundleSlug,
-    municipalities,
-    geography: { values: municipalities },
+    municipalities: geographyValues,
+    geography: { values: geographyValues },
     useMetadataColumns,
     tables: tables.map((tableConfig) => buildBulkExportTableEntry(tableConfig)),
   };
@@ -279,11 +300,7 @@ export async function requestBulkExport({
   }
 
   const blob = await response.blob();
-  const disposition = response.headers.get("Content-Disposition") || "";
-  const filenameMatch = disposition.match(/filename="?([^";\n]+)"?/);
-  const filename =
-    filenameMatch?.[1] ||
-    buildBulkDownloadFilename(municipalities, bundleSlug, defaultExtension);
+  const filename = buildBulkDownloadFilename(municipalities, bundleSlug, defaultExtension);
 
   return { blob, filename };
 }
@@ -298,4 +315,17 @@ export function downloadBlob(blob, filename) {
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
+}
+
+/**
+ * Fetch a file URL and save it under `filename` (usually the table name + extension).
+ */
+export async function fetchAndDownloadFile(url, filename = "download") {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Download failed (${response.status})`);
+  }
+  const blob = await response.blob();
+  downloadBlob(blob, filename);
+  return filename;
 }

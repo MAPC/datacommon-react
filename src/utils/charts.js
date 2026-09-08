@@ -38,10 +38,13 @@ export function splitPhrase(phrase, charPerLine) {
   return rows;
 }
 
-const addLegendColumn = (legend, color, keysInColumn, formatter) => {
+const addLegendColumn = (legend, color, keysInColumn, formatter, dashedKeys) => {
+  const circleKeys = dashedKeys ? keysInColumn.filter(k => !dashedKeys.includes(k)) : keysInColumn;
+  const dashKeys = dashedKeys ? keysInColumn.filter(k => dashedKeys.includes(k)) : [];
+
   const li = legend.append('ul')
     .selectAll('li')
-    .data(keysInColumn)
+    .data(circleKeys)
     .enter()
     .append('li');
   li.append('svg')
@@ -59,15 +62,38 @@ const addLegendColumn = (legend, color, keysInColumn, formatter) => {
   li.append('span')
     .attr('class', 'label')
     .text(d => formatter ? formatter(d) : d);
+
+  if (dashKeys.length > 0) {
+    dashKeys.forEach(key => {
+      const dashedLi = legend.selectAll('ul')
+        .data(key)
+        .append('li');
+      dashedLi.append('svg')
+        .attr('height', '1em')
+        .attr('width', '1em')
+        .attr('class', 'color-patch')
+        .append('line')
+        .attr("x1", 0)
+        .attr("x2", 40)
+        .attr("y1", 5)
+        .attr("y2", 5)
+        .style("stroke-dasharray","5,2")
+        .style("stroke-width", 3)
+        .style("stroke", d => color(key));
+      dashedLi.append('span')
+        .attr('class', 'label')
+        .text(key);
+    });
+  }
 };
 
-export function drawLegend(legend, color, keys, formatter) {
+export function drawLegend(legend, color, keys, formatter, dashedKeys) {
   if (keys.length > 6) {
     legend.attr('class', 'legend two-column');
-    addLegendColumn(legend, color, keys.slice(0, Math.round(keys.length / 2)), formatter);
-    addLegendColumn(legend, color, keys.slice(Math.round(keys.length / 2)), formatter);
+    addLegendColumn(legend, color, keys.slice(0, Math.round(keys.length / 2)), formatter, dashedKeys);
+    addLegendColumn(legend, color, keys.slice(Math.round(keys.length / 2)), formatter, dashedKeys);
   } else {
-    addLegendColumn(legend, color, keys, formatter);
+    addLegendColumn(legend, color, keys, formatter, dashedKeys);
   }
 }
 

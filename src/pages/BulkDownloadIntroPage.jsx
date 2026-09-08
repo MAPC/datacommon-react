@@ -51,9 +51,9 @@ const BulkDownloadIntroPage = () => {
         <nav className="bulk-download__breadcrumb" aria-label="Breadcrumb">
           <Link to="/browser">Data Browser</Link>
           <span aria-hidden="true"> / </span>
-          <span>Download data for planning</span>
+          <span>Data for Planning</span>
         </nav>
-        <h1>Download data for planning</h1>
+        <h1>Data for Planning</h1>
         <p className="bulk-download__intro">
           Download curated sets of related tables for one or more Massachusetts municipalities.
           Browse planning and research datasets, select your community and years, then download multiple related tables in one Excel workbook or ZIP of CSV files.
@@ -71,17 +71,36 @@ const BulkDownloadIntroPage = () => {
           <p className="bulk-download__hint">No download topics are available right now.</p>
         )}
         <ul className="bulk-download__bundle-grid">
-          {bundles.map((bundle) => (
-            <li key={bundle.id} className="bulk-download__bundle-card">
-              <Link to={`/browser/bulk-download/${bundle.id}`} className="bulk-download__bundle-link">
+          {bundles.map((bundle) => {
+            const isAvailable = bundle.tables.length > 0;
+            const content = (
+              <>
                 <h2>{bundle.title}</h2>
                 <p>{bundle.description}</p>
                 <span className="bulk-download__bundle-meta">
-                  {bundle.tables.length} tables · {bundle.geographyType === "municipality" ? "Municipality" : bundle.geographyType}
+                  {isAvailable
+                    ? `${bundle.tables.length} tables · ${
+                        bundle.geographyType === "municipality" ? "Municipality" : bundle.geographyType
+                      }`
+                    : "Coming soon"}
                 </span>
-              </Link>
-            </li>
-          ))}
+              </>
+            );
+
+            return (
+              <li key={bundle.id} className="bulk-download__bundle-card">
+                {isAvailable ? (
+                  <Link to={`/browser/bulk-download/${bundle.id}`} className="bulk-download__bundle-link">
+                    {content}
+                  </Link>
+                ) : (
+                  <div className="bulk-download__bundle-link bulk-download__bundle-link--disabled" aria-disabled="true">
+                    {content}
+                  </div>
+                )}
+              </li>
+            );
+          })}
         </ul>
       </div>
     </section>

@@ -5,11 +5,12 @@ import * as d3 from "d3";
 import colors from "../../constants/colors";
 import { chartSourceIsAcs } from "../../constants/charts";
 import { drawLegend, maxTextToMargin, MIN_BAR_POINTER_TARGET, sortKeys, splitPhrase } from "../../utils/charts";
+import { isArray } from "vega";
 
 const primaryColors = Array.from(colors.CHART.PRIMARY.values());
 const extendedColors = Array.from(colors.CHART.EXTENDED.values());
 
-const LEFT_LABEL_MAX = 20;
+const LEFT_LABEL_MAX = 35;
 
 const container = {
   width: 500,
@@ -151,7 +152,7 @@ const StackedBarChart = (props) => {
     const bonusLeftMargin = maxTextToMargin(clippedMaxLeftLabel, 12);
 
     const margin = Object.assign({}, defaultMargin, {
-      left: defaultMargin.left + bonusLeftMargin,
+      left: defaultMargin.left + (bonusLeftMargin || 15),
     });
     const width = container.width - margin.left - margin.right;
     const height = container.height - margin.top - margin.bottom;
@@ -578,7 +579,6 @@ const StackedBarChart = (props) => {
 
     // Add axis labels with adjusted positioning
     const svg = d3.select(chartRef.current).select("svg");
-
     svg
       .append("text")
       .attr("class", "axis-label y-axis-label")
@@ -598,6 +598,21 @@ const StackedBarChart = (props) => {
       .attr("font-size", "12px")
       .style("text-anchor", "middle")
       .text(props.horizontal ? props.yAxis.label : xAxisLabel);
+
+    // Add a no data message if there's no data
+    if (isArray(props.data) && props.data.length > 0 && props.data.every(d => !d.y)) {
+      const noDataMessage = props.chart?.noDataMessage || "No data was found for this timeframe.";
+      const valueText = chart
+        .append("text")
+        .attr("x", 280)
+        .attr("y", 250)
+        .attr("text-anchor", "middle")
+        .attr("class", "gauge-text")
+        .attr("font-size", "18")
+        .attr("font-weight", "400")
+        .attr("fill", "black")
+        .text(noDataMessage);
+    }
 
     // Add legend
     const legend = d3.select(legendContainerRef.current);
@@ -656,7 +671,7 @@ StackedBarChart.propTypes = {
   data: PropTypes.arrayOf(
     PropTypes.shape({
       x: PropTypes.string.isRequired,
-      y: PropTypes.number.isRequired,
+      y: PropTypes.number,
       z: PropTypes.string.isRequired,
       color: PropTypes.string,
       order: PropTypes.number,

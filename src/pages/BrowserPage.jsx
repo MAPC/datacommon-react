@@ -1,12 +1,15 @@
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faLock } from "@fortawesome/free-solid-svg-icons";
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import styled from 'styled-components';
-import { fetchDatasets } from '../reducers/datasetSlice';
+
 import MetadataModal from "../components/partials/MetadataModal";
-import { formatUpdated } from '../utils/formatUpdated';
+import { fetchDatasets } from '../reducers/datasetSlice';
 import { filterDatasets, highlightDatasets, sortDatasets, compressDatasetsByGeography } from "../utils/manageDatasets";
 import { pickDatasetOfTheWeek } from "../utils/featuredDataset";
+import { formatUpdated } from '../utils/formatUpdated';
 
 const PageContainer = styled.section`
   &.route.categories {
@@ -452,19 +455,6 @@ const DatasetCount = styled.div`
   }
 `;
 
-const BulkDownloadLink = styled(Link)`
-  display: inline-block;
-  margin-top: 1rem;
-  color: #5aba8c;
-  font-size: 0.95rem;
-  font-weight: 600;
-  text-decoration: none;
-
-  &:hover {
-    text-decoration: underline;
-  }
-`;
-
 const SearchAndGeoFilterContainer = styled.div`
   display: flex;
   flex-direction: column;
@@ -833,8 +823,8 @@ const BrowserPage = () => {
   }, [datasets]);
 
   const datasetOfTheWeek = useMemo(() => {
-    return pickDatasetOfTheWeek(datasets);
-  }, [datasets]);
+    return noDupesDatasets ? pickDatasetOfTheWeek(noDupesDatasets) : pickDatasetOfTheWeek(datasets);
+  }, [noDupesDatasets, datasets]);
 
   const renderHighlightedText = (text, datasetId, key) => {
     if (!text) {
@@ -1077,6 +1067,9 @@ const BrowserPage = () => {
         >
           <DatasetHeaderContainer>
             <DatasetHeader>
+              {selectedDatasetFromTab?.active === 'N' &&
+                <FontAwesomeIcon icon={faLock} style={{ color: '#af971a', marginRight: '8px' }} title="This dataset is not active"/>
+              }
               {renderHighlightedText(selectedDatasetFromTab.menu3, selectedDatasetFromTab.seq_id, 'menu3')}
             </DatasetHeader>
             <ViewMetadataButton
@@ -1124,9 +1117,6 @@ const BrowserPage = () => {
         <DatasetCount>
           <strong>{noDupesDatasets?.length || 0}</strong> {noDupesDatasets?.length === 1 ? 'dataset' : 'datasets'} available
         </DatasetCount>
-        <BulkDownloadLink to="/browser/bulk-download">
-          Download data for planning 
-        </BulkDownloadLink>
       </PageHeader>
       <MainContent>
         <Sidebar>

@@ -21,7 +21,6 @@ import {
   BULK_DOWNLOAD_EXPORT_FAILED,
   BULK_DOWNLOAD_EXPORT_FAILED_MESSAGE,
 } from "../utils/bulkDownloadApi";
-import { resolveDefaultSelectedYears } from "../utils/bulkDownloadYears";
 
 const YearPill = ({ year, selected, onToggle, disabled = false }) => (
   <button
@@ -158,7 +157,7 @@ SkeletonBone.propTypes = {
 
 const BulkDownloadBundleSkeleton = ({ tableCount = 6 }) => (
   <>
-    <p className="bulk-download__sr-only">Loading housing data download options…</p>
+    <p className="bulk-download__sr-only">Loading download options…</p>
 
     <aside className="bulk-download__sidebar" aria-busy="true" aria-live="polite">
       <section className="bulk-download__panel">
@@ -272,12 +271,16 @@ const BulkDownloadBundlePage = () => {
   const [selectedYearsByTable, setSelectedYearsByTable] = useState({});
   const [yearsLoadingByTable, setYearsLoadingByTable] = useState({});
   const [yearsLoading, setYearsLoading] = useState(true);
-  const [downloadFormat, setDownloadFormat] = useState("zip");
+  const [downloadFormat, setDownloadFormat] = useState(bundleId === "housing" ? "xlsx" : "zip");
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState("");
   const [downloadStatus, setDownloadStatus] = useState("");
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [isLimitModalOpen, setIsLimitModalOpen] = useState(false);
+
+  useEffect(() => {
+    setDownloadFormat(bundleId === "housing" ? "xlsx" : "zip");
+  }, [bundleId]);
 
   useEffect(() => {
     if (status === "idle") {
@@ -312,7 +315,6 @@ const BulkDownloadBundlePage = () => {
               return;
             }
             selected[tableConfig.table] = resolveDefaultSelectedYears(
-              tableConfig.defaultSelectedYears,
               available[tableConfig.table],
             );
           });
@@ -439,9 +441,9 @@ const BulkDownloadBundlePage = () => {
           <nav className="bulk-download__breadcrumb" aria-label="Breadcrumb">
             <Link to="/browser">Data Browser</Link>
             <span aria-hidden="true"> / </span>
-            <Link to="/browser/bulk-download">Download data for planning</Link>
+            <Link to="/browser/bulk-download">Data for Planning</Link>
           </nav>
-          <h1>Download data for planning</h1>
+          <h1>Data for Planning</h1>
         </div>
         <div className="bulk-download__layout container tight">
           <BulkDownloadBundleSkeleton />
@@ -460,7 +462,10 @@ const BulkDownloadBundlePage = () => {
   const canDownload = selectedTableNames.length > 0 && !yearsLoading && (!hasMunicipalTables || municipalities.length > 0);
 
   const handleMuniSelect = (muniSlug) => {
-    const name = capitalize(muniSlug);
+    const extraMatch = BULK_DOWNLOAD_EXTRA_GEOGRAPHIES.find(
+      (geo) => geo.name.toLowerCase() === String(muniSlug).toLowerCase(),
+    );
+    const name = extraMatch ? extraMatch.name : capitalize(muniSlug);
     setMunicipalities((prev) => (prev.includes(name) ? prev : [...prev, name]));
     setDownloadError("");
   };
@@ -556,7 +561,7 @@ const BulkDownloadBundlePage = () => {
         <nav className="bulk-download__breadcrumb" aria-label="Breadcrumb">
           <Link to="/browser">Data Browser</Link>
           <span aria-hidden="true"> / </span>
-          <Link to="/browser/bulk-download">Download data for planning</Link>
+          <Link to="/browser/bulk-download">Data for Planning</Link>
           <span aria-hidden="true"> / </span>
           <span>{bundle.title}</span>
         </nav>

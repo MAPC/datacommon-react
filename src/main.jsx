@@ -18,9 +18,15 @@ import "../src/assets/styles/app.scss";
 import CommunityProfilesPage from "./pages/CommunityProfilesPage";
 import SubregionProfilesPage from "./pages/SubregionProfilesPage";
 import RPAregionProfilesPage from "./pages/RPAregionProfilesPage";
+import LoginPage from "./pages/LoginPage"; 
 import tabs from "./constants/tabs";
 import municipalities from "./assets/data/ma-munis.json";
 import "./utils/introModal"; 
+import PasswordResetPage from "./pages/PasswordResetPage";
+import AdminWrapper from "./pages/AdminWrapper";
+import AdminTeammatesPage from "./pages/AdminTeammatesPage";
+import AdminListJobsPage from "./pages/AdminListJobsPage";
+import EmailVerificationPage from "./pages/EmailVerificationPage";
 
 // Create arrays of valid options
 const muniOptions = municipalities.features.map(
@@ -103,7 +109,7 @@ const router = createBrowserRouter([
             element: <BrowserPage />,
           },
           {
-            path: "datasets/:id",
+            path: "datasets/:id/:viewMode?",
             element: <DataViewerPage />,
           },
           {
@@ -128,23 +134,10 @@ const router = createBrowserRouter([
         path: "/profile/subregion/:subregionId/:tab?",
         element: <SubregionProfileRoute tabOptions={tabOptions} />
       },
-      {
-        path: "/profile/rpa/:rpaId/:tab?",
-        element: <RPAProfileRoute tabOptions={tabOptions} />
-      },
-      {
-        path:"gallery",
-        children:[
-          {
-            index:true,
-            element:<GalleryPage />
-          },
-          {
-            path:":year/:month",
-            element:<CalenderEntry />
-          }
-        ]
-      },
+      // {
+      //   path: "/profile/rpa/:rpaId/:tab?",
+      //   element: <RPAProfileRoute tabOptions={tabOptions} />
+      // },
       {
         path: "gallery",
         children: [
@@ -169,6 +162,33 @@ const router = createBrowserRouter([
       {
         path: "developers",
         element: <ApiPage />,
+      },
+      {
+        path: "login",
+        element: <LoginPage />
+      },
+      {
+        path: "/password-reset/:token",
+        element: <PasswordResetPage />
+      },
+      {
+        path: "/verify-account/:token",
+        element: <EmailVerificationPage />
+      },
+      // Admin routes, all routes should go through the admin parent that verifies login / admin status.
+      {
+        path: "admin",
+        element: <AdminWrapper />,
+        children: [
+          {
+            path: "teammates",
+            element: <AdminTeammatesPage />
+          },
+          {
+            path: "jobs",
+            element: <AdminListJobsPage />
+          }
+        ]
       }
     ],
   },

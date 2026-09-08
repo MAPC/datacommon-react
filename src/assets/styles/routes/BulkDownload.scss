@@ -75,6 +75,20 @@
     border-color: $color_brand-secondary;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   }
+
+  &--disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
+
+    h2 {
+      color: #666;
+    }
+
+    &:hover {
+      border-color: #e0e0e0;
+      box-shadow: none;
+    }
+  }
 }
 
 .bulk-download__bundle-meta {
@@ -120,6 +134,15 @@
   &--download {
     background: #fff;
     border: 1px solid #e0e0e0;
+  }
+
+  .SearchBar {
+    min-width: 0;
+    width: 100%;
+
+    input::placeholder {
+      font-size: 0.8rem;
+    }
   }
 }
 
