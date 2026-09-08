@@ -1,15 +1,23 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import PropTypes from "prop-types";
 import SearchBar from "../components/partials/SearchBar";
+import DatasetInventoryPicker from "../components/partials/DatasetInventoryPicker";
 import capitalize from "../utils/capitalize";
 import { fetchDatasets } from "../reducers/datasetSlice";
-import { getTableDisplayInfo, tableHasYearFilter } from "../constants/bulkDownloadBundles";
+import {
+  getTableDisplayInfo,
+  tableHasYearFilter,
+  tableConfigFromInventoryDataset,
+  MAX_BULK_DOWNLOAD_TABLES,
+} from "../constants/bulkDownloadBundles";
 import {
   downloadBlob,
   requestBulkExport,
   fetchBulkDownloadBundle,
+  fetchAvailableYearsForTable,
+  fetchGeoColumnForTable,
   BULK_DOWNLOAD_EXPORT_FAILED,
   BULK_DOWNLOAD_EXPORT_FAILED_MESSAGE,
 } from "../utils/bulkDownloadApi";
@@ -32,6 +40,111 @@ YearPill.propTypes = {
   selected: PropTypes.bool.isRequired,
   onToggle: PropTypes.func.isRequired,
   disabled: PropTypes.bool,
+};
+
+const TableRow = ({
+  tableConfig,
+  datasets,
+  checked,
+  tableYears,
+  availableYears,
+  yearsAreLoading,
+  onToggle,
+  onToggleYear,
+  onRemove,
+}) => {
+  const { title, source } = getTableDisplayInfo(tableConfig, datasets);
+  const isCustom = Boolean(onRemove);
+
+  return (
+    <li className={`bulk-download__table-item${checked ? " bulk-download__table-item--selected" : ""}`}>
+      <div className="bulk-download__table-label">
+        <label className="bulk-download__table-checkbox">
+          <input
+            type="checkbox"
+            checked={checked}
+            onChange={() => onToggle(tableConfig.table)}
+            aria-label={`Include ${title} in download`}
+          />
+        </label>
+        <span className="bulk-download__table-info">
+          {tableConfig.datasetId ? (
+            <Link
+              to={`/browser/datasets/${tableConfig.datasetId}`}
+              className="bulk-download__table-title bulk-download__table-title--link"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="View table in Data Browser"
+            >
+              {title}
+            </Link>
+          ) : (
+            <span className="bulk-download__table-title">{title}</span>
+          )}
+          {source && <span className="bulk-download__table-source">{source}</span>}
+          <span className="bulk-download__table-meta">
+            <code>{tableConfig.table}</code>
+            {tableConfig.isNonMunicipal && (
+              <span className="bulk-download__geo-badge">{tableConfig.geographyLabel}</span>
+            )}
+          </span>
+        </span>
+        {isCustom && (
+          <button
+            type="button"
+            className="bulk-download__remove-custom-btn"
+            onClick={() => onRemove(tableConfig.table)}
+            aria-label={`Remove ${title}`}
+            title="Remove table"
+          >
+            ×
+          </button>
+        )}
+      </div>
+      <div className={`bulk-download__table-years${checked ? "" : " bulk-download__table-years--disabled"}`}>
+        {tableConfig.yearColumn && (
+          <>
+            <span className="bulk-download__table-years-label">Years</span>
+            {yearsAreLoading && <p className="bulk-download__table-years-loading">Loading years…</p>}
+            {!yearsAreLoading && availableYears?.length === 0 && (
+              <p className="bulk-download__table-years-loading">No years available</p>
+            )}
+            {!yearsAreLoading && availableYears?.length > 0 && (
+              <div className="bulk-download__year-list">
+                {availableYears.map((year) => (
+                  <YearPill
+                    key={year}
+                    year={year}
+                    selected={tableYears.includes(year)}
+                    onToggle={(y) => onToggleYear(tableConfig.table, y)}
+                    disabled={!checked}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+        {tableConfig.isNonMunicipal && (
+          <p className="bulk-download__table-years-note">
+            This table uses {tableConfig.geographyLabel} geography — it is not filtered by municipality. Select years to
+            include.
+          </p>
+        )}
+      </div>
+    </li>
+  );
+};
+
+TableRow.propTypes = {
+  tableConfig: PropTypes.object.isRequired,
+  datasets: PropTypes.array,
+  checked: PropTypes.bool.isRequired,
+  tableYears: PropTypes.arrayOf(PropTypes.string).isRequired,
+  availableYears: PropTypes.arrayOf(PropTypes.string),
+  yearsAreLoading: PropTypes.bool,
+  onToggle: PropTypes.func.isRequired,
+  onToggleYear: PropTypes.func.isRequired,
+  onRemove: PropTypes.func,
 };
 
 const SkeletonBone = ({ className = "", style = undefined }) => (
@@ -106,22 +219,65 @@ BulkDownloadBundleSkeleton.propTypes = {
   tableCount: PropTypes.number,
 };
 
+const LimitReachedModal = ({ maxTables, onClose }) => {
+  useEffect(() => {
+    const onKey = (event) => {
+      if (event.key !== "Escape") return;
+      event.stopImmediatePropagation();
+      onClose();
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [onClose]);
+
+  return (
+    <div className="bulk-download__limit-overlay" onClick={onClose} role="presentation">
+      <div
+        className="bulk-download__limit-dialog"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="bulk-download-limit-title"
+        aria-describedby="bulk-download-limit-body"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <h2 id="bulk-download-limit-title">Table limit reached</h2>
+        <p id="bulk-download-limit-body">
+          You can download a maximum of {maxTables} tables at a time. Deselect some tables, then try Download again.
+        </p>
+        <button type="button" className="bulk-download__limit-ok" onClick={onClose}>
+          OK
+        </button>
+      </div>
+    </div>
+  );
+};
+
+LimitReachedModal.propTypes = {
+  maxTables: PropTypes.number.isRequired,
+  onClose: PropTypes.func.isRequired,
+};
+
 const BulkDownloadBundlePage = () => {
   const { bundleId } = useParams();
   const dispatch = useDispatch();
-  const { cache: datasets, status } = useSelector((state) => state.dataset);
+  const { cache: datasets, noDupesDatasets, status } = useSelector((state) => state.dataset);
+  const inventoryDatasets = useMemo(() => noDupesDatasets || datasets || [], [noDupesDatasets, datasets]);
 
   const [bundle, setBundle] = useState(null);
   const [bundleLoading, setBundleLoading] = useState(true);
   const [municipalities, setMunicipalities] = useState([]);
+  const [customTables, setCustomTables] = useState([]);
   const [selectedTableNames, setSelectedTableNames] = useState([]);
   const [availableYearsByTable, setAvailableYearsByTable] = useState({});
   const [selectedYearsByTable, setSelectedYearsByTable] = useState({});
+  const [yearsLoadingByTable, setYearsLoadingByTable] = useState({});
   const [yearsLoading, setYearsLoading] = useState(true);
   const [downloadFormat, setDownloadFormat] = useState("zip");
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState("");
   const [downloadStatus, setDownloadStatus] = useState("");
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [isLimitModalOpen, setIsLimitModalOpen] = useState(false);
 
   useEffect(() => {
     if (status === "idle") {
@@ -135,6 +291,10 @@ const BulkDownloadBundlePage = () => {
     const loadBundle = async () => {
       setBundleLoading(true);
       setBundle(null);
+      setCustomTables([]);
+      setIsPickerOpen(false);
+      setIsLimitModalOpen(false);
+      setYearsLoadingByTable({});
 
       try {
         const result = await fetchBulkDownloadBundle(bundleId);
@@ -180,15 +340,97 @@ const BulkDownloadBundlePage = () => {
     };
   }, [bundleId]);
 
-  const selectedTableConfigs = useMemo(() => {
-    if (!bundle) return [];
-    return bundle.tables
-      .filter((t) => selectedTableNames.includes(t.table))
-      .map((t) => ({
-        ...t,
-        years: selectedYearsByTable[t.table] || [],
-      }));
-  }, [bundle, selectedTableNames, selectedYearsByTable]);
+  const displayTables = useMemo(() => {
+    if (!bundle) return customTables;
+    return [...customTables, ...bundle.tables];
+  }, [bundle, customTables]);
+
+  const alreadyAddedTableNames = useMemo(
+    () => new Set(displayTables.map((tableConfig) => tableConfig.table)),
+    [displayTables],
+  );
+
+  const selectedTableConfigs = useMemo(
+    () =>
+      displayTables
+        .filter((t) => selectedTableNames.includes(t.table))
+        .map((t) => ({
+          ...t,
+          years: selectedYearsByTable[t.table] || [],
+        })),
+    [displayTables, selectedTableNames, selectedYearsByTable],
+  );
+
+  const showLimitReached = useCallback(() => {
+    setIsLimitModalOpen(true);
+  }, []);
+
+  const handleAddCustomTable = useCallback(
+    async (datasetId) => {
+      const match = inventoryDatasets.find((d) => String(d.seq_id) === String(datasetId));
+      if (!match?.table_name) return;
+
+      const tableName = match.table_name;
+      if (alreadyAddedTableNames.has(tableName)) return;
+
+      const newConfig = tableConfigFromInventoryDataset(match);
+
+      setCustomTables((prev) => {
+        if (prev.some((t) => t.table === tableName)) return prev;
+        return [newConfig, ...prev];
+      });
+      setSelectedTableNames((prev) => (prev.includes(tableName) ? prev : [tableName, ...prev]));
+
+      if (!newConfig.yearColumn) return;
+
+      setYearsLoadingByTable((prev) => ({ ...prev, [tableName]: true }));
+      try {
+        const years = await fetchAvailableYearsForTable({
+          table: tableName,
+          yearColumn: newConfig.yearColumn,
+          database: newConfig.database,
+          schema: newConfig.schema,
+        });
+        setAvailableYearsByTable((prev) => ({ ...prev, [tableName]: years }));
+        setSelectedYearsByTable((prev) => ({
+          ...prev,
+          [tableName]: years.length > 0 ? [years[0]] : [],
+        }));
+        setCustomTables((prev) =>
+          prev.map((t) => (t.table === tableName ? { ...t, availableYears: years } : t)),
+        );
+      } catch {
+        // Table stays in the list without year pills if year lookup fails.
+      } finally {
+        setYearsLoadingByTable((prev) => ({ ...prev, [tableName]: false }));
+      }
+    },
+    [alreadyAddedTableNames, inventoryDatasets],
+  );
+
+  const removeCustomTable = (tableName) => {
+    setCustomTables((prev) => prev.filter((t) => t.table !== tableName));
+    setSelectedTableNames((prev) => prev.filter((name) => name !== tableName));
+    setAvailableYearsByTable((prev) => {
+      const next = { ...prev };
+      delete next[tableName];
+      return next;
+    });
+    setSelectedYearsByTable((prev) => {
+      const next = { ...prev };
+      delete next[tableName];
+      return next;
+    });
+    setYearsLoadingByTable((prev) => {
+      const next = { ...prev };
+      delete next[tableName];
+      return next;
+    });
+  };
+
+  const handleOpenPicker = () => {
+    setIsPickerOpen(true);
+  };
 
   if (bundleLoading) {
     return (
@@ -213,8 +455,9 @@ const BulkDownloadBundlePage = () => {
   }
 
   const isPageLoading = status !== "succeeded" || yearsLoading;
-  const allTablesSelected = selectedTableNames.length === bundle.tables.length;
-  const canDownload = municipalities.length > 0 && selectedTableNames.length > 0 && !yearsLoading;
+  const allTablesSelected = selectedTableNames.length === displayTables.length;
+  const hasMunicipalTables = selectedTableConfigs.some((t) => !t.skipGeographyFilter);
+  const canDownload = selectedTableNames.length > 0 && !yearsLoading && (!hasMunicipalTables || municipalities.length > 0);
 
   const handleMuniSelect = (muniSlug) => {
     const name = capitalize(muniSlug);
@@ -230,7 +473,7 @@ const BulkDownloadBundlePage = () => {
     setSelectedTableNames((prev) => (prev.includes(tableName) ? prev.filter((t) => t !== tableName) : [...prev, tableName]));
   };
 
-  const selectAllTables = () => setSelectedTableNames(bundle.tables.map((t) => t.table));
+  const selectAllTables = () => setSelectedTableNames(displayTables.map((t) => t.table));
   const clearAllTables = () => setSelectedTableNames([]);
 
   const toggleTableYear = (tableName, year) => {
@@ -242,7 +485,12 @@ const BulkDownloadBundlePage = () => {
   };
 
   const handleDownload = async () => {
-    if (municipalities.length === 0) {
+    if (selectedTableNames.length > MAX_BULK_DOWNLOAD_TABLES) {
+      showLimitReached();
+      return;
+    }
+
+    if (hasMunicipalTables && municipalities.length === 0) {
       setDownloadError("Select at least one municipality.");
       return;
     }
@@ -254,9 +502,39 @@ const BulkDownloadBundlePage = () => {
     setDownloadStatus("Preparing download…");
 
     try {
+      const geoColumnByTable = {};
+      const tablesForExport = await Promise.all(
+        selectedTableConfigs.map(async (tableConfig) => {
+          if (!tableConfig.isCustom || tableConfig.skipGeographyFilter) {
+            return tableConfig;
+          }
+          if (tableConfig.geoColumn) {
+            return tableConfig;
+          }
+          const geoColumn =
+            (await fetchGeoColumnForTable({
+              table: tableConfig.table,
+              database: tableConfig.database,
+              schema: tableConfig.schema,
+            })) || "municipal";
+          geoColumnByTable[tableConfig.table] = geoColumn;
+          return { ...tableConfig, geoColumn };
+        }),
+      );
+
+      if (Object.keys(geoColumnByTable).length > 0) {
+        setCustomTables((prev) =>
+          prev.map((tableConfig) =>
+            geoColumnByTable[tableConfig.table]
+              ? { ...tableConfig, geoColumn: geoColumnByTable[tableConfig.table] }
+              : tableConfig,
+          ),
+        );
+      }
+
       const { blob, filename } = await requestBulkExport({
         municipalities,
-        tables: selectedTableConfigs,
+        tables: tablesForExport,
         format: downloadFormat,
         bundleSlug: bundleId,
       });
@@ -288,13 +566,17 @@ const BulkDownloadBundlePage = () => {
 
       <div className="bulk-download__layout container tight">
         {isPageLoading ? (
-          <BulkDownloadBundleSkeleton tableCount={Math.min(bundle.tables.length, 6)} />
+          <BulkDownloadBundleSkeleton tableCount={Math.min(displayTables.length, 6)} />
         ) : (
           <>
             <aside className="bulk-download__sidebar">
               <section className="bulk-download__panel">
                 <h2>Municipality</h2>
-                <p className="bulk-download__hint">Required — search and select one or more Massachusetts cities or towns.</p>
+                <p className="bulk-download__hint">
+                  {hasMunicipalTables
+                    ? "Required — search and select one or more Massachusetts cities or towns."
+                    : "Optional for the tables currently selected. Non-municipal tables are not filtered by city or town."}
+                </p>
                 <SearchBar contextKey="municipality" onSelect={handleMuniSelect} placeholder="Search for a community…" className="small" />
                 {municipalities.length > 0 && (
                   <ul className="bulk-download__muni-list" aria-label="Selected municipalities">
@@ -333,8 +615,15 @@ const BulkDownloadBundlePage = () => {
                 <button type="button" className="bulk-download__download-btn" disabled={!canDownload || isDownloading} onClick={handleDownload}>
                   {isDownloading ? "Preparing…" : "Download"}
                 </button>
-                {!municipalities.length && <p className="bulk-download__validation">Select at least one municipality to continue.</p>}
-                {municipalities.length > 0 && selectedTableNames.length === 0 && <p className="bulk-download__validation">Select at least one table.</p>}
+                {hasMunicipalTables && !municipalities.length && (
+                  <p className="bulk-download__validation">Select at least one municipality to continue.</p>
+                )}
+                {selectedTableNames.length === 0 && <p className="bulk-download__validation">Select at least one table.</p>}
+                {selectedTableNames.length > MAX_BULK_DOWNLOAD_TABLES && (
+                  <p className="bulk-download__validation">
+                    Select no more than {MAX_BULK_DOWNLOAD_TABLES} tables to download.
+                  </p>
+                )}
                 {downloadStatus && <p className="bulk-download__status">{downloadStatus}</p>}
                 {downloadError === BULK_DOWNLOAD_EXPORT_FAILED ? (
                   <p className="bulk-download__error" role="alert">
@@ -351,8 +640,11 @@ const BulkDownloadBundlePage = () => {
                     </p>
                   )
                 )}
-                <p className="bulk-download__summary">
-                  {selectedTableNames.length} of {bundle.tables.length} tables
+                <p className={`bulk-download__summary${selectedTableNames.length > MAX_BULK_DOWNLOAD_TABLES ? " bulk-download__summary--over-limit" : ""}`}>
+                  {selectedTableNames.length} of {displayTables.length} tables selected
+                  {selectedTableNames.length > MAX_BULK_DOWNLOAD_TABLES
+                    ? ` · ${selectedTableNames.length - MAX_BULK_DOWNLOAD_TABLES} over the ${MAX_BULK_DOWNLOAD_TABLES}-table download limit`
+                    : ` · up to ${MAX_BULK_DOWNLOAD_TABLES} can be downloaded at once`}
                 </p>
               </section>
             </aside>
@@ -370,74 +662,86 @@ const BulkDownloadBundlePage = () => {
                 </div>
               </div>
               <p className="bulk-download__hint">
-                All tables are selected by default, and recommended years are pre-selected. You can change the selected years and tables.
+                Recommended tables are selected by default, and the most recent year is pre-selected. You can add more
+                tables from the Data Inventory or change your table and year selections.
               </p>
-              <ul className="bulk-download__table-list">
-                {bundle.tables.map((tableConfig) => {
-                  const checked = selectedTableNames.includes(tableConfig.table);
-                  const { title, source } = getTableDisplayInfo(tableConfig, datasets);
-                  const tableYears = selectedYearsByTable[tableConfig.table] || [];
-                  const availableYears = availableYearsByTable[tableConfig.table];
-                  return (
-                    <li key={tableConfig.table} className={`bulk-download__table-item${checked ? " bulk-download__table-item--selected" : ""}`}>
-                      <div className="bulk-download__table-label">
-                        <label className="bulk-download__table-checkbox">
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => toggleTable(tableConfig.table)}
-                            aria-label={`Include ${title} in download`}
-                          />
-                        </label>
-                        <span className="bulk-download__table-info">
-                          {tableConfig.datasetId ? (
-                            <Link
-                              to={`/browser/datasets/${tableConfig.datasetId}`}
-                              className="bulk-download__table-title bulk-download__table-title--link"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              title="View table in Data Browser"
-                            >
-                              {title}
-                            </Link>
-                          ) : (
-                            <span className="bulk-download__table-title">{title}</span>
-                          )}
-                          {source && <span className="bulk-download__table-source">{source}</span>}
-                          <span className="bulk-download__table-meta">
-                            <code>{tableConfig.table}</code>
-                          </span>
-                        </span>
-                      </div>
-                      <div className={`bulk-download__table-years${checked ? "" : " bulk-download__table-years--disabled"}`}>
-                        {tableConfig.yearColumn && (
-                          <>
-                            <span className="bulk-download__table-years-label">Years</span>
-                            {!yearsLoading && availableYears?.length === 0 && <p className="bulk-download__table-years-loading">No years available</p>}
-                            {availableYears?.length > 0 && (
-                              <div className="bulk-download__year-list">
-                                {availableYears.map((year) => (
-                                  <YearPill
-                                    key={year}
-                                    year={year}
-                                    selected={tableYears.includes(year)}
-                                    onToggle={(y) => toggleTableYear(tableConfig.table, y)}
-                                    disabled={!checked}
-                                  />
-                                ))}
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
+              <button type="button" className="bulk-download__add-tables-btn" onClick={handleOpenPicker}>
+                + Add tables from Data Inventory
+              </button>
+
+              {customTables.length > 0 && (
+                <section className="bulk-download__added-section" aria-labelledby="bulk-download-added-heading">
+                  <div className="bulk-download__tables-header">
+                    <h3 id="bulk-download-added-heading">Added tables</h3>
+                    <p className="bulk-download__section-count">
+                      {customTables.length} {customTables.length === 1 ? "table" : "tables"}
+                    </p>
+                  </div>
+                  <p className="bulk-download__hint">Tables you added from the Data Inventory.</p>
+                  <ul className="bulk-download__table-list">
+                    {customTables.map((tableConfig) => (
+                      <TableRow
+                        key={tableConfig.table}
+                        tableConfig={tableConfig}
+                        datasets={datasets}
+                        checked={selectedTableNames.includes(tableConfig.table)}
+                        tableYears={selectedYearsByTable[tableConfig.table] || []}
+                        availableYears={availableYearsByTable[tableConfig.table]}
+                        yearsAreLoading={Boolean(yearsLoadingByTable[tableConfig.table])}
+                        onToggle={toggleTable}
+                        onToggleYear={toggleTableYear}
+                        onRemove={removeCustomTable}
+                      />
+                    ))}
+                  </ul>
+                </section>
+              )}
+
+              <section
+                className="bulk-download__recommended-section"
+                aria-labelledby={customTables.length > 0 ? "bulk-download-recommended-heading" : undefined}
+              >
+                {customTables.length > 0 && (
+                  <div className="bulk-download__tables-header">
+                    <h3 id="bulk-download-recommended-heading">Recommended tables</h3>
+                    <p className="bulk-download__section-count">
+                      {bundle.tables.length} {bundle.tables.length === 1 ? "table" : "tables"}
+                    </p>
+                  </div>
+                )}
+                <ul className="bulk-download__table-list">
+                  {bundle.tables.map((tableConfig) => (
+                    <TableRow
+                      key={tableConfig.table}
+                      tableConfig={tableConfig}
+                      datasets={datasets}
+                      checked={selectedTableNames.includes(tableConfig.table)}
+                      tableYears={selectedYearsByTable[tableConfig.table] || []}
+                      availableYears={availableYearsByTable[tableConfig.table]}
+                      yearsAreLoading={Boolean(yearsLoadingByTable[tableConfig.table])}
+                      onToggle={toggleTable}
+                      onToggleYear={toggleTableYear}
+                    />
+                  ))}
+                </ul>
+              </section>
             </div>
           </>
         )}
       </div>
+
+      {isPickerOpen && (
+        <DatasetInventoryPicker
+          datasets={inventoryDatasets}
+          alreadyAddedTableNames={alreadyAddedTableNames}
+          onSelect={handleAddCustomTable}
+          onClose={() => setIsPickerOpen(false)}
+        />
+      )}
+
+      {isLimitModalOpen && (
+        <LimitReachedModal maxTables={MAX_BULK_DOWNLOAD_TABLES} onClose={() => setIsLimitModalOpen(false)} />
+      )}
     </section>
   );
 };

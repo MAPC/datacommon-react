@@ -1,5 +1,37 @@
 import { parseUpdatedForSort } from './formatUpdated';
 
+/** Known `_data_browser.geography` values used by the Datasets geography filter. */
+export const DATASET_GEOGRAPHIES = ['municipal', 'census_tracts', 'block_groups', 'blocks'];
+
+export const DATASET_GEOGRAPHY_LABELS = {
+  municipal: 'Municipalities',
+  census_tracts: 'Census Tracts',
+  block_groups: 'Block Groups',
+  blocks: 'Blocks',
+  other: 'Other',
+};
+
+/** All Datasets geography-filter values, including "other". */
+export const ALL_DATASET_GEOGRAPHY_FILTERS = [...DATASET_GEOGRAPHIES, 'other'];
+
+/**
+ * Same classification as the Datasets geography filter:
+ * return the `_data_browser.geography` value when it is one of DATASET_GEOGRAPHIES,
+ * otherwise "other" (including null).
+ * @param {object} dataset
+ */
+export function getDatasetGeography(dataset) {
+  if (DATASET_GEOGRAPHIES.some((geo) => dataset?.geography === geo)) {
+    return dataset.geography;
+  }
+  return 'other';
+}
+
+/** @param {object} dataset */
+export function getDatasetGeographyLabel(dataset) {
+  return DATASET_GEOGRAPHY_LABELS[getDatasetGeography(dataset)] || DATASET_GEOGRAPHY_LABELS.other;
+}
+
 /**
  * Filters the given list of datasets based on the filtering criteria provided. Returns a new list of filtered data
  * 
@@ -39,20 +71,7 @@ export function filterDatasets({
 
   // check if the table name matches the selected geographies, don't do anything if 'all' selected
   if (!geographies.includes('all')) {
-    filtered = filtered.filter(d => {
-      // If the table name ends with a selected geo include it.
-      if (geographies.some(g => d.geography === g)) {
-        return true;
-      }
-
-      // If other is selected, return it if the table name doesn't match any of the available geos
-      const allGeos = ['municipal', 'census_tracts', 'block_groups', 'blocks'];
-      if (geographies.includes('other')) {
-        return !allGeos.some(g => d.geography === g);
-      }
-
-      return false;
-    });
+    filtered = filtered.filter((d) => geographies.some((g) => getDatasetGeography(d) === g));
   }
 
   if (searchQuery.trim()) {

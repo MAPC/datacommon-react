@@ -136,7 +136,9 @@
 
 .bulk-download__panel-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
+  justify-content: flex-end;
 
   button {
     background: none;
@@ -303,6 +305,11 @@
   color: #777;
   font-size: 0.8rem;
   margin: 0.75rem 0 0;
+
+  &--over-limit {
+    color: #b00020;
+    font-weight: 600;
+  }
 }
 
 .bulk-download__tables {
@@ -320,6 +327,32 @@
     font-size: 1.25rem;
     font-weight: 700;
     margin: 0;
+  }
+}
+
+.bulk-download__add-tables-btn {
+  background: #fff;
+  border: 2px dashed $color_brand-secondary;
+  border-radius: 8px;
+  color: $color_brand-secondary;
+  cursor: pointer;
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0 0 1.15rem;
+  padding: 0.85rem 1.25rem;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  width: 100%;
+
+  &:hover {
+    background: #f0faf4;
+    border-color: darken($color_brand-secondary, 8%);
+    color: darken($color_brand-secondary, 8%);
+  }
+
+  &:focus-visible {
+    outline: 3px solid rgba(90, 186, 140, 0.35);
+    outline-offset: 2px;
   }
 }
 
@@ -572,5 +605,120 @@
 
   &--short {
     width: 3.25rem;
+  }
+}
+
+.bulk-download__added-section {
+  background: #f8fdf9;
+  border: 1px solid #d4edda;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  padding: 1rem 1.25rem 0.35rem;
+
+  .bulk-download__tables-header {
+    margin-bottom: 0.15rem;
+  }
+
+  .bulk-download__hint {
+    margin-bottom: 0.35rem;
+  }
+
+  h3 {
+    color: #1b5c36;
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin: 0;
+  }
+}
+
+.bulk-download__recommended-section {
+  h3 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin: 0;
+  }
+}
+
+.bulk-download__section-count {
+  color: #666;
+  font-size: 0.82rem;
+  margin: 0;
+}
+
+.bulk-download__geo-badge {
+  background: #eee;
+  border-radius: 3px;
+  color: #555;
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  margin-left: 0.45rem;
+  padding: 0.1rem 0.4rem;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.bulk-download__remove-custom-btn {
+  background: none;
+  border: none;
+  color: #b00020;
+  cursor: pointer;
+  flex-shrink: 0;
+  font-size: 1.25rem;
+  line-height: 1;
+  margin-left: auto;
+  padding: 0 0.25rem;
+
+  &:hover {
+    opacity: 0.7;
+  }
+}
+
+.bulk-download__limit-overlay {
+  align-items: center;
+  background: rgba(11, 18, 32, 0.56);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 1rem;
+  position: fixed;
+  z-index: 2100;
+}
+
+.bulk-download__limit-dialog {
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 12px;
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.25);
+  max-width: 28rem;
+  padding: 1.35rem 1.4rem 1.2rem;
+  width: min(28rem, 100%);
+
+  h2 {
+    color: #333;
+    font-size: 1.15rem;
+    margin: 0 0 0.65rem;
+  }
+
+  p {
+    color: #444;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    margin: 0 0 1.15rem;
+  }
+}
+
+.bulk-download__limit-ok {
+  background: linear-gradient(90deg, #64c08d, #5aba8c);
+  border: none;
+  border-radius: 5px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 0.55rem 1.15rem;
+
+  &:hover {
+    background: linear-gradient(90deg, #51a477, #47a778);
   }
 }

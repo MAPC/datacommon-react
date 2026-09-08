@@ -130,6 +130,63 @@ export async function fetchBulkDownloadBundles() {
   return groupBundleListFromRows(bundleRows, tableRows);
 }
 
+const INVENTORY_GEO_COLUMN_CANDIDATES = ["muni_name", "municipal", "muni"];
+
+/**
+ * Find the municipality column on an inventory table (same candidates as the dataset viewer).
+ * @param {{ table: string, database?: string, schema?: string }} options
+ * @returns {Promise<string>}
+ */
+export async function fetchGeoColumnForTable({ table, database = "ds", schema = "tabular" }) {
+  if (!table) return "";
+
+  const token = import.meta.env.VITE_MAPC_API_TOKEN;
+  const params = new URLSearchParams({
+    token,
+    database,
+    schema,
+    table,
+    useNewMetadata: "true",
+  });
+
+  const response = await fetch(`${locations.BROWSER_API}/metadata?${params.toString()}`);
+  if (!response.ok) return "";
+
+  const data = await response.json();
+  const columns = Array.isArray(data) ? data : Object.values(data)[0];
+  const names = (columns || []).map((column) => column.name || column.column_name).filter(Boolean);
+  return INVENTORY_GEO_COLUMN_CANDIDATES.find((column) => names.includes(column)) || "";
+}
+
+export async function fetchAvailableYearsForTable({
+  table,
+  yearColumn,
+  database = "ds",
+  schema = "tabular",
+}) {
+  if (!table || !yearColumn) return [];
+
+  const token = import.meta.env.VITE_MAPC_API_TOKEN;
+  const params = new URLSearchParams({
+    token,
+    distinctColumn: yearColumn,
+    database,
+    schema,
+    table,
+    limit: "100",
+  });
+
+  const response = await fetch(`${locations.BROWSER_API}?${params.toString()}`);
+  if (!response.ok) return [];
+
+  const data = await response.json();
+  return (data.rows || [])
+    .map((row) => Object.values(row)[0])
+    .filter((year) => year != null && String(year).trim() !== "")
+    .map((year) => String(year).trim())
+    .sort((a, b) => b.localeCompare(a));
+}
+
 export async function fetchBulkDownloadBundle(bundleId) {
   const token = import.meta.env.VITE_MAPC_API_TOKEN;
   const apiBase = `${locations.BROWSER_API}?token=${token}&database=ds&schema=tabular`;
@@ -190,12 +247,13 @@ export async function requestBulkExport({
   bundleSlug = "housing",
   useMetadataColumns = true,
 }) {
-  if (municipalities.length === 0) {
-    throw new Error("Select at least one municipality.");
-  }
-
   if (tables.length === 0) {
     throw new Error("Please select at least one table.");
+  }
+
+  const needsMunicipality = tables.some((tableConfig) => !tableConfig.skipGeographyFilter);
+  if (needsMunicipality && municipalities.length === 0) {
+    throw new Error("Select at least one municipality.");
   }
 
   const defaultExtension = format === "zip" ? "zip" : "xlsx";
