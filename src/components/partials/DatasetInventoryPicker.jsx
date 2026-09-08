@@ -79,6 +79,13 @@ const Label = styled.label`
   margin-bottom: 0.35rem;
 `;
 
+const PickerHint = styled.p`
+  margin: 0.65rem 0 0.25rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: #555;
+`;
+
 const Search = styled.input`
   width: 100%;
   padding: 0.6rem 0.75rem;
@@ -427,6 +434,7 @@ const DatasetInventoryPicker = ({
   alreadyAddedTableNames,
   remainingSlots = Number.POSITIVE_INFINITY,
   maxTables,
+  allowedGeographies,
   onSelect,
   onClose,
   onLimitReached,
@@ -435,7 +443,17 @@ const DatasetInventoryPicker = ({
   const [selectedGeoFilters, setSelectedGeoFilters] = useState(["all"]);
   const [pickerSelectMenuKey, setPickerSelectMenuKey] = useState(null);
 
-  const inventoryDatasets = useMemo(() => datasets || [], [datasets]);
+  const availableGeoFilters = useMemo(() => {
+    if (!allowedGeographies?.length) return ALL_DATASET_GEOGRAPHY_FILTERS;
+    return ALL_DATASET_GEOGRAPHY_FILTERS.filter((geo) => allowedGeographies.includes(geo));
+  }, [allowedGeographies]);
+  const hideGeographyBar = availableGeoFilters.length <= 1;
+
+  const inventoryDatasets = useMemo(() => {
+    const all = datasets || [];
+    if (!allowedGeographies?.length) return all;
+    return all.filter((d) => allowedGeographies.includes(getDatasetGeography(d)));
+  }, [datasets, allowedGeographies]);
   const tableById = useMemo(() => {
     const map = new Map();
     inventoryDatasets.forEach((d) => {
@@ -455,14 +473,14 @@ const DatasetInventoryPicker = ({
   const onGeoFilterClick = (geoVal) => {
     let next = [...selectedGeoFilters];
     if (next.includes("all")) {
-      next = [...ALL_DATASET_GEOGRAPHY_FILTERS];
+      next = [...availableGeoFilters];
     }
     if (!next.includes(geoVal)) {
       next = [...next, geoVal];
     } else {
       next = next.filter((gf) => gf !== geoVal);
     }
-    if (ALL_DATASET_GEOGRAPHY_FILTERS.every((geo) => next.includes(geo))) {
+    if (availableGeoFilters.every((geo) => next.includes(geo))) {
       next = ["all"];
     }
     setSelectedGeoFilters(next);
@@ -583,6 +601,10 @@ const DatasetInventoryPicker = ({
       onLimitReached?.();
       return;
     }
+    if (allowedGeographies?.length) {
+      const match = inventoryDatasets.find((d) => String(d.seq_id ?? d.id) === String(datasetId));
+      if (!match || !allowedGeographies.includes(getDatasetGeography(match))) return;
+    }
     onSelect(String(datasetId));
   };
 
@@ -638,38 +660,44 @@ const DatasetInventoryPicker = ({
             onChange={(e) => setPickerQuery(e.target.value)}
             placeholder="Search by dataset title or table name..."
           />
-          <GeographyBar>
-            <GeographyPills role="group" aria-label="Filter by geography">
-              {ALL_DATASET_GEOGRAPHY_FILTERS.map((geo) => {
-                const selected =
-                  selectedGeoFilters.includes(geo) || selectedGeoFilters.includes("all");
-                return (
-                  <GeographyPill
-                    key={geo}
-                    type="button"
-                    className={selected ? "selected" : ""}
-                    aria-pressed={selected}
-                    onClick={() => onGeoFilterClick(geo)}
-                  >
-                    {DATASET_GEOGRAPHY_LABELS[geo]}
-                    {selected && <span aria-hidden>✓</span>}
-                  </GeographyPill>
-                );
-              })}
-            </GeographyPills>
-            <GeographyPill
-              type="button"
-              className={selectedGeoFilters.length === 0 ? "selected" : ""}
-              onClick={() =>
-                selectedGeoFilters.length === 0
-                  ? setSelectedGeoFilters(["all"])
-                  : setSelectedGeoFilters([])
-              }
-            >
-              {selectedGeoFilters.length === 0 ? "Select all geographies" : "Clear all geographies"}
-              <span aria-hidden>{selectedGeoFilters.length !== 0 ? "X" : "✓"}</span>
-            </GeographyPill>
-          </GeographyBar>
+          {hideGeographyBar ? (
+            allowedGeographies?.includes("municipal") && (
+              <PickerHint>Only municipal datasets can be added to this download.</PickerHint>
+            )
+          ) : (
+            <GeographyBar>
+              <GeographyPills role="group" aria-label="Filter by geography">
+                {availableGeoFilters.map((geo) => {
+                  const selected =
+                    selectedGeoFilters.includes(geo) || selectedGeoFilters.includes("all");
+                  return (
+                    <GeographyPill
+                      key={geo}
+                      type="button"
+                      className={selected ? "selected" : ""}
+                      aria-pressed={selected}
+                      onClick={() => onGeoFilterClick(geo)}
+                    >
+                      {DATASET_GEOGRAPHY_LABELS[geo]}
+                      {selected && <span aria-hidden>✓</span>}
+                    </GeographyPill>
+                  );
+                })}
+              </GeographyPills>
+              <GeographyPill
+                type="button"
+                className={selectedGeoFilters.length === 0 ? "selected" : ""}
+                onClick={() =>
+                  selectedGeoFilters.length === 0
+                    ? setSelectedGeoFilters(["all"])
+                    : setSelectedGeoFilters([])
+                }
+              >
+                {selectedGeoFilters.length === 0 ? "Select all geographies" : "Clear all geographies"}
+                <span aria-hidden>{selectedGeoFilters.length !== 0 ? "X" : "✓"}</span>
+              </GeographyPill>
+            </GeographyBar>
+          )}
           <PickerCountBar role="status" aria-live="polite">
             <span>
               <PickerCountNum>{inventoryDatasets.length.toLocaleString()}</PickerCountNum>
@@ -828,7 +856,7 @@ const DatasetInventoryPicker = ({
             {filteredCompressedDatasets.length === 0 && (
               <PickerEmpty>
                 {pickerQuery.trim() || geoFilterActive
-                  ? "No datasets match your search or geography filter."
+                  ? "No datasets match your search"
                   : "No datasets available."}
               </PickerEmpty>
             )}
@@ -844,6 +872,7 @@ DatasetInventoryPicker.propTypes = {
   alreadyAddedTableNames: PropTypes.instanceOf(Set).isRequired,
   remainingSlots: PropTypes.number,
   maxTables: PropTypes.number,
+  allowedGeographies: PropTypes.arrayOf(PropTypes.string),
   onSelect: PropTypes.func.isRequired,
   onClose: PropTypes.func.isRequired,
   onLimitReached: PropTypes.func,
