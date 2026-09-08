@@ -4,7 +4,6 @@ import locations from '../constants/locations';
 export const fetchRPAregionChartData = createAsyncThunk(
   "rparegion/fetchChartData",
   async ({ rpa_id  , chartInfo }, { dispatch, getState }) => {
-    console.log('fetching rpa region chart data', rpa_id, chartInfo);
     const { rparegion } = getState();
     const tableNames = Object.keys(chartInfo.tables);
 

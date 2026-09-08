@@ -138,8 +138,8 @@ const AdminListJobsPage = () => {
         <>
           <div>{`Tables checked: ${jobRow.metadata?.tables_checked}`}</div>
           {hasErrors && <div>Errors:</div>}
-          {hasErrors && jobRow.metadata?.errors.map(error => (
-            <div style={{marginLeft: '8px'}}>
+          {hasErrors && jobRow.metadata?.errors.map((error, idx) => (
+            <div style={{marginLeft: '8px'}} key={`${jobRow.id}_${idx}`}>
               <b>{error.table}</b>
               {` - Expected "${error.expected}" for muni_id (${error.muni_id}) but found "${error.actual}"`}
             </div>
@@ -189,8 +189,8 @@ const AdminListJobsPage = () => {
           </thead>
           <tbody>
             {jobs.map(job => (
-              <>
-                <JobsTableRow key={job.id}>
+              <React.Fragment key={job.id}>
+                <JobsTableRow>
                   <JobsTableCell>
                     {jobTypeToStyledMap[job.job_type] || 'Unknown'}
                   </JobsTableCell>
@@ -235,7 +235,7 @@ const AdminListJobsPage = () => {
                     </JobsTableCell>
                   </JobsTableRow>
                 )}
-              </>
+              </React.Fragment>
             ))}
           </tbody>
         </table>

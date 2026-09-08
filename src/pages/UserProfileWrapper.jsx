@@ -6,19 +6,19 @@ import styled from 'styled-components';
 import { getCookie, logoutUser } from '../utils/cookies';
 import { isUserAdmin } from '../utils/auth';
 
-const AdminMainWrapper = styled.div`
+const UserProfileMainWrapper = styled.div`
   display: flex;
   width: 1400px;
   margin: 10px auto; 
 `;
 
-const AdminLeftNavContainer = styled.div`
+const UserProfileLeftNavContainer = styled.div`
   min-width: 16rem;
   min-height: 500px;
   border: 1px solid #dddddd;
 `;
 
-const AdminLeftNavHeader = styled.div`
+const UserProfileLeftNavHeader = styled.div`
   padding: 8px 12px;
   background: #1F4E46;
   border-radius: 4px;
@@ -27,14 +27,14 @@ const AdminLeftNavHeader = styled.div`
   color: white;
 `;
 
-const AdminLinksContainer = styled.div`
+const UserProfileLinksContainer = styled.div`
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   height: calc(100% - 45px);
 `;
 
-const AdminPageRoute = styled.div`
+const UserProfilePageRoute = styled.div`
   cursor: pointer;
   padding: 10px 20px;
   font-size: 18px;
@@ -54,8 +54,7 @@ const AdminPageRoute = styled.div`
   }
 `;
 
-const AdminLogoutButton = styled.div`
-  margin-top: 160px;
+const UserProfileLogoutButton = styled.div`
   background: #1F4E46;
   border-radius: 4px;
   color: white;
@@ -68,7 +67,7 @@ const AdminLogoutButton = styled.div`
   }
 `;
 
-const AdminWrapper = () => {
+const UserProfileWrapper = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -82,23 +81,21 @@ const AdminWrapper = () => {
       return;
     }
 
-    // bounce the user to the home page if they're not an admin or token is invalid
+    // bounce the user to the home page if token is invalid
     axios.get("/api/users/me")
       .then(res => {
         const user = res?.data?.user;
-        const isAdmin = isUserAdmin(user);
-        if (!isAdmin) {
+        if (!user) {
           sendUserToHome();
-          return;
         }
       }).catch(err => {
         sendUserToHome();
         return;
       });
 
-    // Finally, redirect from the base /admin page to /admin/job
-    if (location.pathname === "/admin") {
-      navigate("/admin/jobs");
+    // Finally, redirect from the base /profile page to /profile/me
+    if (location.pathname === "/user-profile") {
+      navigate("/user-profile/me");
     }
   }, [location.pathname]);
 
@@ -112,29 +109,39 @@ const AdminWrapper = () => {
   };
 
   return (
-    <AdminMainWrapper>
-      <AdminLeftNavContainer>
-        <AdminLeftNavHeader>DataCommon Admin</AdminLeftNavHeader>
-        <AdminLinksContainer>
+    <UserProfileMainWrapper>
+      <UserProfileLeftNavContainer>
+        <UserProfileLeftNavHeader>User Profile</UserProfileLeftNavHeader>
+        <UserProfileLinksContainer>
           <div>
-            <AdminPageRoute
-              className={location.pathname === '/admin/jobs' ? 'active' : ''}
-              onClick={() => navigate("/admin/jobs")}
+            <UserProfilePageRoute
+              className={location.pathname === '/user-profile/me' ? 'active' : ''}
+              onClick={() => navigate("/user-profile/me")}
             >
-              Pipeline Jobs
-            </AdminPageRoute>
-            <AdminPageRoute >
-              More Coming Soon! 
-            </AdminPageRoute>
+              My Profile
+            </UserProfilePageRoute>
+            <UserProfilePageRoute
+              className={location.pathname === '/user-profile/teammates' ? 'active' : ''}
+              onClick={() => navigate("/user-profile/teammates")}
+            >
+              Teammates
+            </UserProfilePageRoute>
+            <UserProfilePageRoute
+              className={location.pathname === '/user-profile/favorite-datasets' ? 'active' : ''}
+              onClick={() => navigate("/user-profile/favorite-datasets")}
+            >
+              Favorite Datasets
+            </UserProfilePageRoute>
           </div>
-          <AdminLogoutButton onClick={() => onLogoutClicked()}>
+
+          <UserProfileLogoutButton onClick={() => onLogoutClicked()}>
             Logout
-          </AdminLogoutButton>
-        </AdminLinksContainer>
-      </AdminLeftNavContainer>
+          </UserProfileLogoutButton>
+        </UserProfileLinksContainer>
+      </UserProfileLeftNavContainer>
       <Outlet />
-    </AdminMainWrapper>
+    </UserProfileMainWrapper>
   );
 };
 
-export default AdminWrapper;
+export default UserProfileWrapper;

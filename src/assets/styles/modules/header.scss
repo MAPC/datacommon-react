@@ -34,6 +34,7 @@ header {
     justify-content: center;
     font-size: 18px;
     cursor: pointer;
+    user-select: none;
 
     &:hover {
       background: #2e5e56;
@@ -42,6 +43,32 @@ header {
 
   .header-user-icon {
     top: -2px;
+  }
+
+  .header-user-icon-menu {
+    top: 70px;
+    right: 0px;
+    width: 160px;
+    position: absolute;
+    border: 1px solid #111111;
+    border-radius: 8px;
+    padding: 4px;
+    background: white;
+    z-index: 10;
+
+    .user-icon-menu-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 6px 8px;
+      border-radius: 8px;
+      cursor: pointer;
+      user-select: none;
+
+      &:hover {
+        background: #F2F2F2;
+      }
+    }
   }
 
   .header-brand {
