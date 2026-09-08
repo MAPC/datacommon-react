@@ -13,6 +13,7 @@ import {
   tableConfigFromInventoryDataset,
   MAX_BULK_DOWNLOAD_TABLES,
   BULK_DOWNLOAD_EXTRA_GEOGRAPHIES,
+  BULK_DOWNLOAD_EXTRA_GEOGRAPHY_NAMES,
 } from "../constants/bulkDownloadBundles";
 import {
   downloadBlob,
@@ -586,7 +587,13 @@ const BulkDownloadBundlePage = () => {
                     ? "Required — search and select one or more Massachusetts cities or towns."
                     : "Optional for the tables currently selected. Non-municipal tables are not filtered by city or town."}
                 </p>
-                <SearchBar contextKey="municipality" onSelect={handleMuniSelect} placeholder="Search for a community…" className="small" />
+                <SearchBar
+                  contextKey="municipality"
+                  onSelect={handleMuniSelect}
+                  placeholder="Search for a community, MAPC, or Massachusetts"
+                  className="small"
+                  additionalSearchable={BULK_DOWNLOAD_EXTRA_GEOGRAPHY_NAMES}
+                />
                 {municipalities.length > 0 && (
                   <ul className="bulk-download__muni-list" aria-label="Selected municipalities">
                     {municipalities.map((name) => (
