@@ -24,9 +24,12 @@ import municipalities from "./assets/data/ma-munis.json";
 import "./utils/introModal"; 
 import PasswordResetPage from "./pages/PasswordResetPage";
 import AdminWrapper from "./pages/AdminWrapper";
-import AdminTeammatesPage from "./pages/AdminTeammatesPage";
+import ProfileTeammatesPage from "./pages/UserProfileTeammatesPage";
 import AdminListJobsPage from "./pages/AdminListJobsPage";
 import EmailVerificationPage from "./pages/EmailVerificationPage";
+import UserProfileWrapper from "./pages/UserProfileWrapper";
+import ProfileMyProfilePage from "./pages/UserProfileMyProfilePage";
+import ProfileFavoriteDatasetsPage from "./pages/UserProfileFavoriteDatasetsPage";
 
 // Create arrays of valid options
 const muniOptions = municipalities.features.map(
@@ -181,12 +184,27 @@ const router = createBrowserRouter([
         element: <AdminWrapper />,
         children: [
           {
-            path: "teammates",
-            element: <AdminTeammatesPage />
-          },
-          {
             path: "jobs",
             element: <AdminListJobsPage />
+          }
+        ]
+      },
+      // Profile routes, all routes should go through the admin parent that verifies login.
+      {
+        path: "user-profile",
+        element: <UserProfileWrapper />,
+        children: [
+          {
+            path: "me",
+            element: <ProfileMyProfilePage />
+          },
+          {
+            path: "teammates",
+            element: <ProfileTeammatesPage />
+          },
+          {
+            path: "favorite-datasets",
+            element: <ProfileFavoriteDatasetsPage />
           }
         ]
       }

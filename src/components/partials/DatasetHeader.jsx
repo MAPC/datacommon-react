@@ -1,15 +1,18 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import axios from "axios";
 import PropTypes from "prop-types";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEllipsisVertical, faMap, faShareNodes, faTable } from "@fortawesome/free-solid-svg-icons";
-import { faMessage } from "@fortawesome/free-regular-svg-icons";
+import { faEllipsisVertical, faMap, faShareNodes, faTable, faStar as filledFaStar } from "@fortawesome/free-solid-svg-icons";
+import { faMessage, faStar } from "@fortawesome/free-regular-svg-icons";
 
 import { formatUpdated } from "../../utils/formatUpdated";
 import ExportDataModal from "./ExportDataModal";
 import EmbedTableModal from "./EmbedTableModal";
 import MetadataModal from "./MetadataModal";
 import { buildDatasetViewShareSearchParams, DATASET_VIEW_SHARE_MAX_URL_LENGTH } from "../../utils/datasetViewShareQuery";
+import { getCookie } from "../../utils/cookies";
+import styled, { keyframes } from "styled-components";
 
 const setSelectYears = (availableYears, updateSelectedYears, selectedYears, { singleSelect = false } = {}) => {
   if (availableYears.length > 0) {
@@ -635,6 +638,21 @@ const FilterPill = ({ filter, removeColumnFilter }) => {
   )
 }
 
+const spin = keyframes`
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+`;
+
+const Spinner = styled.div`
+  width: 12px;
+  height: 12px;
+  margin-left: 10.5px;
+  border: 2px solid #978080;
+  border-top: 2px solid transparent;
+  border-radius: 50%;
+  animation: ${spin} 0.8s linear infinite;
+`;
+
 function DatasetHeader({
   title = "",
   table = "",
@@ -674,8 +692,11 @@ function DatasetHeader({
   const [embedModalOpen, setEmbedModalOpen] = useState(false);
   const [metadataModalOpen, setMetadataModalOpen] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
+  const [favoriteDatasets, setFavoriteDatasets] = useState(null);
+  const [loadingFavorites, setLoadingFavorites] = useState(null);
   const actionsDropdownRef = useRef(null);
 
+  // create the share / embed URLs whenever one of the parameters changes
   const { sharePageUrl, embedPageUrl, shareUrlTooLong } = useMemo(() => {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     const viewSuffix = viewMode === "map" ? "/map" : "";
@@ -713,6 +734,33 @@ function DatasetHeader({
     availableYears,
     queryYearColumn,
   ]);
+
+  // Fetch dataset favorites if the user is logged in 
+  useEffect(() => {
+    // If the user has a login cookie set, attempt to fetch their favorite datasets
+    const cookie = getCookie('datacommon_mapc_token');
+    if (cookie) {
+      setLoadingFavorites(true);
+      axios.get("/api/datasets/favorites")
+        .then(res => {
+          setFavoriteDatasets(res?.data || null);
+          setLoadingFavorites(false);
+        }).catch(err => {
+          console.error("Error while fetching dataset favorites: ", err);
+          setFavoriteDatasets(null);
+          setLoadingFavorites(false);
+        });
+    }
+  }, []);
+
+  // Is the current dataset favorited:
+  const isFavorited = useMemo(() => {
+    if (!favoriteDatasets) {
+      return false;
+    }
+
+    return favoriteDatasets.map(fav => fav.table_name).includes(table);
+  }, [favoriteDatasets]);
 
   const embedModalAdjustFilters = useMemo(
     () => (
@@ -760,6 +808,30 @@ function DatasetHeader({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [actionsOpen]);
 
+  const handleToggleDatasetFavorite = async () => {
+    // bail out if currently loading
+    if (loadingFavorites) return;
+
+    try {
+      setLoadingFavorites(true);
+      await axios.post("/api/datasets/toggle-favorite", { tableName: table });
+
+      // if toggle request succeeds, re-fetch updated datasets:
+      axios.get("/api/datasets/favorites")
+        .then(res => {
+          setFavoriteDatasets(res?.data || null);
+          setLoadingFavorites(false);
+        }).catch(err => {
+          console.error("Error while fetching dataset favorites: ", err);
+          setFavoriteDatasets(null);
+          setLoadingFavorites(false);
+        });
+    } catch (err) {
+      console.error('Error while toggling dataset favorite status');
+      setLoadingFavorites(false);
+    }
+  }
+
   return (
     isEmbedView && viewMode === "map" ? (
       <div className="embed-map-header-actions" role="group" aria-label="Embed map header">
@@ -800,7 +872,20 @@ function DatasetHeader({
             </button>
           </div>
         )}
-        <h2>{title}</h2>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          {(favoriteDatasets || loadingFavorites) && (
+            <div
+              className="favorite-icon-container"
+              title={isFavorited ? "Click to remove favorite" : "Click to favorite"}
+              onClick={() => handleToggleDatasetFavorite()}
+            >
+              {loadingFavorites && <Spinner />}
+              {!loadingFavorites && isFavorited && <FontAwesomeIcon icon={filledFaStar} size="lg" />}
+              {!loadingFavorites && !isFavorited && <FontAwesomeIcon icon={faStar} size="lg" />}
+            </div>
+          )}
+          <h2>{title}</h2>
+        </div>
         <div className={isEmbedView ? "dataset-details-content dataset-details-content--embed" : "dataset-details-content"}>
           <div className="details-content-column">
             <ul className="table-meta">

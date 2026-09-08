@@ -43,12 +43,12 @@ const Spinner = styled.div`
   animation: ${spin} 0.8s linear infinite;
 `;
 
-const AdminTeammatesPage = () => {
+const ProfileTeammatesPage = () => {
   const [teammates, setTeammates] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    axios.get("/api/users/my-teammates")
+    axios.get("/api/users/my-teammates") // TODO: expose to all users
       .then(res => {
         setTeammates(res.data.teammates);
         setLoading(false);
@@ -98,4 +98,4 @@ const AdminTeammatesPage = () => {
   );
 };
 
-export default AdminTeammatesPage;
+export default ProfileTeammatesPage;
