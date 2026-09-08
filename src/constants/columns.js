@@ -16,6 +16,8 @@ export const unformattedColumns = [
   "g250m_id",
   // zip codes:
   "zip", "zipcode", "zip_code", "owner_zip", "addr_zip",
+  // county-subdivisions:
+  "cosub_cn20",
   // addresses:
   "address", "site_addr", "owner_addr",
   // NAICS codes:
