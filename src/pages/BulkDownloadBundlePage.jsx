@@ -6,11 +6,13 @@ import SearchBar from "../components/partials/SearchBar";
 import DatasetInventoryPicker from "../components/partials/DatasetInventoryPicker";
 import capitalize from "../utils/capitalize";
 import { fetchDatasets } from "../reducers/datasetSlice";
+import { getDatasetGeography } from "../utils/manageDatasets";
 import {
   getTableDisplayInfo,
   tableHasYearFilter,
   tableConfigFromInventoryDataset,
   MAX_BULK_DOWNLOAD_TABLES,
+  BULK_DOWNLOAD_EXTRA_GEOGRAPHIES,
 } from "../constants/bulkDownloadBundles";
 import {
   downloadBlob,
@@ -18,6 +20,7 @@ import {
   fetchBulkDownloadBundle,
   fetchAvailableYearsForTable,
   fetchGeoColumnForTable,
+  resolveDefaultSelectedYears,
   BULK_DOWNLOAD_EXPORT_FAILED,
   BULK_DOWNLOAD_EXPORT_FAILED_MESSAGE,
 } from "../utils/bulkDownloadApi";
@@ -371,6 +374,7 @@ const BulkDownloadBundlePage = () => {
     async (datasetId) => {
       const match = inventoryDatasets.find((d) => String(d.seq_id) === String(datasetId));
       if (!match?.table_name) return;
+      if (getDatasetGeography(match) !== "municipal") return;
 
       const tableName = match.table_name;
       if (alreadyAddedTableNames.has(tableName)) return;
@@ -668,7 +672,7 @@ const BulkDownloadBundlePage = () => {
               </div>
               <p className="bulk-download__hint">
                 Recommended tables are selected by default, and the most recent year is pre-selected. You can add more
-                tables from the Data Inventory or change your table and year selections.
+                municipal tables from the Data Inventory or change your table and year selections.
               </p>
               <button type="button" className="bulk-download__add-tables-btn" onClick={handleOpenPicker}>
                 + Add tables from Data Inventory
@@ -739,6 +743,7 @@ const BulkDownloadBundlePage = () => {
         <DatasetInventoryPicker
           datasets={inventoryDatasets}
           alreadyAddedTableNames={alreadyAddedTableNames}
+          allowedGeographies={["municipal"]}
           onSelect={handleAddCustomTable}
           onClose={() => setIsPickerOpen(false)}
         />
