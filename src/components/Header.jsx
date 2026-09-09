@@ -122,7 +122,7 @@ const Header = () => {
                 className={handleActivePage(location.pathname, "/browser/bulk-download")}
                 href="/browser/bulk-download"
               >
-                Data for Planning
+                Data by Plan Type
               </a>
             </li>
             <li>
