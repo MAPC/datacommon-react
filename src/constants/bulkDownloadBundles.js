@@ -18,91 +18,23 @@ export function tableConfigFromInventoryDataset(dataset) {
   };
 }
 
-/** Special region rows in municipal tables (not cities/towns). */
-export const BULK_DOWNLOAD_EXTRA_GEOGRAPHIES = [
-  {
-    name: "MAPC",
-    muniId: 352,
-    municipalAliases: ["MAPC", "Metropolitan Area Planning Council"],
-  }
-];
-
-export const BULK_DOWNLOAD_EXTRA_GEOGRAPHY_NAMES = BULK_DOWNLOAD_EXTRA_GEOGRAPHIES.map(
-  (geo) => geo.name,
-);
-
-const MAPC_GEOGRAPHY = BULK_DOWNLOAD_EXTRA_GEOGRAPHIES.find((geo) => geo.muniId === 352);
-
-function addUniqueName(names, seen, name) {
-  const trimmed = String(name || "").trim();
-  if (!trimmed) return;
-  const key = trimmed.toLowerCase();
-  if (seen.has(key)) return;
-  seen.add(key);
-  names.push(trimmed);
-}
-
-/** Match a selected name against extra geography display names or aliases. */
-export function findBulkDownloadExtraGeography(selectedName) {
-  const needle = String(selectedName).toLowerCase();
-  return BULK_DOWNLOAD_EXTRA_GEOGRAPHIES.find((place) => {
-    if (place.name.toLowerCase() === needle) return true;
-    return (place.municipalAliases || []).some((alias) => alias.toLowerCase() === needle);
-  });
-}
-
-function getHiddenMunicipalAliasKeys() {
-  const hidden = new Set();
-
-  BULK_DOWNLOAD_EXTRA_GEOGRAPHIES.forEach((geo) => {
-    (geo.municipalAliases).forEach((alias) => {
-      if (alias.toLowerCase() !== geo.name.toLowerCase()) {
-        hidden.add(alias.toLowerCase());
-      }
-    });
-  });
-
-  return hidden;
-}
-
 /**
- * Search names for the municipality dropdown: rows from bulk_download_datakeys_all,
- * plus extra-geography display names (aliases stay as query mappings only).
+ * Dropdown options for geography search: `{ muniId, municipal }` from
+ * bulk_download_datakeys_all.
  */
 export function buildBulkDownloadMunicipalitySearchable(rows = []) {
-  const names = [];
+  const options = [];
   const seen = new Set();
-  const hiddenAliases = getHiddenMunicipalAliasKeys();
 
-  addUniqueName(names, seen, MAPC_GEOGRAPHY?.name);
   rows.forEach((row) => {
-    const municipal = row.municipal.trim();
-    if (hiddenAliases.has(municipal.toLowerCase())) return;
-    addUniqueName(names, seen, municipal);
+    const municipal = String(row.municipal || "").trim();
+    const muniId = Number(row.muniId);
+    if (!municipal || !Number.isFinite(muniId) || seen.has(muniId)) return;
+    seen.add(muniId);
+    options.push({ muniId, municipal });
   });
 
-  return names;
-}
-
-/**
- * Turn the names the user picked into the names stored in the tables.
- * Example: "MAPC" is stored as "MAPC" in most tables, but as
- * "Metropolitan Area Planning Council" in some tables.
- */
-export function expandBulkDownloadGeographyValues(selectedNames = []) {
-  const namesToSend = [];
-
-  for (const selectedName of selectedNames) {
-    const specialPlace = findBulkDownloadExtraGeography(selectedName);
-
-    if (specialPlace) {
-      namesToSend.push(...specialPlace.municipalAliases);
-    } else {
-      namesToSend.push(selectedName);
-    }
-  }
-
-  return [...new Set(namesToSend)];
+  return options;
 }
 
 /** @param {object} tableConfig */

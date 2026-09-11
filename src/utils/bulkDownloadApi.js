@@ -1,5 +1,5 @@
 import locations from "../constants/locations";
-import { buildBulkExportTableEntry, expandBulkDownloadGeographyValues } from "../constants/bulkDownloadBundles";
+import { buildBulkExportTableEntry } from "../constants/bulkDownloadBundles";
 
 export const BULK_DOWNLOAD_EXPORT_FAILED = "Failed to export data.";
 
@@ -278,8 +278,13 @@ export async function fetchBulkDownloadBundle(bundleId) {
   };
 }
 
+function selectedMunicipalityNames(municipalities = []) {
+  return municipalities.map((muni) => (typeof muni === "string" ? muni : muni.municipal)).filter(Boolean);
+}
+
 export function buildBulkDownloadFilename(municipalities, bundleSlug, extension) {
-  const muniLabel = municipalities.length === 1 ? municipalities[0] : "municipalities";
+  const names = selectedMunicipalityNames(municipalities);
+  const muniLabel = names.length === 1 ? names[0] : "municipalities";
   const dateStamp = formatDateStamp();
   return `${muniLabel} ${bundleSlug} data ${dateStamp}.${extension}`;
 }
@@ -301,14 +306,19 @@ export async function requestBulkExport({
 
   const defaultExtension = format === "zip" ? "zip" : "xlsx";
 
-  const geographyValues = expandBulkDownloadGeographyValues(municipalities);
+  const municipalityIds = [
+    ...new Set(
+      municipalities
+        .map((muni) => Number(typeof muni === "string" ? muni : muni.muniId))
+        .filter((id) => Number.isFinite(id)),
+    ),
+  ];
 
   const payload = {
     token: import.meta.env.VITE_MAPC_API_TOKEN,
     format,
     bundleSlug,
-    municipalities: geographyValues,
-    geography: { values: geographyValues },
+    municipalityIds,
     useMetadataColumns,
     tables: tables.map((tableConfig) => buildBulkExportTableEntry(tableConfig)),
   };
