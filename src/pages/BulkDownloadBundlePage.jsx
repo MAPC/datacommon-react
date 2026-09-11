@@ -4,7 +4,6 @@ import { useDispatch, useSelector } from "react-redux";
 import PropTypes from "prop-types";
 import SearchBar from "../components/partials/SearchBar";
 import DatasetInventoryPicker from "../components/partials/DatasetInventoryPicker";
-import capitalize from "../utils/capitalize";
 import { fetchDatasets } from "../reducers/datasetSlice";
 import { getDatasetGeography } from "../utils/manageDatasets";
 import {
@@ -12,7 +11,6 @@ import {
   tableHasYearFilter,
   tableConfigFromInventoryDataset,
   MAX_BULK_DOWNLOAD_TABLES,
-  findBulkDownloadExtraGeography,
   buildBulkDownloadMunicipalitySearchable,
 } from "../constants/bulkDownloadBundles";
 import {
@@ -484,15 +482,17 @@ const BulkDownloadBundlePage = () => {
   const allTablesSelected = selectedTableNames.length === displayTables.length;
   const canDownload = selectedTableNames.length > 0 && !yearsLoading && municipalities.length > 0;
 
-  const handleMuniSelect = (muniSlug) => {
-    const extraMatch = findBulkDownloadExtraGeography(muniSlug);
-    const name = extraMatch ? extraMatch.name : capitalize(muniSlug);
-    setMunicipalities((prev) => (prev.includes(name) ? prev : [...prev, name]));
+  const handleMuniSelect = (selection) => {
+    const muniId = Number(selection?.muniId);
+    const municipal = String(selection?.municipal ?? "").trim();
+    if (!Number.isFinite(muniId) || !municipal) return;
+
+    setMunicipalities((prev) => (prev.some((muni) => muni.muniId === muniId) ? prev : [...prev, { muniId, municipal }]));
     setDownloadError("");
   };
 
-  const removeMunicipality = (name) => {
-    setMunicipalities((prev) => prev.filter((m) => m !== name));
+  const removeMunicipality = (muniId) => {
+    setMunicipalities((prev) => prev.filter((muni) => muni.muniId !== muniId));
   };
 
   const toggleTable = (tableName) => {
@@ -603,6 +603,7 @@ const BulkDownloadBundlePage = () => {
                 </p>
                 <SearchBar
                   contextKey="municipality"
+                  searchColumn="municipal"
                   onSelect={handleMuniSelect}
                   placeholder="Search for a geography in Massachusetts"
                   className="small"
@@ -610,14 +611,14 @@ const BulkDownloadBundlePage = () => {
                 />
                 {municipalities.length > 0 && (
                   <ul className="bulk-download__muni-list" aria-label="Selected municipalities">
-                    {municipalities.map((name) => (
-                      <li key={name} className="bulk-download__muni-pill">
-                        <span>{name}</span>
+                    {municipalities.map(({ muniId, municipal }) => (
+                      <li key={muniId} className="bulk-download__muni-pill">
+                        <span>{municipal}</span>
                         <button
                           type="button"
                           className="bulk-download__muni-pill-remove"
-                          onClick={() => removeMunicipality(name)}
-                          aria-label={`Remove ${name}`}
+                          onClick={() => removeMunicipality(muniId)}
+                          aria-label={`Remove ${municipal}`}
                         >
                           ×
                         </button>
