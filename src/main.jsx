@@ -30,6 +30,7 @@ import EmailVerificationPage from "./pages/EmailVerificationPage";
 import UserProfileWrapper from "./pages/UserProfileWrapper";
 import ProfileMyProfilePage from "./pages/UserProfileMyProfilePage";
 import ProfileFavoriteDatasetsPage from "./pages/UserProfileFavoriteDatasetsPage";
+import MuniAccountCreationPage from "./pages/MuniAccountCreationPage";
 
 // Create arrays of valid options
 const muniOptions = municipalities.features.map(
@@ -168,15 +169,19 @@ const router = createBrowserRouter([
       },
       {
         path: "login",
-        element: <LoginPage />
+        element: <LoginPage />,
       },
       {
         path: "/password-reset/:token",
-        element: <PasswordResetPage />
+        element: <PasswordResetPage />,
       },
       {
         path: "/verify-account/:token",
-        element: <EmailVerificationPage />
+        element: <EmailVerificationPage />,
+      },
+      {
+        path: "/muni-signup",
+        element: <MuniAccountCreationPage />,
       },
       // Admin routes, all routes should go through the admin parent that verifies login / admin status.
       {

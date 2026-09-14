@@ -11,8 +11,8 @@ const PageContainer = styled.section`
 `;
 
 const LoginBox = styled.div`
-  width: 550px;
-  height: 500px;
+  width: 600px;
+  height: 550px;
   background: #dddddd;
   border-radius: 10px;
   box-shadow: 4px 4px 4px #dddddd;
@@ -38,14 +38,14 @@ const LoginBoxContent = styled.div`
 
 const LoginEmailContainer = styled.div`
   width: 100%;
-  padding: 2rem;
+  padding: 1rem 2rem;
   padding-bottom: 0px;
   color: #111111;
 `;
 
 const LoginEmailDescription = styled.div`
   font-size: 16px;
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
 `;
 
 const LoginEmailLabel = styled.label`
@@ -139,7 +139,7 @@ const LoginPage = () => {
 
     // newPassword and confirmNewPassword are checked for equality before submit button clicked
     axios.post(`/api/users/create-account`, 
-      { email: emailInputValue, name: nameInputValue, password: newPassword})
+      { email: emailInputValue, name: nameInputValue, password: newPassword })
       .then(resp => {
         setPasswordSetSuccessful(true);
       }).catch(e => {
@@ -180,7 +180,7 @@ const LoginPage = () => {
       }).catch(e => {
         setErrorMessage("There was an error while attempting send the password reset email.")
       });
-  }
+  };
 
   return (
     <PageContainer className="route api">
