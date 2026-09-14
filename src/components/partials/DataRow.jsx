@@ -16,6 +16,7 @@ const DataRow = ({
   onDragHandleDragEnd,
   onRowDragOver,
   onRowDrop,
+  queryYearColumn = "",
 }) => {
   const targetId = getInventoryRowDatasetId(rowData);
   const canLink = Boolean(linkRowsToDatasetView && targetId != null && targetId !== "" && rowData?.active === 'Y');
@@ -42,7 +43,9 @@ const DataRow = ({
   };
 
   const formatValue = (value, header) => {
-    const doNotFormat = unformattedColumns.includes(header);
+    const doNotFormat =
+      unformattedColumns.includes(header) ||
+      (queryYearColumn && header === queryYearColumn);
     if (typeof value === "number" && !doNotFormat) {
       return value.toLocaleString("en-US", { maximumFractionDigits: 2});
     }
@@ -145,6 +148,7 @@ DataRow.propTypes = {
   onDragHandleDragEnd: PropTypes.func,
   onRowDragOver: PropTypes.func,
   onRowDrop: PropTypes.func,
+  queryYearColumn: PropTypes.string,
 };
 
 DataRow.defaultProps = {
@@ -152,6 +156,7 @@ DataRow.defaultProps = {
   linkRowsToDatasetView: false,
   showRowDragControls: false,
   isDragging: false,
+  queryYearColumn: "",
 };
 
 export default DataRow;

@@ -5,6 +5,8 @@ export const MAP_VIEW_GEOGRAPHY_TYPES = {
   census_tracts: "census_tracts",
   block_groups: "block_groups",
   blocks: "blocks",
+  school_districts: "school_districts",
+  schools: "schools",
   /** `_data_browser.menu1 === "Boundaries"` — table already has polygons in `shape`. */
   boundary: "boundary",
 };
@@ -18,6 +20,8 @@ const TRACT_GEO_COLUMNS = [
   "geoid",
   "GEOID",
 ];
+const SCHOOL_DISTRICT_MAP_JOIN_COLUMNS = ["districtid", "org8code", "org4code"];
+const SCHOOL_MAP_JOIN_COLUMNS = ["schid"];
 
 const OWN_SHAPE_COLUMN_NAMES = new Set(["shape", "geometry", "geom"]);
 
@@ -27,14 +31,14 @@ export function isBoundariesCategory(menu1) {
 }
 
 /**
- * Detect geography type from `_data_browser.geography`, or Boundaries category.
- * Known geography values: municipal, census_tracts, block_groups, blocks, null.
+ * Detect geography type from `_data_browser.geography`, table columns, or Boundaries category.
+ * Known geography values: municipal, census_tracts, block_groups, blocks, school_districts, schools, null.
  *
- * @param {string|null|undefined} [_tableName]
+ * @param {string|null|undefined} [tableName]
  * @param {string|null|undefined} [geography] `_data_browser.geography`
- * @param {{ menu1?: string|null }} [options]
+ * @param {{ menu1?: string|null, sampleRow?: object|null }} [options]
  */
-export function detectDatasetGeographyType(_tableName, geography = null, { menu1 = null } = {}) {
+export function detectDatasetGeographyType(tableName, geography = null, { menu1 = null, sampleRow = null } = {}) {
   if (geography != null && geography !== "") {
     const value = String(geography).trim().toLowerCase();
     if (value === MAP_VIEW_GEOGRAPHY_TYPES.municipal) {
@@ -49,15 +53,33 @@ export function detectDatasetGeographyType(_tableName, geography = null, { menu1
     if (value === MAP_VIEW_GEOGRAPHY_TYPES.blocks) {
       return MAP_VIEW_GEOGRAPHY_TYPES.blocks;
     }
+    if (
+      value === MAP_VIEW_GEOGRAPHY_TYPES.school_districts ||
+      value === "school_district" ||
+      value === "districts"
+    ) {
+      return MAP_VIEW_GEOGRAPHY_TYPES.school_districts;
+    }
+    if (value === MAP_VIEW_GEOGRAPHY_TYPES.schools || value === "school") {
+      return MAP_VIEW_GEOGRAPHY_TYPES.schools;
+    }
   }
-  if (isBoundariesCategory(menu1)) {
-    return MAP_VIEW_GEOGRAPHY_TYPES.boundary;
+
+  // handle school districts and schools by table name because those tables's geography columns are empty
+  const table = String(tableName).toLowerCase();
+  if (table.endsWith("_districts")) {
+    return MAP_VIEW_GEOGRAPHY_TYPES.school_districts;
   }
+  if (table.endsWith("_schools")) {
+    return MAP_VIEW_GEOGRAPHY_TYPES.schools;
+  }
+  // handle boundaries by menu1
+  if (isBoundariesCategory(menu1)) return MAP_VIEW_GEOGRAPHY_TYPES.boundary;
   return null;
 }
 
 /**
- * Map preview: municipal + census tract choropleths, and Boundaries-category layers.
+ * Map preview: municipal + census tract choropleths and Boundaries layers.
  */
 export function isMapPreviewSupported(geographyType) {
   return (
@@ -95,6 +117,10 @@ const NON_MAPPABLE_COLUMN_NAMES = new Set(
     "funcstat",
     "intptlat",
     "intptlon",
+    "districtid",
+    "district",
+    "schid",
+    "schoolyear",
     ...MUNICIPAL_MAP_JOIN_COLUMNS,
     ...TRACT_GEO_COLUMNS,
   ].map((name) => name.toLowerCase()),
@@ -120,9 +146,7 @@ export function supportsTabularGeojsonExport(tableName, geography = null, { menu
 }
 
 /**
- * Column used for the tabular geography dropdown / filter 
- * @param {Object} sampleRow
- * @returns {string}
+ * Column used for the tabular "All geographies" dropdown (municipal name, not muni_id).
  */
 export function resolveTableGeographyColumn(sampleRow) {
   if (!sampleRow) return null;
@@ -136,8 +160,8 @@ export function resolveTableGeographyColumn(sampleRow) {
 /**
  * Column used to join table rows to map polygons (prefer muni_id / tract ids).
  * @param {object|null} sampleRow
- * @param {"municipal"|"census_tracts"|"boundary"|null} geographyType
- * @param {string|null} [preferredColumn]
+ * @param {"municipal"|"census_tracts"|"boundary"|"school_districts"|"schools"|null} geographyType
+ * @param {string|null} [preferredColumn] preferred column name to use for joining
  */
 export function resolveMapGeographyColumn(sampleRow, geographyType, preferredColumn = null) {
   if (preferredColumn && sampleRow && sampleRow[preferredColumn] != null && sampleRow[preferredColumn] !== "") {
@@ -148,7 +172,11 @@ export function resolveMapGeographyColumn(sampleRow, geographyType, preferredCol
   const candidates =
     geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts
       ? TRACT_GEO_COLUMNS
-      : MUNICIPAL_MAP_JOIN_COLUMNS;
+      : geographyType === MAP_VIEW_GEOGRAPHY_TYPES.school_districts
+        ? SCHOOL_DISTRICT_MAP_JOIN_COLUMNS
+        : geographyType === MAP_VIEW_GEOGRAPHY_TYPES.schools
+          ? SCHOOL_MAP_JOIN_COLUMNS
+          : MUNICIPAL_MAP_JOIN_COLUMNS;
 
   // Prefer a column that actually has a value (older ACS years often have ct10_id only).
   const withValue = candidates.find((col) => sampleRow[col] != null && sampleRow[col] !== "");
@@ -264,9 +292,29 @@ export function getMarginColumnForBase(columnKeys = [], baseColumnName) {
   return pairs[0] || null;
 }
 
+function findMetadataColumn(columnKeys = [], columnName) {
+  const wanted = String(columnName ?? "").trim();
+  if (!wanted) return null;
+  const wantedLower = wanted.toLowerCase();
+  return (
+    (columnKeys || []).find((col) => String(col?.name || "").trim() === wanted) ||
+    (columnKeys || []).find((col) => String(col?.name || "").trim().toLowerCase() === wantedLower) ||
+    null
+  );
+}
+
+/** Same title the table uses: metadata alias, then the column name. */
+export function getColumnHeaderLabel(columnKeys = [], columnName) {
+  const column = findMetadataColumn(columnKeys, columnName);
+  const alias = String(column?.alias ?? "").trim();
+  if (alias) return alias;
+  return String(column?.name || columnName || "");
+}
+
 /**
- * Columns that can draw a choropleth 
- * Uses all table columns */
+ * Columns that can draw a choropleth
+ * Uses all table columns
+ */
 export function getMappableColumns(columnKeys = [], rows = [], geographyColumn = null, yearColumn = "") {
   const sample = rows.slice(0, 40);
 
@@ -296,7 +344,7 @@ export function getMappableColumns(columnKeys = [], rows = [], geographyColumn =
     .filter((col) => sample.some((row) => isNumericLike(row?.[col.name])))
     .map((col) => ({
       name: col.name,
-      label: col.alias || col.name,
+      label: getColumnHeaderLabel(columnKeys, col.name),
     }));
 }
 
@@ -364,6 +412,248 @@ export function filterRowsForMapPreview({
   return filtered;
 }
 
+const SKIP_MAP_DIMENSION_COLUMNS = new Set(
+  [
+    "seq_id",
+    "id",
+    "objectid",
+    "gid",
+    "shape",
+    "geometry",
+    "geom",
+    "logrecno",
+    "adj_year",
+    "website",
+    "statefp",
+    "countyfp",
+    "tractce",
+    "name",
+    "namelsad",
+    "mtfcc",
+    "funcstat",
+    "intptlat",
+    "intptlon",
+    "town",
+    "town_id",
+    "bg10_id",
+    "bg20_id",
+    "bl10_id",
+    "bl20_id",
+    "districtid",
+    "district",
+    "schid",
+    "schoolyear",
+    ...MUNICIPAL_MAP_JOIN_COLUMNS,
+    ...MUNICIPAL_TABLE_FILTER_COLUMNS,
+    ...TRACT_GEO_COLUMNS,
+  ].map((name) => name.toLowerCase()),
+);
+
+const KNOWN_MAP_DIMENSION_NAMES = [
+  "restype_nm",
+ /*  "res_type", */
+  "race_eth",
+  "naicstitle",
+  "naicscode",
+  "naics",
+  "fuel_type",
+  "powertrain_fuel_type",
+  "fuel",
+  "owner_type",
+  "owner_ty_te",
+  "veh_use",
+  "hybrid",
+  "mode",
+  "line",
+  "pws_name",
+  "pwsid",
+];
+
+function isAllLabel(value) {
+  return String(value).trim().toLowerCase().split(/\s+/)[0] === "all";
+}
+// sort map dimension values to put "All" values first (useful for categorical choropleths)
+function sortMapDimensionValues(values) {
+  return [...values].sort((a, b) => {
+    const aAll = isAllLabel(a);
+    const bAll = isAllLabel(b);
+    if (aAll !== bAll) return aAll ? -1 : 1;
+    return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: "base" });
+  });
+}
+
+function dimensionVariesInGroup(group, column) {
+  const first = String(group[0]?.[column] ?? "");
+  return group.some((row) => String(row?.[column] ?? "") !== first);
+}
+
+function rowKey(row, columns) {
+  return columns.map((col) => String(row?.[col] ?? "")).join("||");
+}
+
+function columnsUniquelyIdentifyRows(groups, columns) {
+  if (!columns.length) return false;
+  return groups.every((group) => {
+    const seen = new Set(group.map((row) => rowKey(row, columns)));
+    return seen.size === group.length;
+  });
+}
+
+// Extra rows that still share a map place (and the same selected category values).
+// Cambridge with 5 race rows = 4 leftovers. After splitting by race_eth, leftovers should be 0.
+function countLeftoverDuplicates(groups, categoryColumns) {
+  let leftover = 0;
+
+  groups.forEach((group) => {
+    if (!categoryColumns.length) {
+      leftover += Math.max(0, group.length - 1);
+      return;
+    }
+
+    const rowsByCategory = new Map();
+    group.forEach((row) => {
+      const key = rowKey(row, categoryColumns);
+      rowsByCategory.set(key, (rowsByCategory.get(key) || 0) + 1);
+    });
+    rowsByCategory.forEach((count) => {
+      leftover += Math.max(0, count - 1);
+    });
+  });
+
+  return leftover;
+}
+
+/**
+ * When one geography has multiple rows in the same year, find category columns
+ * (e.g. res_type, race_eth) the user must pick before the choropleth is drawn.
+ * Groups by place + year so the pickers stay put when the selected year changes.
+ */
+export function detectMapExtraDimensions({
+  rows = [],
+  geographyColumn,
+  yearColumn = "",
+  columnKeys = [],
+} = {}) {
+  if (!geographyColumn || !rows.length) {
+    return { hasDuplicates: false, dimensions: [] };
+  }
+
+  const groups = new Map();
+  rows.forEach((row) => {
+    const geo = String(row?.[geographyColumn] ?? "").trim();
+    if (!geo) return;
+    const key = yearColumn ? `${geo}||${String(row?.[yearColumn] ?? "")}` : geo;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(row);
+  });
+
+  const duplicateGroups = [...groups.values()].filter((group) => group.length > 1);
+  if (!duplicateGroups.length) {
+    return { hasDuplicates: false, dimensions: [] };
+  }
+
+  const sampleRow = rows[0] || {};
+  const candidateNames = Object.keys(sampleRow).filter((name) => {
+    if (name === geographyColumn || name === yearColumn) return false;
+    return !SKIP_MAP_DIMENSION_COLUMNS.has(String(name).toLowerCase());
+  });
+
+  const scored = [];
+  // Score columns by how well they split duplicate rows onto the map.
+  candidateNames.forEach((name) => {
+    const varies = duplicateGroups.some((group) => dimensionVariesInGroup(group, name));
+    if (!varies) return;
+
+    const uniqueValues = new Set();
+    rows.forEach((row) => {
+      const value = row?.[name];
+      if (value == null || String(value).trim() === "") return;
+      uniqueValues.add(String(value));
+    });
+    if (uniqueValues.size < 2 || uniqueValues.size > 400) return;
+
+    const lower = name.toLowerCase();
+    const knownIndex = KNOWN_MAP_DIMENSION_NAMES.findIndex(
+      (known) => lower === known || lower.includes(known),
+    );
+    const valuesAreNumeric = [...uniqueValues].every((value) => Number.isFinite(Number(value)));
+    const looksLikeMeasure =
+      valuesAreNumeric && uniqueValues.size > 25 && knownIndex < 0;
+    if (looksLikeMeasure) return;
+
+    const label = getColumnHeaderLabel(columnKeys, name);
+    let score = 0;
+    if (knownIndex >= 0) score += 120 - knownIndex;
+    if (!valuesAreNumeric) score += 25;
+    if (label && label !== name) score += 15;
+    score += Math.max(0, 50 - uniqueValues.size);
+
+    scored.push({
+      name,
+      label,
+      uniqueCount: uniqueValues.size,
+      score,
+    });
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+
+  const dimensions = [];
+  scored.forEach((candidate) => {
+    const selectedNames = dimensions.map((dimension) => dimension.name);
+    if (columnsUniquelyIdentifyRows(duplicateGroups, selectedNames)) return;
+
+    const leftoverBefore = countLeftoverDuplicates(duplicateGroups, selectedNames);
+    const leftoverAfter = countLeftoverDuplicates(duplicateGroups, [...selectedNames, candidate.name]);
+    // Skip columns that do not split any duplicate rows onto the map.
+    if (leftoverAfter >= leftoverBefore) return;
+
+    dimensions.push({
+      name: candidate.name,
+      label: candidate.label,
+      values: sortMapDimensionValues(
+        [...new Set(
+          rows
+            .map((row) => row?.[candidate.name])
+            .filter((value) => value != null && String(value).trim() !== ""),
+        )],
+      ),
+    });
+  });
+
+  return {
+    hasDuplicates: true,
+    dimensions,
+  };
+}
+
+export function areMapDimensionsSelected(dimensions = [], selections = {}) {
+  if (!dimensions.length) return true;
+  return dimensions.every((dimension) => {
+    const value = selections?.[dimension.name];
+    return value != null && String(value) !== "";
+  });
+}
+
+export function filterRowsByMapDimensions(rows = [], selections = {}) {
+  let filtered = Array.isArray(rows) ? [...rows] : [];
+  Object.entries(selections || {}).forEach(([columnName, value]) => {
+    if (value == null || String(value) === "") return;
+    filtered = filtered.filter((row) => String(row?.[columnName] ?? "").toLowerCase() === String(value).toLowerCase());
+  });
+  return filtered;
+}
+
+function attributeRowsFromFeature(properties = {}) {
+  if (Array.isArray(properties.__dataRows) && properties.__dataRows.length) {
+    return properties.__dataRows;
+  }
+  if (Array.isArray(properties.data) && properties.data.length) {
+    return properties.data;
+  }
+  return [properties];
+}
+
 export function normalizeMunicipalKey(value) {
   return String(value || "")
     .trim()
@@ -378,6 +668,37 @@ export function normalizeTractKey(value) {
   if (digits.length >= 11) return digits.slice(-11);
   if (digits.length === 10) return `0${digits}`;
   return digits || raw.toLowerCase();
+}
+
+/** DESE org codes: 4-digit `0635` or 8-digit `06350000`. */
+export function normalizeDistrictKey(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return raw.toLowerCase();
+  if (digits.length <= 4) return `${digits.padStart(4, "0")}0000`;
+  return digits.padStart(8, "0").slice(0, 8);
+}
+
+export function normalizeSchoolKey(value) {
+  return String(value || "").trim();
+}
+
+/** Skip DESE state/region totals (`00000000`, MAPC `352`) so they do not dominate choropleth scales. */
+function isUnmappableEducationGeography(rawValue, geographyType) {
+  if (
+    geographyType !== MAP_VIEW_GEOGRAPHY_TYPES.school_districts &&
+    geographyType !== MAP_VIEW_GEOGRAPHY_TYPES.schools
+  ) {
+    return false;
+  }
+  const raw = String(rawValue ?? "").trim();
+  const digits = raw.replace(/\D/g, "");
+  if (!digits || /^0+$/.test(digits)) return true;
+  if (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.schools) {
+    return digits.length !== 8;
+  }
+  return digits.length !== 4 && digits.length !== 8;
 }
 
 function toNumber(value) {
@@ -400,12 +721,18 @@ export function buildValueByGeography({
   const normalize =
     geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts
       ? normalizeTractKey
-      : normalizeMunicipalKey;
+      : geographyType === MAP_VIEW_GEOGRAPHY_TYPES.school_districts
+        ? normalizeDistrictKey
+        : geographyType === MAP_VIEW_GEOGRAPHY_TYPES.schools
+          ? normalizeSchoolKey
+          : normalizeMunicipalKey;
 
   const map = new Map();
 
   (rows || []).forEach((row) => {
-    const key = normalize(row?.[geographyColumn]);
+    const rawGeo = row?.[geographyColumn];
+    if (isUnmappableEducationGeography(rawGeo, geographyType)) return;
+    const key = normalize(rawGeo);
     if (!key) return;
     const value = toNumber(row?.[valueColumn]);
     if (value == null) return;
@@ -441,6 +768,7 @@ export function buildValueByGeographyFromFeatures({
   features = [],
   valueColumn,
   geographyType,
+  selections = {},
 } = {}) {
   const map = new Map();
   (features || []).forEach((feature) => {
@@ -455,6 +783,19 @@ export function buildValueByGeographyFromFeatures({
         properties.geoid ??
         (joinKey && properties[joinKey] != null ? properties[joinKey] : null);
       key = normalizeTractKey(raw);
+    } else if (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.school_districts) {
+      const raw =
+        properties.districtid ??
+        properties.ORG8CODE ??
+        properties.ORG4CODE ??
+        (joinKey && properties[joinKey] != null ? properties[joinKey] : null);
+      key = normalizeDistrictKey(raw);
+    } else if (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.schools) {
+      const raw =
+        properties.schid ??
+        properties.SCHID ??
+        (joinKey && properties[joinKey] != null ? properties[joinKey] : null);
+      key = normalizeSchoolKey(raw);
     } else {
       const raw =
         (joinKey && properties[joinKey] != null ? properties[joinKey] : null) ??
@@ -464,8 +805,11 @@ export function buildValueByGeographyFromFeatures({
         properties.NAME;
       key = normalizeMunicipalKey(raw);
     }
-    if (!key) return;
-    const value = toNumber(properties[valueColumn]);
+    if (!key || isUnmappableEducationGeography(key, geographyType)) return;
+    const matched = filterRowsByMapDimensions(attributeRowsFromFeature(properties), selections);
+    const source = matched[0];
+    if (!source) return;
+    const value = toNumber(source[valueColumn]);
     if (value == null) return;
     map.set(key, value);
   });
@@ -668,6 +1012,25 @@ export function enrichBoundariesWithValues({
           : null);
       return normalizeTractKey(raw);
     }
+    if (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.school_districts) {
+      const raw =
+        properties.districtid ||
+        properties.ORG8CODE ||
+        properties.ORG4CODE ||
+        (properties.__joinKey && properties[properties.__joinKey] != null
+          ? properties[properties.__joinKey]
+          : null);
+      return normalizeDistrictKey(raw);
+    }
+    if (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.schools) {
+      const raw =
+        properties.schid ||
+        properties.SCHID ||
+        (properties.__joinKey && properties[properties.__joinKey] != null
+          ? properties[properties.__joinKey]
+          : null);
+      return normalizeSchoolKey(raw);
+    }
     // Boundaries / native shape layers: prefer a per-feature id over a shared parent id.
     if (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.boundary) {
       const preferred = [
@@ -863,11 +1226,22 @@ function resultJoinToken(result) {
     .toLowerCase();
 }
 
+function rowsForYear(rowsByYear, year) {
+  if (!rowsByYear || typeof rowsByYear !== "object") return [];
+  if (year == null || year === "") {
+    const first = Object.values(rowsByYear).find((rows) => Array.isArray(rows));
+    return first || [];
+  }
+  const wanted = String(year);
+  if (Array.isArray(rowsByYear[wanted])) return rowsByYear[wanted];
+  const match = Object.keys(rowsByYear).find((key) => String(key) === wanted);
+  return match && Array.isArray(rowsByYear[match]) ? rowsByYear[match] : [];
+}
+
 function countResultRowsForYear(result, yearKey) {
   const rowsByYear = result?.rows || {};
   if (yearKey) {
-    const rows = rowsByYear[yearKey];
-    if (!Array.isArray(rows)) return 0;
+    const rows = rowsForYear(rowsByYear, yearKey);
     return rows.filter((row) => row?.geometry).length || rows.length;
   }
   return Object.values(rowsByYear).reduce((sum, rows) => {
@@ -931,8 +1305,7 @@ export function pickGeometryApiResult(payload, year) {
  */
 export function geometryApiResultToFeatureCollection(result, year) {
   if (!result?.rows) return { type: "FeatureCollection", features: [] };
-  const yearKey = year != null ? String(year) : Object.keys(result.rows)[0];
-  const rows = (yearKey && result.rows[yearKey]) || [];
+  const rows = rowsForYear(result.rows, year);
   const joinKey = result.join_key || result.data_column || "ct20_id";
   const isMunicipal = joinKey === "muni_id" || joinKey === "municipal";
 
@@ -952,8 +1325,7 @@ export function geometryApiResultToFeatureCollection(result, year) {
           ...(nested && typeof nested === "object" ? nested : {}),
           ...rest,
         };
-        // Keep full nested rows for export when present.
-        if (Array.isArray(data) && data.length > 1) {
+        if (Array.isArray(data) && data.length) {
           properties.__dataRows = data;
         }
 

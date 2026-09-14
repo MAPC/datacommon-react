@@ -508,6 +508,7 @@ class DatasetTable extends React.Component {
         onDragHandleDragEnd={() => this.setState({ dragRowIndex: null })}
         onRowDragOver={this.handleColumnDragOver}
         onRowDrop={(e) => this.handleRowDrop(e, i, rowKeysInView)}
+        queryYearColumn={queryYearColumn}
       />
     ));
 

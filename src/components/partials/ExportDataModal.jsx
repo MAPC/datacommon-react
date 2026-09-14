@@ -697,7 +697,13 @@ ExportDataModal.propTypes = {
   availableGeographies: PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.string, PropTypes.number])),
   geographyColumn: PropTypes.string,
   availableYears: PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.string, PropTypes.number])),
-  geographyType: PropTypes.oneOf(["municipal", "census_tracts", "block_groups"]),
+  geographyType: PropTypes.oneOf([
+    "municipal",
+    "census_tracts",
+    "block_groups",
+    "school_districts",
+    "schools",
+  ]),
 };
 
 export default ExportDataModal;

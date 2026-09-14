@@ -2100,6 +2100,8 @@
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23444' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 12px center;
+    overflow: hidden;
+    white-space: nowrap;
     text-overflow: ellipsis;
 
     &:hover {
@@ -2112,6 +2114,36 @@
       border-color: $color_brand-secondary;
       box-shadow: 0 0 0 2px rgba($color_brand-secondary, 0.2);
     }
+
+    &--required {
+      border-color: $color_brand-secondary;
+    }
+
+    &:disabled {
+      cursor: not-allowed;
+      opacity: 0.65;
+      background-color: #f4f4f4;
+      pointer-events: none;
+    }
+
+    &:disabled:hover {
+      border-color: rgba($color_font-medium, 0.35);
+      background-color: #f4f4f4;
+    }
+  }
+
+  .dataset-map-preview__dimension-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 4px;
+  }
+
+  .dataset-map-preview__dimension-hint {
+    margin: 0;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    color: $color_font-medium--dark;
   }
 
   .dataset-map-preview__side-panels {
@@ -2119,7 +2151,8 @@
     flex-direction: column;
     gap: 12px;
     min-width: 0;
-    min-height: 0;
+    min-height: 520px;
+    overflow-x: hidden;
 
     > .dataset-map-preview__detail:last-child {
       flex: 1 1 auto;
@@ -2133,11 +2166,17 @@
     min-width: 0;
   }
 
+  .dataset-map-preview__map-column {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
   .dataset-map-preview__map-body {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
     gap: 12px;
-    align-items: stretch;
+    align-items: start;
     min-width: 0;
   }
 
@@ -2161,6 +2200,13 @@
     }
 
     .dataset-map-preview__map-body {
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+
+    .dataset-map-preview__map-column {
       display: flex;
       flex-direction: column;
       flex: 1 1 auto;
@@ -2197,6 +2243,7 @@
       font-size: clamp(9px, 2.5cqh, 12px);
     }
 
+    .dataset-map-preview__legend-filters,
     .dataset-map-preview__legend-boundary {
       font-size: clamp(8px, 2.2cqh, 11px);
     }
@@ -2246,6 +2293,19 @@
       white-space: normal;
       overflow-wrap: break-word;
       word-break: break-word;
+    }
+
+    &--stacked {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
+
+      strong,
+      span {
+        display: block;
+        width: 100%;
+      }
     }
 
     &--metric {
@@ -2318,10 +2378,13 @@
 
   .dataset-map-preview__map-shell {
     position: relative;
+    width: 100%;
     border: 1px solid rgba($color_font-medium, 0.2);
     border-radius: 8px;
     overflow: hidden;
+    height: 520px;
     min-height: 520px;
+    max-height: 520px;
     background: #e8eef0;
     min-width: 0;
 
@@ -2389,8 +2452,9 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
+    min-width: 0;
     min-height: 0;
-    overflow: visible;
+    overflow-x: hidden;
   }
 
   .dataset-map-preview__download-wrap {
@@ -2466,6 +2530,7 @@
   .dataset-map-preview__detail-title {
     margin: 0;
     font-size: 1rem;
+    font-weight: 700;
     color: $color_font-dark;
   }
 
@@ -2504,11 +2569,11 @@
 
     dt {
       margin: 0;
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.03em;
-      color: $color_font-medium--dark;
-      font-weight: 600;
+      font-size: 0.9rem;
+      text-transform: none;
+      letter-spacing: normal;
+      color: $color_font-dark;
+      font-weight: 700;
     }
 
     dd {
@@ -2516,6 +2581,8 @@
       font-size: 0.95rem;
       font-weight: 400;
       color: $color_font-dark;
+      line-height: 1.4;
+      overflow-wrap: anywhere;
       word-break: break-word;
     }
 
@@ -2696,6 +2763,7 @@
     word-break: break-word;
   }
 
+  .dataset-map-preview__legend-filters,
   .dataset-map-preview__legend-boundary {
     margin: 2px 0 0;
     font-size: 11px;
@@ -2741,6 +2809,11 @@
     .dataset-map-preview__map-shell {
       min-height: 420px;
       height: 420px;
+      max-height: 420px;
+    }
+
+    .dataset-map-preview__side-panels {
+      min-height: 0;
     }
   }
 

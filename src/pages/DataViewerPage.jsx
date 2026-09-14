@@ -250,8 +250,13 @@ class DataViewerClass extends React.Component {
     let limit = 15000;
     // these tables are large and need a much higher limit
     // TODO: setup backend pagination and only fetch 25 results at a time?
-    if (dataset.table_name === "econ_es202_naics_4d_m" || dataset.table_name === "econ_es202_naics_2d_m" || dataset.table_name === "econ_es202_naics_3d_m") {
-      limit = 460000 ;
+    if (
+      dataset.table_name === "econ_es202_naics_4d_m" ||
+      dataset.table_name === "econ_es202_naics_2d_m" ||
+      dataset.table_name === "econ_es202_naics_3d_m" ||
+      String(dataset.table_name || "").startsWith("educ_")
+    ) {
+      limit = 460000;
     }
     let tableQueryUrl = `/api?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=${dataset.db_name}&schema=${dataset.schemaname}&table=${dataset.table_name}&limit=${limit}`;
     if (dataset.yearcolumn) {
@@ -320,7 +325,7 @@ class DataViewerClass extends React.Component {
         const geographyType = detectDatasetGeographyType(
           dataset.table_name,
           dataset.geography,
-          { menu1: dataset.menu1 },
+          { menu1: dataset.menu1, sampleRow: tableResults[0] },
         );
         if (dataset.schemaname === "tabular") {
           if (geographyType === "municipal") {
