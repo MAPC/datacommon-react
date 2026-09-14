@@ -3,7 +3,7 @@ export const unformattedColumns = [
   // year columns:
   "fy_year", "fiscal_yr", "fy", "acs_year", "year", "dec_year", "cal_year", "schoolyear", "adj_year", "years",
   "data_year", "yr_qtr", "ls_date", "quarter", "year_q", "yr_built", "adopt_date", "created_date", "last_edited_date",
-  "open_date",
+  "open_date", "sale_year",
   // muni columns:
   "muni_id",
   // census tract columns:

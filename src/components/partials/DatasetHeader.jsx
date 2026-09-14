@@ -1123,7 +1123,13 @@ DatasetHeader.propTypes = {
   onViewModeChange: PropTypes.func,
   mapPreviewSupported: PropTypes.bool,
   mapVariable: PropTypes.string,
-  geographyType: PropTypes.oneOf(["municipal", "census_tracts", "block_groups"]),
+  geographyType: PropTypes.oneOf([
+    "municipal",
+    "census_tracts",
+    "block_groups",
+    "school_districts",
+    "schools",
+  ]),
 };
 
 export default DatasetHeader;
