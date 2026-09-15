@@ -827,6 +827,84 @@ function quantileBreaks(sortedValues, breakCount) {
   return [...new Set(breaks)].sort((a, b) => a - b);
 }
 
+/** Consecutive integers with few uniques (months 0–12, scores, counts) collapse under quantile. */
+const SMALL_INTEGER_UNIQUE_MAX = 15;
+
+function pickRampColors(count) {
+  const ramp = CHOROPLETH_COLORS;
+  if (count <= 1) return [ramp[0]];
+  if (count >= ramp.length) return [...ramp];
+  return Array.from({ length: count }, (_, i) => {
+    const idx = Math.round((i / (count - 1)) * (ramp.length - 1));
+    return ramp[idx];
+  });
+}
+
+/** Split sorted unique numbers into up to `classCount` contiguous inclusive classes. */
+function partitionSortedUniques(uniqueSorted, classCount) {
+  const n = uniqueSorted.length;
+  const k = Math.min(Math.max(classCount, 1), n);
+  const ranges = [];
+  let next = 0;
+  for (let i = 0; i < k; i += 1) {
+    const remainingClasses = k - i;
+    const remainingValues = n - next;
+    const size = Math.ceil(remainingValues / remainingClasses);
+    const start = next;
+    const end = Math.min(n - 1, start + size - 1);
+    ranges.push({
+      min: uniqueSorted[start],
+      max: uniqueSorted[end],
+      colorIndex: i,
+    });
+    next = end + 1;
+  }
+  return ranges;
+}
+
+/** Quantile cuts on integer counts often yield [0,1), [1,2), … — collapse those into real ranges. */
+function mergeIntegerSingletonRanges(ranges) {
+  if (ranges.length < 2) return ranges;
+  const isSingleton = (range, isLast) =>
+    isLast ? range.min === range.max : range.max === range.min + 1;
+  const merged = [];
+  for (let i = 0; i < ranges.length; i += 1) {
+    const range = { min: ranges[i].min, max: ranges[i].max };
+    const currentSingleton = isSingleton(range, i === ranges.length - 1);
+    if (merged.length && currentSingleton) {
+      merged[merged.length - 1].max = range.max;
+      continue;
+    }
+    const prev = merged[merged.length - 1];
+    if (prev && isSingleton(prev, false)) {
+      prev.max = range.max;
+      continue;
+    }
+    merged.push(range);
+  }
+  return merged.map((range, i) => ({ ...range, colorIndex: i }));
+}
+
+function scaleFromInclusiveRanges(ranges, format, description) {
+  const colors = pickRampColors(ranges.length);
+  const colorForValue = (n) => {
+    if (!Number.isFinite(n)) return NO_DATA_COLOR;
+    for (let i = 0; i < ranges.length; i += 1) {
+      if (n >= ranges[i].min && n <= ranges[i].max) return colors[i];
+    }
+    return NO_DATA_COLOR;
+  };
+  const legend = ranges.map((range, i) => ({
+    label:
+      range.max === range.min
+        ? format(range.min)
+        : `${format(range.min)}-${format(range.max)}`,
+    color: colors[i],
+  }));
+  legend.push({ label: "No data", color: NO_DATA_COLOR });
+  return { colorForValue, legend, binningDescription: description };
+}
+
 /**
  * Infer a display unit from column metadata / naming.
  * Metadata has no dedicated unit field; ACS aliases often use "% …" or end in `_p`.
@@ -865,7 +943,7 @@ export function buildChoroplethScale(values = [], { unit = null } = {}) {
     return {
       colorForValue: () => NO_DATA_COLOR,
       legend: [{ label: "No data", color: NO_DATA_COLOR }],
-      binningDescription: "Classification: no numeric values",
+      binningDescription: "Classification: No numeric values",
     };
   }
 
@@ -887,7 +965,7 @@ export function buildChoroplethScale(values = [], { unit = null } = {}) {
         { label: format(uniqueValues[0]), color: CHOROPLETH_COLORS[0] },
         { label: "No data", color: NO_DATA_COLOR },
       ],
-      binningDescription: "Classification: single value",
+      binningDescription: "Classification: Single value",
     };
   }
 
@@ -902,6 +980,24 @@ export function buildChoroplethScale(values = [], { unit = null } = {}) {
     const upper = Number((max - step).toFixed(decimals));
     return Math.max(min, upper);
   };
+
+  // Quantile on 0–12-style integers (most places = 12) yields one class "0-12".
+  if (valuesAreIntegers && uniqueValues.length <= CHOROPLETH_COLORS.length) {
+    return scaleFromInclusiveRanges(
+      uniqueValues.map((value, i) => ({ min: value, max: value, colorIndex: i })),
+      format,
+      "Classification: Unique values",
+    );
+  }
+  if (valuesAreIntegers && domainMax - domainMin <= SMALL_INTEGER_UNIQUE_MAX) {
+    const integerDomain = [];
+    for (let i = domainMin; i <= domainMax; i += 1) integerDomain.push(i);
+    return scaleFromInclusiveRanges(
+      partitionSortedUniques(integerDomain, CHOROPLETH_COLORS.length),
+      format,
+      "Classification: Equal interval",
+    );
+  }
 
   // Quantile classification across all numeric values.
   const classifyValues = numeric;
@@ -949,6 +1045,20 @@ export function buildChoroplethScale(values = [], { unit = null } = {}) {
         colorIndex: i,
       });
     }
+  }
+
+  if (valuesAreIntegers && ranges.length > 1) {
+    const merged = mergeIntegerSingletonRanges(ranges);
+    ranges.length = 0;
+    ranges.push(...merged);
+  }
+
+  if (ranges.length < 2 && classifyUnique.length > 1) {
+    return scaleFromInclusiveRanges(
+      partitionSortedUniques(classifyUnique, availableColors.length),
+      format,
+      "Classification: Equal interval",
+    );
   }
 
   // Mutually exclusive classes: [min, max) for every class except the last, which is [min, max].
