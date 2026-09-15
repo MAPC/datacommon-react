@@ -32,6 +32,25 @@ export function getDatasetGeographyLabel(dataset) {
   return DATASET_GEOGRAPHY_LABELS[getDatasetGeography(dataset)] || DATASET_GEOGRAPHY_LABELS.other;
 }
 
+const TITLE_GEOGRAPHY_SUFFIXES = [
+  " (Municipal)",
+  " (Municipality)",
+  " (Census Tracts)",
+  " (Census Tract)",
+  " (Block Groups)",
+  " (Block Group)",
+  " (Blocks)",
+];
+
+/**
+ * some tables don't have the geography suffix to indicate the geography, so we need to strip it from the title
+ */
+export function stripGeographyFromTitle(name) {
+  const title = String(name).trim();
+  const suffix = TITLE_GEOGRAPHY_SUFFIXES.find((ending) => title.endsWith(ending));
+  return suffix ? title.slice(0, -suffix.length) : title;
+}
+
 /**
  * Filters the given list of datasets based on the filtering criteria provided. Returns a new list of filtered data
  * 
@@ -444,4 +463,52 @@ export function compressDatasetsByGeography(datasets) {
       geoIdPairs: sortedGeoIdPairs,
     };
   });
+}
+
+function isSameDatasetId(left, right) {
+  return Number(left) === Number(right);
+}
+
+function pillLabel(dataset, groupedName = null) {
+  if (groupedName) return groupedName;
+  const key = String(dataset?.geography || "").trim().toLowerCase();
+  return DATASET_GEOGRAPHY_LABELS[key] || getDatasetGeographyLabel(dataset);
+}
+
+/**
+ * Look up a dataset and any sibling tables at other geography levels
+ * (municipal, census tract, block group, block).
+ *
+ * Returns a title without “(Municipal)” / “(Census Tracts)” etc., and a `levels`
+ * list for the Geography pills. There is always at least one level.
+ */
+export function findDatasetGeographyGroup(datasets, seqId) {
+  const catalog = datasets;
+  const current = catalog.find((row) => isSameDatasetId(row.seq_id || row.id, seqId));
+  if (!current) return null;
+
+  const group = compressDatasetsByGeography(catalog).find((item) =>
+    item.geoIdPairs.some((pair) => isSameDatasetId(pair.id, seqId)),
+  );
+
+  const siblingLevels = (group?.geoIdPairs || [])
+    .filter((pair) => pair.geography && pair.id != null)
+    .map((pair) => ({
+      id: pair.id,
+      geography: pair.geography,
+      label: pillLabel(current, pair.geography),
+    }));
+
+  return {
+    title: stripGeographyFromTitle(group?.menu3 || current.menu3),
+    levels: siblingLevels.length
+      ? siblingLevels
+      : [
+          {
+            id: current.seq_id || current.id,
+            geography: current.geography || getDatasetGeography(current),
+            label: pillLabel(current),
+          },
+        ],
+  };
 }

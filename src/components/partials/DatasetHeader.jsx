@@ -677,6 +677,8 @@ function DatasetHeader({
   removeColumnFilter,
   updateSelectedGeographies,
   geographyColumn,
+  geographyLevels = [],
+  onGeographyLevelChange,
   rowsPerPage,
   updateRowsPerPage,
   numberOfRows,
@@ -886,6 +888,43 @@ function DatasetHeader({
           )}
           <h2>{title}</h2>
         </div>
+        {!isEmbedView && geographyLevels.length > 0 && (
+          <div className="year-filter">
+            <span id="dataset-geography-level-label">Geography:</span>
+            <ul aria-labelledby="dataset-geography-level-label">
+              {geographyLevels.map((level) => {
+                const isActive = String(level.id) === String(datasetId);
+                const blockedOnMap = viewMode === "map" && level.mapSupported === false;
+                const canSwitch =
+                  geographyLevels.length > 1 &&
+                  typeof onGeographyLevelChange === "function" &&
+                  !blockedOnMap;
+                const className = [
+                  isActive ? "selected" : "",
+                  canSwitch ? "" : "is-static",
+                  blockedOnMap ? "is-disabled" : "",
+                ].filter(Boolean).join(" ");
+                return (
+                  <li
+                    key={String(level.id)}
+                    className={className}
+                    onClick={canSwitch ? () => onGeographyLevelChange(level.id) : undefined}
+                    aria-pressed={isActive}
+                    aria-disabled={blockedOnMap || undefined}
+                    tabIndex={blockedOnMap ? 0 : undefined}
+                    data-tooltip={
+                      blockedOnMap
+                        ? `Map view is not available for ${level.label}. Switch to Table to select this geography.`
+                        : undefined
+                    }
+                  >
+                    {level.label}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
         <div className={isEmbedView ? "dataset-details-content dataset-details-content--embed" : "dataset-details-content"}>
           <div className="details-content-column">
             <ul className="table-meta">
@@ -1114,6 +1153,15 @@ DatasetHeader.propTypes = {
   selectedGeographies: PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.string, PropTypes.number])),
   updateSelectedGeographies: PropTypes.func,
   geographyColumn: PropTypes.string,
+  geographyLevels: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+      label: PropTypes.string.isRequired,
+      geography: PropTypes.string,
+      mapSupported: PropTypes.bool,
+    }),
+  ),
+  onGeographyLevelChange: PropTypes.func,
   universe: PropTypes.string,
   updatedAt: PropTypes.string,
   rowsPerPage: PropTypes.number,
