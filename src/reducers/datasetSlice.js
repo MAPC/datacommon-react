@@ -2,7 +2,7 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 
 import locations from "../constants/locations";
 import { getCookie } from "../utils/cookies";
-import { isUserAdmin } from "../utils/auth";
+import { isUserFromMAPC } from "../utils/auth";
 
 const initialState = {
   cache: [],
@@ -23,7 +23,7 @@ export const fetchDatasets = createAsyncThunk("dataset/fetchDatasets", async () 
   }
 
   let activeFilter = 'filters=active:Y';
-  if (user && isUserAdmin(user)) {
+  if (user && isUserFromMAPC(user)) {
     activeFilter = '';
   }
 

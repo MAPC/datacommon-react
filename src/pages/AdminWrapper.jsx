@@ -1,10 +1,10 @@
 import axios from 'axios';
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from "react-router"
 import styled from 'styled-components';
 
 import { getCookie, logoutUser } from '../utils/cookies';
-import { isUserAdmin } from '../utils/auth';
+import { isUserAdmin, isUserFromMAPC } from '../utils/auth';
 
 const AdminMainWrapper = styled.div`
   display: flex;
@@ -72,6 +72,8 @@ const AdminWrapper = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const [user, setUser] = useState(null);
+
   // Whenever the user navigates to an admin page or sub-page, verify their login and auth
   useEffect(() => {
     const cookie = getCookie('datacommon_mapc_token');
@@ -86,6 +88,7 @@ const AdminWrapper = () => {
     axios.get("/api/users/me")
       .then(res => {
         const user = res?.data?.user;
+        setUser(user);
         const isAdmin = isUserAdmin(user);
         if (!isAdmin) {
           sendUserToHome();
@@ -111,21 +114,35 @@ const AdminWrapper = () => {
     sendUserToHome();
   };
 
+  const availablePages = useMemo(() => {
+    const pages = [];
+
+    if (isUserFromMAPC(user)) {
+      pages.push({ name: "Pipeline Jobs", path: "/admin/jobs" });
+    }
+
+    if (isUserAdmin(user)) {
+      pages.push({ name: "Municipal Description", path: "/admin/muni-description" });
+    }
+
+    return pages;
+  }, [user]);
+
   return (
     <AdminMainWrapper>
       <AdminLeftNavContainer>
         <AdminLeftNavHeader>DataCommon Admin</AdminLeftNavHeader>
         <AdminLinksContainer>
           <div>
-            <AdminPageRoute
-              className={location.pathname === '/admin/jobs' ? 'active' : ''}
-              onClick={() => navigate("/admin/jobs")}
-            >
-              Pipeline Jobs
-            </AdminPageRoute>
-            <AdminPageRoute >
-              More Coming Soon! 
-            </AdminPageRoute>
+            {availablePages.map(page => (
+              <AdminPageRoute
+                key={page.path}
+                className={location.pathname === page.path ? 'active' : ''}
+                onClick={() => navigate(page.path)}
+              >
+                {page.name}
+              </AdminPageRoute>
+            ))}
           </div>
           <AdminLogoutButton onClick={() => onLogoutClicked()}>
             Logout

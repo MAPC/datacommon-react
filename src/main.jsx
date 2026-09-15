@@ -31,6 +31,7 @@ import UserProfileWrapper from "./pages/UserProfileWrapper";
 import ProfileMyProfilePage from "./pages/UserProfileMyProfilePage";
 import ProfileFavoriteDatasetsPage from "./pages/UserProfileFavoriteDatasetsPage";
 import MuniAccountCreationPage from "./pages/MuniAccountCreationPage";
+import AdminMuniDescriptionsPage from "./pages/AdminMuniDescriptionPage";
 
 // Create arrays of valid options
 const muniOptions = municipalities.features.map(
@@ -191,6 +192,10 @@ const router = createBrowserRouter([
           {
             path: "jobs",
             element: <AdminListJobsPage />
+          },
+          {
+            path: "muni-description",
+            element: <AdminMuniDescriptionsPage />
           }
         ]
       },

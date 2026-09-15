@@ -90,13 +90,13 @@ const ProfileFavoriteDatasetsPage = () => {
   const getDatasetName = (tableName) => {
     const dataset = noDupesDatasets.find(dataset => dataset.table_name === tableName);
 
-    return dataset.menu3 || 'unknown';
+    return dataset?.menu3 || 'unknown';
   };
 
   const getDatasetId = (tableName) => {
     const dataset = noDupesDatasets.find(dataset => dataset.table_name === tableName);
 
-    return dataset.seq_id || 'unknown';
+    return dataset?.seq_id || 'unknown';
   };
 
 

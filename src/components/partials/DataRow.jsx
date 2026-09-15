@@ -42,19 +42,12 @@ const DataRow = ({
     }
   };
 
-  const formatValue = (value, header) => {
+  const formatValue = (value, header, columnType) => {
     const doNotFormat =
       unformattedColumns.includes(header) ||
       (queryYearColumn && header === queryYearColumn);
     if (typeof value === "number" && !doNotFormat) {
       return value.toLocaleString("en-US", { maximumFractionDigits: 2});
-    }
-
-    if (typeof value === "string") {
-      const parsed = parseFloat(value);
-      if (!isNaN(parsed) && !doNotFormat) {
-        return parsed.toLocaleString("en-US", { maximumFractionDigits: 2});
-      }
     }
 
     return value;
@@ -75,7 +68,7 @@ const DataRow = ({
     const { column } = segment;
     if (column.name === "seq_id") return [];
 
-    return [<td key={column.name}>{formatValue(rowData[column.name], column.name)}</td>];
+    return [<td key={column.name}>{formatValue(rowData[column.name], column.name, column.data_type)}</td>];
   });
 
   return (
