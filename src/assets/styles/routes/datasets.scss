@@ -2148,7 +2148,7 @@
     font-size: 0.95rem;
     font-weight: 500;
     line-height: 1.35;
-    padding: 11px 36px 11px 12px;
+    padding: 11px 44px 11px 12px;
     cursor: pointer;
     transition: border-color 0.14s, background-color 0.14s, box-shadow 0.14s;
     -webkit-appearance: none;
@@ -2156,10 +2156,13 @@
     appearance: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23444' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
-    background-position: right 12px center;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
+    background-position: right 14px center;
+
+    &--truncate {
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
 
     &:hover {
       border-color: $color_brand-secondary;
@@ -2231,7 +2234,7 @@
 
   .dataset-map-preview__map-body {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
     gap: 12px;
     align-items: start;
     min-width: 0;
@@ -2733,7 +2736,41 @@
   .dataset-map-preview__layer-toggles {
     display: flex;
     flex-direction: column;
+    align-items: flex-end;
+  }
+
+  .dataset-map-preview__layer-toggles-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    margin: 0;
+    padding: 0;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.94);
+    border: 1px solid rgba($color_font-medium, 0.22);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+    color: $color_font-dark;
+    cursor: pointer;
+  }
+
+  .dataset-map-preview__layer-toggles.is-open .dataset-map-preview__layer-toggles-header {
+    color: #1a1a1a;
+    border-color: rgba($color_font-dark, 0.35);
+  }
+
+  .dataset-map-preview__layer-toggles-icon {
+    width: 18px;
+    height: 18px;
+    display: block;
+  }
+
+  .dataset-map-preview__layer-toggles-list {
+    display: flex;
+    flex-direction: column;
     gap: 6px;
+    margin-top: 6px;
     padding: 8px 10px;
     border-radius: 6px;
     background: rgba(255, 255, 255, 0.94);
