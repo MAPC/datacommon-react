@@ -20,6 +20,7 @@ import {
   isMapPreviewSupported,
   resolveTableGeographyColumn,
 } from "../utils/datasetMapPreview";
+import { findDatasetGeographyGroup } from "../utils/manageDatasets";
 
 const override = css`
   height: 3.5rem;
@@ -31,6 +32,16 @@ function viewModeFromLocation(location, params) {
   if (params?.viewMode === "map") return "map";
   if ((location?.pathname || "").endsWith("/map")) return "map";
   return "table";
+}
+
+function geographyLevelsWithMapSupport(levels, datasets) {
+  return (levels || []).map((level) => {
+    const sibling = (datasets || []).find((row) => +row.seq_id === +level.id);
+    const geographyType = sibling
+      ? detectDatasetGeographyType(sibling.table_name, sibling.geography, { menu1: sibling.menu1 })
+      : null;
+    return { ...level, mapSupported: isMapPreviewSupported(geographyType) };
+  });
 }
 
 function datasetViewerPath(datasetId, viewMode, search = "") {
@@ -73,6 +84,7 @@ class DataViewerClass extends React.Component {
     this.onPreviewRowOrderChange = this.onPreviewRowOrderChange.bind(this);
     this.onResetPreviewLayout = this.onResetPreviewLayout.bind(this);
     this.onViewModeChange = this.onViewModeChange.bind(this);
+    this.onGeographyLevelChange = this.onGeographyLevelChange.bind(this);
     this.onMapVariableChange = this.onMapVariableChange.bind(this);
     this.addFilterToList = this.addFilterToList.bind(this);
     this.removeFilterFromList = this.removeFilterFromList.bind(this);
@@ -370,7 +382,7 @@ class DataViewerClass extends React.Component {
           table: dataset.table_name,
           schema: dataset.schemaname,
           database: dataset.db_name,
-          title: dataset.menu3,
+          title: findDatasetGeographyGroup(this.props.datasets, dataset.seq_id)?.title,
           source: dataset.source,
           menu1: dataset.menu1 || null,
           queryYearColumn: dataset.yearcolumn,
@@ -490,6 +502,12 @@ class DataViewerClass extends React.Component {
   }
 
   componentDidUpdate(prevProps) {
+    if (String(prevProps.params.id) !== String(this.props.params.id)) {
+      this.setState({ loading: true, error: undefined, currentPage: 1, rows: [] });
+      this.loadDatasetData();
+      return;
+    }
+
     const prevMode = viewModeFromLocation(prevProps.location, prevProps.params);
     const nextMode = viewModeFromLocation(this.props.location, this.props.params);
     if (prevMode === nextMode) return;
@@ -508,6 +526,19 @@ class DataViewerClass extends React.Component {
       }
       return { viewMode: "table" };
     });
+  }
+
+  onGeographyLevelChange(nextDatasetId) {
+    if (nextDatasetId == null || String(nextDatasetId) === String(this.props.params.id)) return;
+    const sibling = this.props.datasets.find((datasetObj) => +datasetObj.seq_id === +nextDatasetId);
+    const geographyType = sibling
+      ? detectDatasetGeographyType(sibling.table_name, sibling.geography, { menu1: sibling.menu1 })
+      : null;
+    if (this.state.viewMode === "map" && !isMapPreviewSupported(geographyType)) return;
+    const search = this.props.location?.search || "";
+    if (this.props.navigate) {
+      this.props.navigate(datasetViewerPath(nextDatasetId, this.state.viewMode, search));
+    }
   }
 
   onViewModeChange(viewMode) {
@@ -598,6 +629,11 @@ class DataViewerClass extends React.Component {
       );
     } else {
       const mapPreviewSupported = isMapPreviewSupported(this.state.geographyType);
+      const geographyGroup = findDatasetGeographyGroup(this.props.datasets, this.props.params.id);
+      const geographyLevels = geographyLevelsWithMapSupport(
+        geographyGroup?.levels || [],
+        this.props.datasets,
+      );
       pageContents = (
         <section className="datasets">
           <DatasetHeader
@@ -615,6 +651,8 @@ class DataViewerClass extends React.Component {
             selectedGeographies={this.state.selectedGeographies}
             updateSelectedGeographies={this.updateSelectedGeographies}
             geographyColumn={this.state.geographyColumn}
+            geographyLevels={geographyLevels}
+            onGeographyLevelChange={this.onGeographyLevelChange}
             rowsPerPage={this.state.rowsPerPage}
             numberOfRows={this.state.rows.length}
             updateRowsPerPage={this.updateRowsPerPage}
