@@ -1957,3 +1957,369 @@ export async function fetchGisBoundaryLayer(layerKey) {
     throw err;
   }
 }
+
+const MASSGIS_DISTRICT_OVERLAYS = {
+  house: {
+    label: "MA House districts",
+    queryUrl:
+      "https://arcgisserver.digital.mass.gov/arcgisserver/rest/services/AGOL/House2021/MapServer/1/query",
+    outFields: "OBJECTID,DIST_CODE,REP_DIST,REP,REP_PARTY",
+  },
+  senate: {
+    label: "MA Senate districts",
+    queryUrl:
+      "https://arcgisserver.digital.mass.gov/arcgisserver/rest/services/AGOL/Senate2021/MapServer/1/query",
+    outFields: "OBJECTID,SENDISTNUM,SEN_DIST,SENATOR,SEN_PARTY",
+  },
+};
+
+const massgisDistrictCache = new Map();
+
+/**
+ * Fetch 2021 MA House or Senate district polygons from MassGIS ArcGIS.
+ * @param {"house"|"senate"} layerKey
+ */
+export async function fetchMassgisDistrictOverlay(layerKey) {
+  const config = MASSGIS_DISTRICT_OVERLAYS[layerKey];
+  if (!config) {
+    throw new Error(`Unknown MassGIS district overlay: ${layerKey}`);
+  }
+
+  if (massgisDistrictCache.has(layerKey)) {
+    return massgisDistrictCache.get(layerKey);
+  }
+
+  const pending = (async () => {
+    const search = new URLSearchParams({
+      where: "1=1",
+      outFields: config.outFields,
+      returnGeometry: "true",
+      returnTrueCurves: "false",
+      outSR: "4326",
+      f: "geojson",
+    });
+    const response = await fetch(`${config.queryUrl}?${search.toString()}`);
+    if (!response.ok) {
+      throw new Error(`${config.label} HTTP ${response.status}`);
+    }
+    const fc = await response.json();
+    if (fc?.error) {
+      throw new Error(fc.error.message || `${config.label} query failed`);
+    }
+    if (!fc?.features?.length) {
+      throw new Error(`${config.label} returned no features`);
+    }
+    return fc;
+  })();
+
+  massgisDistrictCache.set(layerKey, pending);
+  try {
+    return await pending;
+  } catch (err) {
+    massgisDistrictCache.delete(layerKey);
+    throw err;
+  }
+}
+
+let mapcMunicipalityCache = null;
+
+/** 101 MAPC member municipalities (`src/assets/data/MAPC.geojson`). */
+export async function fetchMapcMunicipalityPolygons() {
+  if (mapcMunicipalityCache) return mapcMunicipalityCache;
+  const pending = (async () => {
+    const assetUrl = (await import("../assets/data/MAPC.geojson?url")).default;
+    const response = await fetch(assetUrl);
+    if (!response.ok) {
+      throw new Error(`MAPC municipalities HTTP ${response.status}`);
+    }
+    const fc = await response.json();
+    if (!fc?.features?.length) {
+      throw new Error("MAPC municipality asset has no features");
+    }
+    return fc;
+  })();
+  mapcMunicipalityCache = pending;
+  try {
+    return await pending;
+  } catch (err) {
+    mapcMunicipalityCache = null;
+    throw err;
+  }
+}
+
+function pointInPolygonRings(point, rings) {
+  if (!rings?.length) return false;
+  if (!pointInRing(point, rings[0])) return false;
+  return !rings.slice(1).some((hole) => pointInRing(point, hole));
+}
+
+function pointInGeometry(point, geometry) {
+  if (!point || !geometry?.coordinates) return false;
+  if (geometry.type === "Polygon") return pointInPolygonRings(point, geometry.coordinates);
+  if (geometry.type === "MultiPolygon") {
+    return geometry.coordinates.some((rings) => pointInPolygonRings(point, rings));
+  }
+  return false;
+}
+
+function featureBbox(feature) {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  walkCoords(feature?.geometry?.coordinates, ([x, y]) => {
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
+  });
+  if (!Number.isFinite(minX)) return null;
+  return [minX, minY, maxX, maxY];
+}
+
+function addInteriorPoint(points, point, geometry, maxPoints) {
+  if (!point || points.length >= maxPoints) return;
+  if (pointInGeometry(point, geometry)) points.push(point);
+}
+
+/**
+ * Sample points inside a municipality/tract, not on its border.
+ * Border vertices sit on shared district edges and falsely match neighbors.
+ */
+function sampleInteriorPoints(feature, maxPoints = 9) {
+  const geometry = feature?.geometry;
+  const points = [];
+  if (!geometry) return points;
+
+  addInteriorPoint(points, featureCentroid(feature), geometry, maxPoints);
+
+  const bbox = featureBbox(feature);
+  if (bbox) {
+    const [minX, minY, maxX, maxY] = bbox;
+    [0.3, 0.5, 0.7].forEach((fx) => {
+      [0.3, 0.5, 0.7].forEach((fy) => {
+        addInteriorPoint(
+          points,
+          [minX + (maxX - minX) * fx, minY + (maxY - minY) * fy],
+          geometry,
+          maxPoints,
+        );
+      });
+    });
+  }
+
+  if (points.length) return points;
+
+  const center = featureCentroid(feature);
+  if (!center) return points;
+  walkCoords(geometry.coordinates, (coord) => {
+    if (points.length >= maxPoints) return;
+    addInteriorPoint(
+      points,
+      [coord[0] * 0.2 + center[0] * 0.8, coord[1] * 0.2 + center[1] * 0.8],
+      geometry,
+      maxPoints,
+    );
+  });
+  return points;
+}
+
+function legislativeDistrictFromProps(properties = {}) {
+  const name = String(properties.REP_DIST || properties.SEN_DIST || properties.DIST_CODE || "").trim();
+  const member = String(properties.REP || properties.SENATOR || "").trim();
+  const party = String(properties.REP_PARTY || properties.SEN_PARTY || "").trim();
+  return name ? { name, member, party } : null;
+}
+
+export function formatLegislativeDistrictLine(district) {
+  if (!district?.name) return "";
+  const member = String(district.member || "")
+    .replace(/\u00a0/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!member) return district.name;
+  const party = String(district.party || "").replace(/[()]/g, "").trim();
+  if (!party || member.includes(`(${party})`) || member.includes(party)) {
+    return `${district.name} — ${member}`;
+  }
+  return `${district.name} — ${member} (${party})`;
+}
+
+/**
+ * House / Senate districts that contain a clicked municipality or census tract.
+ * Only interior points are tested so shared border vertices do not pull in neighbors.
+ */
+export function findLegislativeDistrictsForFeature(feature, districtGeojson, { maxSamplePoints = 9 } = {}) {
+  if (!feature || !districtGeojson?.features?.length) return [];
+  const samples = sampleInteriorPoints(feature, maxSamplePoints);
+  if (!samples.length) return [];
+
+  const matches = [];
+  const seen = new Set();
+  districtGeojson.features.forEach((district) => {
+    const parsed = legislativeDistrictFromProps(district.properties);
+    if (!parsed || seen.has(parsed.name)) return;
+    const bbox = featureBbox(district);
+    if (bbox && !samples.some((point) => pointInBbox(point, bbox))) return;
+    if (!samples.some((point) => pointInGeometry(point, district.geometry))) return;
+    seen.add(parsed.name);
+    matches.push(parsed);
+  });
+  return matches;
+}
+
+function polygonOuterRings(geometry) {
+  if (!geometry?.coordinates) return [];
+  if (geometry.type === "Polygon") return [geometry.coordinates[0]];
+  if (geometry.type === "MultiPolygon") {
+    return geometry.coordinates.map((polygon) => polygon[0]).filter(Boolean);
+  }
+  if (geometry.type === "LineString") {
+    const ring = geometry.coordinates.slice();
+    const first = ring[0];
+    const last = ring[ring.length - 1];
+    if (first && last && (first[0] !== last[0] || first[1] !== last[1])) {
+      ring.push(first);
+    }
+    return [ring];
+  }
+  return [];
+}
+
+function pointInRing(point, ring) {
+  if (!Array.isArray(ring) || ring.length < 3) return false;
+  const [x, y] = point;
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const xi = ring[i]?.[0];
+    const yi = ring[i]?.[1];
+    const xj = ring[j]?.[0];
+    const yj = ring[j]?.[1];
+    if (![xi, yi, xj, yj].every(Number.isFinite)) continue;
+    const intersect = yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi + Number.EPSILON) + xi;
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+function ringBbox(ring) {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  (ring || []).forEach((coord) => {
+    const x = coord?.[0];
+    const y = coord?.[1];
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
+  });
+  if (!Number.isFinite(minX)) return null;
+  return [minX, minY, maxX, maxY];
+}
+
+function pointInBbox(point, bbox) {
+  if (!bbox) return false;
+  return point[0] >= bbox[0] && point[0] <= bbox[2] && point[1] >= bbox[1] && point[1] <= bbox[3];
+}
+
+function walkCoords(coords, visit) {
+  if (!Array.isArray(coords) || !coords.length) return;
+  if (typeof coords[0] === "number") {
+    if (Number.isFinite(coords[0]) && Number.isFinite(coords[1])) visit(coords);
+    return;
+  }
+  coords.forEach((item) => walkCoords(item, visit));
+}
+
+function featureCentroid(feature) {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  walkCoords(feature?.geometry?.coordinates, ([x, y]) => {
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
+  });
+  if (!Number.isFinite(minX)) return null;
+  return [(minX + maxX) / 2, (minY + maxY) / 2];
+}
+
+function municipalityIdFromProps(props = {}) {
+  const id = props.muni_id ?? props.town_id;
+  return id == null ? "" : String(id);
+}
+
+function municipalityNameFromProps(props = {}) {
+  return String(props.municipal ?? props.town ?? props.NAME ?? "")
+    .trim()
+    .toLowerCase();
+}
+
+/**
+ * Precompute MAPC member ids / names / polygons for choropleth clipping.
+ * @param {GeoJSON.FeatureCollection} geojson
+ */
+export function buildMapcRegionIndex(geojson) {
+  const muniIds = new Set();
+  const townNames = new Set();
+  const polygons = [];
+  (geojson?.features || []).forEach((feature) => {
+    const props = feature.properties || {};
+    const id = municipalityIdFromProps(props);
+    const name = municipalityNameFromProps(props);
+    if (id) muniIds.add(id);
+    if (name) townNames.add(name);
+    const rings = polygonOuterRings(feature.geometry);
+    const bboxes = rings.map(ringBbox);
+    polygons.push({ rings, bboxes });
+  });
+  return { muniIds, townNames, polygons };
+}
+
+function featureInMapcRegion(feature, mapcIndex) {
+  if (!mapcIndex) return false;
+  const props = feature?.properties || {};
+  const id = municipalityIdFromProps(props);
+  if (id && mapcIndex.muniIds.has(id)) return true;
+  const name = municipalityNameFromProps(props);
+  if (name && mapcIndex.townNames.has(name)) return true;
+  const centroid = featureCentroid(feature);
+  if (!centroid) return false;
+  return mapcIndex.polygons.some(({ rings, bboxes }) =>
+    rings.some((ring, i) => pointInBbox(centroid, bboxes[i]) && pointInRing(centroid, ring)),
+  );
+}
+
+/**
+ * Keep only choropleth features inside the selected geographic frame.
+ */
+export function filterGeojsonByGeographicFrame(
+  geojson,
+  { frame = "mapc", mapcIndex = null, mapcBbox = null } = {},
+) {
+  if (!geojson?.features?.length) return geojson || { type: "FeatureCollection", features: [] };
+  if (frame === "mapc") {
+    if (mapcIndex?.polygons?.length || mapcIndex?.muniIds?.size) {
+      return {
+        ...geojson,
+        features: geojson.features.filter((feature) => featureInMapcRegion(feature, mapcIndex)),
+      };
+    }
+    if (mapcBbox) {
+      return {
+        ...geojson,
+        features: geojson.features.filter((feature) => {
+          const centroid = featureCentroid(feature);
+          return centroid && pointInBbox(centroid, mapcBbox);
+        }),
+      };
+    }
+    return { ...geojson, features: [] };
+  }
+  return geojson;
+}
