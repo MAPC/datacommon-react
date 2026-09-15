@@ -1,6 +1,9 @@
+import axios from "axios";
 import { useEffect, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
+import styled, { keyframes } from "styled-components";
+
 import Tab from "./Tab";
 import Dropdown from "./field/Dropdown";
 import MunicipalityPolygon from "./MunicipalityPolygon";
@@ -25,10 +28,30 @@ import DownloadAllChartsButton from "./field/DownloadAllChartsButton";
 import DataTableModal from "./field/DataTableModal";
 import { store } from "../store";
 
+const spin = keyframes`
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+`;
+
+const Spinner = styled.div`
+  width: 40px;
+  height: 40px;
+  margin-left: 50px;
+  margin-top: 20px;
+  margin-bottom: 20px;
+  border: 2px solid #978080;
+  border-top: 2px solid transparent;
+  border-radius: 50%;
+  animation: ${spin} 0.8s linear infinite;
+`;
+
 const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { muni, tab } = useParams();
+  const [loadingDescription, setLoadingDescription] = useState(true);
+  const [muniId, setMuniId] = useState(null);
+  const [muniDescription, setMuniDescription] = useState(null);
   const [activeTab, setActiveTab] = useState(tab || "demographics");
   const [modalConfig, setModalConfig] = useState({
     show: false,
@@ -36,6 +59,39 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
     title: "",
     tableKey: "",
   });
+
+  useEffect(() => {
+    // first fetch the muni id for this muni name
+    // TODO: this whole page should really be based on muni-id but its a large fix with little business value
+    setLoadingDescription(true);
+    const muniIdResp = axios.get(
+      `/api?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&columns=muni_id&filters=muni_name~${name}`
+    ).then(resp => {
+      const rowData = resp.data?.rows;
+      const respMuniId = rowData?.length === 1 ? rowData[0].muni_id : null;
+      setMuniId(respMuniId);
+    }).catch(err => {
+      console.error("Error fetching muni id for description");
+      setLoadingDescription(false);
+    });
+  }, [name]);
+
+  useEffect(() => {
+    if (!muniId) return;
+
+    setLoadingDescription(true);
+    const descriptionResp = axios.get(`/api/muni-info/description?muni_id=${muniId}`)
+      .then(resp => {
+        const rowData = resp.data;
+        const respDescription = rowData?.length === 1 ? rowData[0].description : null;
+        setMuniDescription(respDescription);
+        setLoadingDescription(false);
+      }).catch(err => {
+        setLoadingDescription(false);
+        setMuniDescription('');
+        console.error("Error fetching muni id for description");
+      });
+  }, [muniId]);
 
   const handleShowModal = (data, title, tableKey = "") => {
     setModalConfig({
@@ -263,6 +319,13 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
             </div>
             <div className="description-wrapper">
               <p className="description">{descriptions[muniSlug.toLowerCase()] || "No description available."}</p>
+              {loadingDescription && <Spinner />}
+              {!loadingDescription && muniDescription && (
+                <div>
+                  <b>Description from municipality:</b>
+                  <p className="description">{muniDescription || ""}</p>
+                </div>
+              )}
               <div className="button-group">
                 <button onClick={handlePrintCharts} type="button" className="print-button">
                   Print charts

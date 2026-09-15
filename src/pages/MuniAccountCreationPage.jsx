@@ -68,7 +68,6 @@ const MuniSelect = styled.select`
 `;
 
 const MuniOption = styled.option`
-
 `;
 
 const ErrorMessage = styled.div`
@@ -118,7 +117,8 @@ const Spinner = styled.div`
   animation: ${spin} 0.8s linear infinite;
 `;
 
-const AVAILABLE_MUNIS = [
+// TODO: this is just temporary for now
+export const AVAILABLE_MUNIS = [
   // RLDB munis
   { id: 10, name: "Arlington" },
   { id: 35, name: "Boston" },

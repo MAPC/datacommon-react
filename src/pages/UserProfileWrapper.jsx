@@ -4,7 +4,6 @@ import { Outlet, useLocation, useNavigate } from "react-router"
 import styled from 'styled-components';
 
 import { getCookie, logoutUser } from '../utils/cookies';
-import { isUserAdmin } from '../utils/auth';
 
 const UserProfileMainWrapper = styled.div`
   display: flex;

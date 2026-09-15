@@ -167,7 +167,7 @@ const Header = () => {
                   <div>Profile</div>
                 </div>
                 {isAdmin && 
-                  <div className="user-icon-menu-row" onClick={() => navigateTo('/admin/jobs')}>
+                  <div className="user-icon-menu-row" onClick={() => navigateTo('/admin/muni-description')}>
                     <FontAwesomeIcon icon={faGear} />
                     <div>Admin</div>
                   </div>
