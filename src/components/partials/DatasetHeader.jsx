@@ -686,6 +686,8 @@ function DatasetHeader({
   onViewModeChange,
   mapPreviewSupported = false,
   mapVariable = null,
+  geographicFrame = null,
+  mapDimensionSelections = null,
   geographyType = null,
 }) {
   const location = useLocation();
@@ -706,6 +708,8 @@ function DatasetHeader({
     const shareArgs = {
       viewMode,
       mapVariable: viewMode === "map" ? mapVariable : null,
+      geographicFrame: viewMode === "map" ? geographicFrame : null,
+      mapDimensionSelections: viewMode === "map" ? mapDimensionSelections : null,
       columnKeys,
       selectedColumns,
       availableGeographies,
@@ -728,6 +732,8 @@ function DatasetHeader({
     datasetId,
     viewMode,
     mapVariable,
+    geographicFrame,
+    mapDimensionSelections,
     columnKeys,
     selectedColumns,
     selectedGeographies,
@@ -1171,6 +1177,8 @@ DatasetHeader.propTypes = {
   onViewModeChange: PropTypes.func,
   mapPreviewSupported: PropTypes.bool,
   mapVariable: PropTypes.string,
+  geographicFrame: PropTypes.oneOf(["massachusetts", "mapc"]),
+  mapDimensionSelections: PropTypes.objectOf(PropTypes.string),
   geographyType: PropTypes.oneOf([
     "municipal",
     "census_tracts",
