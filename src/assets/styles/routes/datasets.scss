@@ -2211,11 +2211,18 @@
     flex-direction: column;
     gap: 12px;
     min-width: 0;
+    height: 520px;
     min-height: 520px;
+    max-height: 520px;
     overflow-x: hidden;
+    overflow-y: auto;
+
+    > .dataset-map-preview__detail {
+      flex-shrink: 0;
+    }
 
     > .dataset-map-preview__detail:last-child {
-      flex: 1 1 auto;
+      flex: 1 0 auto;
     }
   }
 
@@ -2327,6 +2334,10 @@
       flex-shrink: 0;
       font-size: clamp(10px, 1.8cqw, 12px);
     }
+
+    .dataset-map-preview__ranking {
+      display: none;
+    }
   }
 
   .dataset-map-preview__hover-tooltip {
@@ -2422,6 +2433,132 @@
 
       &:hover {
         color: $color_font-dark;
+      }
+    }
+  }
+
+  .dataset-map-preview__ranking {
+    grid-column: 1 / -1;
+    margin-top: 4px;
+    border: 1px solid rgba($color_font-medium, 0.2);
+    border-radius: 8px;
+    background: #fff;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .dataset-map-preview__ranking-caption {
+    margin: 0;
+    padding: 10px 12px 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: $color_font-dark;
+    border-bottom: 1px solid rgba($color_font-medium, 0.16);
+  }
+
+  .dataset-map-preview__ranking-scroll {
+    max-height: 360px;
+    overflow: auto;
+  }
+
+  .dataset-map-preview__ranking-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    color: $color_font-dark;
+
+    th,
+    td {
+      padding: 8px 12px;
+      text-align: left;
+      vertical-align: top;
+      line-height: 1.35;
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #f7f8f8;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      color: $color_font-medium--dark;
+      border-bottom: 1px solid rgba($color_font-medium, 0.18);
+
+      &:first-child {
+        width: 1%;
+        white-space: nowrap;
+      }
+    }
+  }
+
+  .dataset-map-preview__ranking-sort {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-weight: 600;
+    letter-spacing: inherit;
+    text-align: left;
+    cursor: pointer;
+
+    &:hover,
+    &:focus-visible {
+      color: $color_font-dark;
+    }
+  }
+
+  .dataset-map-preview__ranking-sort-icon {
+    flex-shrink: 0;
+    font-size: 9px;
+    line-height: 1;
+    opacity: 0.35;
+
+    &.is-active {
+      opacity: 1;
+    }
+  }
+
+  .dataset-map-preview__ranking-table {
+
+    tbody th {
+      width: 1%;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    tbody td {
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    tbody td.dataset-map-preview__ranking-dimension {
+      white-space: normal;
+      overflow-wrap: break-word;
+      word-break: break-word;
+      width: auto;
+    }
+
+    tbody tr {
+      cursor: pointer;
+
+      &:nth-child(even) {
+        background: rgba($color_font-medium, 0.04);
+      }
+
+      &:hover {
+        background: rgba($color_brand-secondary, 0.08);
+      }
+
+      &.is-selected {
+        background: rgba($color_brand-secondary, 0.16);
       }
     }
   }
@@ -2891,6 +3028,13 @@
 
     .dataset-map-preview__side-panels {
       order: -1;
+      height: auto;
+      min-height: 0;
+      max-height: 520px;
+    }
+
+    .dataset-map-preview__ranking {
+      order: 1;
     }
   }
 
@@ -2908,6 +3052,7 @@
 
     .dataset-map-preview__side-panels {
       min-height: 0;
+      max-height: 420px;
     }
   }
 

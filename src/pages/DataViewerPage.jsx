@@ -70,6 +70,8 @@ class DataViewerClass extends React.Component {
       columnFilters: [],
       viewMode: viewModeFromLocation(props.location, props.params),
       mapVariable: null,
+      geographicFrame: "mapc",
+      mapDimensionSelections: {},
       geographyType: null,
       menu1: null,
     };
@@ -86,6 +88,8 @@ class DataViewerClass extends React.Component {
     this.onViewModeChange = this.onViewModeChange.bind(this);
     this.onGeographyLevelChange = this.onGeographyLevelChange.bind(this);
     this.onMapVariableChange = this.onMapVariableChange.bind(this);
+    this.onGeographicFrameChange = this.onGeographicFrameChange.bind(this);
+    this.onMapDimensionSelectionsChange = this.onMapDimensionSelectionsChange.bind(this);
     this.addFilterToList = this.addFilterToList.bind(this);
     this.removeFilterFromList = this.removeFilterFromList.bind(this);
     this.hasLoaded = false; // Flag to prevent duplicate API calls in StrictMode
@@ -396,6 +400,8 @@ class DataViewerClass extends React.Component {
           previewRowOrder: [],
           viewMode: wantMap ? "map" : "table",
           mapVariable,
+          geographicFrame: parsedShare.geographicFrame || "mapc",
+          mapDimensionSelections: parsedShare.mapDimensionSelections || {},
           loading: false,
         });
 
@@ -565,6 +571,14 @@ class DataViewerClass extends React.Component {
     this.setState({ mapVariable });
   }
 
+  onGeographicFrameChange(geographicFrame) {
+    this.setState({ geographicFrame });
+  }
+
+  onMapDimensionSelectionsChange(mapDimensionSelections) {
+    this.setState({ mapDimensionSelections: mapDimensionSelections || {} });
+  }
+
   updatePage(newPage) {
     this.setState({ currentPage: newPage });
   }
@@ -669,6 +683,8 @@ class DataViewerClass extends React.Component {
             onViewModeChange={this.onViewModeChange}
             mapPreviewSupported={mapPreviewSupported}
             mapVariable={this.state.mapVariable}
+            geographicFrame={this.state.geographicFrame}
+            mapDimensionSelections={this.state.mapDimensionSelections}
             geographyType={this.state.geographyType}
           />
           {this.state.viewMode === "map" && mapPreviewSupported ? (
@@ -684,6 +700,10 @@ class DataViewerClass extends React.Component {
               geographyType={this.state.geographyType}
               mapVariable={this.state.mapVariable}
               onMapVariableChange={this.onMapVariableChange}
+              geographicFrame={this.state.geographicFrame}
+              onGeographicFrameChange={this.onGeographicFrameChange}
+              mapDimensionSelections={this.state.mapDimensionSelections}
+              onMapDimensionSelectionsChange={this.onMapDimensionSelectionsChange}
               menu1={this.state.menu1}
               title={this.state.title}
               source={this.state.source}

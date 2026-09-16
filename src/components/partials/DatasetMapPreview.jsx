@@ -106,15 +106,9 @@ function geographyEntityLabel(geographyType, { plural = false } = {}) {
   }
 }
 
-function truncateMapLabel(text, maxLength = 48) {
-  const value = String(text ?? "").trim();
-  if (value.length <= maxLength) return value;
-  return `${value.slice(0, Math.max(1, maxLength - 1)).trimEnd()}…`;
-}
-
 function formatLegendFilterLine(items = []) {
   return items
-    .map((item) => truncateMapLabel(item.value))
+    .map((item) => String(item?.value ?? "").trim())
     .filter(Boolean)
     .join(", ");
 }
@@ -181,6 +175,76 @@ function buildFeatureDetails(props, {
     tractBoundary,
     extraDimensionLabels,
   };
+}
+
+function buildRankingRows(features, { geographyType, geometryJoinKey, marginColumn } = {}) {
+  const rows = [];
+  (features || []).forEach((feature) => {
+    const details = buildFeatureDetails(feature.properties, {
+      geographyType,
+      geometryJoinKey,
+      marginColumn,
+    });
+    if (!details || !Number.isFinite(details.value)) return;
+    const key = String(feature.properties?.__mapKey ?? "");
+    if (!key) return;
+    rows.push({
+      key,
+      label: details.label,
+      value: details.value,
+      marginOfError: details.marginOfError,
+    });
+  });
+  rows.sort((a, b) => compareRankingRows(a, b, "value", "desc"));
+  return rows;
+}
+
+const RANKING_SORT_DEFAULT = { column: "value", direction: "desc" };
+
+function compareRankingRows(a, b, column, direction) {
+  const dir = direction === "asc" ? 1 : -1;
+  if (column === "label") {
+    const byLabel = String(a.label).localeCompare(String(b.label), undefined, {
+      numeric: true,
+      sensitivity: "base",
+    });
+    return byLabel * dir;
+  }
+
+  const aValue = a[column];
+  const bValue = b[column];
+  const aMissing = aValue == null || !Number.isFinite(aValue);
+  const bMissing = bValue == null || !Number.isFinite(bValue);
+  if (aMissing || bMissing) {
+    if (aMissing && bMissing) {
+      return String(a.label).localeCompare(String(b.label), undefined, { numeric: true, sensitivity: "base" });
+    }
+    return aMissing ? 1 : -1;
+  }
+  if (aValue !== bValue) return (aValue - bValue) * dir;
+  return String(a.label).localeCompare(String(b.label), undefined, { numeric: true, sensitivity: "base" });
+}
+
+function RankingSortHeader({ column, label, sort, onSort }) {
+  const isSorted = sort.column === column;
+  const ariaSort = !isSorted ? "none" : sort.direction === "asc" ? "ascending" : "descending";
+  return (
+    <th scope="col" aria-sort={ariaSort}>
+      <button
+        type="button"
+        className="dataset-map-preview__ranking-sort"
+        onClick={() => onSort(column)}
+      >
+        <span>{label}</span>
+        <span
+          className={`dataset-map-preview__ranking-sort-icon${isSorted ? " is-active" : ""}`}
+          aria-hidden="true"
+        >
+          {isSorted && sort.direction === "asc" ? "▲" : "▼"}
+        </span>
+      </button>
+    </th>
+  );
 }
 
 function featureDetailsToPopupHtml(details, {
@@ -273,6 +337,10 @@ function DatasetMapPreview({
   geographyType = null,
   mapVariable = null,
   onMapVariableChange,
+  geographicFrame: geographicFrameProp = GEOGRAPHIC_FRAME.mapc,
+  onGeographicFrameChange,
+  mapDimensionSelections = null,
+  onMapDimensionSelectionsChange,
   menu1 = null,
   title = "",
   source = "",
@@ -297,7 +365,11 @@ function DatasetMapPreview({
   const [showMapcRegionLayer, setShowMapcRegionLayer] = useState(false);
   const [showHouseDistricts, setShowHouseDistricts] = useState(false);
   const [showSenateDistricts, setShowSenateDistricts] = useState(false);
-  const [geographicFrame, setGeographicFrame] = useState(GEOGRAPHIC_FRAME.massachusetts);
+  const [geographicFrame, setGeographicFrameState] = useState(
+    geographicFrameProp === GEOGRAPHIC_FRAME.massachusetts || geographicFrameProp === GEOGRAPHIC_FRAME.mapc
+      ? geographicFrameProp
+      : GEOGRAPHIC_FRAME.mapc,
+  );
   const [muniOverlayGeojson, setMuniOverlayGeojson] = useState(EMPTY_FC);
   const [mapcOverlayGeojson, setMapcOverlayGeojson] = useState(EMPTY_FC);
   const [mapcMunicipalityGeojson, setMapcMunicipalityGeojson] = useState(EMPTY_FC);
@@ -312,7 +384,9 @@ function DatasetMapPreview({
   senateDistrictsRef.current = senateDistricts;
   const didFitGeographicFrameRef = useRef(false);
   const [selectedFeatureKey, setSelectedFeatureKey] = useState(null);
-  const [dimensionSelections, setDimensionSelections] = useState({});
+  const [dimensionSelections, setDimensionSelections] = useState(
+    mapDimensionSelections && typeof mapDimensionSelections === "object" ? mapDimensionSelections : {},
+  );
   const hoverPopupRef = useRef(null);
   const { isExporting, exportError, runExportDownload, clearExportError } = useExportFileDownload();
 
@@ -413,8 +487,31 @@ function DatasetMapPreview({
   const extraDimensionKey = extraDimensions.dimensions.map((dimension) => dimension.name).join("|");
 
   useEffect(() => {
-    setDimensionSelections({});
-  }, [extraDimensionKey, table]);
+    if (!extraDimensions.dimensions.length) return;
+    setDimensionSelections((prev) => {
+      const next = {};
+      extraDimensions.dimensions.forEach((dimension) => {
+        const current = prev[dimension.name];
+        if (current == null || String(current) === "") return;
+        const allowed = (dimension.values || []).some((value) => String(value) === String(current));
+        if (allowed) next[dimension.name] = String(current);
+      });
+      const prevKeys = Object.keys(prev);
+      const nextKeys = Object.keys(next);
+      if (prevKeys.length === nextKeys.length && nextKeys.every((key) => prev[key] === next[key])) {
+        return prev;
+      }
+      return next;
+    });
+  }, [extraDimensionKey, table, extraDimensions]);
+
+  useEffect(() => {
+    onGeographicFrameChange?.(geographicFrame);
+  }, [geographicFrame, onGeographicFrameChange]);
+
+  useEffect(() => {
+    onMapDimensionSelectionsChange?.(dimensionSelections);
+  }, [dimensionSelections, onMapDimensionSelectionsChange]);
 
   const needsDimensionPicker = extraDimensions.hasDuplicates && extraDimensions.dimensions.length > 0;
   const dimensionsReady = areMapDimensionsSelected(extraDimensions.dimensions, dimensionSelections);
@@ -1299,6 +1396,68 @@ function DatasetMapPreview({
     });
   }, [selectedFeature, mapYear, geographyType, geometryJoinKey, marginColumn, extraDimensionLabels]);
 
+  const rankingRows = useMemo(
+    () =>
+      buildRankingRows(paintedGeojson.features, {
+        geographyType,
+        geometryJoinKey,
+        marginColumn,
+      }),
+    [paintedGeojson, geographyType, geometryJoinKey, marginColumn],
+  );
+  const rankingHasMoe = rankingRows.some((row) => row.marginOfError != null);
+  const rankingPlaceHeader = geographyEntityLabel(geographyType).replace(/^./, (s) => s.toUpperCase());
+  const rankingDimensionColumns = extraDimensionLabels.filter(
+    (item) => String(item.label ?? "").trim() && String(item.value ?? "").trim(),
+  );
+  const rankingScrollRef = useRef(null);
+  const [rankingSort, setRankingSort] = useState(RANKING_SORT_DEFAULT);
+
+  useEffect(() => {
+    setRankingSort(RANKING_SORT_DEFAULT);
+  }, [table, activeVariable]);
+
+  useEffect(() => {
+    if (!rankingHasMoe && rankingSort.column === "marginOfError") {
+      setRankingSort(RANKING_SORT_DEFAULT);
+    }
+  }, [rankingHasMoe, rankingSort.column]);
+
+  const sortedRankingRows = useMemo(() => {
+    const { column, direction } = rankingSort;
+    if (column === "value" && direction === "desc") return rankingRows;
+    return [...rankingRows].sort((a, b) => compareRankingRows(a, b, column, direction));
+  }, [rankingRows, rankingSort]);
+
+  const handleRankingSort = (column) => {
+    setRankingSort((prev) => {
+      if (prev.column === column) {
+        return { column, direction: prev.direction === "asc" ? "desc" : "asc" };
+      }
+      return { column, direction: column === "label" ? "asc" : "desc" };
+    });
+  };
+
+  useEffect(() => {
+    if (selectedFeatureKey == null) return;
+    const container = rankingScrollRef.current;
+    if (!container) return;
+    const row = container.querySelector(
+      `[data-ranking-key="${CSS.escape(String(selectedFeatureKey))}"]`,
+    );
+    if (!row) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const rowRect = row.getBoundingClientRect();
+    const headerHeight = container.querySelector("thead")?.getBoundingClientRect().height ?? 0;
+    const visibleTop = containerRect.top + headerHeight;
+    if (rowRect.top < visibleTop) {
+      container.scrollTop += rowRect.top - visibleTop;
+    } else if (rowRect.bottom > containerRect.bottom) {
+      container.scrollTop += rowRect.bottom - containerRect.bottom;
+    }
+  }, [selectedFeatureKey]);
+
   const canDownloadGeojson =
     Boolean(table) &&
     !isBoundaryLoading &&
@@ -1521,7 +1680,7 @@ function DatasetMapPreview({
                   <select
                     className="dataset-map-preview__variable-select"
                     value={geographicFrame}
-                    onChange={(e) => setGeographicFrame(e.target.value)}
+                    onChange={(e) => setGeographicFrameState(e.target.value)}
                     aria-label="Geographic frame"
                   >
                     <option value={GEOGRAPHIC_FRAME.massachusetts}>Massachusetts</option>
@@ -1688,6 +1847,72 @@ function DatasetMapPreview({
               </aside>
             </div>
           )}
+          {!isEmbedView && rankingRows.length > 0 && (
+            <div className="dataset-map-preview__ranking">
+              <p className="dataset-map-preview__ranking-caption">
+                Ranked by {activeVariableLabel || "selected variable"}
+              </p>
+              <div ref={rankingScrollRef} className="dataset-map-preview__ranking-scroll">
+                <table className="dataset-map-preview__ranking-table">
+                  <thead>
+                    <tr>
+                      <RankingSortHeader
+                        column="label"
+                        label={rankingPlaceHeader}
+                        sort={rankingSort}
+                        onSort={handleRankingSort}
+                      />
+                      {rankingDimensionColumns.map((item, index) => (
+                        <th key={`${item.label}-${index}`} scope="col">{item.label}</th>
+                      ))}
+                      <RankingSortHeader
+                        column="value"
+                        label={activeVariableLabel || "Value"}
+                        sort={rankingSort}
+                        onSort={handleRankingSort}
+                      />
+                      {rankingHasMoe && (
+                        <RankingSortHeader
+                          column="marginOfError"
+                          label="Margin of error"
+                          sort={rankingSort}
+                          onSort={handleRankingSort}
+                        />
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedRankingRows.map((row) => {
+                      const isSelected = selectedFeatureKey != null && String(selectedFeatureKey) === row.key;
+                      return (
+                        <tr
+                          key={row.key}
+                          data-ranking-key={row.key}
+                          className={isSelected ? "is-selected" : undefined}
+                          onClick={() => setSelectedFeatureKey(row.key)}
+                        >
+                          <th scope="row">{row.label}</th>
+                          {rankingDimensionColumns.map((item, index) => (
+                            <td key={`${item.label}-${index}`} className="dataset-map-preview__ranking-dimension">
+                              {item.value}
+                            </td>
+                          ))}
+                          <td>{formatMapValue(row.value, activeVariableUnit)}</td>
+                          {rankingHasMoe && (
+                            <td>
+                              {row.marginOfError != null
+                                ? formatMapValue(row.marginOfError, activeVariableUnit)
+                                : "—"}
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -1711,6 +1936,10 @@ DatasetMapPreview.propTypes = {
   ]),
   mapVariable: PropTypes.string,
   onMapVariableChange: PropTypes.func,
+  geographicFrame: PropTypes.oneOf(["massachusetts", "mapc"]),
+  onGeographicFrameChange: PropTypes.func,
+  mapDimensionSelections: PropTypes.objectOf(PropTypes.string),
+  onMapDimensionSelectionsChange: PropTypes.func,
   menu1: PropTypes.string,
   title: PropTypes.string,
   source: PropTypes.string,
