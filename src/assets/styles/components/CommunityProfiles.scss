@@ -100,6 +100,17 @@
       }
     }
 
+    .muni-links-container {
+      display: flex;
+      flex-direction: column;
+      margin-left: 8px;
+
+      .muni-link {
+        color: blue;
+        cursor: pointer;
+      }
+    }
+
     .print-button {
       background: $color_brand-primary;
       border: none;

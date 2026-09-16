@@ -123,6 +123,7 @@ const AdminWrapper = () => {
 
     if (isUserAdmin(user)) {
       pages.push({ name: "Municipal Description", path: "/admin/muni-description" });
+      pages.push({ name: "Municipal Links", path: "/admin/muni-links" });
     }
 
     return pages;
