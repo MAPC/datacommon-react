@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { Provider } from "react-redux";
 import { createBrowserRouter, RouterProvider, useParams, Navigate } from "react-router-dom";
+
 import App from "./App";
 import Home from "./pages/HomePage";
 import BrowserPage from "./pages/BrowserPage";
@@ -32,6 +33,7 @@ import ProfileMyProfilePage from "./pages/UserProfileMyProfilePage";
 import ProfileFavoriteDatasetsPage from "./pages/UserProfileFavoriteDatasetsPage";
 import MuniAccountCreationPage from "./pages/MuniAccountCreationPage";
 import AdminMuniDescriptionsPage from "./pages/AdminMuniDescriptionPage";
+import AdminMuniLinksPage from "./pages/AdminMuniLinksPage";
 
 // Create arrays of valid options
 const muniOptions = municipalities.features.map(
@@ -191,13 +193,17 @@ const router = createBrowserRouter([
         children: [
           {
             path: "jobs",
-            element: <AdminListJobsPage />
+            element: <AdminListJobsPage />,
           },
           {
             path: "muni-description",
-            element: <AdminMuniDescriptionsPage />
-          }
-        ]
+            element: <AdminMuniDescriptionsPage />,
+          },
+          {
+            path: "muni-links",
+            element: <AdminMuniLinksPage />,
+          },
+        ],
       },
       // Profile routes, all routes should go through the admin parent that verifies login.
       {
@@ -206,18 +212,18 @@ const router = createBrowserRouter([
         children: [
           {
             path: "me",
-            element: <ProfileMyProfilePage />
+            element: <ProfileMyProfilePage />,
           },
           {
             path: "teammates",
-            element: <ProfileTeammatesPage />
+            element: <ProfileTeammatesPage />,
           },
           {
             path: "favorite-datasets",
-            element: <ProfileFavoriteDatasetsPage />
-          }
-        ]
-      }
+            element: <ProfileFavoriteDatasetsPage />,
+          },
+        ],
+      },
     ],
   },
 ]);

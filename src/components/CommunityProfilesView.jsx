@@ -49,9 +49,11 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { muni, tab } = useParams();
-  const [loadingDescription, setLoadingDescription] = useState(true);
   const [muniId, setMuniId] = useState(null);
+  const [loadingDescription, setLoadingDescription] = useState(true);
   const [muniDescription, setMuniDescription] = useState(null);
+  const [loadingLinks, setLoadingLinks] = useState(true);
+  const [muniLinks, setMuniLinks] = useState([]);
   const [activeTab, setActiveTab] = useState(tab || "demographics");
   const [modalConfig, setModalConfig] = useState({
     show: false,
@@ -85,11 +87,23 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
         const rowData = resp.data;
         const respDescription = rowData?.length === 1 ? rowData[0].description : null;
         setMuniDescription(respDescription);
-        setLoadingDescription(false);
       }).catch(err => {
-        setLoadingDescription(false);
         setMuniDescription('');
-        console.error("Error fetching muni id for description");
+        console.error("Error fetching muni description");
+      }).finally(() => {
+        setLoadingDescription(false);
+      });
+
+    setLoadingLinks(true);
+    const linksResp = axios.get(`/api/muni-info/links?muni_id=${muniId}`)
+      .then(resp => {
+        const rowData = resp.data;
+        setMuniLinks(rowData);
+      }).catch(err => {
+        setMuniLinks([]);
+        console.error("Error fetching muni links");
+      }).finally(() => {
+        setLoadingLinks(false);
       });
   }, [muniId]);
 
@@ -332,6 +346,14 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                 </button>
                 <DownloadAllChartsButton muni={muni} datatype={'municipality'} displayName={name} />
               </div>
+            </div>
+            <div className="muni-links-container">
+              {!loadingLinks && muniLinks.length > 0 && <b>Links provided by municipality:</b>}
+              {!loadingLinks && muniLinks.length > 0 && muniLinks.map(link => (
+                <div className='muni-link' onClick={() => window.location.href = link.link}>
+                  {link.name}
+                </div>
+              ))}
             </div>
           </section>
         </div>
