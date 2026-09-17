@@ -33,6 +33,9 @@ import {
   fetchMassgisDistrictOverlay,
   buildMapcRegionIndex,
   filterGeojsonByGeographicFrame,
+  getMapVariableKind,
+  parseCodedCategoryLabels,
+  parsePairedCategoryNameLabels,
 } from "../../utils/datasetMapPreview";
 import { ExportLoadingMask, useExportFileDownload } from "./ExportLoadingMask";
 
@@ -251,10 +254,12 @@ function featureDetailsToPopupHtml(details, {
   geographyType,
   activeVariableLabel,
   activeVariableUnit,
+  mapValueKind = "quantitative",
+  categoryLabels = null,
 } = {}) {
   if (!details) return "";
   const placeLabel = geographyEntityLabel(geographyType).replace(/^./, (s) => s.toUpperCase());
-  const valueText = formatMapValue(details.value, activeVariableUnit);
+  const valueText = formatMapValue(details.value, activeVariableUnit, { kind: mapValueKind, categoryLabels });
   const moeText =
     details.marginOfError != null
       ? ` ± ${formatMapValue(details.marginOfError, activeVariableUnit)}`
@@ -537,17 +542,12 @@ function DatasetMapPreview({
       setOverlaysLoading(true);
       try {
         // Load independently so one failure (e.g. unauthorized MAPC table) does not block both.
-        const [muniResult, mapcResult, mapcMuniResult] = await Promise.allSettled([
-          fetchGisBoundaryLayer("municipal"),
+        // MAPC clip/outline only. Municipal GIS polygons are fetched when that overlay is turned on.
+        const [mapcResult, mapcMuniResult] = await Promise.allSettled([
           fetchGisBoundaryLayer("mapcRegion"),
           fetchMapcMunicipalityPolygons(),
         ]);
         if (cancelled) return;
-        if (muniResult.status === "fulfilled") {
-          setMuniOverlayGeojson(muniResult.value);
-        } else {
-          console.error("Failed to load municipal overlay boundaries:", muniResult.reason);
-        }
         if (mapcResult.status === "fulfilled") {
           setMapcOverlayGeojson(mapcResult.value);
         } else {
@@ -570,6 +570,22 @@ function DatasetMapPreview({
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!showMunicipalLayer) return undefined;
+    if (muniOverlayGeojson?.features?.length) return undefined;
+    let cancelled = false;
+    fetchGisBoundaryLayer("municipal")
+      .then((fc) => {
+        if (!cancelled) setMuniOverlayGeojson(fc);
+      })
+      .catch((err) => {
+        console.error("Failed to load municipal overlay boundaries:", err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [showMunicipalLayer, muniOverlayGeojson]);
 
   useEffect(() => {
     if (!showHouseDistricts) {
@@ -625,7 +641,7 @@ function DatasetMapPreview({
     };
   }, [showSenateDistricts]);
 
-  const isBoundaryLoading = boundariesLoading || overlaysLoading;
+  const isBoundaryLoading = boundariesLoading;
   // Boundaries category tables already have polygons in `shape` — no geometry-API join.
   const isBoundariesDataset = isBoundariesCategory(menu1);
   const shapeAttributeColumns = useMemo(
@@ -635,15 +651,20 @@ function DatasetMapPreview({
   const boundaryLayerLabel = title || "Boundaries";
 
   useEffect(() => {
+    const isMunicipalTable =
+      geographyType === MAP_VIEW_GEOGRAPHY_TYPES.municipal && !isBoundariesDataset;
+    const hasMunicipalFallback = Boolean(isMunicipalTable && municipalGeojson?.features?.length);
+    // Census tracts (and municipal extra-dimension tables) still need the Geometry API.
+    // One-row-per-town tables can join onto the static MA polygons instead of a 10MB+ payload.
     const usesGeometryApi =
       !isBoundariesDataset &&
       (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts ||
-        geographyType === MAP_VIEW_GEOGRAPHY_TYPES.municipal);
+        (isMunicipalTable && needsDimensionPicker));
 
     if (!usesGeometryApi && !isBoundariesDataset) {
       setApiBoundaryGeojson(null);
-      setGeometryJoinKey(null);
-      setGeometryYear(null);
+      setGeometryJoinKey(hasMunicipalFallback ? "muni_id" : null);
+      setGeometryYear(hasMunicipalFallback ? mapYear : null);
       setBoundariesError("");
       setBoundariesLoading(false);
       return undefined;
@@ -655,7 +676,12 @@ function DatasetMapPreview({
     }
 
     let cancelled = false;
-    setBoundariesLoading(true);
+    if (hasMunicipalFallback) {
+      setGeometryJoinKey((current) => current || "muni_id");
+      setBoundariesLoading(false);
+    } else {
+      setBoundariesLoading(true);
+    }
     setBoundariesError("");
 
     const loadBoundaries = async () => {
@@ -694,9 +720,11 @@ function DatasetMapPreview({
         setBoundariesLoading(false);
       } catch (primaryError) {
         if (cancelled) return;
-        setApiBoundaryGeojson(null);
-        setGeometryJoinKey(null);
-        setGeometryYear(null);
+        if (!hasMunicipalFallback) {
+          setApiBoundaryGeojson(null);
+          setGeometryJoinKey(null);
+          setGeometryYear(null);
+        }
         if (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.municipal && !isBoundariesDataset) {
           setBoundariesError(
             primaryError?.message
@@ -728,6 +756,7 @@ function DatasetMapPreview({
     isBoundariesDataset,
     shapeAttributeColumns,
     boundaryLayerLabel,
+    needsDimensionPicker,
   ]);
 
   const baseGeojson = useMemo(() => {
@@ -743,14 +772,43 @@ function DatasetMapPreview({
     [mapcMunicipalityGeojson],
   );
 
+  const mapVariableColumn = useMemo(
+    () =>
+      columnKeys.find((col) => col.name === activeVariable) ||
+      mappableColumns.find((col) => col.name === activeVariable) ||
+      null,
+    [columnKeys, mappableColumns, activeVariable],
+  );
+  const mapValueKind = useMemo(() => {
+    const rows = needsDimensionPicker ? choroplethRows : filteredRows;
+    const values = (rows || []).map((row) => row?.[activeVariable]);
+    return getMapVariableKind(mapVariableColumn, values);
+  }, [
+    mapVariableColumn,
+    activeVariable,
+    needsDimensionPicker,
+    choroplethRows,
+    filteredRows,
+  ]);
+  const categoryLabels = useMemo(() => {
+    const rowsForLabels = needsDimensionPicker ? choroplethRows : filteredRows;
+    return (
+      parseCodedCategoryLabels(mapVariableColumn) ||
+      parsePairedCategoryNameLabels(mapVariableColumn, rowsForLabels)
+    );
+  }, [mapVariableColumn, needsDimensionPicker, choroplethRows, filteredRows]);
+  const isCategoricalVariable = mapValueKind === "binary" || mapValueKind === "categorical";
+
   const framedBaseGeojson = useMemo(() => {
     if (!baseGeojson) return null;
+    // Category maps need every class visible (e.g. 0 and 1), so do not clip the frame.
+    if (isCategoricalVariable) return baseGeojson;
     return filterGeojsonByGeographicFrame(baseGeojson, {
       frame: geographicFrame,
       mapcIndex: mapcRegionIndex,
       mapcBbox: [-71.6606345781778, 42.0024105200978, -70.7113301211872, 42.7128927511039],
     });
-  }, [baseGeojson, geographicFrame, mapcRegionIndex]);
+  }, [baseGeojson, geographicFrame, mapcRegionIndex, isCategoricalVariable]);
 
   const tractBoundaryLabel = useMemo(() => {
     if (isBoundariesDataset) return null;
@@ -901,8 +959,12 @@ function DatasetMapPreview({
         binningDescription: "Classification: Boundary outline",
       };
     }
-    return buildChoroplethScale(values, { unit: activeVariableUnit });
-  }, [valueByGeography, activeVariableUnit, boundaryLayerLabel, isBoundariesDataset]);
+    return buildChoroplethScale(values, {
+      unit: activeVariableUnit,
+      kind: mapValueKind,
+      categoryLabels,
+    });
+  }, [valueByGeography, activeVariableUnit, boundaryLayerLabel, isBoundariesDataset, mapValueKind, categoryLabels]);
 
   const paintedGeojson = useMemo(() => {
     if (!framedBaseGeojson) return { type: "FeatureCollection", features: [] };
@@ -1237,7 +1299,7 @@ function DatasetMapPreview({
 
       let bounds = null;
       let maxZoom = 12;
-      if (geographicFrame === GEOGRAPHIC_FRAME.mapc) {
+      if (!isCategoricalVariable && geographicFrame === GEOGRAPHIC_FRAME.mapc) {
         bounds = MAPC_REGION_BOUNDS;
         maxZoom = 11;
       } else {
@@ -1261,7 +1323,7 @@ function DatasetMapPreview({
       fitToFrame();
     });
     return () => window.cancelAnimationFrame(frameId);
-  }, [mapReady, geographicFrame, baseGeojson]);
+  }, [mapReady, geographicFrame, baseGeojson, isCategoricalVariable]);
 
   useEffect(() => {
     setSelectedFeatureKey(null);
@@ -1325,6 +1387,8 @@ function DatasetMapPreview({
               geographyType,
               activeVariableLabel,
               activeVariableUnit,
+              mapValueKind,
+              categoryLabels,
             }),
           )
           .addTo(map);
@@ -1374,6 +1438,8 @@ function DatasetMapPreview({
     extraDimensionLabels,
     activeVariableLabel,
     activeVariableUnit,
+    mapValueKind,
+    categoryLabels,
   ]);
 
   const selectedFeature = useMemo(() => {
@@ -1805,7 +1871,7 @@ function DatasetMapPreview({
                     <div className="dataset-map-preview__detail-row dataset-map-preview__detail-row--inline dataset-map-preview__detail-row--metric">
                       <dt>{activeVariableLabel}</dt>
                       <dd>
-                        {formatMapValue(selectedDetails.value, activeVariableUnit)}
+                        {formatMapValue(selectedDetails.value, activeVariableUnit, { kind: mapValueKind, categoryLabels })}
                         {selectedDetails.marginOfError != null && (
                           <span className="dataset-map-preview__detail-metric-moe">
                             {" "}
@@ -1897,7 +1963,7 @@ function DatasetMapPreview({
                               {item.value}
                             </td>
                           ))}
-                          <td>{formatMapValue(row.value, activeVariableUnit)}</td>
+                          <td>{formatMapValue(row.value, activeVariableUnit, { kind: mapValueKind, categoryLabels })}</td>
                           {rankingHasMoe && (
                             <td>
                               {row.marginOfError != null

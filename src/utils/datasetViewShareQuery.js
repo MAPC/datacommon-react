@@ -173,3 +173,31 @@ export function resolveYearsFromUrl(parsed, availableYears) {
   const next = (availableYears || []).filter((y) => wanted.has(String(y)));
   return next.length ? next : null;
 }
+
+function columnHeaderLabel(col) {
+  return String(col?.alias || col?.label || col?.name || "").trim().toLowerCase();
+}
+
+/** Keep the same map column across municipal ↔ tract tables (by name, then alias). */
+export function resolveCarriedMapVariable(preferredName, nextColumnKeys = [], previousColumnKeys = []) {
+  const wanted = String(preferredName || "").trim();
+  if (!wanted) return null;
+  const next = nextColumnKeys || [];
+  if (next.some((col) => String(col?.name || "") === wanted)) return wanted;
+  const prev = (previousColumnKeys || []).find((col) => String(col?.name || "") === wanted);
+  const prevLabel = columnHeaderLabel(prev);
+  if (!prevLabel) return null;
+  const match = next.find((col) => columnHeaderLabel(col) === prevLabel);
+  return match?.name ? String(match.name) : null;
+}
+
+export function resolveCarriedMapDimensions(selections = {}, nextColumnKeys = []) {
+  const names = new Set((nextColumnKeys || []).map((col) => String(col?.name || "")).filter(Boolean));
+  const next = {};
+  Object.entries(selections || {}).forEach(([name, value]) => {
+    if (!names.has(String(name))) return;
+    if (value == null || String(value) === "") return;
+    next[name] = String(value);
+  });
+  return next;
+}
