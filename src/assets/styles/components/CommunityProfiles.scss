@@ -145,6 +145,19 @@
     }
   }
 
+  .trail-profile-embed {
+    iframe {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      border: 0;
+    }
+
+    @media print {
+      display: none !important;
+    }
+  }
+
   .digital-equity-speed-stats-row {
     margin-bottom: 0;
     flex-wrap: wrap;
