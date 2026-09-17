@@ -211,7 +211,8 @@ const CATEGORICAL_COLORS = [
   "#CAB2D6",
 ];
 const BINARY_YES_COLOR = "#2CA25F";
-const BINARY_NO_COLOR = "#D0D0D0";
+/** Darker than NO_DATA_COLOR so “No” / “not provided” towns are not confused with missing data. */
+const BINARY_NO_COLOR = "#737373";
 
 function columnSearchText(column) {
   return `${column?.name || ""} ${column?.alias || column?.label || ""} ${column?.details || ""}`.toLowerCase();
@@ -284,12 +285,15 @@ function looksLikeCategoryColumn(column) {
 
 /**
  * Quantitative = magnitude (counts, percents, dollars).
- * Binary = only yes/no (0/1) values.
+ * Binary = only yes/no (0/1) values across the full column.
  * Categorical = a few coded classes (including flags with 0/1/2).
+ * Pass the whole column, not a filtered extra-dimension slice.
  */
 export function getMapVariableKind(column, values = []) {
   const unique = uniquePresentValues(values);
   if (isBinaryCategoryValues(unique, column)) return "binary";
+  const numericUnique = unique.filter((value) => Number.isFinite(Number(value)));
+  if (numericUnique.length > CATEGORICAL_UNIQUE_MAX) return "quantitative";
   if (looksLikeCategoryColumn(column) && unique.length > 0 && unique.length <= CATEGORICAL_UNIQUE_MAX) {
     return "categorical";
   }
@@ -384,13 +388,14 @@ function categorySortValue(value) {
   return Number.isFinite(n) ? n : String(value);
 }
 
-function buildCategoricalScale(values = [], kind = "categorical", labels = null) {
-  let classes = uniquePresentValues(values);
+function buildCategoricalScale(values = [], kind = "categorical", labels = null, columnValues = null) {
+  const classSource = columnValues?.length ? columnValues : values;
+  let classes = uniquePresentValues(classSource);
   if (kind === "binary") {
     const yes = classes.find((value) => isBinaryTruthy(value) || Number(value) === 1);
     const no = classes.find((value) => !isBinaryTruthy(value) && Number(value) !== 1);
     classes = [yes, no].filter((value) => value != null && value !== "");
-    if (!classes.length) classes = uniquePresentValues(values);
+    if (!classes.length) classes = uniquePresentValues(classSource);
   } else {
     classes.sort((a, b) => {
       const av = categorySortValue(a);
@@ -1196,14 +1201,17 @@ export function getColumnUnit(column) {
 }
 
 /**
- * handles binary, categorical, and quantitative values
+ * handles binary, categorical, and quantitative values.
+ * `columnValues` is the full column (not an extra-dimension slice) and decides
+ * unique-integer vs quantile binning the same way kind is decided.
  */
-export function buildChoroplethScale(values = [], { unit = null, kind = "quantitative", categoryLabels = null } = {}) {
+export function buildChoroplethScale(
+  values = [],
+  { unit = null, kind = "quantitative", categoryLabels = null, columnValues = null } = {},
+) {
+  const kindSource = columnValues?.length ? columnValues : values;
   if (kind === "binary" || kind === "categorical") {
-    return buildCategoricalScale(values, kind, categoryLabels);
-  }
-  if (isBinaryCategoryValues(values)) {
-    return buildCategoricalScale(values, "binary", categoryLabels);
+    return buildCategoricalScale(values, kind, categoryLabels, kindSource);
   }
 
   const numeric = values.filter((v) => Number.isFinite(v)).sort((a, b) => a - b);
@@ -1249,15 +1257,27 @@ export function buildChoroplethScale(values = [], { unit = null, kind = "quantit
     return Math.max(min, upper);
   };
 
-  // Quantile on 0–12-style integers (most places = 12) yields one class "0-12".
-  if (valuesAreIntegers && uniqueValues.length <= CHOROPLETH_COLORS.length) {
+  const referenceNumeric = (columnValues || [])
+    .map((value) => toNumber(value))
+    .filter((value) => value != null && Number.isFinite(value));
+  const referenceUniques = [...new Set(referenceNumeric)];
+  const referenceAreIntegers =
+    referenceNumeric.length > 0 && referenceNumeric.every((n) => Number.isInteger(n));
+  const fullColumnIsSmallIntegerSet =
+    referenceAreIntegers &&
+    referenceUniques.length > 1 &&
+    referenceUniques.length <= CHOROPLETH_COLORS.length &&
+    Math.max(...referenceUniques) - Math.min(...referenceUniques) <= SMALL_INTEGER_UNIQUE_MAX;
+
+  // Unique-integer classes only when the whole column is a small coded domain (e.g. 0–12).
+  if (fullColumnIsSmallIntegerSet && valuesAreIntegers && uniqueValues.length <= CHOROPLETH_COLORS.length) {
     return scaleFromInclusiveRanges(
       uniqueValues.map((value, i) => ({ min: value, max: value, colorIndex: i })),
       format,
       "Classification: Unique values",
     );
   }
-  if (valuesAreIntegers && domainMax - domainMin <= SMALL_INTEGER_UNIQUE_MAX) {
+  if (fullColumnIsSmallIntegerSet && valuesAreIntegers && domainMax - domainMin <= SMALL_INTEGER_UNIQUE_MAX) {
     const integerDomain = [];
     for (let i = domainMin; i <= domainMax; i += 1) integerDomain.push(i);
     return scaleFromInclusiveRanges(
