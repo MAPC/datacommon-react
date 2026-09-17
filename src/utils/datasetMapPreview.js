@@ -193,6 +193,233 @@ function isNumericLike(value) {
   return Number.isFinite(n);
 }
 
+const BINARY_TRUE_TOKENS = new Set(["1", "true", "t", "yes", "y"]);
+const BINARY_FALSE_TOKENS = new Set(["0", "false", "f", "no", "n"]);
+const CATEGORICAL_UNIQUE_MAX = 16;
+const CATEGORICAL_COLORS = [
+  "#2CA25F",
+  "#7570B3",
+  "#E7298A",
+  "#D95F02",
+  "#1B9E77",
+  "#E6AB02",
+  "#A6761D",
+  "#666666",
+  "#1F78B4",
+  "#B2DF8A",
+  "#FB9A99",
+  "#CAB2D6",
+];
+const BINARY_YES_COLOR = "#2CA25F";
+const BINARY_NO_COLOR = "#D0D0D0";
+
+function columnSearchText(column) {
+  return `${column?.name || ""} ${column?.alias || column?.label || ""} ${column?.details || ""}`.toLowerCase();
+}
+
+function normalizeCategoryToken(value) {
+  if (typeof value === "boolean") return value ? "true" : "false";
+  if (value == null || value === "") return "";
+  return String(value).trim().toLowerCase();
+}
+
+function isBinaryLikeValue(value) {
+  if (typeof value === "boolean") return true;
+  const token = normalizeCategoryToken(value);
+  return BINARY_TRUE_TOKENS.has(token) || BINARY_FALSE_TOKENS.has(token);
+}
+
+function isBinaryTruthy(value) {
+  return BINARY_TRUE_TOKENS.has(normalizeCategoryToken(value));
+}
+
+function uniquePresentValues(values = []) {
+  const unique = [];
+  const seen = new Set();
+  for (const value of values) {
+    if (value == null || value === "") continue;
+    const key = String(value);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(value);
+  }
+  return unique;
+}
+
+/** 0/1, true/false, yes/no — a category, not a quantity. */
+export function isBinaryCategoryValues(values = []) {
+  const unique = uniquePresentValues(values);
+  if (!unique.length) return false;
+  return unique.every((value) => isBinaryLikeValue(value));
+}
+
+function isIdentifierCodeColumn(col) {
+  const name = String(col?.name || "").toLowerCase();
+  const text = columnSearchText(col);
+  if (/\bfips\b/.test(text) || /\bgeoid\b/.test(text)) return true;
+  if (/^cosub_/.test(name)) return true;
+  if (/\bcounty subdivision\b/.test(text) && /\bcode\b/.test(text)) return true;
+  return false;
+}
+
+function looksLikeCategoryColumn(column) {
+  const name = String(column?.name || "").toLowerCase();
+  const text = columnSearchText(column);
+  if (/\b(binary|indicating|flag|dummy)\b/.test(text)) return true;
+  if (/\b(yes\s*\/\s*no|true\s*\/\s*false)\b/.test(text)) return true;
+  if (/\b(classification|sub-?type|community type|id number)\b/.test(text)) return true;
+  if (/_id$/i.test(name) && !ID_LIKE_COLUMN_PATTERN.test(name)) return true;
+  return false;
+}
+
+/**
+ * Quantitative = magnitude (counts, percents, dollars).
+ * Binary = only yes/no (0/1) values.
+ * Categorical = a few coded classes (including flags with 0/1/2).
+ */
+export function getMapVariableKind(column, values = []) {
+  const unique = uniquePresentValues(values);
+  if (isBinaryCategoryValues(unique)) return "binary";
+  if (looksLikeCategoryColumn(column) && unique.length > 0 && unique.length <= CATEGORICAL_UNIQUE_MAX) {
+    return "categorical";
+  }
+  return "quantitative";
+}
+
+function parseCodedCategoryLabelsFromText(text) {
+  const source = String(text || "").trim();
+  if (!source) return null;
+  const labels = {};
+  const pattern = /(\d+)\s*if\s+([\s\S]+?)(?=\s*[;,]?\s*\d+\s*if\b|[.;]|$)/gi;
+  let match;
+  while ((match = pattern.exec(source))) {
+    const code = String(Number(match[1]));
+    const label = match[2]
+      .replace(/[;:,.\s]+$/g, "")
+      .replace(/^(the\s+)/i, "")
+      .trim();
+    if (!label) continue;
+    labels[code] = label.charAt(0).toUpperCase() + label.slice(1);
+  }
+  return Object.keys(labels).length >= 2 ? labels : null;
+}
+
+/** Parse "0 if no sewer, 1 if fully sewered; 2 if partially sewered." from metadata. */
+export function parseCodedCategoryLabels(column) {
+  return (
+    parseCodedCategoryLabelsFromText(column?.details) ||
+    parseCodedCategoryLabelsFromText(column?.alias) ||
+    parseCodedCategoryLabelsFromText(column?.label) ||
+    null
+  );
+}
+
+/** cmsbt08_id → cmsbt08 (“Streetcar Suburb”), cmtyp08_id → cmtyp08, subrg_id → subrg_nm */
+export function parsePairedCategoryNameLabels(column, rows = []) {
+  const idName = String(column?.name || "");
+  if (!/_id$/i.test(idName)) return null;
+  const base = idName.replace(/_id$/i, "");
+  if (!base) return null;
+  const pairCandidates = [base, `${base}_nm`, `${base}_name`, `${base}_title`];
+  const pair = pairCandidates.find((name) =>
+    rows.some((row) => row?.[name] != null && String(row[name]).trim() !== ""),
+  );
+  if (!pair) return null;
+
+  const labels = {};
+  rows.forEach((row) => {
+    const code = categoryKey(row?.[idName]);
+    const label = row?.[pair];
+    const name = String(label).trim();
+    if (!code || !name) return;
+    labels[code] = name.toLowerCase().startsWith(String(code).toLowerCase())
+      ? name
+      : `${code} ${name}`;
+  });
+  return Object.keys(labels).length >= 2 ? labels : null;
+}
+
+function categoryKey(value) {
+  if (value == null || value === "") return "";
+  if (typeof value === "boolean") return value ? "1" : "0";
+  if (Number.isFinite(Number(value)) && String(value).trim() !== "") return String(Number(value));
+  return String(value);
+}
+
+function categoryLabel(value, kind, labels = null) {
+  const coded = labels?.[categoryKey(value)];
+  if (coded) return coded;
+  if (kind === "binary") {
+    if (isBinaryTruthy(value) || Number(value) === 1) return "Yes";
+    const token = normalizeCategoryToken(value);
+    if (BINARY_FALSE_TOKENS.has(token) || value === 0 || Number(value) === 0) return "No";
+    return String(value);
+  }
+  if (Number.isInteger(Number(value)) && Number.isFinite(Number(value))) {
+    return String(Number(value));
+  }
+  return String(value);
+}
+
+function shouldExcludeAsIdentifierCode(col, sample = []) {
+  if (isIdentifierCodeColumn(col)) return true;
+  if (!looksLikeCategoryColumn(col)) return false;
+  const unique = uniquePresentValues(sample.map((row) => row?.[col.name]));
+  return unique.length > CATEGORICAL_UNIQUE_MAX;
+}
+
+function categorySortValue(value) {
+  if (typeof value === "boolean") return value ? 1 : 0;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : String(value);
+}
+
+function buildCategoricalScale(values = [], kind = "categorical", labels = null) {
+  let classes = uniquePresentValues(values);
+  if (kind === "binary") {
+    const yes = classes.find((value) => isBinaryTruthy(value) || Number(value) === 1);
+    const no = classes.find((value) => !isBinaryTruthy(value) && Number(value) !== 1);
+    classes = [yes, no].filter((value) => value != null && value !== "");
+    if (!classes.length) classes = uniquePresentValues(values);
+  } else {
+    classes.sort((a, b) => {
+      const av = categorySortValue(a);
+      const bv = categorySortValue(b);
+      if (typeof av === "number" && typeof bv === "number") return av - bv;
+      return String(av).localeCompare(String(bv), undefined, { numeric: true, sensitivity: "base" });
+    });
+  }
+
+  const colorByKey = new Map();
+  classes.forEach((value, index) => {
+    const color =
+      kind === "binary"
+        ? isBinaryTruthy(value) || Number(value) === 1
+          ? BINARY_YES_COLOR
+          : BINARY_NO_COLOR
+        : CATEGORICAL_COLORS[index % CATEGORICAL_COLORS.length];
+    colorByKey.set(String(value), color);
+    if (Number.isFinite(Number(value))) colorByKey.set(String(Number(value)), color);
+  });
+
+  const colorForValue = (n) => {
+    if (n == null || n === "") return NO_DATA_COLOR;
+    return colorByKey.get(String(n)) || colorByKey.get(String(Number(n))) || NO_DATA_COLOR;
+  };
+
+  return {
+    colorForValue,
+    legend: [
+      ...classes.map((value) => ({
+        label: categoryLabel(value, kind, labels),
+        color: colorForValue(value),
+      })),
+      { label: "No data", color: NO_DATA_COLOR },
+    ],
+    binningDescription: kind === "binary" ? "Classification: Unique values" : "Classification: Unique values",
+  };
+}
+
 /**
  * Find the margin-of-error column paired with a base estimate column.
  * Mirrors DataViewerPage / DatasetHeader pairing (alias + common ACS suffixes).
@@ -341,7 +568,10 @@ export function getMappableColumns(columnKeys = [], rows = [], geographyColumn =
       const details = String(col?.details || "").toLowerCase();
       return !(alias.includes("margin of error") || details.includes("margin of error"));
     })
-    .filter((col) => sample.some((row) => isNumericLike(row?.[col.name])))
+    .filter((col) => !shouldExcludeAsIdentifierCode(col, sample))
+    .filter((col) =>
+      sample.some((row) => isNumericLike(row?.[col.name]) || isBinaryLikeValue(row?.[col.name])),
+    )
     .map((col) => ({
       name: col.name,
       label: getColumnHeaderLabel(columnKeys, col.name),
@@ -469,6 +699,16 @@ const KNOWN_MAP_DIMENSION_NAMES = [
   "pwsid",
 ];
 
+function looksLikeDimensionTitle(name) {
+  const n = String(name || "").toLowerCase();
+  if (/(^|_)(muni_name|municipality|town)$/.test(n)) return false;
+  return /(title|_nm$|(^|_)name$)/.test(n);
+}
+
+function looksLikeDimensionCode(name) {
+  return /(code|_cd$)/i.test(String(name || ""));
+}
+
 function isAllLabel(value) {
   return String(value).trim().toLowerCase().split(/\s+/)[0] === "all";
 }
@@ -586,6 +826,8 @@ export function detectMapExtraDimensions({
     if (knownIndex >= 0) score += 120 - knownIndex;
     if (!valuesAreNumeric) score += 25;
     if (label && label !== name) score += 15;
+    if (looksLikeDimensionTitle(name)) score += 40;
+    if (looksLikeDimensionCode(name)) score -= 25;
     score += Math.max(0, 50 - uniqueValues.size);
 
     scored.push({
@@ -598,8 +840,19 @@ export function detectMapExtraDimensions({
 
   scored.sort((a, b) => b.score - a.score);
 
+  const titleCandidates = scored.filter((candidate) => looksLikeDimensionTitle(candidate.name));
+  const ranked = scored.filter((candidate) => {
+    if (!looksLikeDimensionCode(candidate.name) || !titleCandidates.length) return true;
+    // Prefer NAICS Name over NAICS code when the title splits the same duplicate rows.
+    return !titleCandidates.some((title) => {
+      const leftoverCode = countLeftoverDuplicates(duplicateGroups, [candidate.name]);
+      const leftoverTitle = countLeftoverDuplicates(duplicateGroups, [title.name]);
+      return leftoverTitle <= leftoverCode;
+    });
+  });
+
   const dimensions = [];
-  scored.forEach((candidate) => {
+  ranked.forEach((candidate) => {
     const selectedNames = dimensions.map((dimension) => dimension.name);
     if (columnsUniquelyIdentifyRows(duplicateGroups, selectedNames)) return;
 
@@ -703,7 +956,13 @@ function isUnmappableEducationGeography(rawValue, geographyType) {
 
 function toNumber(value) {
   if (value == null || value === "") return null;
+  if (typeof value === "boolean") return value ? 1 : 0;
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  const token = normalizeCategoryToken(value);
+  if (BINARY_TRUE_TOKENS.has(token) && !Number.isFinite(Number(String(value).trim()))) return 1;
+  if (BINARY_FALSE_TOKENS.has(token) && !Number.isFinite(Number(String(value).replace(/,/g, "").trim()))) {
+    return 0;
+  }
   const n = Number(String(value).replace(/,/g, "").trim());
   return Number.isFinite(n) ? n : null;
 }
@@ -908,8 +1167,6 @@ function scaleFromInclusiveRanges(ranges, format, description) {
 /**
  * Infer a display unit from column metadata / naming.
  * Metadata has no dedicated unit field; ACS aliases often use "% …" or end in `_p`.
- * @param {{name?: string, alias?: string, details?: string, label?: string}|null|undefined} column
- * @returns {string|null}
  */
 export function getColumnUnit(column) {
   if (!column) return null;
@@ -929,15 +1186,16 @@ export function getColumnUnit(column) {
 }
 
 /**
- * @param {number[]} values
- * @param {{ unit?: string|null }} [options]
- * @returns {{
- *   colorForValue: (n:number|null)=>string,
- *   legend: Array<{label:string,color:string}>,
- *   binningDescription: string,
- * }}
+ * handles binary, categorical, and quantitative values
  */
-export function buildChoroplethScale(values = [], { unit = null } = {}) {
+export function buildChoroplethScale(values = [], { unit = null, kind = "quantitative", categoryLabels = null } = {}) {
+  if (kind === "binary" || kind === "categorical") {
+    return buildCategoricalScale(values, kind, categoryLabels);
+  }
+  if (isBinaryCategoryValues(values)) {
+    return buildCategoricalScale(values, "binary", categoryLabels);
+  }
+
   const numeric = values.filter((v) => Number.isFinite(v)).sort((a, b) => a - b);
   if (!numeric.length) {
     return {
@@ -1537,7 +1795,11 @@ export async function fetchDatasetGeometry(params = {}) {
   };
 }
 
-export function formatMapValue(value, unit = null) {
+export function formatMapValue(value, unit = null, { kind = "quantitative", categoryLabels = null } = {}) {
+  if (kind === "binary" || kind === "categorical") {
+    if (value == null || value === "") return "—";
+    return categoryLabel(value, kind, categoryLabels);
+  }
   if (!Number.isFinite(value)) return "—";
   const formatted = new Intl.NumberFormat("en-US", {
     maximumFractionDigits: Math.abs(value) >= 100 ? 0 : 2,

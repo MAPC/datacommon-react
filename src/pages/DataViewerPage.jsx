@@ -10,7 +10,10 @@ import DatasetTable from "../components/partials/DatasetTable";
 import DatasetMapPreview from "../components/partials/DatasetMapPreview";
 import { isDatasetInventoryCatalog } from "../utils/datasetInventoryRow";
 import {
+  buildDatasetViewShareSearchParams,
   parseDatasetViewShareSearch,
+  resolveCarriedMapDimensions,
+  resolveCarriedMapVariable,
   resolveGeographiesFromUrl,
   resolveYearsFromUrl,
 } from "../utils/datasetViewShareQuery";
@@ -332,7 +335,18 @@ class DataViewerClass extends React.Component {
         }
 
         const yearOverride = resolveYearsFromUrl(parsedShare, distinctYears);
-        if (yearOverride) selectedYears = yearOverride;
+        if (yearOverride) {
+          selectedYears = yearOverride;
+        } else if (this.state.selectedYears?.length) {
+          const kept = this.state.selectedYears.filter((year) =>
+            distinctYears.some((available) => String(available) === String(year)),
+          );
+          if (kept.length) {
+            selectedYears = viewModeFromLocation(this.props.location, this.props.params) === "map"
+              ? [kept[0]]
+              : kept;
+          }
+        }
 
         // Geography from `_data_browser.geography`, or Boundaries category (own `shape`).
         let selectedGeographies = [];
@@ -366,9 +380,21 @@ class DataViewerClass extends React.Component {
           viewModeFromLocation(this.props.location, this.props.params) === "map" &&
           isMapPreviewSupported(geographyType);
         let mapVariable = null;
-        if (wantMap && parsedShare.mapVariable) {
-          const hasColumn = columnKeys.some((col) => String(col?.name) === String(parsedShare.mapVariable));
-          if (hasColumn) mapVariable = parsedShare.mapVariable;
+        let mapDimensionSelections = {};
+        let geographicFrame = parsedShare.geographicFrame || this.state.geographicFrame || "mapc";
+        if (wantMap) {
+          mapVariable = resolveCarriedMapVariable(
+            parsedShare.mapVariable || this.state.mapVariable,
+            columnKeys,
+            this.state.columnKeys,
+          );
+          mapDimensionSelections = resolveCarriedMapDimensions(
+            {
+              ...(this.state.mapDimensionSelections || {}),
+              ...(parsedShare.mapDimensionSelections || {}),
+            },
+            columnKeys,
+          );
         }
 
         const previewColumnOrder = syncPreviewColumnOrder([], selectedColumns, columnKeys);
@@ -400,8 +426,8 @@ class DataViewerClass extends React.Component {
           previewRowOrder: [],
           viewMode: wantMap ? "map" : "table",
           mapVariable,
-          geographicFrame: parsedShare.geographicFrame || "mapc",
-          mapDimensionSelections: parsedShare.mapDimensionSelections || {},
+          geographicFrame,
+          mapDimensionSelections,
           loading: false,
         });
 
@@ -541,7 +567,24 @@ class DataViewerClass extends React.Component {
       ? detectDatasetGeographyType(sibling.table_name, sibling.geography, { menu1: sibling.menu1 })
       : null;
     if (this.state.viewMode === "map" && !isMapPreviewSupported(geographyType)) return;
-    const search = this.props.location?.search || "";
+    const currentSearch = this.props.location?.search || "";
+    const embed = new URLSearchParams(currentSearch).get("embed") === "1";
+    const shareParams = buildDatasetViewShareSearchParams({
+      embed,
+      viewMode: this.state.viewMode,
+      mapVariable: this.state.mapVariable,
+      geographicFrame: this.state.geographicFrame,
+      mapDimensionSelections: this.state.mapDimensionSelections,
+      columnKeys: this.state.columnKeys,
+      selectedColumns: this.state.selectedColumns,
+      availableGeographies: [],
+      selectedGeographies: [],
+      availableYears: this.state.availableYears,
+      selectedYears: this.state.selectedYears,
+      queryYearColumn: this.state.queryYearColumn,
+    });
+    const qs = shareParams.toString();
+    const search = qs ? `?${qs}` : "";
     if (this.props.navigate) {
       this.props.navigate(datasetViewerPath(nextDatasetId, this.state.viewMode, search));
     }
