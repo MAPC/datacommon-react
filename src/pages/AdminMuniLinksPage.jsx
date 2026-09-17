@@ -23,12 +23,22 @@ const HeaderMessage = styled.div`
 const ContentContainer = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 12px;
+`;
+
+const LinksContainer = styled.div`
+  max-height: 400px;
+  overflow: auto;
 `;
 
 const ErrorMessage = styled.div`
   color: #721414;
   font-size: 16px;
+`;
+
+const HeaderActionsContainer = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 `;
 
 const InputLabel = styled.label`
@@ -257,101 +267,105 @@ const AdminMuniLinksPage = () => {
 
       <ContentContainer>
         <div>
-          {!loading && isMapcAdmin && (
-            <div>
-              <InputLabel htmlFor="datacommon-select-muni-link-page">
-                Link Type:
-              </InputLabel>
-              <SelectBox 
-                id="datacommon-select-muni-link-page"
-                style={{'marginLeft': '10px'}}
-                value={muniId}
-                onChange={e => setMuniId(e.target.value)}
-                placeholder="Pick your municipality"
-              >
-                <MuniOption value={-1}>Pick a municipality</MuniOption>
-                {sortedMunis.map(muni => (
-                  <MuniOption key={muni.id} value={muni.id}>{muni.name}</MuniOption>
-                ))}
-              </SelectBox>
-            </div>
-          )}
-
-          {!loading && !isMapcAdmin && muniId !== -1 && (
-            <div>
-              {`Municipal links for ${getMuniById(muniId)?.name || 'Unknown'}:`}
-            </div>
-          )}
-
-          {!loading && muniId !== -1 && (
-            <AddLinkButton onClick={() => setAddingLink(true)}>
-              Add Link
-            </AddLinkButton>
-          )}
-
-          {!loading && muniId !== -1 && addingLink && (
-            <LinkBox>
+          <HeaderActionsContainer>
+            {!loading && isMapcAdmin && (
               <div>
-                <InputLabel htmlFor="datacommon-select-link-type">
-                  Link Type:
+                <InputLabel htmlFor="datacommon-select-muni-link-page">
+                  Pick a Municipality:
                 </InputLabel>
                 <SelectBox 
-                  id="datacommon-select-link-type"
-                  // style={{'marginLeft': '10px'}}
-                  value={addingLinkType}
-                  onChange={e => setAddingLinkType(e.target.value)}
+                  id="datacommon-select-muni-link-page"
+                  style={{'marginLeft': '10px'}}
+                  value={muniId}
+                  onChange={e => setMuniId(e.target.value)}
                   placeholder="Pick your municipality"
                 >
-                  <MuniOption value={-1}>Pick a type</MuniOption>
-                  {sortedLinkTypes.map(type => (
-                    <MuniOption key={type.key} value={type.key}>{type.name}</MuniOption>
+                  <MuniOption value={-1}>Pick a municipality</MuniOption>
+                  {sortedMunis.map(muni => (
+                    <MuniOption key={muni.id} value={muni.id}>{muni.name}</MuniOption>
                   ))}
                 </SelectBox>
               </div>
+            )}
 
+            {!loading && !isMapcAdmin && muniId !== -1 && (
               <div>
-                <InputLabel htmlFor="datacommon-add-link-name-input">
-                  Name:
-                </InputLabel>
-                <TextInput 
-                  id="datacommon-add-link-name-input"
-                  value={addingLinkName}
-                  onChange={e => setAddingLinkName(e.target.value)}
-                  placeholder="Link name..."
-                />
+                {`Municipal links for ${getMuniById(muniId)?.name || 'Unknown'}:`}
               </div>
+            )}
 
-              <div>
-                <InputLabel htmlFor="datacommon-add-link-url-input">
-                  URL:
-                </InputLabel>
-                <TextInput 
-                  id="datacommon-add-link-url-input"
-                  value={addingLinkUrl}
-                  onChange={e => setAddingLinkUrl(e.target.value)}
-                  placeholder="URL..."
-                />
-              </div>
-
-              <AddLinkButton
-                style={{ marginTop: '32px' }} 
-                className={(addingLinkType !== -1 && addingLinkName && addingLinkUrl) ? '' : 'disabled'}
-                onClick={() => onSubmitLink()}>
-                Submit
+            {!loading && muniId !== -1 && (
+              <AddLinkButton onClick={() => setAddingLink(true)}>
+                Add Link
               </AddLinkButton>
+            )}
+          </HeaderActionsContainer>
 
-            </LinkBox>
-          )}
+          <LinksContainer>
+            {!loading && muniId !== -1 && addingLink && (
+              <LinkBox>
+                <div>
+                  <InputLabel htmlFor="datacommon-select-link-type">
+                    Link Type:
+                  </InputLabel>
+                  <SelectBox 
+                    id="datacommon-select-link-type"
+                    // style={{'marginLeft': '10px'}}
+                    value={addingLinkType}
+                    onChange={e => setAddingLinkType(e.target.value)}
+                    placeholder="Pick your municipality"
+                  >
+                    <MuniOption value={-1}>Pick a type</MuniOption>
+                    {sortedLinkTypes.map(type => (
+                      <MuniOption key={type.key} value={type.key}>{type.name}</MuniOption>
+                    ))}
+                  </SelectBox>
+                </div>
 
-          {!loading && muniId !== -1 && existingLinks.length > 0 && existingLinks.map(link => (
-            <LinkBox key={link.seq_id}>
-              <div>{getLinkTypeName(link.link_type)}</div>
-              <div>{link.name}</div>
-              <LinkUrlContainer title={link.link}>
-                {link.link}
-              </LinkUrlContainer>
-            </LinkBox>
-          ))}
+                <div>
+                  <InputLabel htmlFor="datacommon-add-link-name-input">
+                    Name:
+                  </InputLabel>
+                  <TextInput 
+                    id="datacommon-add-link-name-input"
+                    value={addingLinkName}
+                    onChange={e => setAddingLinkName(e.target.value)}
+                    placeholder="Link name..."
+                  />
+                </div>
+
+                <div>
+                  <InputLabel htmlFor="datacommon-add-link-url-input">
+                    URL:
+                  </InputLabel>
+                  <TextInput 
+                    id="datacommon-add-link-url-input"
+                    value={addingLinkUrl}
+                    onChange={e => setAddingLinkUrl(e.target.value)}
+                    placeholder="URL..."
+                  />
+                </div>
+
+                <AddLinkButton
+                  style={{ marginTop: '32px' }} 
+                  className={(addingLinkType !== -1 && addingLinkName && addingLinkUrl) ? '' : 'disabled'}
+                  onClick={() => onSubmitLink()}>
+                  Submit
+                </AddLinkButton>
+
+              </LinkBox>
+            )}
+
+            {!loading && muniId !== -1 && existingLinks.length > 0 && existingLinks.map(link => (
+              <LinkBox key={link.seq_id}>
+                <div>{getLinkTypeName(link.link_type)}</div>
+                <div>{link.name}</div>
+                <LinkUrlContainer title={link.link}>
+                  {link.link}
+                </LinkUrlContainer>
+              </LinkBox>
+            ))}
+          </LinksContainer>
         </div>
       </ContentContainer>
     </PageContainer>
