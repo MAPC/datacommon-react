@@ -8,6 +8,7 @@ import { unformattedColumns } from "../../constants/columns";
 const DataRow = ({
   columnSegments,
   showHiddenColumnMarkers,
+  index,
   rowData,
   linkRowsToDatasetView,
   queryYearColumn = "",
@@ -16,7 +17,6 @@ const DataRow = ({
   const canLink = Boolean(linkRowsToDatasetView && targetId != null && targetId !== "" && rowData?.active === 'Y');
   const openDatasetTooltip = canLink ? "Open dataset table in a new tab" : "";
   const showOpenTableAction = canLink;
-  const showGutter = linkRowsToDatasetView;
 
   const go = useCallback(() => {
     if (!canLink) {
@@ -75,26 +75,25 @@ const DataRow = ({
       title={openDatasetTooltip}
       aria-label={openDatasetTooltip}
     >
-      {showGutter && (
-        <td className="dataset-table__gutter">
-          <div className="dataset-table__row-controls">
-            {showOpenTableAction && (
-              <button
-                type="button"
-                className="dataset-table__open-table-btn"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  go();
-                }}
-                title={openDatasetTooltip}
-                aria-label={openDatasetTooltip}
-              >
-                <FontAwesomeIcon icon={faTable} size="sm" aria-hidden />
-              </button>
-            )}
-          </div>
-        </td>
-      )}
+      <td className="dataset-table__gutter">
+        <div className="dataset-table__row-controls">
+          <div className="dataset-table__ordinal-number">{index + 1}</div>
+          {showOpenTableAction && (
+            <button
+              type="button"
+              className="dataset-table__open-table-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                go();
+              }}
+              title={openDatasetTooltip}
+              aria-label={openDatasetTooltip}
+            >
+              <FontAwesomeIcon icon={faTable} size="sm" aria-hidden />
+            </button>
+          )}
+        </div>
+      </td>
       {renderedRow}
     </tr>
   );
