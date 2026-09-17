@@ -450,13 +450,13 @@ class DatasetTable extends React.Component {
     const effectiveSortDirection = sortColumn ? sortDirection : "asc";
     const sortedRows = this.sortData(allRows, effectiveSortColumn, effectiveSortDirection);
 
-    const showRowGutter = linkRowsToDatasetView;
     const canCustomizeLayout = Boolean(onPreviewColumnOrderChange);
 
     const rowKeysInView = sortedRows.map((row, i) => getDatasetRowKey(row, i));
     const dataRows = sortedRows.map((row, i) => (
       <DataRow
         key={rowKeysInView[i]}
+        index={i}
         rowData={row}
         columnSegments={columnSegments}
         showHiddenColumnMarkers={showHiddenColumnMarkers}
@@ -496,12 +496,10 @@ class DatasetTable extends React.Component {
                 <table className="ui sortable unstackable selectable compact table ember-view sticky-header-table dataset-table--preview">
                   <thead className="sticky-header">
                     <tr>
-                      {showRowGutter && (
-                        <th
-                          className="dataset-table__gutter"
-                          aria-label={linkRowsToDatasetView ? "Open dataset" : "Row controls"}
-                        />
-                      )}
+                      <th
+                        className="dataset-table__gutter"
+                        aria-label={linkRowsToDatasetView ? "Open dataset" : "Row controls"}
+                      />
                       {renderedHeaders}
                     </tr>
                   </thead>
