@@ -66,7 +66,6 @@ class DataViewerClass extends React.Component {
       geographyColumn: null,
       linkInventoryRows: false,
       previewColumnOrder: [],
-      previewRowOrder: [],
       columnFilters: [],
       viewMode: viewModeFromLocation(props.location, props.params),
       mapVariable: null,
@@ -83,7 +82,6 @@ class DataViewerClass extends React.Component {
     this.loadDatasetData = this.loadDatasetData.bind(this);
     this.updateSelectedGeographies = this.updateSelectedGeographies.bind(this);
     this.onPreviewColumnOrderChange = this.onPreviewColumnOrderChange.bind(this);
-    this.onPreviewRowOrderChange = this.onPreviewRowOrderChange.bind(this);
     this.onResetPreviewLayout = this.onResetPreviewLayout.bind(this);
     this.onViewModeChange = this.onViewModeChange.bind(this);
     this.onGeographyLevelChange = this.onGeographyLevelChange.bind(this);
@@ -397,7 +395,6 @@ class DataViewerClass extends React.Component {
           selectedGeographies,
           linkInventoryRows: isDatasetInventoryCatalog(dataset),
           previewColumnOrder,
-          previewRowOrder: [],
           viewMode: wantMap ? "map" : "table",
           mapVariable,
           geographicFrame: parsedShare.geographicFrame || "mapc",
@@ -495,14 +492,9 @@ class DataViewerClass extends React.Component {
     this.setState({ previewColumnOrder });
   }
 
-  onPreviewRowOrderChange(previewRowOrder) {
-    this.setState({ previewRowOrder });
-  }
-
   onResetPreviewLayout() {
     this.setState((prevState) => ({
       previewColumnOrder: syncPreviewColumnOrder([], prevState.selectedColumns, prevState.columnKeys),
-      previewRowOrder: [],
       currentPage: 1,
     }));
   }
@@ -730,11 +722,7 @@ class DataViewerClass extends React.Component {
               addNewColumnFilter={this.addFilterToList}
               columnFilters={this.state.columnFilters}
               previewColumnOrder={this.state.previewColumnOrder}
-              previewRowOrder={this.state.previewRowOrder}
               onPreviewColumnOrderChange={this.onPreviewColumnOrderChange}
-              onPreviewRowOrderChange={
-                this.state.linkInventoryRows ? undefined : this.onPreviewRowOrderChange
-              }
               onResetPreviewLayout={this.onResetPreviewLayout}
             />
           )}
