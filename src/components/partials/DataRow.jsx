@@ -10,19 +10,13 @@ const DataRow = ({
   showHiddenColumnMarkers,
   rowData,
   linkRowsToDatasetView,
-  showRowDragControls,
-  isDragging,
-  onDragHandleDragStart,
-  onDragHandleDragEnd,
-  onRowDragOver,
-  onRowDrop,
   queryYearColumn = "",
 }) => {
   const targetId = getInventoryRowDatasetId(rowData);
   const canLink = Boolean(linkRowsToDatasetView && targetId != null && targetId !== "" && rowData?.active === 'Y');
   const openDatasetTooltip = canLink ? "Open dataset table in a new tab" : "";
   const showOpenTableAction = canLink;
-  const showGutter = showRowDragControls || linkRowsToDatasetView;
+  const showGutter = linkRowsToDatasetView;
 
   const go = useCallback(() => {
     if (!canLink) {
@@ -73,16 +67,9 @@ const DataRow = ({
 
   return (
     <tr
-      className={[
-        canLink ? "data-row--dataset-link" : "",
-        isDragging ? "dataset-table__row--dragging" : "",
-      ]
-        .filter(Boolean)
-        .join(" ")}
+      className={canLink ? "data-row--dataset-link" : ""}
       onClick={canLink ? go : undefined}
       onKeyDown={canLink ? onKeyDown : undefined}
-      onDragOver={showRowDragControls ? onRowDragOver : undefined}
-      onDrop={showRowDragControls ? onRowDrop : undefined}
       tabIndex={canLink ? 0 : undefined}
       role={canLink ? "link" : undefined}
       title={openDatasetTooltip}
@@ -91,17 +78,6 @@ const DataRow = ({
       {showGutter && (
         <td className="dataset-table__gutter">
           <div className="dataset-table__row-controls">
-            {showRowDragControls && (
-              <span
-                className="dataset-table__drag-grip dataset-table__drag-grip--row"
-                draggable
-                onDragStart={onDragHandleDragStart}
-                onDragEnd={onDragHandleDragEnd}
-                onClick={(e) => e.stopPropagation()}
-                title="Drag to reorder row"
-                aria-label="Drag to reorder row"
-              />
-            )}
             {showOpenTableAction && (
               <button
                 type="button"
@@ -135,20 +111,12 @@ DataRow.propTypes = {
   showHiddenColumnMarkers: PropTypes.bool,
   rowData: PropTypes.object.isRequired,
   linkRowsToDatasetView: PropTypes.bool,
-  showRowDragControls: PropTypes.bool,
-  isDragging: PropTypes.bool,
-  onDragHandleDragStart: PropTypes.func,
-  onDragHandleDragEnd: PropTypes.func,
-  onRowDragOver: PropTypes.func,
-  onRowDrop: PropTypes.func,
   queryYearColumn: PropTypes.string,
 };
 
 DataRow.defaultProps = {
   showHiddenColumnMarkers: false,
   linkRowsToDatasetView: false,
-  showRowDragControls: false,
-  isDragging: false,
   queryYearColumn: "",
 };
 
