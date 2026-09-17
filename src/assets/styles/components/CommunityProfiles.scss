@@ -36,7 +36,7 @@
   header {
     text-align: left;
     background-color: transparent;
-    padding: 0 8em;
+    padding: 0 4em;
     margin-bottom: 1.5em;
     h2 {
       font-size: $font_size-large;
@@ -61,7 +61,7 @@
 
   section.about {
     display: flex;
-    padding: 0 8em;
+    padding: 0 4em;
 
     .outline {
       margin-right: 3em;
@@ -101,13 +101,18 @@
     }
 
     .muni-links-container {
-      display: flex;
-      flex-direction: column;
       margin-left: 8px;
+      margin-bottom: 8px;
+      max-width: 250px;
+      max-height: 240px;
+      overflow-y: auto;
 
       .muni-link {
         color: blue;
         cursor: pointer;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
     }
 

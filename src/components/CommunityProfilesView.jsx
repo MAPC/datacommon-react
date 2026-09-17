@@ -350,7 +350,7 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
             <div className="muni-links-container">
               {!loadingLinks && muniLinks.length > 0 && <b>Links provided by municipality:</b>}
               {!loadingLinks && muniLinks.length > 0 && muniLinks.map(link => (
-                <div className='muni-link' onClick={() => window.location.href = link.link}>
+                <div className='muni-link' onClick={() => window.location.href = link.link} title={link.name}>
                   {link.name}
                 </div>
               ))}
