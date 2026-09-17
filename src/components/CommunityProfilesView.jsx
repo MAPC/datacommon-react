@@ -45,6 +45,14 @@ const Spinner = styled.div`
   animation: ${spin} 0.8s linear infinite;
 `;
 
+const TRAILMAP_COMMUNITY_PROFILE_EMBED =
+  "https://staging.trailmap.mapc.org/embed/communityTrailsProfile";
+
+function trailmapCommunityProfileSrc(muniSlug) {
+  if (!muniSlug) return null;
+  return `${TRAILMAP_COMMUNITY_PROFILE_EMBED}?muni=${encodeURIComponent(String(muniSlug).toLowerCase())}`;
+}
+
 const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -61,6 +69,7 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
     title: "",
     tableKey: "",
   });
+  const trailProfileSrc = trailmapCommunityProfileSrc(muniSlug);
 
   useEffect(() => {
     // first fetch the muni id for this muni name
@@ -218,7 +227,9 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
         .tab__row.digital-equity-resources,
         .tab__row.digital-equity-resources *,
         .tab__row.municipal-finances-resources,
-        .tab__row.municipal-finances-resources * {
+        .tab__row.municipal-finances-resources *,
+        .tab__row.trail-profile-embed,
+        .tab__row.trail-profile-embed * {
           display: none !important;
         }
         /* Hide any chart panels that only show "Data not available." */
@@ -669,6 +680,24 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                   <PieChart chart={charts.transportation.commute_to_work} muni={muni} />
                 </ChartDetails>
               </div>
+              {trailProfileSrc && (
+                <div className="tab__row trail-profile-embed">
+                  <div className="chart-wrapper" style={{ maxWidth: "100%", flex: "0 0 100%" }}>
+                    <div className="chart-body">
+                      <iframe
+                        key={muniSlug}
+                        src={trailProfileSrc}
+                        title={`${name} trail profile`}
+                        width="100%"
+                        height="640"
+                        style={{ border: 0, maxWidth: "100%" }}
+                        loading="lazy"
+                        referrerPolicy="no-referrer-when-downgrade"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </Tab>
           </div>
         </div>
