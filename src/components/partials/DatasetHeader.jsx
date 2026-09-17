@@ -35,8 +35,22 @@ const setSelectYears = (availableYears, updateSelectedYears, selectedYears, { si
 const GeographyFilter = ({ availableGeographies = [], selectedGeographies = [], updateSelectedGeographies }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const dropdownRef = useRef(null);
   const [showAllSelectedTags, setShowAllSelectedTags] = useState(false);
+  const [mapcMunis, setMapcMunis] = useState([]);
+  const [loadingMapcMunis, setLoadingMapcMunis] = useState(true);
+  const dropdownRef = useRef(null);
+
+  // Fetch MAPC munis for the "MAPC only" filter:
+  useEffect(() => {
+    axios.get(`/api?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&filters=rpa_id:352&columns=muni_id,muni_name`)
+      .then(res => {
+        setLoadingMapcMunis(false);
+        setMapcMunis(res.data?.rows?.map(row => row.muni_name) || []);
+      }).catch(err => {
+        setLoadingMapcMunis(false);
+        console.error("Error while fetching MAPC munis: ", err);
+      });
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -93,6 +107,24 @@ const GeographyFilter = ({ availableGeographies = [], selectedGeographies = [], 
           <div className="column-dropdown-header">
             <span>{displayText}</span>
             <div className="column-dropdown-bulk-actions" role="group" aria-label="Geography bulk selection">
+              <button
+                type="button"
+                className="select-all-button"
+                disabled={mapcMunis.every(mapcMuni => selectedGeographies.includes(mapcMuni)) && !selectedGeographies.some(selectedGeo => !mapcMunis.includes(selectedGeo))}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  availableGeographies.forEach((geo) => {
+                    if (mapcMunis.includes(geo) && !selectedGeographies.includes(geo)) {
+                      updateSelectedGeographies(geo);
+                    } else if (!mapcMunis.includes(geo) && selectedGeographies.includes(geo)){
+                      updateSelectedGeographies(geo);
+                    }
+                  });
+                }}
+              >
+                {!loadingMapcMunis && "Select Only MAPC"}
+                {loadingMapcMunis && <Spinner />}
+              </button>
               <button
                 type="button"
                 className="select-all-button"
