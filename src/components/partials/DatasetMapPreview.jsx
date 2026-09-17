@@ -654,12 +654,12 @@ function DatasetMapPreview({
     const isMunicipalTable =
       geographyType === MAP_VIEW_GEOGRAPHY_TYPES.municipal && !isBoundariesDataset;
     const hasMunicipalFallback = Boolean(isMunicipalTable && municipalGeojson?.features?.length);
-    // Census tracts (and municipal extra-dimension tables) still need the Geometry API.
-    // One-row-per-town tables can join onto the static MA polygons instead of a 10MB+ payload.
+    // Map year is single-select: fetch that year's rows already joined to polygons.
+    // Skip the Geometry API only for municipal tables with no year (static town polygons).
     const usesGeometryApi =
       !isBoundariesDataset &&
       (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts ||
-        (isMunicipalTable && needsDimensionPicker));
+        (isMunicipalTable && (needsDimensionPicker || (queryYearColumn && mapYear != null))));
 
     if (!usesGeometryApi && !isBoundariesDataset) {
       setApiBoundaryGeojson(null);
@@ -676,12 +676,8 @@ function DatasetMapPreview({
     }
 
     let cancelled = false;
-    if (hasMunicipalFallback) {
-      setGeometryJoinKey((current) => current || "muni_id");
-      setBoundariesLoading(false);
-    } else {
-      setBoundariesLoading(true);
-    }
+    setGeometryJoinKey((current) => current || (hasMunicipalFallback ? "muni_id" : current));
+    setBoundariesLoading(true);
     setBoundariesError("");
 
     const loadBoundaries = async () => {
@@ -761,11 +757,11 @@ function DatasetMapPreview({
 
   const baseGeojson = useMemo(() => {
     if (apiBoundaryGeojson) return apiBoundaryGeojson;
-    if (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.municipal && !boundariesLoading && municipalGeojson) {
+    if (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.municipal && municipalGeojson) {
       return adaptMunicipalBoundaryGeojson(municipalGeojson);
     }
     return null;
-  }, [apiBoundaryGeojson, geographyType, boundariesLoading, municipalGeojson]);
+  }, [apiBoundaryGeojson, geographyType, municipalGeojson]);
 
   const mapcRegionIndex = useMemo(
     () => buildMapcRegionIndex(mapcMunicipalityGeojson),
@@ -1661,8 +1657,23 @@ function DatasetMapPreview({
             </div>
             <div ref={mapContainerRef} className="dataset-map-preview__map" role="img" aria-label={`Choropleth map of ${activeVariableLabel}`} />
             {isBoundaryLoading && (
-              <div className="dataset-map-preview__loading" role="status" aria-live="polite" aria-label="Loading boundaries">
+              <div
+                className="dataset-map-preview__loading"
+                role="status"
+                aria-live="polite"
+                aria-label={
+                  mapYear != null
+                    ? `Loading ${mapYear} map data`
+                    : "Loading map data"
+                }
+              >
                 <MoonLoader size={42} color="#767676" />
+                <span className="dataset-map-preview__loading-title">
+                  {mapYear != null ? `Loading ${mapYear} map data` : "Loading map data"}
+                </span>
+                <span className="dataset-map-preview__loading-info">
+                  Fetching this year’s records and joining them to the map boundaries.
+                </span>
               </div>
             )}
             <div className="dataset-map-preview__legend" aria-label="Map legend">

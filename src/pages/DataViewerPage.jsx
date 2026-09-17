@@ -55,6 +55,20 @@ function datasetViewerPath(datasetId, viewMode, search = "") {
   return `${base}${search || ""}`;
 }
 
+function yearInList(years = [], year) {
+  return (years || []).some((available) => String(available) === String(year));
+}
+
+function resolveMapYear(candidate, availableYears = []) {
+  const years = availableYears || [];
+  if (!years.length) return candidate ?? null;
+  if (candidate != null) {
+    const match = years.find((year) => String(year) === String(candidate));
+    if (match != null) return match;
+  }
+  return years[0];
+}
+
 class DataViewerClass extends React.Component {
   constructor(props) {
     super(props);
@@ -72,6 +86,7 @@ class DataViewerClass extends React.Component {
       columnFilters: [],
       viewMode: viewModeFromLocation(props.location, props.params),
       mapVariable: null,
+      mapYear: null,
       geographicFrame: "mapc",
       mapDimensionSelections: {},
       geographyType: null,
@@ -333,17 +348,13 @@ class DataViewerClass extends React.Component {
         }
 
         const yearOverride = resolveYearsFromUrl(parsedShare, distinctYears);
-        if (yearOverride) {
+        const keptTableYears = (this.state.selectedYears || []).filter((year) =>
+          yearInList(distinctYears, year),
+        );
+        if (yearOverride && viewModeFromLocation(this.props.location, this.props.params) !== "map") {
           selectedYears = yearOverride;
-        } else if (this.state.selectedYears?.length) {
-          const kept = this.state.selectedYears.filter((year) =>
-            distinctYears.some((available) => String(available) === String(year)),
-          );
-          if (kept.length) {
-            selectedYears = viewModeFromLocation(this.props.location, this.props.params) === "map"
-              ? [kept[0]]
-              : kept;
-          }
+        } else if (keptTableYears.length) {
+          selectedYears = keptTableYears;
         }
 
         // Geography from `_data_browser.geography`, or Boundaries category (own `shape`).
@@ -377,6 +388,12 @@ class DataViewerClass extends React.Component {
         const wantMap =
           viewModeFromLocation(this.props.location, this.props.params) === "map" &&
           isMapPreviewSupported(geographyType);
+        const mapYear = resolveMapYear(
+          wantMap
+            ? yearOverride?.[0] ?? this.state.mapYear
+            : this.state.mapYear ?? selectedYears[0],
+          distinctYears,
+        );
         let mapVariable = null;
         let mapDimensionSelections = {};
         let geographicFrame = parsedShare.geographicFrame || this.state.geographicFrame || "mapc";
@@ -407,6 +424,7 @@ class DataViewerClass extends React.Component {
           marginColumnsByBase,
           metadata,
           selectedYears,
+          mapYear,
           table: dataset.table_name,
           schema: dataset.schemaname,
           database: dataset.db_name,
@@ -452,18 +470,17 @@ class DataViewerClass extends React.Component {
 
   updateSelectedYears(e, year) {
     this.setState((prevState) => {
-      // Map choropleth is single-year: clicking a year selects only that year.
+      // Map choropleth is single-year and must not change table year filters.
       if (prevState.viewMode === "map") {
-        return { selectedYears: [year] };
+        return { mapYear: year };
       }
-      if (prevState.selectedYears.includes(year)) {
-        const index = prevState.selectedYears.indexOf(year);
-        const front = prevState.selectedYears.slice(0, index);
-        const back = prevState.selectedYears.slice(index + 1);
-        const newArray = front.concat(back);
-        return { selectedYears: newArray };
+      const selected = prevState.selectedYears || [];
+      if (yearInList(selected, year)) {
+        return {
+          selectedYears: selected.filter((current) => String(current) !== String(year)),
+        };
       }
-      return { selectedYears: [...prevState.selectedYears, year] };
+      return { selectedYears: [...selected, year] };
     });
   }
 
@@ -541,11 +558,9 @@ class DataViewerClass extends React.Component {
         if (!isMapPreviewSupported(prevState.geographyType)) {
           return prevState;
         }
-        const years = prevState.availableYears || [];
-        const latestYear = years.length ? years[0] : null;
         return {
           viewMode: "map",
-          selectedYears: latestYear != null ? [latestYear] : [],
+          mapYear: resolveMapYear(prevState.mapYear, prevState.availableYears),
         };
       }
       return { viewMode: "table" };
@@ -572,7 +587,10 @@ class DataViewerClass extends React.Component {
       availableGeographies: [],
       selectedGeographies: [],
       availableYears: this.state.availableYears,
-      selectedYears: this.state.selectedYears,
+      selectedYears:
+        this.state.viewMode === "map" && this.state.mapYear != null
+          ? [this.state.mapYear]
+          : this.state.selectedYears,
       queryYearColumn: this.state.queryYearColumn,
     });
     const qs = shareParams.toString();
@@ -583,22 +601,40 @@ class DataViewerClass extends React.Component {
   }
 
   onViewModeChange(viewMode) {
-    const datasetId = this.props.params.id;
-    const search = this.props.location?.search || "";
-    if (this.props.navigate) {
-      this.props.navigate(datasetViewerPath(datasetId, viewMode, search));
-    }
-
     this.setState((prevState) => {
       if (viewMode === "map") {
-        const years = prevState.availableYears || [];
-        const latestYear = years.length ? years[0] : null;
         return {
           viewMode,
-          selectedYears: latestYear != null ? [latestYear] : [],
+          mapYear: resolveMapYear(prevState.mapYear, prevState.availableYears),
         };
       }
       return { viewMode };
+    }, () => {
+      const datasetId = this.props.params.id;
+      const currentSearch = this.props.location?.search || "";
+      const embed = new URLSearchParams(currentSearch).get("embed") === "1";
+      const shareParams = buildDatasetViewShareSearchParams({
+        embed,
+        viewMode,
+        mapVariable: this.state.mapVariable,
+        geographicFrame: this.state.geographicFrame,
+        mapDimensionSelections: this.state.mapDimensionSelections,
+        columnKeys: this.state.columnKeys,
+        selectedColumns: this.state.selectedColumns,
+        availableGeographies: this.state.availableGeographies,
+        selectedGeographies: this.state.selectedGeographies,
+        availableYears: this.state.availableYears,
+        selectedYears:
+          viewMode === "map" && this.state.mapYear != null
+            ? [this.state.mapYear]
+            : this.state.selectedYears,
+        queryYearColumn: this.state.queryYearColumn,
+      });
+      const qs = shareParams.toString();
+      const search = qs ? `?${qs}` : "";
+      if (this.props.navigate) {
+        this.props.navigate(datasetViewerPath(datasetId, viewMode, search));
+      }
     });
   }
 
@@ -683,6 +719,12 @@ class DataViewerClass extends React.Component {
         geographyGroup?.levels || [],
         this.props.datasets,
       );
+      const headerYears =
+        this.state.viewMode === "map" && this.state.queryYearColumn
+          ? this.state.mapYear != null
+            ? [this.state.mapYear]
+            : []
+          : this.state.selectedYears;
       pageContents = (
         <section className="datasets">
           <DatasetHeader
@@ -695,7 +737,7 @@ class DataViewerClass extends React.Component {
             queryYearColumn={this.state.queryYearColumn}
             schema={this.state.schema}
             selectedColumns={this.state.selectedColumns}
-            selectedYears={this.state.selectedYears}
+            selectedYears={headerYears}
             availableGeographies={this.state.availableGeographies}
             selectedGeographies={this.state.selectedGeographies}
             updateSelectedGeographies={this.updateSelectedGeographies}
@@ -727,7 +769,7 @@ class DataViewerClass extends React.Component {
               rows={this.state.rows}
               columnKeys={this.state.columnKeys}
               queryYearColumn={this.state.queryYearColumn}
-              selectedYears={this.state.selectedYears}
+              selectedYears={headerYears}
               geographyColumn={this.state.geographyColumn}
               selectedGeographies={this.state.selectedGeographies}
               availableGeographies={this.state.availableGeographies}
