@@ -16,12 +16,17 @@ import styled, { keyframes } from "styled-components";
 
 const setSelectYears = (availableYears, updateSelectedYears, selectedYears, { singleSelect = false } = {}) => {
   if (availableYears.length > 0) {
+    const selected = new Set((selectedYears || []).map((year) => String(year)));
     return (
       <div className="year-filter">
         <span>{singleSelect ? "Select Year:" : "Select Years:"}</span>
         <ul>
           {availableYears.map((year) => (
-            <li key={year.toString()} onClick={(e) => updateSelectedYears(e, year)} className={selectedYears.includes(year) ? "selected" : ""}>
+            <li
+              key={year.toString()}
+              onClick={(e) => updateSelectedYears(e, year)}
+              className={selected.has(String(year)) ? "selected" : ""}
+            >
               {year}
             </li>
           ))}

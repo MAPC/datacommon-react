@@ -2953,11 +2953,23 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 12px;
-    background: rgba(232, 238, 240, 0.72);
+    gap: 8px;
+    padding: 16px;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.82);
     color: $color_font-medium--dark;
     font-size: $font_size-xsmall;
-    pointer-events: none;
+  }
+
+  .dataset-map-preview__loading-title {
+    font-weight: 600;
+    font-size: $font_size-small;
+    color: $color_font-dark;
+  }
+
+  .dataset-map-preview__loading-info {
+    max-width: 22rem;
+    line-height: 1.4;
   }
 
   .dataset-map-preview__map {
