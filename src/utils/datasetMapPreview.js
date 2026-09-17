@@ -246,11 +246,21 @@ function uniquePresentValues(values = []) {
   return unique;
 }
 
-/** 0/1, true/false, yes/no — a category, not a quantity. */
-export function isBinaryCategoryValues(values = []) {
+function isBinaryFalseValue(value) {
+  if (isBinaryTruthy(value) || Number(value) === 1) return false;
+  const token = normalizeCategoryToken(value);
+  return BINARY_FALSE_TOKENS.has(token) || Number(value) === 0;
+}
+
+/** 0/1, true/false, yes/no — a category, not a quantity. A lone 0 is still a number. */
+export function isBinaryCategoryValues(values = [], column = null) {
   const unique = uniquePresentValues(values);
   if (!unique.length) return false;
-  return unique.every((value) => isBinaryLikeValue(value));
+  if (!unique.every((value) => isBinaryLikeValue(value))) return false;
+  const hasTrue = unique.some((value) => isBinaryTruthy(value) || Number(value) === 1);
+  const hasFalse = unique.some((value) => isBinaryFalseValue(value));
+  if (hasTrue && hasFalse) return true;
+  return Boolean(column && looksLikeCategoryColumn(column));
 }
 
 function isIdentifierCodeColumn(col) {
@@ -279,7 +289,7 @@ function looksLikeCategoryColumn(column) {
  */
 export function getMapVariableKind(column, values = []) {
   const unique = uniquePresentValues(values);
-  if (isBinaryCategoryValues(unique)) return "binary";
+  if (isBinaryCategoryValues(unique, column)) return "binary";
   if (looksLikeCategoryColumn(column) && unique.length > 0 && unique.length <= CATEGORICAL_UNIQUE_MAX) {
     return "categorical";
   }
