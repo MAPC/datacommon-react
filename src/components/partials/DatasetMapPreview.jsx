@@ -775,24 +775,20 @@ function DatasetMapPreview({
       null,
     [columnKeys, mappableColumns, activeVariable],
   );
-  const mapValueKind = useMemo(() => {
-    const rows = needsDimensionPicker ? choroplethRows : filteredRows;
-    const values = (rows || []).map((row) => row?.[activeVariable]);
-    return getMapVariableKind(mapVariableColumn, values);
-  }, [
-    mapVariableColumn,
-    activeVariable,
-    needsDimensionPicker,
-    choroplethRows,
-    filteredRows,
-  ]);
+  const mapColumnValues = useMemo(
+    () => (rows || []).map((row) => row?.[activeVariable]),
+    [rows, activeVariable],
+  );
+  const mapValueKind = useMemo(
+    () => getMapVariableKind(mapVariableColumn, mapColumnValues),
+    [mapVariableColumn, mapColumnValues],
+  );
   const categoryLabels = useMemo(() => {
-    const rowsForLabels = needsDimensionPicker ? choroplethRows : filteredRows;
     return (
       parseCodedCategoryLabels(mapVariableColumn) ||
-      parsePairedCategoryNameLabels(mapVariableColumn, rowsForLabels)
+      parsePairedCategoryNameLabels(mapVariableColumn, rows)
     );
-  }, [mapVariableColumn, needsDimensionPicker, choroplethRows, filteredRows]);
+  }, [mapVariableColumn, rows]);
   const isCategoricalVariable = mapValueKind === "binary" || mapValueKind === "categorical";
 
   const framedBaseGeojson = useMemo(() => {
@@ -959,8 +955,9 @@ function DatasetMapPreview({
       unit: activeVariableUnit,
       kind: mapValueKind,
       categoryLabels,
+      columnValues: mapColumnValues,
     });
-  }, [valueByGeography, activeVariableUnit, boundaryLayerLabel, isBoundariesDataset, mapValueKind, categoryLabels]);
+  }, [valueByGeography, activeVariableUnit, boundaryLayerLabel, isBoundariesDataset, mapValueKind, categoryLabels, mapColumnValues]);
 
   const paintedGeojson = useMemo(() => {
     if (!framedBaseGeojson) return { type: "FeatureCollection", features: [] };
