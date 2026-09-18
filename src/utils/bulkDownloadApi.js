@@ -1,5 +1,9 @@
 import locations from "../constants/locations";
-import { buildBulkExportTableEntry } from "../constants/bulkDownloadBundles";
+import {
+  buildBulkExportTableEntry,
+  CUSTOM_BULK_DOWNLOAD_BUNDLE,
+  isCustomBulkDownloadBundle,
+} from "../constants/bulkDownloadBundles";
 
 export const BULK_DOWNLOAD_EXPORT_FAILED = "Failed to export data.";
 
@@ -232,6 +236,10 @@ export async function fetchAvailableYearsForTable({
 }
 
 export async function fetchBulkDownloadBundle(bundleId) {
+  if (isCustomBulkDownloadBundle(bundleId)) {
+    return CUSTOM_BULK_DOWNLOAD_BUNDLE;
+  }
+
   const token = import.meta.env.VITE_MAPC_API_TOKEN;
   const apiBase = `${locations.BROWSER_API}?token=${token}&database=ds&schema=tabular`;
 
