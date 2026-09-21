@@ -60,6 +60,7 @@ export function stripGeographyFromTitle(name) {
  * @param {list[string]} options.categories The list of categories (menu1s). Datasets with any of the categories will be included
  * @param {list[string]} options.subcategories The list of subcategories (menu2s). Datasets with any of the sub-cats will be included
  * @param {list[string]} options.geographies A list of geographies corresponding to the end of table names (e.g. _m for municipal, _ct for census tracts)
+ * @param {list[string]} options.favoriteDatasets A list of table_names that the user has favorited 
  * @param {string} options.searchQuery The search query the user searched for. Will be broken into individual terms. matches table_name and dataset name
  * @param {boolean} options.shouldRemoveDupes Whether to remove datasets that share the same table_name from the return list
  * @returns A filtered list of dataset using all the filtering criteria provided
@@ -70,6 +71,7 @@ export function filterDatasets({
   categories = [],
   subcategories = [],
   geographies = [],
+  favoriteDatasets = null,
   searchQuery = '',
   shouldRemoveDupes = true,
 }) {
@@ -89,8 +91,13 @@ export function filterDatasets({
   }
 
   // check if the table name matches the selected geographies, don't do anything if 'all' selected
-  if (!geographies.includes('all')) {
+  if (geographies.length > 0) {
     filtered = filtered.filter((d) => geographies.some((g) => getDatasetGeography(d) === g));
+  }
+
+  // only filter to favorites if the favoriteDatasets option is passed as an array.
+  if (favoriteDatasets) {
+    filtered = filtered.filter((d) => favoriteDatasets.includes(d.table_name));
   }
 
   if (searchQuery.trim()) {

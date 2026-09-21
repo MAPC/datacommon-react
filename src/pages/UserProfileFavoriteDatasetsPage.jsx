@@ -36,7 +36,7 @@ const FavoriteDatasetRow = styled.div`
 
 const FavoriteIconContainer = styled.div`
   cursor: pointer;
-  color: rgb(191, 168, 37);
+  color: #bfa825;
 
   &:hover {
     color: rgb(165, 145, 31);
