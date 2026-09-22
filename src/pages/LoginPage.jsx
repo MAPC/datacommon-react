@@ -11,18 +11,18 @@ const PageContainer = styled.section`
 `;
 
 const LoginBox = styled.div`
-  width: 600px;
+  width: 650px;
   height: 550px;
   background: #dddddd;
   border-radius: 10px;
-  box-shadow: 4px 4px 4px #dddddd;
+  box-shadow: 6px 6px 6px #bebebe;
 `;
 
 const LoginHeader = styled.div`
   width: 100%;
-  height: 3.5rem;
+  height: 3rem;
   border-radius: 10px;
-  padding: 0.5rem;
+  padding: 6px 16px;
   background: #1F4E46;
   color: white;
   font-size: 22px;
@@ -46,6 +46,11 @@ const LoginEmailContainer = styled.div`
 const LoginEmailDescription = styled.div`
   font-size: 16px;
   margin-bottom: 0.5rem;
+`;
+
+const CreationSuccessMessage = styled.div`
+  font-size: 14px;
+  margin: 10px 0px;
 `;
 
 const LoginEmailLabel = styled.label`
@@ -315,9 +320,11 @@ const LoginPage = () => {
                 </div>
                 {/* After user has set password, direct them to login. */}
                 {passwordSetSuccessful && 
-                  <LoginEmailDescription>
-                    Your Account has been created! Please verify your email using the link that was sent to you before logging in. 
-                  </LoginEmailDescription>
+                  <CreationSuccessMessage>
+                    Your Account has been created! Please verify your email using the link that was sent to you before logging in.
+                    The email is from no-reply@mailgun2.mapc.org. Please check your spam folder and wait up to three minutes for the email to arrive.
+                    If you never receive the email, please reach out to datacommon@mapc.org.
+                  </CreationSuccessMessage>
                 }
               </>
             }
