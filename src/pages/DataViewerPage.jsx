@@ -719,6 +719,19 @@ class DataViewerClass extends React.Component {
         geographyGroup?.levels || [],
         this.props.datasets,
       );
+      let noDupesGeographyLevels = [];
+      geographyLevels.forEach(geoLevel => {
+        const existing = noDupesGeographyLevels.find(ndg => ndg.geography === geoLevel.geography);
+        if (existing) {
+          const isCurrentDataset = geoLevel.id == this.props.params.id;
+          if (isCurrentDataset) {
+            noDupesGeographyLevels = noDupesGeographyLevels.filter(ndg => ndg.geography !== geoLevel.geography);
+            noDupesGeographyLevels.push(geoLevel);
+          }
+        } else {
+          noDupesGeographyLevels.push(geoLevel);
+        }
+      });
       const headerYears =
         this.state.viewMode === "map" && this.state.queryYearColumn
           ? this.state.mapYear != null
@@ -742,7 +755,7 @@ class DataViewerClass extends React.Component {
             selectedGeographies={this.state.selectedGeographies}
             updateSelectedGeographies={this.updateSelectedGeographies}
             geographyColumn={this.state.geographyColumn}
-            geographyLevels={geographyLevels}
+            geographyLevels={noDupesGeographyLevels}
             onGeographyLevelChange={this.onGeographyLevelChange}
             rowsPerPage={this.state.rowsPerPage}
             numberOfRows={this.state.rows.length}
