@@ -535,7 +535,6 @@ const InventoryCardSection = styled.div`
 const FeaturedDatasetSection = styled.div`
   margin-top: 0.75rem;
   padding-top: 1.25rem;
-  border-top: 1px solid #e0e0e0;
 `;
 
 const FeaturedDatasetTitle = styled.h2`
