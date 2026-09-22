@@ -6,6 +6,7 @@ import { isUserFromMAPC } from "../utils/auth";
 
 const initialState = {
   cache: [],
+  noDupesDatasets: [],
   categories: [],
   searchable: [],
   status: "idle", // 'idle' | 'loading' | 'succeeded' | 'failed'

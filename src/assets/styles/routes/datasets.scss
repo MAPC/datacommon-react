@@ -34,7 +34,7 @@
 
   .table-meta {
     margin-top: 0;
-    margin-bottom: 30px;
+    margin-bottom: 16px;
 
     font-size: $font_size-xsmall;
     font-style: italic;
@@ -152,7 +152,6 @@
   }
 
   .column-filter-dropdown {
-    margin-top: 15px;
     position: relative;
     display: inline-block;
     font-size: $font_size-xsmall;
@@ -351,15 +350,14 @@
     display: flex;
 
     & > .details-content-column {
-      flex: 1 0 66%;
+      flex: 1 0 80%;
 
       &:last-of-type {
         display: flex;
         flex-direction: column;
-        justify-content: space-between;
+        justify-content: flex-end;
 
-        flex: 1 0 23%;
-        top: -30px;
+        flex: 1 0 10%;
 
         margin-left: 2%;
 
@@ -371,7 +369,6 @@
         justify-content: flex-end;
         align-items: center;
         gap: 8px;
-        top: 30px;
 
         .rows-per-page-label {
           font-size: $font_size-xsmall;
@@ -413,13 +410,16 @@
   }
 
   .page-header {
-    padding-bottom: 1rem; // override the default here, smaller padding looks better
+    padding: 1rem 0rem; // override the default here, smaller padding looks better
   }
 
   .favorite-icon-container {
-    color: rgb(191, 168, 37);
-    padding-right: 12px;
+    color: #bfa825;
     cursor: pointer;
+
+    &:hover {
+      color: #a18c18
+    }
   }
 
   // Embed map: title + kebab only (no grey source meta block).
@@ -558,7 +558,7 @@
     gap: 8px;
     font-size: 14px;
     justify-content: end;
-    align-items: flex-start;
+    align-items: center;
 
     .button.file-button {
       background: linear-gradient(90deg, #64c08d, #5aba8c);
