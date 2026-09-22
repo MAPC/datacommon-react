@@ -32,7 +32,7 @@ const Sidebar = styled.div`
   width: 25%;
   min-width: 250px;
   background: #f8f9fa;
-  padding: 1.5rem;
+  padding: 1rem 1.5rem;
   border-radius: 8px;
   height: fit-content;
   position: sticky;
@@ -45,7 +45,7 @@ const SidebarTitleContainer = styled.div`
 `;
 
 const SidebarTitle = styled.h3`
-  margin: 0 0 1.5rem 0;
+  margin: 0 0 1rem 0;
   font-size: 1.25rem;
   font-weight: 700;
   color: #333;
@@ -70,7 +70,7 @@ const ClearAllFiltersButton = styled.button`
 `;
 
 const FilterSection = styled.div`
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
 `;
 
 const FilterHeader = styled.div`
@@ -1376,6 +1376,13 @@ const BrowserPage = () => {
 
           {filtersActive ? (
             <DatasetGrid ref={datasetGridRef}>
+              {filterToFavorites && favoriteDatasets?.length === 0 && (
+                <DatasetsEmptyState>
+                  <p>
+                    You haven't favorited any datasets yet. Click on the star next to a dataset name to add it to your favorites.
+                  </p>
+                </DatasetsEmptyState>
+              )}
               {sortedDatasets.map(renderCompressedDatasetCard)}
             </DatasetGrid>
           ) : (
