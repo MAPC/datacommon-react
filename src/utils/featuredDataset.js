@@ -30,9 +30,10 @@ function weekSeedToIndex(weekSeed, datasetCount) {
  * Uses the full dataset list so multi-geography cards render correctly.
  */
 export function pickDatasetOfTheWeek(datasets) {
-  const eligible = (datasets).filter(
+  let eligible = (datasets).filter(
     d => d.table_name && !EXCLUDED_TABLE_NAMES.has(d.table_name),
   );
+  eligible = eligible.filter(ds => ds.active === 'Y');
   const compressed = compressDatasetsByGeography(eligible);
   const sorted = [...compressed].sort((a, b) =>
     a.table_name.localeCompare(b.table_name),
