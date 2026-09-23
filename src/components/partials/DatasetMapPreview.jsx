@@ -38,6 +38,7 @@ import {
   parsePairedCategoryNameLabels,
 } from "../../utils/datasetMapPreview";
 import { ExportLoadingMask, useExportFileDownload } from "./ExportLoadingMask";
+import axios from "axios";
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_API_TOKEN;
 
@@ -389,6 +390,8 @@ function DatasetMapPreview({
   senateDistrictsRef.current = senateDistricts;
   const didFitGeographicFrameRef = useRef(false);
   const [selectedFeatureKey, setSelectedFeatureKey] = useState(null);
+  const [muniForSelectedCt, setMuniForSelectedCt] = useState(null);
+  const [loadingMuniForCt, setLoadingMuniForCt] = useState(false);
   const [dimensionSelections, setDimensionSelections] = useState(
     mapDimensionSelections && typeof mapDimensionSelections === "object" ? mapDimensionSelections : {},
   );
@@ -1455,6 +1458,44 @@ function DatasetMapPreview({
     });
   }, [selectedFeature, mapYear, geographyType, geometryJoinKey, marginColumn, extraDimensionLabels]);
 
+  // when viewing a census tract, fetch the muni for that census tract
+  useEffect(() => {
+    if (geographyType !== 'census_tracts') return;
+    if (!selectedDetails) return;
+
+    let tableName;
+    let columnName;
+    if (selectedDetails.tractBoundary === "2020 Census tracts") {
+      tableName = "_datakeys_geog_xw_2020";
+      columnName = "ct20_id";
+    } else if (selectedDetails.tractBoundary === "2010 Census tracts") {
+      tableName = "_datakeys_geog_xw_2010";
+      columnName = "ct10_id";
+    }
+    if (!tableName || !columnName) return;
+
+    const url = `/api?token=datacommon&database=ds&schema=tabular&table=${tableName}` +
+      `&columns=DISTINCT(muni_id),muni_name,${columnName}&filters=${columnName}:${selectedFeatureKey}`;
+    setLoadingMuniForCt(true);
+    setMuniForSelectedCt(null);
+    axios.get(url)
+      .then(res => {
+        const rows = res.data.rows;
+        if (rows.length === 0) {
+          console.error("Found no muni for selected census tract");
+          return;
+        };
+        const result = rows.map(r => r.muni_name).join(", ");
+        setMuniForSelectedCt(result);
+      })
+      .catch(err => {
+        console.error("Error while fetching muni for selected census tract", err);
+      })
+      .finally(() => {
+        setLoadingMuniForCt(false);
+      });
+  }, [geographyType, selectedFeatureKey, selectedDetails?.tractBoundary]);
+
   const rankingRows = useMemo(
     () =>
       buildRankingRows(paintedGeojson.features, {
@@ -1849,6 +1890,15 @@ function DatasetMapPreview({
                   </p>
                 ) : (
                   <dl className="dataset-map-preview__detail-list">
+                    {geographyType === 'census_tracts' && (
+                      <div className="dataset-map-preview__detail-row dataset-map-preview__detail-row--inline">
+                        <dt>Municipality</dt>
+                        {loadingMuniForCt && <MoonLoader size={14}/>}
+                        {!loadingMuniForCt && (
+                          <dd>{muniForSelectedCt || "Unknown Municipality"}</dd>
+                        )}
+                      </div>
+                    )}
                     <div className="dataset-map-preview__detail-row dataset-map-preview__detail-row--inline">
                       <dt>
                         {geographyEntityLabel(geographyType).replace(/^./, (s) => s.toUpperCase())}
