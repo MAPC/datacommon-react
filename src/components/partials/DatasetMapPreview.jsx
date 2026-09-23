@@ -366,7 +366,7 @@ function DatasetMapPreview({
   const [boundariesError, setBoundariesError] = useState("");
   const [boundariesLoading, setBoundariesLoading] = useState(false);
   const [overlaysLoading, setOverlaysLoading] = useState(true);
-  const [showMunicipalLayer, setShowMunicipalLayer] = useState(false);
+  const [showMunicipalLayer, setShowMunicipalLayer] = useState(geographyType !== 'municipal');
   const [showMapcRegionLayer, setShowMapcRegionLayer] = useState(false);
   const [showHouseDistricts, setShowHouseDistricts] = useState(false);
   const [showSenateDistricts, setShowSenateDistricts] = useState(false);
