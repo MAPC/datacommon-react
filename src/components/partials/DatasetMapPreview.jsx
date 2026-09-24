@@ -1980,6 +1980,9 @@ function DatasetMapPreview({
                 <table className="dataset-map-preview__ranking-table">
                   <thead>
                     <tr>
+                      <th style={{ borderRight: '1px solid #666666'}}>
+                        {/* this is the gutter on the left */}
+                      </th>
                       <RankingSortHeader
                         column="label"
                         label={rankingPlaceHeader}
@@ -2005,8 +2008,9 @@ function DatasetMapPreview({
                       )}
                     </tr>
                   </thead>
+                  {/* TODO: should this just be the data view table component? Stephen want something like that */}
                   <tbody>
-                    {sortedRankingRows.map((row) => {
+                    {sortedRankingRows.map((row, index) => {
                       const isSelected = selectedFeatureKey != null && String(selectedFeatureKey) === row.key;
                       return (
                         <tr
@@ -2015,6 +2019,9 @@ function DatasetMapPreview({
                           className={isSelected ? "is-selected" : undefined}
                           onClick={() => setSelectedFeatureKey(row.key)}
                         >
+                          <th style={{ borderRight: '1px solid #666666', padding: '8px 4px 8px 6px', color: '#666666'}}>
+                            {index + 1}
+                          </th>
                           <th scope="row">{row.label}</th>
                           {rankingDimensionColumns.map((item, index) => (
                             <td key={`${item.label}-${index}`} className="dataset-map-preview__ranking-dimension">
