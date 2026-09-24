@@ -1558,6 +1558,24 @@ function DatasetMapPreview({
     }
   }, [selectedFeatureKey]);
 
+  const mapcRowForYear = useMemo(() => {
+    if (geographyType !== 'municipal') return null;
+
+    let filtered = rows;
+    if (queryYearColumn && selectedYears?.length) {
+      const yearSet = new Set(selectedYears.map(String));
+      filtered = filtered.filter((row) => yearSet.has(String(row[queryYearColumn])));
+    }
+
+    filtered = filtered.filter(row => row.muni_id === 352) // I believe 352 is always MAPC
+    if (filtered.length === 1) {
+      return filtered[0];
+    } else {
+      return null;
+    }
+
+  }, [rows, queryYearColumn, selectedYears, geographyType]);
+
   const canDownloadGeojson =
     Boolean(table) &&
     !isBoundaryLoading &&
@@ -1620,6 +1638,16 @@ function DatasetMapPreview({
       <div className="dataset-map-preview__map-panel">
         {boundariesError && (
           <span className="dataset-map-preview__status dataset-map-preview__status--error">{boundariesError}</span>
+        )}
+        {mapcRowForYear && (
+          <div className="dataset-map-preview__mapc-total-box">
+            <div>
+              <b>Result for MAPC region:</b>
+            </div>
+            <div>
+              {activeVariableLabel || 'Selected Variable'} : {mapcRowForYear[activeVariable].toLocaleString() || 'Unknown'}
+            </div>
+          </div>
         )}
         <div className="dataset-map-preview__map-body">
           <div className="dataset-map-preview__map-column">
