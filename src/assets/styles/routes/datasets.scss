@@ -2125,6 +2125,13 @@
     }
   }
 
+  .dataset-map-preview__mapc-total-box {
+    background-color: #fff;
+    border: 1px solid rgba(149, 152, 154, 0.2);
+    border-radius: 8px;
+    padding: 4px 12px;
+  }
+
   .dataset-map-preview__variable-field {
     display: flex;
     flex-direction: column;
