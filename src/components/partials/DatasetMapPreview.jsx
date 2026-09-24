@@ -984,6 +984,7 @@ function DatasetMapPreview({
       pitchWithRotate: false,
       bounds: MAP_CONFIG.bounds,
       fitBoundsOptions: { padding: { top: 24, bottom: 24, left: 24, right: 24 }, animate: false },
+      preserveDrawingBuffer: true, // for export to png
     });
 
     map.addControl(
@@ -1623,6 +1624,21 @@ function DatasetMapPreview({
     );
   }
 
+  const handleExportToPng = () => {
+    if (!mapRef.current) return;
+
+    const canvas = mapRef.current.getCanvas();
+    const url = canvas.toDataURL('image/png');
+    
+    const link = document.createElement('a');
+    link.download = 'map-export.png';
+    link.href = url;
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
   // Boundary-only layers (e.g. Boundaries category / ma_municipalities) have no numeric choropleth columns.
   const isBoundaryOnlyMap = isBoundariesDataset || Boolean(apiBoundaryGeojson);
   if (!mappableColumns.length && !isBoundaryLoading && !isBoundaryOnlyMap) {
@@ -1996,6 +2012,16 @@ function DatasetMapPreview({
                     </p>
                   )}
                 </div>
+                <button
+                  type="button"
+                  className="dataset-map-preview__download-geojson"
+                  onClick={handleExportToPng}
+                  disabled={!mapRef.current || !canDownloadGeojson}
+                  aria-busy={isExporting}
+                  aria-describedby="dataset-map-geojson-download-tip"
+                >
+                  {isExporting ? "Preparing…" : "Download as PNG"}
+                </button>
               </aside>
             </div>
           )}
