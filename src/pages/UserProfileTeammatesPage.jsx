@@ -1,5 +1,5 @@
 import axios from "axios";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import styled, { keyframes } from "styled-components";
 
 const AdminTeammatesContainer = styled.div`
@@ -11,6 +11,22 @@ const TeammatesHeaderMessage = styled.div`
   font-weight: bold;
   color: #111111;
   padding-bottom: 24px;
+`;
+
+const InputLabel = styled.label`
+  margin-right: 0.5rem;
+  font-weight: bold;
+`;
+
+const OrganizationSelect = styled.select`
+  width: 293px;
+  margin-bottom: 16px;
+  border: 2px solid black;
+  border-radius: 4px;
+  height: 42px;
+`;
+
+const OrgOption = styled.option`
 `;
 
 const TeammatesTableHeader = styled.tr`
@@ -46,6 +62,7 @@ const Spinner = styled.div`
 const ProfileTeammatesPage = () => {
   const [teammates, setTeammates] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedOrg, setSelectedOrg] = useState(-1);
 
   useEffect(() => {
     axios.get("/api/users/my-teammates") // TODO: expose to all users
@@ -58,42 +75,85 @@ const ProfileTeammatesPage = () => {
       });
   }, []);
 
+  const usersByOrgMap = useMemo(() => {
+    if (!teammates) return null;
+
+    const userMap = {};
+    teammates.forEach(user => {
+      if (!userMap[user.organization]) {
+        userMap[user.organization] = [];
+      }
+      userMap[user.organization].push(user);
+    });
+    return userMap;
+  }, [teammates]);
+
+  const alphabeticalOrgs = useMemo(() => {
+    if (!usersByOrgMap) return null;
+
+    const keys = Object.keys(usersByOrgMap);
+    const sorted = keys.sort((a, b) => a.localeCompare(b));
+    return sorted;
+  }, [usersByOrgMap]);
+
   return (
     <AdminTeammatesContainer>
       <TeammatesHeaderMessage>
-        Teammates within your organization
+        Public Users and Teammates
       </TeammatesHeaderMessage>
-      <table>
-        <thead>
-          <TeammatesTableHeader>
-            <TeammatesTableCell style={{ width: '200px' }}>
-              Name
-            </TeammatesTableCell>
-            <TeammatesTableCell style={{ width: '200px' }}>
-              Email
-            </TeammatesTableCell>
-            <TeammatesTableCell style={{ width: '200px' }}>
-              Role
-            </TeammatesTableCell>
-          </TeammatesTableHeader>
-        </thead>
-        <tbody>
-          {teammates.map(tm => (
-            <TeammatesTableRow key={tm.email}>
-              <TeammatesTableCell style={{ width: '200px' }}>
-                {tm.name}
-              </TeammatesTableCell>
-              <TeammatesTableCell style={{ width: '200px' }}>
-                {tm.email}
-              </TeammatesTableCell>
-              <TeammatesTableCell style={{ width: '200px' }}>
-                {tm.role}
-              </TeammatesTableCell>
-            </TeammatesTableRow>
-          ))}
-        </tbody>
-      </table>
       {loading && <Spinner />}
+      {!loading && usersByOrgMap && alphabeticalOrgs && (
+        <div>
+          <InputLabel htmlFor="datacommon-teammates-org-select">
+            Select organization:
+          </InputLabel>
+          <OrganizationSelect 
+            id="datacommon-teammates-org-select"
+            style={{'marginLeft': '10px'}}
+            value={selectedOrg}
+            onChange={e => setSelectedOrg(e.target.value)}
+            placeholder="Pick your municipality"
+          >
+            <OrgOption value={-1}>Pick an organization...</OrgOption>
+            {alphabeticalOrgs.map(org => (
+              <OrgOption key={org} value={org}>{org}</OrgOption>
+            ))}
+          </OrganizationSelect>
+        </div>
+      )}
+
+      {!loading && usersByOrgMap && selectedOrg !== -1 && (
+        <table style={{ display: 'block', maxHeight: '370px', overflowY: 'auto', borderCollapse: 'separate' }}>
+          <thead>
+            <TeammatesTableHeader style={{ position: 'sticky', top: '0px', zIndex: 10 }}>
+              <TeammatesTableCell style={{ width: '250px' }}>
+                Name
+              </TeammatesTableCell>
+              <TeammatesTableCell style={{ width: '300px' }}>
+                Email
+              </TeammatesTableCell>
+              <TeammatesTableCell style={{ width: '250px' }}>
+                Organization
+              </TeammatesTableCell>
+            </TeammatesTableHeader>
+          </thead>
+          <tbody>
+            {usersByOrgMap && selectedOrg && usersByOrgMap[selectedOrg].map(tm => (
+              <TeammatesTableRow key={tm.email}>
+                <TeammatesTableCell style={{ width: '250px' }}>
+                  {tm.name}
+                </TeammatesTableCell>
+                <TeammatesTableCell style={{ width: '300px' }}>
+                  {tm.email}
+                </TeammatesTableCell>
+                <TeammatesTableCell style={{ width: '250px' }}>
+                  {tm.organization}
+                </TeammatesTableCell>
+              </TeammatesTableRow>
+            ))}
+          </tbody>
+        </table>
+      )}
     </AdminTeammatesContainer>
   );
 };
