@@ -159,11 +159,19 @@ const MuniAccountCreationPage = () => {
   }, [AVAILABLE_MUNIS]);
 
   const onCreateAccount = () => {
+    if (!emailInputValue || !nameInputValue || !newPassword || selectedMuniId === -1) {
+      setErrorMessage("Please provide a name, email, password, and select the municipality you work for.");
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setErrorMessage('Passwords do not match, please provide the same password in both inputs.');
+      return;
+    }
+
     setButtonLoading(true);
     setErrorMessage(null);
     setPasswordSetSuccessful(false);
-
-    // newPassword and confirmNewPassword are checked for equality before submit button clicked
     axios.post(`/api/users/create-account`, 
       { email: emailInputValue, name: nameInputValue, password: newPassword, muni_id: selectedMuniId })
       .then(resp => {
@@ -212,6 +220,7 @@ const MuniAccountCreationPage = () => {
                 style={{'marginLeft': '73px'}}
                 value={nameInputValue}
                 onChange={e => setNameInputValue(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && onCreateAccount()}
                 placeholder="Full Name..."
               />
             </div>
@@ -224,6 +233,7 @@ const MuniAccountCreationPage = () => {
                 style={{'marginLeft': '103px'}}
                 value={emailInputValue}
                 onChange={e => setEmailInputValue(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && onCreateAccount()}
                 placeholder="Email..."
               />
             </div>
@@ -237,6 +247,7 @@ const MuniAccountCreationPage = () => {
                 style={{'marginLeft': '73px'}}
                 value={newPassword}
                 onChange={e => setNewPassword(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && onCreateAccount()}
                 placeholder="Password..."
               />
             </div>
@@ -250,6 +261,7 @@ const MuniAccountCreationPage = () => {
                 style={{'marginLeft': '14px'}}
                 value={confirmNewPassword}
                 onChange={e => setConfirmNewPassword(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && onCreateAccount()}
                 placeholder="Confirm Password..."
               />
             </div>
