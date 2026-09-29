@@ -1,4 +1,4 @@
-import { faStar } from "@fortawesome/free-solid-svg-icons";
+import { faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import axios from "axios";
 import React, { useEffect, useMemo, useState } from "react";
@@ -58,7 +58,6 @@ const MuniOption = styled.option`
 
 const LinkBox = styled.div`
   display: flex;
-  justify-content: space-between;
   align-items: center;
 
   width: 100%;
@@ -70,9 +69,20 @@ const LinkBox = styled.div`
   box-shadow: 8px 4px 4px #cccccc;
 `;
 
+const DeleteIconContainer = styled.div`
+  color: #666666;
+  padding: 0px 8px;
+  cursor: pointer;
+
+  &:hover {
+    color: #444444;
+  }
+`;
+
 const LinkUrlContainer = styled.div`
-  max-width: 600px;
+  max-width: calc(35% - 25px);
   overflow: hidden;
+  white-space: nowrap;
   text-overflow: ellipsis;
 ;`
 
@@ -100,6 +110,108 @@ const AddLinkButton = styled.button`
     cursor: not-allowed;
     pointer-events: none;
     background: #555555;
+  }
+`;
+
+const DeletingLinkModalOverlay = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
+const ModalContainer = styled.div`
+  background: white;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 90vh;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+`;
+
+const ModalHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid #dee2e6;
+  background: #f8f9fa;
+  border-radius: 8px 8px 0 0;
+`;
+
+const ModalTitle = styled.h2`
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #333;
+`;
+
+const CloseButton = styled.button`
+  background: none;
+  border: none;
+  font-size: 1.8rem;
+  cursor: pointer;
+  color: #666;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: #333;
+  }
+`;
+
+const ModalBody = styled.div`
+  padding: 1.5rem;
+  overflow-y: auto;
+  font-size: 18px;
+  flex: 1;
+`;
+
+const DeleteActionsContainer = styled.div`
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 16px;
+`;
+
+const DeleteButton = styled.div`
+  padding: 8px 12px;
+  background: #d53131;
+  // border: 1px solid #333333;
+  border-radius: 8px;
+  color: white;
+  cursor: pointer;
+
+  &:hover {
+    background: #a82828;
+  }
+`;
+
+const CancelButton = styled.div`
+  padding: 8px 12px;
+  background: #c4c4c4;
+  // border: 1px solid #333333;
+  border-radius: 8px;
+  color: #222222;
+  cursor: pointer;
+
+  &:hover {
+    background: #a4a4a4;
   }
 `;
 
@@ -160,6 +272,8 @@ const AdminMuniLinksPage = () => {
   const [addingLinkType, setAddingLinkType] = useState(-1);
   const [addingLinkName, setAddingLinkName] = useState('');
   const [addingLinkUrl, setAddingLinkUrl] = useState('');
+
+  const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
     axios.get("/api/users/me")
@@ -246,6 +360,34 @@ const AdminMuniLinksPage = () => {
       setLoading(false);
     }
   };
+
+  const onDeleteLink = async () => {
+    // bail out if currently loading or null values
+    if (loading || !deletingId) return;
+
+    try {
+      setLoading(true);
+      await axios.delete(`/api/muni-admin/delete-muni-link?seq_id=${deletingId}`);
+      setDeletingId(null);
+
+      // if delete request succeeds, re-fetch:
+      axios.get(`/api/muni-info/links?muni_id=${muniId}`)
+        .then(res => {
+          if (res.data) {
+            setExistingLinks(res.data);
+          }
+        }).catch(err => {
+          setExistingLinks([]);
+          setErrorMessage("Error while fetching existing links for the municipality.")
+        }).finally(() => {
+          setLoading(false);
+        });
+    } catch (err) {
+      console.error('Error while deleting muni link');
+      setErrorMessage('Error while deleting municipal link')
+      setLoading(false);
+    }
+  }
 
   const getMuniById = (id) => {
     const foundMuni = AVAILABLE_MUNIS.find(muni => muni.id === id);
@@ -358,9 +500,16 @@ const AdminMuniLinksPage = () => {
 
             {!loading && muniId !== -1 && existingLinks.length > 0 && existingLinks.map(link => (
               <LinkBox key={link.seq_id}>
-                <div>{getLinkTypeName(link.link_type)}</div>
-                <div>{link.name}</div>
-                <LinkUrlContainer title={link.link}>
+                <DeleteIconContainer onClick={() => setDeletingId(link.seq_id)}>
+                  <FontAwesomeIcon icon={faTrash} />
+                </DeleteIconContainer>
+                <div style={{ flex: '0 0 30%' }}>
+                  {getLinkTypeName(link.link_type)}
+                </div>
+                <div style={{ flex: '0 0 35%' }}>
+                  {link.name}
+                </div>
+                <LinkUrlContainer style={{ flex: '0 0 35%' }} title={link.link}>
                   {link.link}
                 </LinkUrlContainer>
               </LinkBox>
@@ -368,6 +517,29 @@ const AdminMuniLinksPage = () => {
           </LinksContainer>
         </div>
       </ContentContainer>
+      {deletingId !== null && (
+        <DeletingLinkModalOverlay>
+          <ModalContainer onClick={(e) => e.stopPropagation()}>
+            <ModalHeader>
+              <ModalTitle>Delete</ModalTitle>
+              <CloseButton onClick={() => setDeletingId(null)} aria-label="Close">×</CloseButton>
+            </ModalHeader>
+            <ModalBody>
+              <div>
+                Are you sure you want to delete this link?
+              </div>
+              <DeleteActionsContainer>
+                <DeleteButton onClick={() => onDeleteLink()}>
+                  DELETE
+                </DeleteButton>
+                <CancelButton onClick={() => setDeletingId(null)}>
+                  CANCEL
+                </CancelButton>
+              </DeleteActionsContainer>
+            </ModalBody>
+          </ModalContainer>
+          </DeletingLinkModalOverlay>
+      )}
     </PageContainer>
   );
 };
