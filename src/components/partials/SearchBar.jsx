@@ -11,6 +11,7 @@ const SearchBar = ({
   onSelect, 
   placeholder, 
   className = '',
+  disabled = false,
   additionalSearchable = [],
   searchable = null,
 }) => {
@@ -93,6 +94,7 @@ const SearchBar = ({
       <input
         value={searchState.query || ''}
         placeholder={placeholder}
+        disabled={disabled}
         onChange={({ target }) => handleSearch(target.value)}
       />
       {renderSearchResults()}

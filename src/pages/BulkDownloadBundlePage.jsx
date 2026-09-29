@@ -251,6 +251,8 @@ LimitReachedModal.propTypes = {
   onClose: PropTypes.func.isRequired,
 };
 
+const GEOGRAPHY_AMOUNT_LIMIT = 10;
+
 const BulkDownloadBundlePage = () => {
   const { bundleId } = useParams();
   const dispatch = useDispatch();
@@ -607,10 +609,16 @@ const BulkDownloadBundlePage = () => {
                   contextKey="municipality"
                   searchColumn="municipal"
                   onSelect={handleMuniSelect}
-                  placeholder="Search for a geography in Massachusetts"
+                  placeholder={municipalities.length < GEOGRAPHY_AMOUNT_LIMIT ? "Search for a geography in Massachusetts" : "Geography limit reached"}
                   className="small"
+                  disabled={municipalities.length >= GEOGRAPHY_AMOUNT_LIMIT}
                   searchable={municipalitySearchable}
                 />
+                {municipalities.length >= GEOGRAPHY_AMOUNT_LIMIT && (
+                  <p className="bulk-download__hint error-message">
+                    Only 10 geographies can be exported at a time.
+                  </p>
+                )}
                 {municipalities.length > 0 && (
                   <ul className="bulk-download__muni-list" aria-label="Selected municipalities">
                     {municipalities.map(({ muniId, municipal }) => (
