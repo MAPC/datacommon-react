@@ -93,7 +93,7 @@ const AdminListJobsPage = () => {
       .then(res => {
         setJobs(res.data);
         setLoading(false);
-      }).catch(err => {
+      }).catch(() => {
         setJobs([]);
         setLoading(false);
       });
