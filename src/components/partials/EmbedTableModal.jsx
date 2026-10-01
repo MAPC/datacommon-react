@@ -38,12 +38,12 @@ const EmbedTableModal = ({
   isOpen,
   onClose,
   datasetId,
-  title,
   shareUrl: shareUrlProp,
   embedUrl: embedUrlProp,
+  title = "",
   urlTooLong = false,
-  adjustUrlFiltersSlot = null,
   viewMode = "table",
+  adjustUrlFiltersSlot = null,
 }) => {
   const [panel, setPanel] = useState("share");
   /** Shown in inputs while typing; only digits (empty allowed briefly). */
@@ -418,12 +418,6 @@ EmbedTableModal.propTypes = {
   urlTooLong: PropTypes.bool,
   adjustUrlFiltersSlot: PropTypes.node,
   viewMode: PropTypes.oneOf(["table", "map"]),
-};
-
-EmbedTableModal.defaultProps = {
-  title: "",
-  urlTooLong: false,
-  viewMode: "table",
 };
 
 export default EmbedTableModal;
