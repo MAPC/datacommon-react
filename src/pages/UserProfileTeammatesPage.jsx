@@ -29,6 +29,13 @@ const OrganizationSelect = styled.select`
 const OrgOption = styled.option`
 `;
 
+const OrgCountMessage = styled.p`
+  margin-top: 0px;
+  font-family: sans-serif;
+  color: #111;
+  font-size: 16px;
+`;
+
 const TeammatesTableHeader = styled.tr`
   background: #f1f1f1;
 `;
@@ -123,36 +130,41 @@ const ProfileTeammatesPage = () => {
       )}
 
       {!loading && usersByOrgMap && selectedOrg !== -1 && (
-        <table style={{ display: 'block', maxHeight: '370px', overflowY: 'auto', borderCollapse: 'separate' }}>
-          <thead>
-            <TeammatesTableHeader style={{ position: 'sticky', top: '0px', zIndex: 10 }}>
-              <TeammatesTableCell style={{ width: '250px' }}>
-                Name
-              </TeammatesTableCell>
-              <TeammatesTableCell style={{ width: '300px' }}>
-                Email
-              </TeammatesTableCell>
-              <TeammatesTableCell style={{ width: '250px' }}>
-                Organization
-              </TeammatesTableCell>
-            </TeammatesTableHeader>
-          </thead>
-          <tbody>
-            {usersByOrgMap && selectedOrg && usersByOrgMap[selectedOrg].map(tm => (
-              <TeammatesTableRow key={tm.email}>
+        <>
+          <OrgCountMessage>
+            {selectedOrg} has {usersByOrgMap[selectedOrg].length} {usersByOrgMap[selectedOrg].length === 1 ? 'user' : 'users'}.
+          </OrgCountMessage>
+          <table style={{ display: 'block', maxHeight: '370px', overflowY: 'auto', borderCollapse: 'separate' }}>
+            <thead>
+              <TeammatesTableHeader style={{ position: 'sticky', top: '0px', zIndex: 10 }}>
                 <TeammatesTableCell style={{ width: '250px' }}>
-                  {tm.name}
+                  Name
                 </TeammatesTableCell>
                 <TeammatesTableCell style={{ width: '300px' }}>
-                  {tm.email}
+                  Email
                 </TeammatesTableCell>
                 <TeammatesTableCell style={{ width: '250px' }}>
-                  {tm.organization}
+                  Organization
                 </TeammatesTableCell>
-              </TeammatesTableRow>
-            ))}
-          </tbody>
-        </table>
+              </TeammatesTableHeader>
+            </thead>
+            <tbody>
+              {usersByOrgMap && selectedOrg && usersByOrgMap[selectedOrg].map(tm => (
+                <TeammatesTableRow key={tm.email}>
+                  <TeammatesTableCell style={{ width: '250px' }}>
+                    {tm.name}
+                  </TeammatesTableCell>
+                  <TeammatesTableCell style={{ width: '300px' }}>
+                    {tm.email}
+                  </TeammatesTableCell>
+                  <TeammatesTableCell style={{ width: '250px' }}>
+                    {tm.organization}
+                  </TeammatesTableCell>
+                </TeammatesTableRow>
+              ))}
+            </tbody>
+          </table>
+        </>
       )}
     </AdminTeammatesContainer>
   );
