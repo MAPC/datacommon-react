@@ -1,5 +1,5 @@
 import axios from "axios";
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import styled, { keyframes } from "styled-components";
 
 const AdminTeammatesContainer = styled.div`
@@ -69,7 +69,7 @@ const ProfileTeammatesPage = () => {
       .then(res => {
         setTeammates(res.data.teammates);
         setLoading(false);
-      }).catch(err => {
+      }).catch(() => {
         setTeammates([]);
         setLoading(false);
       });

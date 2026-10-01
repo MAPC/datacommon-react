@@ -1,5 +1,5 @@
 import axios from "axios";
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import styled, { keyframes } from "styled-components";
 
 const PageContainer = styled.section`
@@ -156,7 +156,7 @@ const MuniAccountCreationPage = () => {
 
   const sortedMunis = useMemo(() => {
     return AVAILABLE_MUNIS.sort((a, b) => a.name.localeCompare(b.name));
-  }, [AVAILABLE_MUNIS]);
+  }, []);
 
   const onCreateAccount = () => {
     if (!emailInputValue || !nameInputValue || !newPassword || selectedMuniId === -1) {
@@ -174,9 +174,9 @@ const MuniAccountCreationPage = () => {
     setPasswordSetSuccessful(false);
     axios.post(`/api/users/create-account`, 
       { email: emailInputValue, name: nameInputValue, password: newPassword, muni_id: selectedMuniId })
-      .then(resp => {
+      .then(() => {
         setPasswordSetSuccessful(true);
-      }).catch(e => {
+      }).catch(() => {
         setErrorMessage("There was an error while creating your account.");
       }).finally(() => {
         setButtonLoading(false);

@@ -17,7 +17,7 @@ export default [
         sourceType: 'module',
       },
     },
-    settings: { react: { version: '18.3' } },
+    settings: { react: { version: '18.2' } },
     plugins: {
       react,
       'react-hooks': reactHooks,
@@ -33,6 +33,7 @@ export default [
         'warn',
         { allowConstantExport: true },
       ],
+      "react/no-unescaped-entities": 0,
       'react/prop-types': 'off'
     },
   },

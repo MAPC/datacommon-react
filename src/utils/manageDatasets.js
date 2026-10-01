@@ -72,6 +72,7 @@ export function filterDatasets({
   subcategories = [],
   geographies = [],
   favoriteDatasets = null,
+  filterToNonActive = false,
   searchQuery = '',
   shouldRemoveDupes = true,
 }) {
@@ -98,6 +99,10 @@ export function filterDatasets({
   // only filter to favorites if the favoriteDatasets option is passed as an array.
   if (favoriteDatasets) {
     filtered = filtered.filter((d) => favoriteDatasets.includes(d.table_name));
+  }
+
+  if (filterToNonActive) {
+    filtered = filtered.filter((d) => d.active === 'N');
   }
 
   if (searchQuery.trim()) {
@@ -283,9 +288,9 @@ export function sortDatasets({ datasets = [], sortOrder = 'Relevance', searchQue
     sortType = 'A to Z';
   }
   
+  const searchTokens = trimmedSearch.split(" ").filter(st => !!st).map(st => st.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
   switch (sortType) {
     case 'Relevance':
-      const searchTokens = trimmedSearch.split(" ").filter(st => !!st).map(st => st.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
       // Count number to table_name and dataset name (menu3) matches
       // prioritize higher number of matches and earlier avg index of terms
       // de-prioritize datasets containing the word 'by'

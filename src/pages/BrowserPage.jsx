@@ -1,18 +1,19 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faLock, faStar } from "@fortawesome/free-solid-svg-icons";
 import { faStar as faStarOutline } from "@fortawesome/free-regular-svg-icons";
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+import axios from "axios";
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import styled from 'styled-components';
 
 import MetadataModal from "../components/partials/MetadataModal";
 import { fetchDatasets } from '../reducers/datasetSlice';
-import { filterDatasets, highlightDatasets, sortDatasets, compressDatasetsByGeography } from "../utils/manageDatasets";
+import { isUserFromMAPC } from "../utils/auth";
+import { getCookie } from "../utils/cookies";
 import { pickDatasetOfTheWeek } from "../utils/featuredDataset";
 import { formatUpdated } from '../utils/formatUpdated';
-import axios from "axios";
-import { getCookie } from "../utils/cookies";
+import { filterDatasets, highlightDatasets, sortDatasets, compressDatasetsByGeography } from "../utils/manageDatasets";
 
 const PageContainer = styled.section`
   &.route.categories {
@@ -35,8 +36,6 @@ const Sidebar = styled.div`
   padding: 1rem 1.5rem;
   border-radius: 8px;
   height: fit-content;
-  position: sticky;
-  top: 2rem;
 `;
 
 const SidebarTitleContainer = styled.div`
@@ -85,20 +84,6 @@ const FilterTitle = styled.h4`
   font-size: 1rem;
   font-weight: 600;
   color: #333;
-`;
-
-const ClearButton = styled.button`
-  background: none;
-  border: none;
-  color: #4ea56c;
-  font-size: 0.875rem;
-  cursor: pointer;
-  padding: 0;
-  text-decoration: underline;
-  
-  &:hover {
-    color: #367a4e;
-  }
 `;
 
 const FilterList = styled.ul`
@@ -506,7 +491,6 @@ const SearchInput = styled.input`
 
 const DatasetsEmptyState = styled.div`
   text-align: center;
-  padding: 1rem 1rem 0.5rem;
   max-width: 720px;
   margin: 0 auto;
   color: #555;
@@ -591,6 +575,12 @@ const BrowserPage = () => {
     return Boolean(favoritesParam);
   });
 
+  const [filterToNonActive, setFilterToNonActive] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const nonActiveParam = params.get("non-active");
+    return Boolean(nonActiveParam);
+  });
+
   const [selectedGeographyTabs, setSelectedGeographyTabs] = useState({});
   const [categoryOptionTree, setCategoryOptionTree] = useState({});
   const [sortBy, setSortBy] = useState('Relevance');
@@ -652,6 +642,11 @@ const BrowserPage = () => {
     }
   }, [user]);
 
+  const userIsFromMAPC = useMemo(() => {
+    if (!user) return false;
+    return isUserFromMAPC(user);
+  }, [user]);
+
   // Get unique sources
   const sources = useMemo(() => {
     // Datasets with multiple sources have them separated by '; '.
@@ -686,7 +681,8 @@ const BrowserPage = () => {
     });
 
     setCategoryOptionTree(categoryTree);
-  }, [datasets]);
+  // eslint-disable-next-line
+  }, [datasets]); // I don't want this to run when location.search changes
 
   const menu1OptionList = useMemo(() => {
     return Object.keys(categoryOptionTree).sort();
@@ -708,6 +704,7 @@ const BrowserPage = () => {
       subcategories: selectedMenu2s,
       geographies: selectedGeoFilters,
       favoriteDatasets: (filterToFavorites && favoriteDatasets) ? favoriteDatasets.map(f => f.table_name) : null,
+      filterToNonActive: filterToNonActive,
     });
 
     // "Compress" the datasets into fewer cards, datasets with the same base table but different geographies
@@ -775,7 +772,7 @@ const BrowserPage = () => {
 
     setHighlightMatches(highlights);
     setDisplayDatasets(compressedDatasets);
-  }, [datasets, selectedSources, selectedMenu1s, selectedMenu2s, selectedGeoFilters, filterToFavorites, favoriteDatasets, searchQuery]);
+  }, [datasets, selectedSources, selectedMenu1s, selectedMenu2s, selectedGeoFilters, filterToFavorites, favoriteDatasets, filterToNonActive, searchQuery]);
 
   // Keep URL query parameters in sync with search and filters so users can share links
   useEffect(() => {
@@ -787,6 +784,7 @@ const BrowserPage = () => {
     const currentSubcategories = (params.get("subcategory") || "").split(",").filter(Boolean);
     const currentGeoFilters = (params.get("geos") || "").split(",").filter(Boolean);
     const currentFavoritesFilter = (params.get("favorites") || "");
+    const currentNonActiveFilter = (params.get("non-active") || "");
 
     const shouldUpdate =
       currentQ !== searchQuery ||
@@ -794,7 +792,8 @@ const BrowserPage = () => {
       !arraysEqual(currentCategories, selectedMenu1s) ||
       !arraysEqual(currentSubcategories, selectedMenu2s) ||
       !arraysEqual(currentGeoFilters, selectedGeoFilters) ||
-      currentFavoritesFilter !== filterToFavorites;
+      currentFavoritesFilter !== filterToFavorites ||
+      currentNonActiveFilter !== filterToNonActive;
 
     if (!shouldUpdate) {
       return;
@@ -836,6 +835,12 @@ const BrowserPage = () => {
       params.delete("favorites");
     }
 
+    if (filterToNonActive) {
+      params.set("non-active", true);
+    } else {
+      params.delete("non-active");
+    }
+
     const newSearch = params.toString();
     const newUrl = `${location.pathname}${newSearch ? `?${newSearch}` : ""}`;
     const currentUrl = `${location.pathname}${location.search}`;
@@ -843,7 +848,7 @@ const BrowserPage = () => {
     if (newUrl !== currentUrl) {
       navigate(newUrl, { replace: true });
     }
-  }, [searchQuery, selectedSources, selectedMenu1s, selectedMenu2s, selectedGeoFilters, filterToFavorites, location.pathname, location.search, navigate]);
+  }, [searchQuery, selectedSources, selectedMenu1s, selectedMenu2s, selectedGeoFilters, filterToFavorites, filterToNonActive, location.pathname, location.search, navigate]);
 
   // Sort datasets
   const sortedDatasets = useMemo(() => {
@@ -1036,15 +1041,6 @@ const BrowserPage = () => {
     setCategoryOptionTree(newTree);
   };
 
-  const clearSourceFilter = () => {
-    setSelectedSources([]);
-  };
-
-  const clearCategoryFilters = () => {
-    setSelectedMenu1s([]);
-    setSelectedMenu2s([]);
-  };
-
   const handleViewMetadata = (dataset) => {
     setSelectedDataset(dataset);
     setShowMetadataModal(true);
@@ -1091,7 +1087,7 @@ const BrowserPage = () => {
   const areFiltersPresent = () => {
     const categoryFiltersPresent = selectedMenu1s.length > 0 || selectedMenu2s.length > 0;
     const geographyFiltersPresent = selectedGeoFilters.length > 0;
-    return (searchQuery.trim() || selectedSources.length > 0 || categoryFiltersPresent || geographyFiltersPresent || filterToFavorites);
+    return (searchQuery.trim() || selectedSources.length > 0 || categoryFiltersPresent || geographyFiltersPresent || filterToFavorites || filterToNonActive);
   };
 
   const clearAllFilters = () => {
@@ -1266,8 +1262,8 @@ const BrowserPage = () => {
                 {geographiesOpened ? "▲" : "▼"}
               </FilterGroupToggle>
             </FilterHeader>
-            {geographiesOpened && GEOGRAPHIES.map(geo => <FilterList>
-              <FilterItem key={geo.key}>
+            {geographiesOpened && GEOGRAPHIES.map(geo => <FilterList key={geo.key}>
+              <FilterItem>
                 <CheckboxInput
                   type="checkbox"
                   id={`geography-${geo.key}`}
@@ -1327,9 +1323,22 @@ const BrowserPage = () => {
                   onChange={() => setFilterToFavorites(!filterToFavorites)}
                 />
                 <CheckboxLabel htmlFor="my-favorites">
+                  <FontAwesomeIcon icon={faStar} style={{ color: '#bfa825', marginRight: '8px' }} />
                   My Favorites
                 </CheckboxLabel>
               </FilterItem>
+              {userIsFromMAPC && <FilterItem>
+                <CheckboxInput
+                  type="checkbox"
+                  id="non-active-datasets"
+                  checked={filterToNonActive}
+                  onChange={() => setFilterToNonActive(!filterToNonActive)}
+                />
+                <CheckboxLabel htmlFor="non-active-datasets">
+                  <FontAwesomeIcon icon={faLock} style={{ color: '#5c5c5c', marginRight: '8px' }} />
+                  Internal Datasets
+                </CheckboxLabel>
+              </FilterItem>}
             </FilterList>}
           </FilterSection>}
 

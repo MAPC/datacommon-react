@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import CallToAction from "../components/partials/CallToAction";
 import Particles from "../components/partials/Particles";
