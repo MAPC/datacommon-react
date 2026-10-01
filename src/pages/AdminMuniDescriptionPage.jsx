@@ -1,5 +1,5 @@
 import axios from "axios";
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import styled, { keyframes } from "styled-components";
 
 import { isUserMAPCAdmin } from "../utils/auth";
@@ -91,7 +91,7 @@ const AdminMuniDescriptionsPage = () => {
       .then(res => {
         setUser(res.data.user);
         setLoading(false);
-      }).catch(err => {
+      }).catch(() => {
         setUser(null);
         setLoading(false);
       });
@@ -114,7 +114,7 @@ const AdminMuniDescriptionsPage = () => {
           setDescription(res.data[0].description);
         }
         setLoading(false);
-      }).catch(err => {
+      }).catch(() => {
         setDescription('');
         setLoading(false);
       });
@@ -126,8 +126,7 @@ const AdminMuniDescriptionsPage = () => {
 
   const sortedMunis = useMemo(() => {
     return AVAILABLE_MUNIS.sort((a, b) => a.name.localeCompare(b.name));
-  }, [AVAILABLE_MUNIS]);
-
+  }, []);
 
   const updateMuniDescription = async () => {
     // bail out if currently loading or null values
@@ -144,7 +143,7 @@ const AdminMuniDescriptionsPage = () => {
           setDescription(res.data[0].description);
         }
         setLoading(false);
-      }).catch(err => {
+      }).catch(() => {
         setDescription('');
         setLoading(false);
       });

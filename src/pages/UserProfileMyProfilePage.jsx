@@ -1,5 +1,5 @@
 import axios from "axios";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import styled, { keyframes } from "styled-components";
 
 const UserProfileContainer = styled.div`
@@ -55,7 +55,7 @@ const ProfileMyProfilePage = () => {
       .then(res => {
         setMyUser(res.data?.user);
         setLoading(false);
-      }).catch(err => {
+      }).catch(() => {
         setMyUser(null);
         setLoading(false);
       });

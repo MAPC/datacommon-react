@@ -1,5 +1,5 @@
 import axios from 'axios';
-import React, { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { Outlet, useLocation, useNavigate } from "react-router"
 import styled from 'styled-components';
 
@@ -87,7 +87,7 @@ const UserProfileWrapper = () => {
         if (!user) {
           sendUserToHome();
         }
-      }).catch(err => {
+      }).catch(() => {
         sendUserToHome();
         return;
       });
@@ -96,11 +96,11 @@ const UserProfileWrapper = () => {
     if (location.pathname === "/user-profile") {
       navigate("/user-profile/me");
     }
-  }, [location.pathname]);
+  }, [location.pathname, navigate, sendUserToHome]);
 
-  const sendUserToHome = () => {
+  const sendUserToHome = useCallback(() => {
     navigate("/");
-  };
+  }, [navigate]);
 
   const onLogoutClicked = () => {
     logoutUser();

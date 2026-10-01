@@ -1,5 +1,5 @@
 import axios from "axios";
-import React, { useState } from "react";
+import { useState } from "react";
 import styled, { keyframes } from "styled-components";
 
 const PageContainer = styled.section`
@@ -153,9 +153,9 @@ const LoginPage = () => {
     setPasswordSetSuccessful(false);
     axios.post(`/api/users/create-account`, 
       { email: emailInputValue, name: nameInputValue, password: newPassword })
-      .then(resp => {
+      .then(() => {
         setPasswordSetSuccessful(true);
-      }).catch(e => {
+      }).catch(() => {
         setErrorMessage("There was an error while creating your account.");
       }).finally(() => {
         setButtonLoading(false);
@@ -180,7 +180,7 @@ const LoginPage = () => {
         } else {
           setErrorMessage("Incorrect email or password");
         }
-      }).catch(e => {
+      }).catch(() => {
         setErrorMessage("There was an error while attempting to login.");
       }).finally(() => {
         setButtonLoading(false);
@@ -196,9 +196,9 @@ const LoginPage = () => {
     setErrorMessage(null);
     setForgotPasswordMessage(null);
     axios.post(`/api/users/request-pw-reset`, { email: emailInputValue })
-      .then(resp => {
+      .then(() => {
         setForgotPasswordMessage("Please check the provided email for a password reset link.")
-      }).catch(e => {
+      }).catch(() => {
         setErrorMessage("There was an error while attempting send the password reset email.")
       });
   };

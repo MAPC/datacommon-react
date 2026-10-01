@@ -1,7 +1,7 @@
 import { faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import axios from "axios";
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import styled, { keyframes } from "styled-components";
 
 import { isUserMAPCAdmin } from "../utils/auth";
@@ -278,7 +278,7 @@ const AdminMuniLinksPage = () => {
     axios.get("/api/users/me")
       .then(res => {
         setUser(res.data.user);
-      }).catch(err => {
+      }).catch(() => {
         setUser(null);
         setErrorMessage("Error while fetching user info")
       }).finally(() => {
@@ -305,7 +305,7 @@ const AdminMuniLinksPage = () => {
         if (res.data) {
           setExistingLinks(res.data);
         }
-      }).catch(err => {
+      }).catch(() => {
         setExistingLinks([]);
         setErrorMessage("Error while fetching existing links for the municipality.")
       }).finally(() => {
@@ -319,12 +319,11 @@ const AdminMuniLinksPage = () => {
 
   const sortedMunis = useMemo(() => {
     return AVAILABLE_MUNIS.sort((a, b) => a.name.localeCompare(b.name));
-  }, [AVAILABLE_MUNIS]);
+  }, []);
 
   const sortedLinkTypes = useMemo(() => {
     return LINK_TYPES.sort((a, b) => a.name.localeCompare(b.name));
-  }, [LINK_TYPES]);
-
+  }, []);
 
   const onSubmitLink = async () => {
     // bail out if currently loading or null values
@@ -347,7 +346,7 @@ const AdminMuniLinksPage = () => {
           if (res.data) {
             setExistingLinks(res.data);
           }
-        }).catch(err => {
+        }).catch(() => {
           setExistingLinks([]);
           setErrorMessage("Error while fetching existing links for the municipality.")
         }).finally(() => {
@@ -375,7 +374,7 @@ const AdminMuniLinksPage = () => {
           if (res.data) {
             setExistingLinks(res.data);
           }
-        }).catch(err => {
+        }).catch(() => {
           setExistingLinks([]);
           setErrorMessage("Error while fetching existing links for the municipality.")
         }).finally(() => {

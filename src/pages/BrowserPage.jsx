@@ -681,7 +681,8 @@ const BrowserPage = () => {
     });
 
     setCategoryOptionTree(categoryTree);
-  }, [datasets]);
+  // eslint-disable-next-line
+  }, [datasets]); // I don't want this to run when location.search changes
 
   const menu1OptionList = useMemo(() => {
     return Object.keys(categoryOptionTree).sort();
