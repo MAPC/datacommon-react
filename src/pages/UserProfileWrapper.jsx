@@ -70,6 +70,10 @@ const UserProfileWrapper = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const sendUserToHome = useCallback(() => {
+    navigate("/");
+  }, [navigate]);
+
   // Whenever the user navigates to an admin page or sub-page, verify their login and auth
   useEffect(() => {
     const cookie = getCookie('datacommon_mapc_token');
@@ -97,10 +101,6 @@ const UserProfileWrapper = () => {
       navigate("/user-profile/me");
     }
   }, [location.pathname, navigate, sendUserToHome]);
-
-  const sendUserToHome = useCallback(() => {
-    navigate("/");
-  }, [navigate]);
 
   const onLogoutClicked = () => {
     logoutUser();
