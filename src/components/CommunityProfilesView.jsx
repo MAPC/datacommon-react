@@ -75,13 +75,13 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
     // first fetch the muni id for this muni name
     // TODO: this whole page should really be based on muni-id but its a large fix with little business value
     setLoadingDescription(true);
-    const muniIdResp = axios.get(
+    axios.get(
       `/api?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&columns=muni_id&filters=muni_name~${name}`
     ).then(resp => {
       const rowData = resp.data?.rows;
       const respMuniId = rowData?.length === 1 ? rowData[0].muni_id : null;
       setMuniId(respMuniId);
-    }).catch(err => {
+    }).catch(() => {
       console.error("Error fetching muni id for description");
       setLoadingDescription(false);
     });
@@ -91,12 +91,12 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
     if (!muniId) return;
 
     setLoadingDescription(true);
-    const descriptionResp = axios.get(`/api/muni-info/description?muni_id=${muniId}`)
+    axios.get(`/api/muni-info/description?muni_id=${muniId}`)
       .then(resp => {
         const rowData = resp.data;
         const respDescription = rowData?.length === 1 ? rowData[0].description : null;
         setMuniDescription(respDescription);
-      }).catch(err => {
+      }).catch(() => {
         setMuniDescription('');
         console.error("Error fetching muni description");
       }).finally(() => {
@@ -104,11 +104,11 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
       });
 
     setLoadingLinks(true);
-    const linksResp = axios.get(`/api/muni-info/links?muni_id=${muniId}`)
+    axios.get(`/api/muni-info/links?muni_id=${muniId}`)
       .then(resp => {
         const rowData = resp.data;
         setMuniLinks(rowData);
-      }).catch(err => {
+      }).catch(() => {
         setMuniLinks([]);
         console.error("Error fetching muni links");
       }).finally(() => {
@@ -361,7 +361,7 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
             <div className="muni-links-container">
               {!loadingLinks && muniLinks.length > 0 && <b>Links provided by municipality:</b>}
               {!loadingLinks && muniLinks.length > 0 && muniLinks.map(link => (
-                <div className='muni-link' onClick={() => window.location.href = link.link} title={link.name}>
+                <div className='muni-link' key={`${link.name}_${link.link}`} onClick={() => window.location.href = link.link} title={link.name}>
                   {link.name}
                 </div>
               ))}

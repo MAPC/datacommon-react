@@ -39,6 +39,7 @@ import {
 } from "../../utils/datasetMapPreview";
 import { ExportLoadingMask, useExportFileDownload } from "./ExportLoadingMask";
 import axios from "axios";
+import html2canvas from "html2canvas";
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_API_TOKEN;
 
@@ -1485,7 +1486,7 @@ function DatasetMapPreview({
         if (rows.length === 0) {
           console.error("Found no muni for selected census tract");
           return;
-        };
+        }
         const result = rows.map(r => r.muni_name).join(", ");
         setMuniForSelectedCt(result);
       })
@@ -1495,7 +1496,7 @@ function DatasetMapPreview({
       .finally(() => {
         setLoadingMuniForCt(false);
       });
-  }, [geographyType, selectedFeatureKey, selectedDetails?.tractBoundary]);
+  }, [geographyType, selectedFeatureKey, selectedDetails]);
 
   const rankingRows = useMemo(
     () =>
@@ -1624,10 +1625,14 @@ function DatasetMapPreview({
     );
   }
 
-  const handleExportToPng = () => {
+  const handleExportToPng = async () => {
     if (!mapRef.current) return;
 
-    const canvas = mapRef.current.getCanvas();
+    // first hide the map controls:
+    const layersButton = document.getElementById("layer-button-controls-container");
+    layersButton.style.display = 'none';
+
+    const canvas = await html2canvas(document.getElementById("top-level-map-container"));
     const url = canvas.toDataURL('image/png');
     
     const link = document.createElement('a');
@@ -1637,6 +1642,9 @@ function DatasetMapPreview({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+
+    // unhide the map controls:
+    layersButton.style.display = 'flex';
   }
 
   // Boundary-only layers (e.g. Boundaries category / ma_municipalities) have no numeric choropleth columns.
@@ -1667,14 +1675,14 @@ function DatasetMapPreview({
         )}
         <div className="dataset-map-preview__map-body">
           <div className="dataset-map-preview__map-column">
-          <div className="dataset-map-preview__map-shell">
+          <div className="dataset-map-preview__map-shell" id="top-level-map-container">
             {!isEmbedView && <ExportLoadingMask active={isExporting} />}
             <div className="dataset-map-preview__map-controls">
               <div className="dataset-map-preview__north-arrow" aria-hidden="true" title="North">
                 <span className="dataset-map-preview__north-arrow-pointer" />
                 <span className="dataset-map-preview__north-arrow-label">N</span>
               </div>
-              <div className={`dataset-map-preview__layer-toggles${boundariesMenuOpen ? " is-open" : ""}`}>
+              <div className={`dataset-map-preview__layer-toggles${boundariesMenuOpen ? " is-open" : ""}`} id="layer-button-controls-container">
                 <button
                   type="button"
                   className="dataset-map-preview__layer-toggles-header"
