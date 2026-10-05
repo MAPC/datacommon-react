@@ -52,7 +52,7 @@ class PieChart extends React.Component {
       .select("body")
       .append("div")
       .attr("class", "chart-tooltip")
-      .style("opacity", 0)
+      .style("display", "none")
       .style("position", "absolute")
       .style("pointer-events", "none")
       .style("background", "white")
@@ -83,7 +83,6 @@ class PieChart extends React.Component {
   renderChart() {
     const keys = [...new Set(this.props.data.map((slice) => slice.label))];
     const keyValue = this.props.data.reduce((map, d) => Object.assign(map, { [d.label]: d.value }), {});
-    const keyME = this.props.data.reduce((map, d) => Object.assign(map, { [d.label]: d.me }), {});
     const sum = this.props.data.reduce((acc, slice) => slice.value + acc, 0);
     const formatter = (key) => `${key} ${((keyValue[key] * 100) / sum).toFixed(1)}%`;
 
@@ -160,7 +159,7 @@ class PieChart extends React.Component {
         
         this.tooltip
           .html(tooltipContent)
-          .style("opacity", 1)
+          .style("display", "inline")
           .style("left", `${event.pageX + 10}px`)
           .style("top", `${event.pageY - 10}px`);
       })
@@ -168,7 +167,7 @@ class PieChart extends React.Component {
         this.tooltip.style("left", `${event.pageX + 10}px`).style("top", `${event.pageY - 10}px`);
       })
       .on("mouseout", () => {
-        this.tooltip.style("opacity", 0);
+        this.tooltip.style("display", "none");
       });
 
     // Update legend

@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState } from "react";
 import PropTypes from "prop-types";
 import * as d3 from "d3";
 
@@ -56,7 +56,7 @@ const GroupedBarChart = (props) => {
       .select("body")
       .append("div")
       .attr("class", "chart-tooltip")
-      .style("opacity", 0)
+      .style("display", "none")
       .style("position", "absolute")
       .style("pointer-events", "none")
       .style("background", "white")
@@ -253,7 +253,7 @@ const GroupedBarChart = (props) => {
                   : "";
 
             tooltip
-              .style("opacity", 1)
+              .style("display", "inline")
               .html(
                 `
                 <div style="padding: 4px;">
@@ -309,7 +309,7 @@ const GroupedBarChart = (props) => {
             tooltip.style("left", `${event.pageX + 10}px`).style("top", `${event.pageY - 10}px`);
           })
           .on("mouseout", () => {
-            tooltip.style("opacity", 0);
+            tooltip.style("display", "none")
           });
       });
     });
@@ -346,7 +346,7 @@ const GroupedBarChart = (props) => {
       });
     }
 
-    const yAxisG = g.append("g").attr("class", "axis axis-y").call(yAxis.tickSize(0));
+    g.append("g").attr("class", "axis axis-y").call(yAxis.tickSize(0));
 
     // Add axis labels
     const svg = d3.select(chartRef.current).select("svg");
