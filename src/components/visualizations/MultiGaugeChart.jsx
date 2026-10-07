@@ -1,4 +1,4 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useCallback } from "react";
 import PropTypes from "prop-types";
 import * as d3 from "d3";
 import MoonLoader from "react-spinners/MoonLoader";
@@ -30,7 +30,6 @@ const MultiGaugeChart = (props) => {
       .select("body")
       .append("div")
       .attr("class", "chart-tooltip")
-      // .style("opacity", 0)
       .style("display", "none")
       .style("position", "absolute")
       .style("pointer-events", "none")
@@ -58,7 +57,7 @@ const MultiGaugeChart = (props) => {
     };
   }, []);
 
-  const renderChart = () => {
+  const renderChart = useCallback(() => {
     const chart = chartGroupRef.current;
     const tooltip = tooltipRef.current;
 
@@ -127,7 +126,6 @@ const MultiGaugeChart = (props) => {
             return `<div>${labelIcon}${dataItem.label}: ${formattedPercentage}</div>`
           });
           tooltip
-            // .style("opacity", 1)
             .style("display", "inline")
             .html(
               `
@@ -145,7 +143,6 @@ const MultiGaugeChart = (props) => {
             .style("left", `${event.pageX + 10}px`).style("top", `${event.pageY - 10}px`)
         })
         .on("mouseout", () => {
-          // tooltip.style("opacity", 0);
           tooltip.style("display", "none");
         });
       
@@ -190,7 +187,7 @@ const MultiGaugeChart = (props) => {
     const legend = d3.select(legendContainerRef.current);
     legend.selectAll("*").remove();
     drawLegend(legend, colorRef.current, keys);
-  };
+  }, [props]);
 
   const renderBlankChart = () => {
     const chart = chartGroupRef.current;
@@ -227,7 +224,7 @@ const MultiGaugeChart = (props) => {
       // Not loading and no data -> show "Data not available."
       renderBlankChart();
     }
-  }, [props.data, props.hasData, props.isLoading]);
+  }, [props.data, props.hasData, props.isLoading, renderChart]);
 
   return (
     <div className="component chart GaugeChart">
