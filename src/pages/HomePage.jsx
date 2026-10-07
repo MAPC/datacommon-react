@@ -1,12 +1,10 @@
 import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import CallToAction from "../components/partials/CallToAction";
-import Particles from "../components/partials/Particles";
 import { fetchDatasets } from "../reducers/datasetSlice";
 import DatasetSearchBar from "../components/partials/DatasetSearchBar";
 import CategoryGrid from "../components/CategoryGrid";
-import CommunityProfiles from "../assets/images/homepage/community-profiles.jpeg";
-import Image from "react-bootstrap/Image";
+import AnimatedCount from "../components/partials/AnimatedCount";
+import { CommunitySelectorMap } from "./CommunitySelectorPage";
 
 const Home = () => {
   const dispatch = useDispatch();
@@ -24,76 +22,58 @@ const Home = () => {
 
   return (
     <section className="route Home">
-      <div className="page-header">
-        <Particles />
-        <div className="container tight">
-          <DatasetSearchBar
-            datasets={noDupesDatasets || []} // use no-dupes list here b/c we don't care about categories
-            placeholder={`Search ${noDupesDatasets?.length || 0} datasets ...`}
-            onSelect={toDataset}
-            maxResults={10}
+      <div className="home-anniversary-banner">
+        <p>
+          <img
+            src="/favicon.ico"
+            alt=""
+            className="home-anniversary-banner__icon"
           />
+          Celebrating 20 years of DataCommon
+          <span className="home-anniversary-banner__dot" aria-hidden="true">·</span>
+          2006-2026
+        </p>
+      </div>
+      <div className="page-header">
+        <div className="container">
+          <h1 className="home-community-title">Explore data for your community</h1>
+          <div className="home-community-map">
+            <CommunitySelectorMap searchBeside />
+          </div>
         </div>
       </div>
-      <section className="page-section container">
-        <div className="page-section page-section__map container">
-          <h2>Community Profiles</h2>
-          <p className="gallery-spotlight__info">
-            MAPC's Community Profiles provide a comprehensive overview of each
-            of the 351 cities and towns in Massachusetts. Each profile lets you
-            explore data describing the population, housing characteristics,
-            economy, transportation patterns, and other factors about a
-            municipality. By aggregating data from state and federal agencies as
-            well as data from our own planning and research work the profiles
-            provide a single location where you can access and download
-            information about any municipality.
-          </p>
-          <Image
-            src={CommunityProfiles}
-            alt="Community Profiles"
-            className="community-profiles-image"
-          />
-        </div>
-        <div
-          className="gallery-spotlight__info container"
-          style={{
-            marginTop: "3rem",
-            display: "flex",
-            justifyContent: "center",
-          }}
-        >
-          <CallToAction
-            link="/communities"
-            text="View Community Profiles"
-            extraClassNames="gallery-spotlight__cta"
-            isDefaultLength={false}
-          />
-        </div>
-      </section>
 
-      <section className="page-section container" style={{ padding: "0" }}>
+      <section className="page-section home-datasets-section">
+        <div className="home-20-watermark" aria-hidden="true">
+          <AnimatedCount className="home-20-watermark__num" end={20} duration={1600} />
+          <span className="home-20-watermark__meta">
+            <span className="home-20-watermark__range">2006–2026</span>
+            <span className="home-20-watermark__label">years</span>
+          </span>
+        </div>
         <div className="container">
-          <h2>Data by category</h2>
-          <CategoryGrid />
-        </div>
-      </section>
-
-      <section className="page-section container">
-        <div className="gallery-spotlight__info container">
-       
-          <p>
-            Find and explore data visualizations about the region. Check back
-            monthly or sign up for our newsletter to receive maps and data
-            visualizations. We cover a range of vital and interrelated topics:
-            equity, housing, transportation, climate, arts and culture, and
-            more. Always with data first, and always with an interdisciplinary
-            lens.
-          </p>
-          <CallToAction
-            link="/gallery"
-            text="View Gallery"
-            extraClassNames="gallery-spotlight__cta"
-          />
+          <div className="home-datasets-heading">
+            <h2 className="home-datasets-title">
+              Search datasets, or start from a topic
+            </h2>
+            <a href="/browser" className="home-browse-datasets-link">
+              Browse all datasets
+            </a>
+          </div>
+          <div className="home-dataset-search">
+            <DatasetSearchBar
+              className="home-dataset-search-bar"
+              datasets={noDupesDatasets || []}
+              placeholder={`Search ${noDupesDatasets?.length || 0} datasets ...`}
+              onSelect={toDataset}
+              maxResults={10}
+              maxWidth="100%"
+            />
+          </div>
+          <div className="home-topic-filters">
+            <h3 className="home-filter-by-topic">Filter by topic</h3>
+            <CategoryGrid />
+          </div>
         </div>
       </section>
     </section>

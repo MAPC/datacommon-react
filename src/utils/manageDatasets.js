@@ -92,7 +92,7 @@ export function filterDatasets({
   }
 
   // check if the table name matches the selected geographies, don't do anything if 'all' selected
-  if (geographies.length > 0) {
+  if (geographies.length > 0 && !geographies.includes("all")) {
     filtered = filtered.filter((d) => geographies.some((g) => getDatasetGeography(d) === g));
   }
 
