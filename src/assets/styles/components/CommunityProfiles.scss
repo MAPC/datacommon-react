@@ -146,10 +146,42 @@
   }
 
   .trail-profile-embed {
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+    padding: 2em;
+
+    @include media(large) {
+      padding: 2em 1.5em;
+    }
+
+    @include media(medium-small) {
+      padding: 2em 0;
+    }
+
+    .chart-wrapper,
+    .chart-wrapper:first-child {
+      flex: 1 1 auto;
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      margin-right: 0;
+      height: 800px;
+      overflow: hidden;
+    }
+
+    .chart-body {
+      max-width: 100%;
+      min-width: 0;
+      height: 800px;
+      overflow: hidden;
+    }
+
     iframe {
       display: block;
       width: 100%;
-      max-width: 100%;
+      max-width: none;
+      height: calc(800px + 32px);
       border: 0;
     }
 

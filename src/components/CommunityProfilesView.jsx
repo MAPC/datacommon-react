@@ -45,12 +45,12 @@ const Spinner = styled.div`
   animation: ${spin} 0.8s linear infinite;
 `;
 
-const TRAILMAP_COMMUNITY_PROFILE_EMBED =
-  "https://staging.trailmap.mapc.org/embed/communityTrailsProfile";
+const TRAILMAP_COMMUNITY_PROFILE_URL =
+  "https://staging.trailmap.mapc.org/communityTrailsProfile";
 
 function trailmapCommunityProfileSrc(muniSlug) {
   if (!muniSlug) return null;
-  return `${TRAILMAP_COMMUNITY_PROFILE_EMBED}?muni=${encodeURIComponent(String(muniSlug).toLowerCase())}`;
+  return `${TRAILMAP_COMMUNITY_PROFILE_URL}?muni=${encodeURIComponent(String(muniSlug).toLowerCase())}`;
 }
 
 const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
@@ -682,16 +682,17 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
               </div>
               {trailProfileSrc && (
                 <div className="tab__row trail-profile-embed">
-                  <div className="chart-wrapper" style={{ maxWidth: "100%", flex: "0 0 100%" }}>
+                  <div className="chart-wrapper">
                     <div className="chart-body">
                       <iframe
                         key={muniSlug}
                         src={trailProfileSrc}
                         title={`${name} trail profile`}
                         width="100%"
-                        height="640"
-                        style={{ border: 0, maxWidth: "100%" }}
+                        height="800"
+                        style={{ border: 0 }}
                         loading="lazy"
+                        allow="geolocation; fullscreen"
                         referrerPolicy="no-referrer-when-downgrade"
                       />
                     </div>
