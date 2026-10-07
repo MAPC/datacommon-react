@@ -1,6 +1,5 @@
 import React, { useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
 import { createSelector } from '@reduxjs/toolkit';
 import CommunitySelectorView from '../components/CommunitySelectorView';
 import { fillPoly, emptyPoly } from '../reducers/municipalitySlice';
@@ -63,11 +62,30 @@ const selectProcessedMapData = createSelector(
   }
 );
 
+export const CommunitySelectorMap = React.memo(({ searchBeside = false }) => {
+  const dispatch = useDispatch();
+  const { muniLines, muniFill, municipalityPoly } = useSelector(selectProcessedMapData);
+
+  const handleMunicipalitySelect = useCallback((municipality) => {
+    const formattedMuni = municipality.toLowerCase().replace(/\s+/g, '-');
+    dispatch(fillPoly(formattedMuni));
+    const tab = window.open(`/profile/${formattedMuni}/demographics`, '_blank');
+    tab.focus();
+  }, [dispatch]);
+
+  return (
+    <CommunitySelectorView
+      muniLines={muniLines}
+      muniFill={muniFill}
+      municipalityPoly={municipalityPoly}
+      toProfile={handleMunicipalitySelect}
+      searchBeside={searchBeside}
+    />
+  );
+});
+
 // Container component that handles data and logic
 const CommunitySelectorPage = () => {
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
-  
   // Styles
   const styles = {
     container: {
@@ -91,17 +109,6 @@ const CommunitySelectorPage = () => {
       textAlign: "justify"
     }
   };
-  
-  // Use memoized selector
-  const { muniLines, muniFill, municipalityPoly } = useSelector(selectProcessedMapData);
-
-  // Memoize handler
-  const handleMunicipalitySelect = useCallback((municipality) => {
-    const formattedMuni = municipality.toLowerCase().replace(/\s+/g, '-');
-    dispatch(fillPoly(formattedMuni));
-    const tab = window.open(`/profile/${formattedMuni}/demographics`, '_blank');
-    tab.focus();
-  }, [dispatch, navigate]);
 
   return (
     <>
@@ -132,12 +139,7 @@ const CommunitySelectorPage = () => {
           </p>
         </div>
       </section>
-      <CommunitySelectorView
-        muniLines={muniLines}
-        muniFill={muniFill}
-        municipalityPoly={municipalityPoly}
-        toProfile={handleMunicipalitySelect}
-      />
+      <CommunitySelectorMap />
     </>
   );
 };

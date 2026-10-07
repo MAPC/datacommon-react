@@ -7,6 +7,8 @@
     background: #fff;
     border: 1px solid $color_brand-secondary;
     border-radius: 0;
+    color: inherit;
+    cursor: pointer;
     display: flex;
     font-family: 'Montserrat', sans-serif;
     font-size: $p_size;
@@ -23,6 +25,10 @@
 
     &:hover {
       border-color: #3a9374;
+    }
+
+    &:disabled {
+      cursor: not-allowed;
     }
 
     &:hover + .call-to-action__shadow {

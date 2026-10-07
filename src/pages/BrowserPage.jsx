@@ -880,6 +880,16 @@ const BrowserPage = () => {
     return (!categoriesExpanded && menu1OptionList.length) ? menu1OptionList.slice(0, 5) : menu1OptionList;
   }, [categoriesExpanded, menu1OptionList]);
 
+  useEffect(() => {
+    if (categoriesExpanded || menu1OptionList.length === 0 || selectedMenu1s.length === 0) {
+      return;
+    }
+    const visible = menu1OptionList.slice(0, 5);
+    if (selectedMenu1s.some((category) => !visible.includes(category))) {
+      setCategoriesExpanded(true);
+    }
+  }, [categoriesExpanded, menu1OptionList, selectedMenu1s]);
+
   const maybeTruncatedSources = useMemo(() => {
     return (!sourcesExpanded && sources.length) ? sources.slice(0, 5) : sources;
   }, [sourcesExpanded, sources]);

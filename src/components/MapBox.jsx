@@ -9,6 +9,20 @@ import colors from "../constants/colors";
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_API_TOKEN;
 
+const boundsFromGeojson = (geojson) => {
+  const bounds = new mapboxgl.LngLatBounds();
+  const walk = (value) => {
+    if (!Array.isArray(value) || value.length === 0) return;
+    if (typeof value[0] === "number" && typeof value[1] === "number") {
+      bounds.extend(value);
+      return;
+    }
+    value.forEach(walk);
+  };
+  (geojson?.features || []).forEach((feature) => walk(feature.geometry?.coordinates));
+  return bounds.isEmpty() ? null : bounds;
+};
+
 class MapBox extends React.Component {
   state = {
     finishedLoading: false,
@@ -17,6 +31,13 @@ class MapBox extends React.Component {
 
   componentDidMount() {
     this.initializeMap();
+    this.resizeObserver = new ResizeObserver(() => {
+      window.clearTimeout(this.resizeFitTimer);
+      this.resizeFitTimer = window.setTimeout(() => this.fitToState(), 80);
+    });
+    if (this.mapContainer) {
+      this.resizeObserver.observe(this.mapContainer);
+    }
   }
 
   componentDidUpdate() {
@@ -24,22 +45,48 @@ class MapBox extends React.Component {
   }
 
   componentWillUnmount() {
+    window.clearTimeout(this.resizeFitTimer);
+    this.resizeObserver?.disconnect();
     this.map?.remove();
   }
 
+  getFitPadding() {
+    return this.props.fitPadding || MAP_CONFIG.padding;
+  }
+
+  getStateBounds() {
+    return boundsFromGeojson(this.props.muniPoly) || MAP_CONFIG.bounds;
+  }
+
+  fitToState() {
+    if (!this.map || !this.mapContainer) return;
+    const { width, height } = this.mapContainer.getBoundingClientRect();
+    if (width < 40 || height < 40) return;
+
+    this.map.resize();
+    this.map.setMinZoom(0);
+    this.map.fitBounds(this.getStateBounds(), {
+      padding: this.getFitPadding(),
+      animate: false,
+      duration: 0,
+    });
+    const fittedZoom = this.map.getZoom();
+    if (Number.isFinite(fittedZoom)) {
+      this.map.setMinZoom(fittedZoom);
+    }
+  }
+
   initializeMap() {
+    const { layers, muniPoly, toProfile, fitPadding, ...mapProps } = this.props;
     this.map = new mapboxgl.Map({
       container: this.mapContainer,
       style: MAP_CONFIG.style,
       dragPan: true,
       dragRotate: false,
-      ...this.props,
+      ...mapProps,
     });
 
-    this.map.fitBounds(MAP_CONFIG.bounds, {
-      padding: MAP_CONFIG.padding,
-      animate: false,
-    });
+    this.fitToState();
 
     this.map.addControl(
       new mapboxgl.NavigationControl(MAP_CONFIG.navigationControl),
@@ -50,7 +97,7 @@ class MapBox extends React.Component {
   }
 
   onMapLoad() {
-    this.map.resize(); 
+    this.fitToState();
     this.initializeHoverLayer();
     this.initializeMAPCRegions();
     
@@ -183,6 +230,12 @@ MapBox.propTypes = {
   ),
   muniPoly: PropTypes.object,
   toProfile: PropTypes.func,
+  fitPadding: PropTypes.shape({
+    top: PropTypes.number,
+    left: PropTypes.number,
+    right: PropTypes.number,
+    bottom: PropTypes.number,
+  }),
 };
 
 export default MapBox;

@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faUser, faGear } from "@fortawesome/free-solid-svg-icons";
 
-import logoImg from "../assets/images/logo.svg";
+import logoImg from "../assets/images/DataCommon20_horizontal_open-data-dates.svg";
 import { getCookie } from "../utils/cookies";
 import { isUserAdmin } from "../utils/auth";
 
@@ -96,8 +96,7 @@ const Header = () => {
         <div className="scroll-wrapper">
           <div className="header-brand">
             <a href="/">
-              <img src={logoImg} alt="DataCommon Logo" />
-              DataCommon
+              <img src={logoImg} alt="DataCommon" />
             </a>
           </div>
           <ul>
