@@ -325,7 +325,6 @@ class DatasetTable extends React.Component {
       geographyColumn = null,
       linkRowsToDatasetView = false,
       updatePage,
-      updateSelectedColumns,
       showHiddenColumns,
       addNewColumnFilter,
       columnFilters,
@@ -333,7 +332,7 @@ class DatasetTable extends React.Component {
       onPreviewColumnOrderChange,
       onResetPreviewLayout,
     } = this.props;
-    const { sortColumn, sortDirection, inputPageNum, contextMenu, dragRowIndex } = this.state;
+    const { sortColumn, sortDirection, inputPageNum, contextMenu } = this.state;
 
     const orderedColumnKeys = orderColumnKeys(columnKeys, selectedColumns, previewColumnOrder);
     const columnSegments = getPreviewTableColumnSegments(previewColumnOrder, columnKeys, selectedColumns);
