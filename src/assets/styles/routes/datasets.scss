@@ -1593,6 +1593,17 @@
         vertical-align: middle;
         background: $color_bg-light !important;
         border-right: 1px solid rgba(0, 0, 0, 0.08) !important;
+
+        position: sticky;
+        left: 0px;
+        z-index: 1;
+      }
+
+      .sticky-header .dataset-table__gutter {
+        top: 0px;
+        left: 0px;
+        position: sticky;
+        z-index: 2;
       }
 
       .dataset-table__row-controls {
