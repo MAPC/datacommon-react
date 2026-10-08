@@ -161,7 +161,16 @@ const CommunitySelectorView = ({ muniLines, muniFill, municipalityPoly, toProfil
 
   const searchBoxInner = (
     <>
-      <p>Search any community in Massachusetts to view their profile:</p>
+      {searchBeside ? (
+        <div className="home-geo-intro">
+          <p className="home-geo-intro__title">Explore the MAPC region through data.</p>
+          <p className="home-geo-intro__lede">
+            Discover housing, demographics, transportation, environment, and more—and explore the communities that matter to you.
+          </p>
+        </div>
+      ) : (
+        <p>Search any community in Massachusetts to view their profile:</p>
+      )}
 
       <div style={styles.subregionSelector}>
         <select 
