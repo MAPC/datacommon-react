@@ -4,6 +4,7 @@ const defaultContext = {
   query: '',
   results: [],
   hovering: null,
+  highlighted: [],
 };
 
 const initialState = {
@@ -30,6 +31,13 @@ const searchSlice = createSlice({
         hovering: value,
       };
     },
+    setHighlighted: (state, action) => {
+      const { contextKey, value } = action.payload;
+      state[contextKey] = {
+        ...state[contextKey],
+        highlighted: Array.isArray(value) ? value : [],
+      };
+    },
     clearContext: (state, action) => {
       const { contextKey } = action.payload;
       state[contextKey] = defaultContext;
@@ -37,5 +45,5 @@ const searchSlice = createSlice({
   },
 });
 
-export const { setResults, setHovering, clearContext } = searchSlice.actions;
+export const { setResults, setHovering, setHighlighted, clearContext } = searchSlice.actions;
 export default searchSlice.reducer; 

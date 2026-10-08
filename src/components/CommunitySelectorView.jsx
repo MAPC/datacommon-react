@@ -1,5 +1,5 @@
 import PropTypes from 'prop-types';
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 
@@ -8,8 +8,18 @@ import SearchBar from './partials/SearchBar';
 import CallToAction from './partials/CallToAction';
 import AnimatedCount from './partials/AnimatedCount';
 import { fetchSubregionData, selectSubregionData, selectSubregionLoading } from '../reducers/subregionSlice';
-import { setHovering, setResults, clearContext } from '../reducers/searchSlice';
-import { Button } from 'react-bootstrap';
+import { setHovering, setHighlighted, clearContext } from '../reducers/searchSlice';
+import capitalize from '../utils/capitalize';
+
+const ALL_MASSACHUSETTS = "all";
+const MAPC_REGION = "mapc";
+const MAPC_REGION_NAME = "Metropolitan Area Planning Council [MAPC]";
+const MAPC_PROFILE_HREF = "/profile/rpa/352/demographics";
+
+const townKey = (municipality) => String(municipality || "").toLowerCase().trim();
+
+const formatMuniSlug = (municipality) =>
+  townKey(municipality).replace(/-/g, " ").replace(/\s+/g, "-");
 
 const styles = {
   subregionSelector: {
@@ -42,65 +52,120 @@ const styles = {
   }
 };
 
-
-const CommunitySelectorView = ({ muniLines, muniFill, municipalityPoly, toProfile, searchBeside = false }) => {
+const CommunitySelectorView = ({ muniLines, muniHighlight, muniFill, municipalityPoly, toProfile, searchBeside = false }) => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const subregionData = useSelector(selectSubregionData);
   const isLoading = useSelector(selectSubregionLoading);
   const muniSearch = useSelector((state) => state.search.municipality);
 
-  const [selectedSubregion, setSelectedSubregion] = useState('');
+  const [selectedSubregion, setSelectedSubregion] = useState(searchBeside ? ALL_MASSACHUSETTS : "");
   const [isFocused, setIsFocused] = useState(false);
-  const [selectedMuni, setSelectedMuni] = useState('');
+  const [selectedMuni, setSelectedMuni] = useState("");
 
   useEffect(() => {
     dispatch(fetchSubregionData());
   }, [dispatch]);
 
-  const formatMuniName = (municipality) =>
-    String(municipality || "").toLowerCase().replace(/-/g, " ").trim();
+  const isMapcRegion = selectedSubregion === MAPC_REGION;
+  const isSpecificSubregion = Boolean(
+    selectedSubregion &&
+    selectedSubregion !== ALL_MASSACHUSETTS &&
+    selectedSubregion !== MAPC_REGION &&
+    subregionData[selectedSubregion],
+  );
+  const isRegionSelection = isSpecificSubregion || isMapcRegion;
+  const activeSubregion = isSpecificSubregion ? subregionData[selectedSubregion] : null;
+  const regionProfileHref = (id) => {
+    if (id === MAPC_REGION) return MAPC_PROFILE_HREF;
+    if (subregionData[id]) return `/profile/subregion/${id}/demographics`;
+    return "";
+  };
+  const activeRegionProfileHref = regionProfileHref(selectedSubregion);
+  const regionAcronym = isMapcRegion
+    ? "MAPC"
+    : activeSubregion?.subregionAcronym
+      || activeSubregion?.subregionName?.match(/\[([^\]]+)\]/)?.[1]
+      || "";
+  const regionTitle = isMapcRegion
+    ? MAPC_REGION_NAME
+    : activeSubregion?.subregionName;
+  const regionProfileLabel = isMapcRegion
+    ? "View MAPC profile"
+    : "View subregion profile";
+  const mapcMunis = useMemo(() => {
+    const seen = new Set();
+    const munis = [];
+    Object.values(subregionData).forEach((region) => {
+      (region.municipalities || []).forEach((muni) => {
+        const key = townKey(muni.muni_name);
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        munis.push(muni);
+      });
+    });
+    return munis.sort((a, b) =>
+      String(a.muni_name || "").localeCompare(String(b.muni_name || ""), undefined, { sensitivity: "base" }),
+    );
+  }, [subregionData]);
+  const subregionMunis = useMemo(() => {
+    const munis = activeSubregion?.municipalities || [];
+    return [...munis].sort((a, b) =>
+      String(a.muni_name || "").localeCompare(String(b.muni_name || ""), undefined, { sensitivity: "base" }),
+    );
+  }, [activeSubregion]);
+  const regionMunis = isMapcRegion ? mapcMunis : subregionMunis;
+  const highlightedTowns = useMemo(
+    () => regionMunis.map((muni) => townKey(muni.muni_name)).filter(Boolean),
+    [regionMunis],
+  );
 
-  const formatMuniSlug = (municipality) =>
-    formatMuniName(municipality).replace(/\s+/g, "-");
-
-  const firstSearchResult = formatMuniName(muniSearch?.results?.[0] || "");
-  const resolvedMuni = selectedMuni || firstSearchResult;
-  const profileHref = resolvedMuni
-    ? `/profile/${formatMuniSlug(resolvedMuni)}/demographics`
-    : selectedSubregion
-      ? `/profile/subregion/${selectedSubregion}/demographics`
-      : "";
+  const profileHref = selectedMuni
+    ? `/profile/${formatMuniSlug(selectedMuni)}/demographics`
+    : activeRegionProfileHref;
   const profileHrefRef = useRef(profileHref);
   profileHrefRef.current = profileHref;
+
+  useEffect(() => {
+    if (!searchBeside) return;
+    dispatch(setHighlighted({ contextKey: "municipality", value: highlightedTowns }));
+  }, [dispatch, searchBeside, highlightedTowns]);
+
+  useEffect(() => {
+    return () => {
+      if (!searchBeside) return;
+      dispatch(setHighlighted({ contextKey: "municipality", value: [] }));
+    };
+  }, [dispatch, searchBeside]);
 
   const handleSubregionChange = (event) => {
     const subregionId = event.target.value;
     setSelectedSubregion(subregionId);
-    if (subregionId) {
-      setSelectedMuni("");
-      dispatch(clearContext({ contextKey: "municipality" }));
-    }
-    if (!searchBeside && subregionId) {
-      const tab = window.open(`/profile/subregion/${subregionId}/demographics`, "_blank");
+    setSelectedMuni("");
+    dispatch(clearContext({ contextKey: "municipality" }));
+    const href = regionProfileHref(subregionId);
+    if (!searchBeside && href) {
+      const tab = window.open(href, "_blank");
       tab.focus();
     }
   };
 
   const handleMuniSelect = (muni) => {
     if (searchBeside) {
-      setSelectedMuni(formatMuniName(muni));
-      setSelectedSubregion("");
+      setSelectedMuni(townKey(muni));
       return;
     }
     toProfile(muni);
   };
 
+  const handleCommunitySelectChange = (event) => {
+    setSelectedMuni(townKey(event.target.value));
+  };
+
   const goToProfile = (muni) => {
     if (muni) {
-      const name = formatMuniName(muni);
+      const name = townKey(muni);
       setSelectedMuni(name);
-      setSelectedSubregion("");
       navigate(`/profile/${formatMuniSlug(name)}/demographics`);
       return;
     }
@@ -117,18 +182,18 @@ const CommunitySelectorView = ({ muniLines, muniFill, municipalityPoly, toProfil
     if (event.key !== "Enter" || event.repeat) return;
     if (!profileHrefRef.current) return;
     const tag = event.target.tagName;
-    if (tag === "A" || tag === "BUTTON") return;
+    if (tag === "A" || tag === "BUTTON" || tag === "SELECT") return;
     event.preventDefault();
     goToProfile();
   };
 
   const handleSubregionKeyDown = (event) => {
     if (event.key !== "Enter" || event.repeat || !searchBeside) return;
-    const subregionId = event.target.value;
-    if (!subregionId) return;
+    const href = regionProfileHref(event.target.value);
+    if (!href) return;
     event.preventDefault();
     event.stopPropagation();
-    navigate(`/profile/subregion/${subregionId}/demographics`);
+    navigate(href);
   };
 
   useEffect(() => {
@@ -138,7 +203,159 @@ const CommunitySelectorView = ({ muniLines, muniFill, municipalityPoly, toProfil
     }
   }, [dispatch, searchBeside, selectedMuni, muniSearch?.hovering]);
 
-  const searchBoxInner = (
+  const focusTowns = searchBeside
+    ? (highlightedTowns.length ? highlightedTowns : (selectedMuni ? [selectedMuni] : []))
+    : [];
+
+  const ctaText = selectedMuni
+    ? `View ${capitalize(selectedMuni)} profile`
+    : activeRegionProfileHref
+      ? regionProfileLabel
+      : "Choose a Subregion or RPA or search a community";
+
+  const profileIncludes = (
+    <div className="home-profile-includes">
+      <p className="home-profile-includes__title">Every profile includes</p>
+      <ul className="home-profile-includes__list">
+        <li>
+          <AnimatedCount as="strong" end={9} duration={1000} />
+          <span>topics</span>
+        </li>
+        <li>
+          <strong>PNG</strong>
+          <span>per chart</span>
+        </li>
+        <li>
+          <strong>PDF</strong>
+          <span>full export</span>
+        </li>
+        <li>
+          <AnimatedCount as="strong" end={20} suffix="+" duration={1400} />
+          <span>visualizations</span>
+        </li>
+      </ul>
+    </div>
+  );
+
+  const subregionOptions = Object.entries(subregionData).map(([id, region]) => (
+    <option key={id} value={id}>{region.subregionName}</option>
+  ));
+
+  const homepageSearch = (
+    <div className="home-geo-search">
+      <div className="home-geo-intro">
+        <p className="home-geo-intro__title">Explore the MAPC region through data.</p>
+        <p className="home-geo-intro__lede">
+          Discover housing, demographics, transportation, environment, and more—and explore the communities that matter to you.
+        </p>
+      </div>
+      <div className="home-geo-search__step">
+        <div className="home-geo-search__label">
+          <span className="home-geo-search__num" aria-hidden="true">1</span>
+          <span>
+            Subregion or RPA or All communities in Massachusetts
+          </span>
+        </div>
+        <div className="home-geo-search__select-wrap">
+          <select
+            value={selectedSubregion}
+            onChange={handleSubregionChange}
+            onKeyDown={handleSubregionKeyDown}
+            disabled={isLoading}
+            aria-label="Subregion or RPA or All communities in Massachusetts"
+          >
+            <option value={ALL_MASSACHUSETTS}>
+              All communities in Massachusetts
+            </option>
+            <option value={MAPC_REGION}>{MAPC_REGION_NAME}</option>
+            {subregionOptions}
+          </select>
+        </div>
+      </div>
+
+      {isRegionSelection && (
+        <div className="home-geo-search__banner">
+          <div className="home-geo-search__banner-copy">
+            <p className="home-geo-search__banner-title">
+              {regionTitle}
+            </p>
+            <p className="home-geo-search__banner-meta">
+              {regionMunis.length} communities highlighted on the map
+            </p>
+          </div>
+          {activeRegionProfileHref && (
+            <a
+              className="home-geo-search__banner-link"
+              href={activeRegionProfileHref}
+            >
+              {regionProfileLabel}
+            </a>
+          )}
+        </div>
+      )}
+
+      <div className="home-geo-search__step">
+        <div className="home-geo-search__label">
+          <span className="home-geo-search__num" aria-hidden="true">2</span>
+          <span>
+            {isRegionSelection && regionAcronym
+              ? `Community in ${regionAcronym}`
+              : "Community"}
+          </span>
+        </div>
+        {isRegionSelection ? (
+          <>
+            <div className="home-geo-search__select-wrap">
+              <select
+                value={selectedMuni}
+                onChange={handleCommunitySelectChange}
+                aria-label={`Community in ${regionAcronym || "this region"}`}
+              >
+                <option value="">Select a community</option>
+                {regionMunis.map((muni) => {
+                  const name = townKey(muni.muni_name);
+                  return (
+                    <option key={muni.muni_id || name} value={name}>
+                      {muni.muni_name}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+            <p className="home-geo-search__hint">
+              {isMapcRegion
+                ? "Leave blank to open the MAPC profile, or click a town on the map."
+                : "Leave blank to open the subregion profile, or click a town on the map."}
+            </p>
+          </>
+        ) : (
+          <SearchBar
+            contextKey="municipality"
+            onSelect={handleMuniSelect}
+            onEnter={goToProfile}
+            clearOnSelect={false}
+            placeholder="Search for a community ..."
+            className="small home-geo-community-search"
+          />
+        )}
+      </div>
+
+      <CallToAction
+        type="submit"
+        text={ctaText}
+        disabled={!profileHref}
+        extraClassNames={`home-view-profile-cta${profileHref ? "" : " needs-selection"}`}
+        dataTooltip={
+          profileHref
+            ? undefined
+            : "Choose a Subregion or RPA or search a community"
+        }
+      />
+      {profileIncludes}
+    </div>
+  );
+
+  const originalSearch = (
     <>
       {searchBeside ? (
         <div className="home-geo-intro">
@@ -158,7 +375,7 @@ const CommunitySelectorView = ({ muniLines, muniFill, municipalityPoly, toProfil
       <div className="search-box-or" aria-hidden="true">or</div>
 
       <div style={styles.subregionSelector}>
-        <select 
+        <select
           value={selectedSubregion}
           onChange={handleSubregionChange}
           onKeyDown={handleSubregionKeyDown}
@@ -171,9 +388,7 @@ const CommunitySelectorView = ({ muniLines, muniFill, municipalityPoly, toProfil
           disabled={isLoading}
         >
           <option value="">Select a Subregion</option>
-          {Object.entries(subregionData).map(([id, subregionData]) => (
-            <option key={id} value={id}>{subregionData.subregionName}</option>
-          ))}
+          {subregionOptions}
         </select>
         <div style={styles.gradientBorder}></div>
       </div>
@@ -188,52 +403,16 @@ const CommunitySelectorView = ({ muniLines, muniFill, municipalityPoly, toProfil
         placeholder={'Search for a community ...'}
         className={"small"}
       />
-
-      {searchBeside && (
-        <>
-          <CallToAction
-            type="submit"
-            text="View Profile"
-            extraClassNames={`home-view-profile-cta${profileHref ? "" : " needs-selection"}`}
-            dataTooltip={
-              profileHref
-                ? undefined
-                : "Select a community or subregion first"
-            }
-          />
-          <div className="home-profile-includes">
-            <p className="home-profile-includes__title">Every profile includes</p>
-            <ul className="home-profile-includes__list">
-              <li>
-                <AnimatedCount as="strong" end={9} duration={1000} />
-                <span>topics</span>
-              </li>
-              <li>
-                <strong>PNG</strong>
-                <span>per chart</span>
-              </li>
-              <li>
-                <strong>PDF</strong>
-                <span>full export</span>
-              </li>
-              <li>
-                <AnimatedCount as="strong" end={20} suffix="+" duration={1400} />
-                <span>visualizations</span>
-              </li>
-            </ul>
-          </div>
-        </>
-      )}
     </>
   );
 
   const searchBox = searchBeside ? (
     <form className="search-box" onSubmit={handleProfileSubmit} onKeyDown={handleSearchBoxKeyDown}>
-      {searchBoxInner}
+      {homepageSearch}
     </form>
   ) : (
     <div className="search-box">
-      {searchBoxInner}
+      {originalSearch}
     </div>
   );
 
@@ -282,10 +461,11 @@ const CommunitySelectorView = ({ muniLines, muniFill, municipalityPoly, toProfil
 
   const map = (
     <MapBox
-      layers={[homeMuniLines, muniFill, selectionOutline].filter(Boolean)}
+      layers={[homeMuniLines, muniHighlight, muniFill, selectionOutline].filter(Boolean)}
       muniPoly={municipalityPoly}
       toProfile={searchBeside ? goToProfile : toProfile}
       fitPadding={searchBeside ? { top: 24, left: 24, right: 24, bottom: 24 } : undefined}
+      focusTowns={focusTowns}
     />
   );
 
@@ -305,6 +485,7 @@ const layerShape = {
 CommunitySelectorView.propTypes = {
   toProfile: PropTypes.func.isRequired,
   muniLines: PropTypes.shape(layerShape).isRequired,
+  muniHighlight: PropTypes.shape(layerShape),
   muniFill: PropTypes.shape(layerShape).isRequired,
   municipalityPoly: PropTypes.object.isRequired,
   searchBeside: PropTypes.bool,

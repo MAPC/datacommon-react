@@ -16,6 +16,7 @@ const SearchBar = ({
   additionalSearchable = [],
   searchable = null,
   clearOnSelect = true,
+  resultsHeading = "",
 }) => {
   const dispatch = useDispatch();
   const inputRef = useRef(null);
@@ -78,6 +79,9 @@ const SearchBar = ({
 
     return (
       <ul className="styled lift">
+        {resultsHeading ? (
+          <li className="search-results-heading">{resultsHeading}</li>
+        ) : null}
         {results.map((result) => {
           const displayValue = result[searchColumn] || result;
           const key = result[searchColumn] 
@@ -131,6 +135,7 @@ SearchBar.propTypes = {
   className: PropTypes.string,
   additionalSearchable: PropTypes.arrayOf(PropTypes.string),
   searchable: PropTypes.array,
+  resultsHeading: PropTypes.string,
 };
 
 export default SearchBar; 

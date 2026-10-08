@@ -33,7 +33,7 @@ class MapBox extends React.Component {
     this.initializeMap();
     this.resizeObserver = new ResizeObserver(() => {
       window.clearTimeout(this.resizeFitTimer);
-      this.resizeFitTimer = window.setTimeout(() => this.fitToState(), 80);
+      this.resizeFitTimer = window.setTimeout(() => this.fitToFocus({ animate: false }), 80);
     });
     if (this.mapContainer) {
       this.resizeObserver.observe(this.mapContainer);
@@ -42,6 +42,12 @@ class MapBox extends React.Component {
 
   componentDidUpdate() {
     this.handleLayerUpdates();
+    this.syncMapcRegionVisibility();
+    const nextFocus = this.getFocusTownsKey();
+    if (nextFocus !== this.focusTownsKey) {
+      this.focusTownsKey = nextFocus;
+      this.fitToFocus({ animate: Boolean(nextFocus) });
+    }
   }
 
   componentWillUnmount() {
@@ -58,26 +64,59 @@ class MapBox extends React.Component {
     return boundsFromGeojson(this.props.muniPoly) || MAP_CONFIG.bounds;
   }
 
+  getFocusTownsKey() {
+    return (this.props.focusTowns || [])
+      .map((name) => String(name || "").toLowerCase().trim())
+      .filter(Boolean)
+      .sort()
+      .join("|");
+  }
+
+  getFocusBounds() {
+    const towns = new Set(
+      (this.props.focusTowns || []).map((name) => String(name || "").toUpperCase()),
+    );
+    if (!towns.size) return this.getStateBounds();
+    const focusGeojson = {
+      type: "FeatureCollection",
+      features: (this.props.muniPoly?.features || []).filter((feature) =>
+        towns.has(feature.properties.town),
+      ),
+    };
+    return boundsFromGeojson(focusGeojson) || this.getStateBounds();
+  }
+
   fitToState() {
+    this.fitToFocus({ animate: false, lockMinZoom: true });
+  }
+
+  fitToFocus({ animate = false, lockMinZoom = false } = {}) {
     if (!this.map || !this.mapContainer) return;
     const { width, height } = this.mapContainer.getBoundingClientRect();
     if (width < 40 || height < 40) return;
 
     this.map.resize();
-    this.map.setMinZoom(0);
-    this.map.fitBounds(this.getStateBounds(), {
+    if (lockMinZoom) this.map.setMinZoom(0);
+    this.map.fitBounds(this.getFocusBounds(), {
       padding: this.getFitPadding(),
-      animate: false,
-      duration: 0,
+      animate,
+      duration: animate ? 900 : 0,
+      maxZoom: 11,
     });
-    const fittedZoom = this.map.getZoom();
-    if (Number.isFinite(fittedZoom)) {
-      this.map.setMinZoom(fittedZoom);
+    if (lockMinZoom) {
+      const fittedZoom = this.map.getZoom();
+      if (Number.isFinite(fittedZoom)) {
+        this.statewideMinZoom = fittedZoom;
+        this.map.setMinZoom(fittedZoom);
+      }
+    } else if (Number.isFinite(this.statewideMinZoom)) {
+      this.map.setMinZoom(this.statewideMinZoom);
     }
   }
 
   initializeMap() {
-    const { layers, muniPoly, toProfile, fitPadding, ...mapProps } = this.props;
+    const { layers, muniPoly, toProfile, fitPadding, focusTowns, ...mapProps } = this.props;
+    this.focusTownsKey = this.getFocusTownsKey();
     this.map = new mapboxgl.Map({
       container: this.mapContainer,
       style: MAP_CONFIG.style,
@@ -167,6 +206,18 @@ class MapBox extends React.Component {
         "fill-opacity": 0.7,
       },
     });
+    this.syncMapcRegionVisibility();
+  }
+
+  syncMapcRegionVisibility() {
+    if (!this.map?.getLayer("mapc-region-line")) return;
+    const hideForFocus = Boolean(this.getFocusTownsKey());
+    const visible = this.state.showMAPCRegions && !hideForFocus;
+    this.map.setLayoutProperty(
+      "mapc-region-line",
+      "visibility",
+      visible ? "visible" : "none",
+    );
   }
 
   handleLayerUpdates() {
@@ -180,13 +231,7 @@ class MapBox extends React.Component {
       prevState => ({
         showMAPCRegions: !prevState.showMAPCRegions,
       }),
-      () => {
-        this.map?.setLayoutProperty(
-          "mapc-region-line",
-          "visibility",
-          this.state.showMAPCRegions ? "visible" : "none"
-        );
-      }
+      () => this.syncMapcRegionVisibility(),
     );
   };
 
@@ -230,6 +275,7 @@ MapBox.propTypes = {
   ),
   muniPoly: PropTypes.object,
   toProfile: PropTypes.func,
+  focusTowns: PropTypes.arrayOf(PropTypes.string),
   fitPadding: PropTypes.shape({
     top: PropTypes.number,
     left: PropTypes.number,
