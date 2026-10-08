@@ -10,12 +10,11 @@ import tabs from "../constants/tabs";
 import StackedBarChart from "../containers/visualizations/StackedBarChart";
 import StackedAreaChart from "../containers/visualizations/StackedAreaChart";
 import PieChart from "../containers/visualizations/PieChart";
-import LineChart from "../containers/visualizations/LineChart";
 import GaugeChart from "../containers/visualizations/GaugeChart";
 import GroupedBarChart from "../containers/visualizations/GroupedBarChart";
 import DataTableModal from './field/DataTableModal';
 import DownloadAllChartsButton from './field/DownloadAllChartsButton';
-import { fetchSubregionChartData, fetchSubregionData, selectSubregionData } from "../reducers/subregionSlice";
+import { fetchSubregionChartData, selectSubregionData } from "../reducers/subregionSlice";
 import ChartDetails from "./visualizations/ChartDetails";
 
 // Global Print Styles
@@ -171,7 +170,6 @@ const SubregionProfilesView = () => {
   });
 
   const subregionData = useSelector(selectSubregionData);
-  const subregionCache = useSelector(state => state.subregion.cache);
   const municipalities = subregionData[subregionId]?.municipalities || [];
 
   useEffect(() => {
@@ -419,7 +417,7 @@ const SubregionProfilesView = () => {
                 <h3>Environment</h3>
               </header>
               <div className="tab__row tab__row--break">
-                <ChartDetails 
+                {/* <ChartDetails 
                   chart={charts.environment.water_usage_per_cap} 
                   muni={subregionId}
                   onViewData={handleShowModal}
@@ -430,7 +428,11 @@ const SubregionProfilesView = () => {
                     muni={subregionId}
                     isSubregion={true}
                   />
-                </ChartDetails>
+                </ChartDetails> */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', marginRight: '150px'}}>
+                  <div>Per-capita water usage is not available at the subregion level.</div>
+                  <div>Please select a municipality to see its usage.</div>
+                </div>
                 <ChartDetails 
                   chart={charts.environment.energy_usage_gas} 
                   muni={subregionId}
@@ -555,6 +557,7 @@ const SubregionProfilesView = () => {
                 </ChartDetails>
               </div>
             </Tab>
+
             <Tab active={activeTab === "digital-equity"}>
               <header className="print-header">
                 <h3>Digital Equity</h3>
