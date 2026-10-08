@@ -70,5 +70,20 @@
     }
   }
 
+  .regional-profile-select-button {
+    width: 100%;
+    display: inline-block;
+    background-color: #1F4E46;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 8px 0px;
+    text-align: center;
+    cursor: pointer;
+    text-decoration: none;
 
+    &:hover {
+      background-color: #28645a;
+    }
+  }
 }

@@ -1,5 +1,5 @@
 import PropTypes from 'prop-types';
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 
@@ -9,7 +9,7 @@ import CallToAction from './partials/CallToAction';
 import AnimatedCount from './partials/AnimatedCount';
 import { fetchSubregionData, selectSubregionData, selectSubregionLoading } from '../reducers/subregionSlice';
 import { setHovering, setResults, clearContext } from '../reducers/searchSlice';
-// import { fetchRPAregionData, selectRPAregionData, selectRPAregionLoading } from '../reducers/rparegionSlice';
+import { Button } from 'react-bootstrap';
 
 const styles = {
   subregionSelector: {
@@ -18,7 +18,6 @@ const styles = {
   },
   select: {
     width: '100%',
-    padding: '0.5rem',
     border: 'none',
     backgroundColor: 'white',
     fontFamily: "skolar-sans-latin, Helvetica,sans-serif",
@@ -43,31 +42,20 @@ const styles = {
   }
 };
 
-// TODO: Get RPA regions from the muni datakeys table?
-const RPAREGIONS = {
-  352:'MAPC',
-  402:'Central Massachusetts',
-  403:'Northeastern Massachusetts',
-  404:'Southeastern Massachusetts',
-  405:'Western Massachusetts'
-};
 
 const CommunitySelectorView = ({ muniLines, muniFill, municipalityPoly, toProfile, searchBeside = false }) => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const subregionData = useSelector(selectSubregionData);
-  // const rparegionData = useSelector(selectRPAregionData);
   const isLoading = useSelector(selectSubregionLoading);
   const muniSearch = useSelector((state) => state.search.municipality);
 
   const [selectedSubregion, setSelectedSubregion] = useState('');
-  // const [selectedRPAregion, setSelectedRPAregion] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const [selectedMuni, setSelectedMuni] = useState('');
 
   useEffect(() => {
     dispatch(fetchSubregionData());
-    // dispatch(fetchRPAregionData());
   }, [dispatch]);
 
   const formatMuniName = (municipality) =>
@@ -143,15 +131,6 @@ const CommunitySelectorView = ({ muniLines, muniFill, municipalityPoly, toProfil
     navigate(`/profile/subregion/${subregionId}/demographics`);
   };
 
-  // const handleRPAregionChange = (event) => {
-  //   const rpaId = event.target.value;
-  //   setSelectedRPAregion(rpaId);
-  //   setSelectedSubregion('');
-  //   if (rpaId) {
-  //     navigate(`/profile/rpa/${rpaId}`);
-  //   }
-  // };
-
   useEffect(() => {
     if (!searchBeside || !selectedMuni) return;
     if (muniSearch?.hovering !== selectedMuni) {
@@ -171,6 +150,12 @@ const CommunitySelectorView = ({ muniLines, muniFill, municipalityPoly, toProfil
       ) : (
         <p>Search any community in Massachusetts to view their profile:</p>
       )}
+
+      <Button className="regional-profile-select-button" href='/profile/rpa/352/demographics'>
+        View MAPC Regional Profile
+      </Button>
+
+      <div className="search-box-or" aria-hidden="true">or</div>
 
       <div style={styles.subregionSelector}>
         <select 

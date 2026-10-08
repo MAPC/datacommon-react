@@ -2,7 +2,7 @@ import React, { useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { createSelector } from '@reduxjs/toolkit';
 import CommunitySelectorView from '../components/CommunitySelectorView';
-import { fillPoly, emptyPoly } from '../reducers/municipalitySlice';
+import { fillPoly } from '../reducers/municipalitySlice';
 
 // Memoized selectors
 const selectMunicipalityState = state => state.municipality;
@@ -62,7 +62,7 @@ const selectProcessedMapData = createSelector(
   }
 );
 
-export const CommunitySelectorMap = React.memo(({ searchBeside = false }) => {
+export const CommunitySelectorMap = ({ searchBeside = false }) => {
   const dispatch = useDispatch();
   const { muniLines, muniFill, municipalityPoly } = useSelector(selectProcessedMapData);
 
@@ -82,7 +82,7 @@ export const CommunitySelectorMap = React.memo(({ searchBeside = false }) => {
       searchBeside={searchBeside}
     />
   );
-});
+};
 
 // Container component that handles data and logic
 const CommunitySelectorPage = () => {
