@@ -3,6 +3,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { createSelector } from '@reduxjs/toolkit';
 import CommunitySelectorView from '../components/CommunitySelectorView';
 import { fillPoly, emptyPoly } from '../reducers/municipalitySlice';
+import colors from '../constants/colors';
 
 // Memoized selectors
 const selectMunicipalityState = state => state.municipality;
@@ -12,7 +13,7 @@ const selectProcessedMapData = createSelector(
   [selectMunicipalityState, selectSearchState],
   (municipality, search) => {
     const munisPoly = { ...municipality.geojson };
-    const { results, hovering } = search;
+    const { results, hovering, highlighted = [] } = search;
 
     const lineFeatures = results.length
       ? {
@@ -29,33 +30,49 @@ const selectProcessedMapData = createSelector(
       geojson: lineFeatures,
     };
 
+    const emptyFill = { ...munisPoly, features: [] };
+    const highlightTowns = new Set(
+      (highlighted || []).map((name) => String(name || "").toUpperCase()).filter(Boolean),
+    );
+
+    const muniHighlight = {
+      id: 'ma-highlight',
+      type: 'fill',
+      geojson: highlightTowns.size
+        ? {
+            ...munisPoly,
+            features: munisPoly.features.filter((feature) =>
+              highlightTowns.has(feature.properties.town),
+            ),
+          }
+        : emptyFill,
+      paint: {
+        'fill-color': colors.BRAND.SUBREGION_HIGHLIGHT,
+        'fill-opacity': 0.72,
+      },
+    };
+
     let muniFill = {
       type: 'fill',
-      geojson: { ...munisPoly, features: [] },
+      geojson: emptyFill,
     };
 
     if (hovering) {
-      const upperHovering = hovering.toUpperCase();
-      let filledMuniIndex = null;
-
-      munisPoly.features.some((feature, i) => {
-        if (feature.properties.town === upperHovering) {
-          filledMuniIndex = i;
-          return true;
-        }
-        return false;
-      });
-
-      if (filledMuniIndex !== null) {
+      const upperHovering = String(hovering).toUpperCase();
+      const hovered = munisPoly.features.filter((feature) =>
+        feature.properties.town === upperHovering,
+      );
+      if (hovered.length) {
         muniFill.geojson = {
           ...munisPoly,
-          features: [munisPoly.features[filledMuniIndex]],
+          features: hovered,
         };
       }
     }
 
     return {
       muniLines,
+      muniHighlight,
       muniFill,
       municipalityPoly: munisPoly
     };
@@ -64,7 +81,7 @@ const selectProcessedMapData = createSelector(
 
 export const CommunitySelectorMap = React.memo(({ searchBeside = false }) => {
   const dispatch = useDispatch();
-  const { muniLines, muniFill, municipalityPoly } = useSelector(selectProcessedMapData);
+  const { muniLines, muniHighlight, muniFill, municipalityPoly } = useSelector(selectProcessedMapData);
 
   const handleMunicipalitySelect = useCallback((municipality) => {
     const formattedMuni = municipality.toLowerCase().replace(/\s+/g, '-');
@@ -76,6 +93,7 @@ export const CommunitySelectorMap = React.memo(({ searchBeside = false }) => {
   return (
     <CommunitySelectorView
       muniLines={muniLines}
+      muniHighlight={muniHighlight}
       muniFill={muniFill}
       municipalityPoly={municipalityPoly}
       toProfile={handleMunicipalitySelect}
