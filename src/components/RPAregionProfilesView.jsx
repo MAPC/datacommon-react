@@ -480,7 +480,7 @@ const RPAregionProfilesView = () => {
                   />
                 </ChartDetails> */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', marginRight: '150px'}}>
-                  <div>Per-capita water usage is not available at the subregion level.</div>
+                  <div>Per-capita water usage is not available at the RPA region level.</div>
                   <div>Please select a municipality to see its usage.</div>
                 </div>
                 <ChartDetails 
