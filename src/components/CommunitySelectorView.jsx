@@ -154,9 +154,10 @@ const CommunitySelectorView = ({ muniLines, muniFill, municipalityPoly, toProfil
 
   useEffect(() => {
     if (!searchBeside || !selectedMuni) return;
-    dispatch(setHovering({ contextKey: "municipality", value: selectedMuni }));
-    dispatch(setResults({ contextKey: "municipality", results: [], query: selectedMuni }));
-  }, [dispatch, searchBeside, selectedMuni]);
+    if (muniSearch?.hovering !== selectedMuni) {
+      dispatch(setHovering({ contextKey: "municipality", value: selectedMuni }));
+    }
+  }, [dispatch, searchBeside, selectedMuni, muniSearch?.hovering]);
 
   const searchBoxInner = (
     <>
@@ -242,9 +243,52 @@ const CommunitySelectorView = ({ muniLines, muniFill, municipalityPoly, toProfil
     </div>
   );
 
+  const selectionOutlineFeatures = (() => {
+    const filled = muniFill?.geojson?.features || [];
+    if (filled.length) return filled;
+    const matches = (muniSearch?.results || []).map((name) => String(name).toLowerCase());
+    if (!matches.length) return [];
+    return (municipalityPoly?.features || []).filter((feature) =>
+      matches.includes(String(feature.properties.town || "").toLowerCase()),
+    );
+  })();
+
+  const highlightTowns = new Set(
+    selectionOutlineFeatures.map((feature) => feature.properties.town),
+  );
+
+  const homeMuniLines = searchBeside && highlightTowns.size
+    ? {
+        ...muniLines,
+        id: "ma-line",
+        geojson: {
+          ...muniLines.geojson,
+          features: (muniLines.geojson?.features || []).filter(
+            (feature) => !highlightTowns.has(feature.properties.town),
+          ),
+        },
+      }
+    : muniLines;
+
+  const selectionOutline = searchBeside
+    ? {
+        id: "ma-selection-line",
+        type: "line",
+        geojson: {
+          type: "FeatureCollection",
+          features: selectionOutlineFeatures,
+        },
+        paint: {
+          "line-color": "#000000",
+          "line-width": 2,
+          "line-opacity": 1,
+        },
+      }
+    : null;
+
   const map = (
     <MapBox
-      layers={[muniLines, muniFill]}
+      layers={[homeMuniLines, muniFill, selectionOutline].filter(Boolean)}
       muniPoly={municipalityPoly}
       toProfile={searchBeside ? goToProfile : toProfile}
       fitPadding={searchBeside ? { top: 24, left: 24, right: 24, bottom: 24 } : undefined}
