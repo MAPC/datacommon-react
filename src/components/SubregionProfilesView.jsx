@@ -157,7 +157,7 @@ const SubregionProfilesView = () => {
   const { subregionId, tab } = useParams();
 
   // muni-finance not available at subregion level
-  const availableTabs = tabs.filter(tab => tab.value !== 'municipal-finance');
+  const availableTabs = tabs.filter(tab => tab.value !== 'municipal-finance' && tab.value !== 'public-health');
 
   const sanitizeTab = (value) =>
     value ? value : "demographics";
