@@ -79,7 +79,7 @@ const selectProcessedMapData = createSelector(
   }
 );
 
-export const CommunitySelectorMap = React.memo(({ searchBeside = false }) => {
+export const CommunitySelectorMap = ({ searchBeside = false }) => {
   const dispatch = useDispatch();
   const { muniLines, muniHighlight, muniFill, municipalityPoly } = useSelector(selectProcessedMapData);
 
@@ -100,7 +100,7 @@ export const CommunitySelectorMap = React.memo(({ searchBeside = false }) => {
       searchBeside={searchBeside}
     />
   );
-});
+};
 
 // Container component that handles data and logic
 const CommunitySelectorPage = () => {

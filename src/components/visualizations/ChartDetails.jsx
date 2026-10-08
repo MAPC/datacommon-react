@@ -202,7 +202,7 @@ const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAreg
         {hideOuterTitle ? (
           <ScreenReaderOnlyTitle className="chart__title">
             {chart.title || "Chart Title"}
-            {isSubregion ? " (Aggregated)" : ""}
+            {(isSubregion || isRPAregion) ? " (Aggregated)" : ""}
           </ScreenReaderOnlyTitle>
         ) : (
           <ChartTitle
@@ -211,15 +211,15 @@ const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAreg
             isGauge={isGauge}
           >
             {chart.title || "Chart Title"}
-            {isSubregion && " (Aggregated)"}
+            {(isSubregion || isRPAregion) && " (Aggregated)"}
           </ChartTitle>
         )}
         {!hideButtons && (
           <ButtonGroup className="chart-details-buttons" $treemap={chart.type === "tree-map"}>
             <ViewButton
               onClick={handleViewData}
-              title={`View ${isSubregion ? 'aggregated ' : ''}chart data in table format`}
-              aria-label={`View ${isSubregion ? 'aggregated ' : ''}chart data in table format`}
+              title={`View ${(isSubregion || isRPAregion) ? 'aggregated ' : ''}chart data in table format`}
+              aria-label={`View ${(isSubregion || isRPAregion) ? 'aggregated ' : ''}chart data in table format`}
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"

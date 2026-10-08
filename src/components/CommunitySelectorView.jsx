@@ -28,7 +28,6 @@ const styles = {
   },
   select: {
     width: '100%',
-    padding: '0.5rem',
     border: 'none',
     backgroundColor: 'white',
     fontFamily: "skolar-sans-latin, Helvetica,sans-serif",
@@ -368,6 +367,12 @@ const CommunitySelectorView = ({ muniLines, muniHighlight, muniFill, municipalit
       ) : (
         <p>Search any community in Massachusetts to view their profile:</p>
       )}
+
+      <Button className="regional-profile-select-button" href='/profile/rpa/352/demographics'>
+        View MAPC Regional Profile
+      </Button>
+
+      <div className="search-box-or" aria-hidden="true">or</div>
 
       <div style={styles.subregionSelector}>
         <select
