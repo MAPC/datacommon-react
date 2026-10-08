@@ -368,9 +368,9 @@ const CommunitySelectorView = ({ muniLines, muniHighlight, muniFill, municipalit
         <p>Search any community in Massachusetts to view their profile:</p>
       )}
 
-      <Button className="regional-profile-select-button" href='/profile/rpa/352/demographics'>
+      <a className="regional-profile-select-button" href="/profile/rpa/352/demographics">
         View MAPC Regional Profile
-      </Button>
+      </a>
 
       <div className="search-box-or" aria-hidden="true">or</div>
 
