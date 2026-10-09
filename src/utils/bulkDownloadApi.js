@@ -1,5 +1,9 @@
 import locations from "../constants/locations";
-import { buildBulkExportTableEntry } from "../constants/bulkDownloadBundles";
+import {
+  buildBulkExportTableEntry,
+  CUSTOM_BULK_DOWNLOAD_BUNDLE,
+  isCustomBulkDownloadBundle,
+} from "../constants/bulkDownloadBundles";
 
 export const BULK_DOWNLOAD_EXPORT_FAILED = "Failed to export data.";
 
@@ -13,6 +17,7 @@ export const BULK_DOWNLOAD_EXPORT_FAILED_MESSAGE = {
 const BULK_DOWNLOAD_BUNDLE_LIST = "_bulk_download_bundle";
 const BULK_DOWNLOAD_BUNDLE_TABLE_LIST_VIEW = "_bulk_download_bundle_table_list";
 const BULK_DOWNLOAD_BUNDLE_TABLES_STORED_PROCEDURE = "bulk-download-bundle-tables";
+const BULK_DOWNLOAD_DATAKEYS_TABLE = "bulk_download_datakeys_all";
 
 function formatDateStamp(date = new Date()) {
   const year = date.getFullYear();
@@ -141,6 +146,30 @@ async function fetchBundleListApiRows(bundleId) {
   return [bundleRows, tableData.rows || []];
 }
 
+function parseBulkDownloadMunicipalityRows(rows = []) {
+  return rows
+    .map((row) => ({
+      muniId: Number(row.muni_id),
+      municipal: String(row.municipal ?? "").trim(),
+    }))
+    .filter((row) => row.municipal)
+    .sort((a, b) => a.municipal.localeCompare(b.municipal, undefined, { sensitivity: "base" }));
+}
+
+/** load geography options from bulk_download_datakeys_all */
+export async function fetchBulkDownloadMunicipalities() {
+  const token = import.meta.env.VITE_MAPC_API_TOKEN;
+  const url = `${locations.BROWSER_API}?token=${token}&database=ds&schema=tabular&table=${BULK_DOWNLOAD_DATAKEYS_TABLE}&columns=muni_id,municipal&limit=1000`;
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    return [];
+  }
+
+  const data = await response.json();
+  return parseBulkDownloadMunicipalityRows(data.rows || []);
+}
+
 export async function fetchBulkDownloadBundles() {
   const [bundleRows, tableRows] = await fetchBundleListApiRows();
   const bundles = groupBundleListFromRows(bundleRows, tableRows);
@@ -149,7 +178,68 @@ export async function fetchBulkDownloadBundles() {
   );
 }
 
+const INVENTORY_GEO_COLUMN_CANDIDATES = ["muni_name", "municipal", "muni"];
+
+/**
+ * Find the municipality column on an inventory table (same candidates as the dataset viewer).
+ * @param {{ table: string, database?: string, schema?: string }} options
+ * @returns {Promise<string>}
+ */
+export async function fetchGeoColumnForTable({ table, database = "ds", schema = "tabular" }) {
+  if (!table) return "";
+
+  const token = import.meta.env.VITE_MAPC_API_TOKEN;
+  const params = new URLSearchParams({
+    token,
+    database,
+    schema,
+    table,
+    useNewMetadata: "true",
+  });
+
+  const response = await fetch(`${locations.BROWSER_API}/metadata?${params.toString()}`);
+  if (!response.ok) return "";
+
+  const data = await response.json();
+  const columns = Array.isArray(data) ? data : Object.values(data)[0];
+  const names = (columns || []).map((column) => column.name || column.column_name).filter(Boolean);
+  return INVENTORY_GEO_COLUMN_CANDIDATES.find((column) => names.includes(column)) || "";
+}
+
+export async function fetchAvailableYearsForTable({
+  table,
+  yearColumn,
+  database = "ds",
+  schema = "tabular",
+}) {
+  if (!table || !yearColumn) return [];
+
+  const token = import.meta.env.VITE_MAPC_API_TOKEN;
+  const params = new URLSearchParams({
+    token,
+    distinctColumn: yearColumn,
+    database,
+    schema,
+    table,
+    limit: "100",
+  });
+
+  const response = await fetch(`${locations.BROWSER_API}?${params.toString()}`);
+  if (!response.ok) return [];
+
+  const data = await response.json();
+  return (data.rows || [])
+    .map((row) => Object.values(row)[0])
+    .filter((year) => year != null && String(year).trim() !== "")
+    .map((year) => String(year).trim())
+    .sort((a, b) => b.localeCompare(a));
+}
+
 export async function fetchBulkDownloadBundle(bundleId) {
+  if (isCustomBulkDownloadBundle(bundleId)) {
+    return CUSTOM_BULK_DOWNLOAD_BUNDLE;
+  }
+
   const token = import.meta.env.VITE_MAPC_API_TOKEN;
   const apiBase = `${locations.BROWSER_API}?token=${token}&database=ds&schema=tabular`;
 
@@ -196,8 +286,13 @@ export async function fetchBulkDownloadBundle(bundleId) {
   };
 }
 
+function selectedMunicipalityNames(municipalities = []) {
+  return municipalities.map((muni) => (typeof muni === "string" ? muni : muni.municipal)).filter(Boolean);
+}
+
 export function buildBulkDownloadFilename(municipalities, bundleSlug, extension) {
-  const muniLabel = municipalities.length === 1 ? municipalities[0] : "municipalities";
+  const names = selectedMunicipalityNames(municipalities);
+  const muniLabel = names.length === 1 ? names[0] : "municipalities";
   const dateStamp = formatDateStamp();
   return `${muniLabel} ${bundleSlug} data ${dateStamp}.${extension}`;
 }
@@ -209,22 +304,29 @@ export async function requestBulkExport({
   bundleSlug = "housing",
   useMetadataColumns = true,
 }) {
-  if (municipalities.length === 0) {
-    throw new Error("Select at least one municipality.");
-  }
-
   if (tables.length === 0) {
     throw new Error("Please select at least one table.");
   }
 
+  if (municipalities.length === 0) {
+    throw new Error("Select at least one geography.");
+  }
+
   const defaultExtension = format === "zip" ? "zip" : "xlsx";
+
+  const municipalityIds = [
+    ...new Set(
+      municipalities
+        .map((muni) => Number(typeof muni === "string" ? muni : muni.muniId))
+        .filter((id) => Number.isFinite(id)),
+    ),
+  ];
 
   const payload = {
     token: import.meta.env.VITE_MAPC_API_TOKEN,
     format,
     bundleSlug,
-    municipalities,
-    geography: { values: municipalities },
+    municipalityIds,
     useMetadataColumns,
     tables: tables.map((tableConfig) => buildBulkExportTableEntry(tableConfig)),
   };

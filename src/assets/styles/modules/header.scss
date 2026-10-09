@@ -1,6 +1,6 @@
 header {
   background: $color_bg-light;
-  padding: 16px 0 10px;
+  padding: 12px 0;
   width: 100%;
   display: flex;
   align-items: center;
@@ -11,10 +11,10 @@ header {
       overflow: visible;
     }
     .scroll-wrapper {
+      display: flex;
+      align-items: center;
       width: max-content;
-      div, ul {
-        display: inline-block;
-      }
+
       ul {
         @media print {
           display: none;
@@ -34,6 +34,7 @@ header {
     justify-content: center;
     font-size: 18px;
     cursor: pointer;
+    user-select: none;
 
     &:hover {
       background: #2e5e56;
@@ -44,29 +45,63 @@ header {
     top: -2px;
   }
 
+  .header-user-icon-menu {
+    top: 70px;
+    right: 0px;
+    width: 160px;
+    position: absolute;
+    border: 1px solid #111111;
+    border-radius: 8px;
+    padding: 4px;
+    background: white;
+    z-index: 10;
+
+    .user-icon-menu-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 6px 8px;
+      border-radius: 8px;
+      cursor: pointer;
+      user-select: none;
+
+      &:hover {
+        background: #F2F2F2;
+      }
+    }
+  }
+
   .header-brand {
+    display: flex;
+    align-items: center;
     font-size: $font_size-large;
     font-weight: 500;
     a {
       color: $color_font-dark;
+      display: flex;
+      align-items: center;
+      line-height: 0;
       &:hover {
         color: $color_font-dark--brand;
       }
     }
 
     img {
-      height: 29px;
-      margin-right: 10px;
-      top: 5px;
-      width: 29px;
+      display: block;
+      height: 64px;
+      margin-right: 0.75rem;
+      width: auto;
     }
   }
   ul {
+    display: flex;
+    align-items: center;
     font-size: $font_size-small;
-    margin-left: 2em;
+    margin-left: 1.5em;
     li {
-      display: inline-block;
-      margin: auto 2em;
+      display: flex;
+      align-items: center;
+      margin: 0 2em;
       @include media(small) {
         margin: auto 1em;
       }

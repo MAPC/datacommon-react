@@ -5,6 +5,12 @@
 
 export const DATASET_VIEW_SHARE_MAX_URL_LENGTH = 2048;
 
+export function normalizeGeographicFrame(value) {
+  const frame = String(value || "").trim().toLowerCase();
+  if (frame === "mapc" || frame === "massachusetts") return frame;
+  return null;
+}
+
 function isMarginLikeColumn(col) {
   const name = String(col?.name || "");
   const alias = String(col?.alias || "").toLowerCase();
@@ -31,6 +37,8 @@ export function getVisibleSelectedBaseColumnNames(selectedColumns, columnKeys) {
  * @param {boolean} options.embed - add embed=1
  * @param {"table"|"map"} [options.viewMode]
  * @param {string|null} [options.mapVariable] - choropleth column when viewMode is map
+ * @param {string|null} [options.geographicFrame] - massachusetts | mapc
+ * @param {Record<string, string>|null} [options.mapDimensionSelections] - extra map category pickers
  * @param {Array<{name?: string}>} options.columnKeys
  * @param {string[]} options.selectedColumns
  * @param {Array} options.availableGeographies
@@ -43,6 +51,8 @@ export function buildDatasetViewShareSearchParams({
   embed,
   viewMode = "table",
   mapVariable = null,
+  geographicFrame = null,
+  mapDimensionSelections = null,
   columnKeys,
   selectedColumns,
   availableGeographies,
@@ -60,6 +70,14 @@ export function buildDatasetViewShareSearchParams({
     if (mapVariable) {
       params.set("mapVar", String(mapVariable));
     }
+    const frame = normalizeGeographicFrame(geographicFrame);
+    if (frame) {
+      params.set("geoFrame", frame);
+    }
+    Object.entries(mapDimensionSelections || {}).forEach(([columnName, value]) => {
+      if (!columnName || value == null || String(value) === "") return;
+      params.append("mapDim", `${columnName}:${value}`);
+    });
   } else {
     const visibleKeys = (columnKeys || []).filter((c) => !isMarginLikeColumn(c));
     const allBaseNames = visibleKeys.map((c) => c.name);
@@ -107,6 +125,8 @@ export function buildDatasetViewShareSearchParams({
  *   geographies: string[]|null,
  *   years: (string|number)[]|null,
  *   mapVariable: string|null,
+ *   geographicFrame: string|null,
+ *   mapDimensionSelections: Record<string, string>|null,
  * }}
  */
 export function parseDatasetViewShareSearch(search) {
@@ -118,12 +138,25 @@ export function parseDatasetViewShareSearch(search) {
   const geographies = params.getAll("geo").map(String).filter(Boolean);
   const years = params.getAll("year").map(String).filter(Boolean);
   const mapVariable = params.get("mapVar");
+  const geographicFrame = normalizeGeographicFrame(params.get("geoFrame"));
+  const mapDimensionSelections = {};
+  params.getAll("mapDim").forEach((entry) => {
+    const rawEntry = String(entry ?? "");
+    const separator = rawEntry.indexOf(":");
+    if (separator <= 0) return;
+    const columnName = rawEntry.slice(0, separator).trim();
+    const value = rawEntry.slice(separator + 1);
+    if (!columnName || value === "") return;
+    mapDimensionSelections[columnName] = value;
+  });
 
   return {
     baseColumnNames: baseColumnNames.length ? baseColumnNames : null,
     geographies: geographies.length ? geographies : null,
     years: years.length ? years : null,
     mapVariable: mapVariable ? String(mapVariable) : null,
+    geographicFrame,
+    mapDimensionSelections: Object.keys(mapDimensionSelections).length ? mapDimensionSelections : null,
   };
 }
 
@@ -139,4 +172,32 @@ export function resolveYearsFromUrl(parsed, availableYears) {
   const wanted = new Set(parsed.years.map(String));
   const next = (availableYears || []).filter((y) => wanted.has(String(y)));
   return next.length ? next : null;
+}
+
+function columnHeaderLabel(col) {
+  return String(col?.alias || col?.label || col?.name || "").trim().toLowerCase();
+}
+
+/** Keep the same map column across municipal ↔ tract tables (by name, then alias). */
+export function resolveCarriedMapVariable(preferredName, nextColumnKeys = [], previousColumnKeys = []) {
+  const wanted = String(preferredName || "").trim();
+  if (!wanted) return null;
+  const next = nextColumnKeys || [];
+  if (next.some((col) => String(col?.name || "") === wanted)) return wanted;
+  const prev = (previousColumnKeys || []).find((col) => String(col?.name || "") === wanted);
+  const prevLabel = columnHeaderLabel(prev);
+  if (!prevLabel) return null;
+  const match = next.find((col) => columnHeaderLabel(col) === prevLabel);
+  return match?.name ? String(match.name) : null;
+}
+
+export function resolveCarriedMapDimensions(selections = {}, nextColumnKeys = []) {
+  const names = new Set((nextColumnKeys || []).map((col) => String(col?.name || "")).filter(Boolean));
+  const next = {};
+  Object.entries(selections || {}).forEach(([name, value]) => {
+    if (!names.has(String(name))) return;
+    if (value == null || String(value) === "") return;
+    next[name] = String(value);
+  });
+  return next;
 }

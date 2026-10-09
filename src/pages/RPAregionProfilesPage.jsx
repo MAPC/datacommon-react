@@ -1,5 +1,4 @@
-import React, { useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import RPAregionProfilesView from '../components/RPAregionProfilesView';
 import { fetchRPAregionData, selectRPAregionData, selectRPAregionLoading, selectRPAregionError } from '../reducers/rparegionSlice';
@@ -7,12 +6,12 @@ import { fetchRPAregionData, selectRPAregionData, selectRPAregionLoading, select
 const RPAregionProfilesPage = () => {
   const dispatch = useDispatch();
   
-  // Get all RPA region data from Redux store
+  // Get MAPC region data from Redux store
   const rparegionData = useSelector(selectRPAregionData);
   const loading = useSelector(selectRPAregionLoading);
   const error = useSelector(selectRPAregionError);
 
-  // Effect for fetching RPA region data
+  // Effect for fetching MAPC region data
   useEffect(() => {
     if (!Object.keys(rparegionData).length) {
       dispatch(fetchRPAregionData());
@@ -20,11 +19,11 @@ const RPAregionProfilesPage = () => {
   }, [dispatch, rparegionData]);
 
   if (loading) {
-    return <div>Loading RPA region data...</div>;
+    return <div>Loading MAPC region data...</div>;
   }
 
   if (error) {
-    return <div>Error loading RPA region data: {error}</div>;
+    return <div>Error loading MAPC region data: {error}</div>;
   }
 
   return <RPAregionProfilesView />;

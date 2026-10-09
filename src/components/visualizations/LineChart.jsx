@@ -50,7 +50,7 @@ class LineChart extends React.Component {
       .select(document.body)
       .append("div")
       .attr("class", "tooltip")
-      .style("opacity", 0)
+      .style("display", "none")
       .style("position", "absolute")
       .style("pointer-events", "none")
       .style("background", "white")
@@ -196,12 +196,12 @@ class LineChart extends React.Component {
               </div>
               `,
             )
-            .style("opacity", 1)
+            .style("display", "inline")
             .style("left", `${event.pageX + 10}px`)
             .style("top", `${event.pageY - 10}px`);
         })
         .on("mouseout", () => {
-          this.tooltip.style("opacity", 0);
+          this.tooltip.style("display", "none");
         });
     });
 

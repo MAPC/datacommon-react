@@ -1,11 +1,17 @@
 import axios from "axios";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faUser, faGear } from "@fortawesome/free-solid-svg-icons";
 
-import logoImg from "../assets/images/logo.svg";
+import logoImg from "../assets/images/DataCommon20_horizontal_open-data-dates.svg";
 import { getCookie } from "../utils/cookies";
+import { isUserAdmin } from "../utils/auth";
 
 function handleActivePage(subdirectory, link = "/home") {
+  if (link === "/browser" && subdirectory.startsWith("/browser/bulk-download")) {
+    return null;
+  }
   if (subdirectory.startsWith(link)) {
     return "active";
   }
@@ -18,11 +24,15 @@ function handleActivePage(subdirectory, link = "/home") {
 
 const Header = () => {
   const [userName, setUserName] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef(null);
+  const userIconRef = useRef(null);
   const location = useLocation();
   const navigate = useNavigate();
 
+  // If the user has a login cookie set, fetch their name to display in the Icon.
   useEffect(() => {
-    // If the user has a login cookie set, fetch their name to display in the Icon.
     const cookie = getCookie('datacommon_mapc_token');
     if (cookie) {
       axios.get("/api/users/me")
@@ -31,6 +41,10 @@ const Header = () => {
             setUserName(res.data.user.name);
           } else {
             setUserName(null);
+          }
+
+          if (res.data?.user) {
+            setIsAdmin(isUserAdmin(res.data.user));
           }
         }).catch(err => {
           setUserName(null);
@@ -54,14 +68,35 @@ const Header = () => {
     return letters.join('');
   }, [userName]);
 
+  // handle clicking outside menu when user menu is open
+  useEffect(() => {
+    if (!userMenuOpen) {
+      return undefined;
+    }
+
+    const handleClickOutside = (event) => {
+      event.stopPropagation();  
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target) && !userIconRef.current.contains(event.target)) {
+        setUserMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [userMenuOpen]);
+
+  const navigateTo = (path) => {
+    setUserMenuOpen(false);
+    navigate(path);
+  };
+
   return (
     <header className="container">
       <nav>
         <div className="scroll-wrapper">
           <div className="header-brand">
             <a href="/">
-              <img src={logoImg} alt="DataCommon Logo" />
-              DataCommon
+              <img src={logoImg} alt="DataCommon" />
             </a>
           </div>
           <ul>
@@ -79,6 +114,14 @@ const Header = () => {
                 href="/browser"
               >
                 Datasets
+              </a>
+            </li>
+            <li>
+              <a
+                className={handleActivePage(location.pathname, "/browser/bulk-download")}
+                href="/browser/bulk-download"
+              >
+                Data by Plan Type
               </a>
             </li>
             <li>
@@ -108,12 +151,30 @@ const Header = () => {
           </ul>
         </div>
       </nav>
-      {userName && 
-        <div className="header-user-icon-container" onClick={() => navigate("/admin/teammates")}>
-          <div className="header-user-icon">
-            {initialsString}
+      {userName &&
+        <>
+          <div className="header-user-icon-container" onClick={() => setUserMenuOpen(!userMenuOpen)} ref={userIconRef}>
+            <div className="header-user-icon">
+              {initialsString}
+            </div>
           </div>
-        </div>
+          {userMenuOpen && 
+            <div className="header-user-icon-menu" ref={userMenuRef}>
+              <>
+                <div className="user-icon-menu-row" onClick={() => navigateTo('/user-profile/me')}>
+                  <FontAwesomeIcon icon={faUser} />
+                  <div>Profile</div>
+                </div>
+                {isAdmin && 
+                  <div className="user-icon-menu-row" onClick={() => navigateTo('/admin/muni-description')}>
+                    <FontAwesomeIcon icon={faGear} />
+                    <div>Admin</div>
+                  </div>
+                }
+              </>
+            </div>
+          }
+        </>
       }
     </header>
   );

@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { Provider } from "react-redux";
 import { createBrowserRouter, RouterProvider, useParams, Navigate } from "react-router-dom";
+
 import App from "./App";
 import Home from "./pages/HomePage";
 import BrowserPage from "./pages/BrowserPage";
@@ -24,9 +25,15 @@ import municipalities from "./assets/data/ma-munis.json";
 import "./utils/introModal"; 
 import PasswordResetPage from "./pages/PasswordResetPage";
 import AdminWrapper from "./pages/AdminWrapper";
-import AdminTeammatesPage from "./pages/AdminTeammatesPage";
+import ProfileTeammatesPage from "./pages/UserProfileTeammatesPage";
 import AdminListJobsPage from "./pages/AdminListJobsPage";
 import EmailVerificationPage from "./pages/EmailVerificationPage";
+import UserProfileWrapper from "./pages/UserProfileWrapper";
+import ProfileMyProfilePage from "./pages/UserProfileMyProfilePage";
+import ProfileFavoriteDatasetsPage from "./pages/UserProfileFavoriteDatasetsPage";
+import MuniAccountCreationPage from "./pages/MuniAccountCreationPage";
+import AdminMuniDescriptionsPage from "./pages/AdminMuniDescriptionPage";
+import AdminMuniLinksPage from "./pages/AdminMuniLinksPage";
 
 // Create arrays of valid options
 const muniOptions = municipalities.features.map(
@@ -134,10 +141,10 @@ const router = createBrowserRouter([
         path: "/profile/subregion/:subregionId/:tab?",
         element: <SubregionProfileRoute tabOptions={tabOptions} />
       },
-      // {
-      //   path: "/profile/rpa/:rpaId/:tab?",
-      //   element: <RPAProfileRoute tabOptions={tabOptions} />
-      // },
+      {
+        path: "/profile/rpa/:rpaId/:tab?",
+        element: <RPAProfileRoute tabOptions={tabOptions} />
+      },
       {
         path: "gallery",
         children: [
@@ -165,15 +172,19 @@ const router = createBrowserRouter([
       },
       {
         path: "login",
-        element: <LoginPage />
+        element: <LoginPage />,
       },
       {
         path: "/password-reset/:token",
-        element: <PasswordResetPage />
+        element: <PasswordResetPage />,
       },
       {
         path: "/verify-account/:token",
-        element: <EmailVerificationPage />
+        element: <EmailVerificationPage />,
+      },
+      {
+        path: "/muni-signup",
+        element: <MuniAccountCreationPage />,
       },
       // Admin routes, all routes should go through the admin parent that verifies login / admin status.
       {
@@ -181,15 +192,38 @@ const router = createBrowserRouter([
         element: <AdminWrapper />,
         children: [
           {
-            path: "teammates",
-            element: <AdminTeammatesPage />
+            path: "jobs",
+            element: <AdminListJobsPage />,
           },
           {
-            path: "jobs",
-            element: <AdminListJobsPage />
-          }
-        ]
-      }
+            path: "muni-description",
+            element: <AdminMuniDescriptionsPage />,
+          },
+          {
+            path: "muni-links",
+            element: <AdminMuniLinksPage />,
+          },
+        ],
+      },
+      // Profile routes, all routes should go through the admin parent that verifies login.
+      {
+        path: "user-profile",
+        element: <UserProfileWrapper />,
+        children: [
+          {
+            path: "me",
+            element: <ProfileMyProfilePage />,
+          },
+          {
+            path: "teammates",
+            element: <ProfileTeammatesPage />,
+          },
+          {
+            path: "favorite-datasets",
+            element: <ProfileFavoriteDatasetsPage />,
+          },
+        ],
+      },
     ],
   },
 ]);

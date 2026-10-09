@@ -46,7 +46,7 @@ class StackedAreaChart extends React.Component {
       .select("body")
       .append("div")
       .attr("class", "chart-tooltip")
-      .style("opacity", 0)
+      .style("display", "none")
       .style("position", "absolute")
       .style("pointer-events", "none")
       .style("background", "white")
@@ -167,7 +167,7 @@ class StackedAreaChart extends React.Component {
         this.updateTooltip(event, d, x);
       })
       .on("mouseout", () => {
-        this.tooltip.style("opacity", 0);
+        this.tooltip.style("display", "none");
       });
 
     // Add the dashed line fields if they exist:
@@ -177,7 +177,7 @@ class StackedAreaChart extends React.Component {
       dashedLineDataByField[row.z].push(row);
     });
     if (Object.keys(dashedLineDataByField).length > 0) {
-      Object.entries(dashedLineDataByField).forEach(([field, rows]) => {
+      Object.values(dashedLineDataByField).forEach((rows) => {
         const sortedData = rows.sort((a,b) => a.x - b.x);
         const svg = this.chart.append('svg')
           .attr('width', '100%')
@@ -275,7 +275,7 @@ class StackedAreaChart extends React.Component {
       const formattedYear = this.props.xAxis.format ? this.props.xAxis.format(year) : year;
 
       this.tooltip
-        .style("opacity", 1)
+        .style("display", "inline")
         .html(
           `
           <div style="padding: 4px;">

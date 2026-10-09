@@ -1,5 +1,5 @@
 import axios from "axios";
-import React, { useState } from "react";
+import { useState } from "react";
 import styled, { keyframes } from "styled-components";
 
 const PageContainer = styled.section`
@@ -11,18 +11,18 @@ const PageContainer = styled.section`
 `;
 
 const LoginBox = styled.div`
-  width: 550px;
-  height: 500px;
+  width: 650px;
+  height: 550px;
   background: #dddddd;
   border-radius: 10px;
-  box-shadow: 4px 4px 4px #dddddd;
+  box-shadow: 6px 6px 6px #bebebe;
 `;
 
 const LoginHeader = styled.div`
   width: 100%;
-  height: 3.5rem;
+  height: 3rem;
   border-radius: 10px;
-  padding: 0.5rem;
+  padding: 6px 16px;
   background: #1F4E46;
   color: white;
   font-size: 22px;
@@ -38,14 +38,19 @@ const LoginBoxContent = styled.div`
 
 const LoginEmailContainer = styled.div`
   width: 100%;
-  padding: 2rem;
+  padding: 1rem 2rem;
   padding-bottom: 0px;
   color: #111111;
 `;
 
 const LoginEmailDescription = styled.div`
   font-size: 16px;
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
+`;
+
+const CreationSuccessMessage = styled.div`
+  font-size: 14px;
+  margin: 10px 0px;
 `;
 
 const LoginEmailLabel = styled.label`
@@ -133,16 +138,24 @@ const LoginPage = () => {
   const [passwordSetSuccessful, setPasswordSetSuccessful] = useState(false);
 
   const onCreateAccount = () => {
+    if (!emailInputValue || !nameInputValue || !newPassword) {
+      setErrorMessage('Please provide a name, email and password to create your account.');
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setErrorMessage('Passwords do not match, please provide the same password in both inputs.');
+      return;
+    }
+
     setButtonLoading(true);
     setErrorMessage(null);
     setPasswordSetSuccessful(false);
-
-    // newPassword and confirmNewPassword are checked for equality before submit button clicked
     axios.post(`/api/users/create-account`, 
-      { email: emailInputValue, name: nameInputValue, password: newPassword})
-      .then(resp => {
+      { email: emailInputValue, name: nameInputValue, password: newPassword })
+      .then(() => {
         setPasswordSetSuccessful(true);
-      }).catch(e => {
+      }).catch(() => {
         setErrorMessage("There was an error while creating your account.");
       }).finally(() => {
         setButtonLoading(false);
@@ -150,9 +163,13 @@ const LoginPage = () => {
   };
 
   const onLoginUser = () => {
+    if (!emailInputValue || !passwordInputValue) {
+      setErrorMessage("Please provide an email and password");
+      return;
+    }
+
     setButtonLoading(true);
     setErrorMessage(null);
-
     axios.post(`/api/users/login`, { email: emailInputValue, password: passwordInputValue})
       .then(resp => {
         if (resp.data?.login) {
@@ -163,7 +180,7 @@ const LoginPage = () => {
         } else {
           setErrorMessage("Incorrect email or password");
         }
-      }).catch(e => {
+      }).catch(() => {
         setErrorMessage("There was an error while attempting to login.");
       }).finally(() => {
         setButtonLoading(false);
@@ -171,15 +188,25 @@ const LoginPage = () => {
   };
 
   const sendPasswordResetEmail = () => {
+    if (!emailInputValue) {
+      setErrorMessage("Please provide the email for your DataCommon account");
+      return;
+    }
+
     setErrorMessage(null);
     setForgotPasswordMessage(null);
-
     axios.post(`/api/users/request-pw-reset`, { email: emailInputValue })
-      .then(resp => {
+      .then(() => {
         setForgotPasswordMessage("Please check the provided email for a password reset link.")
-      }).catch(e => {
+      }).catch(() => {
         setErrorMessage("There was an error while attempting send the password reset email.")
       });
+  };
+
+  const submitIfEnter = (key) => {
+    if (key === 'Enter') {
+      onLoginUser();
+    }
   }
 
   return (
@@ -204,6 +231,7 @@ const LoginPage = () => {
                   style={{'marginLeft': '61px'}}
                   value={emailInputValue}
                   onChange={e => setEmailInputValue(e.target.value)}
+                  onKeyDown={e => submitIfEnter(e.key)}
                   placeholder="Email..."
                 />
                 <div>
@@ -216,6 +244,7 @@ const LoginPage = () => {
                     style={{'marginLeft': '32px'}}
                     value={passwordInputValue}
                     onChange={e => setPasswordInputValue(e.target.value)}
+                    onKeyDown={e => submitIfEnter(e.key)}
                     placeholder="Password..."
                   />
                 </div>
@@ -249,6 +278,7 @@ const LoginPage = () => {
                   style={{'marginLeft': '60px'}}
                   value={emailInputValue}
                   onChange={e => setEmailInputValue(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && sendPasswordResetEmail()}
                   placeholder="Email..."
                 />
                 {forgotPasswordMessage && 
@@ -273,6 +303,7 @@ const LoginPage = () => {
                     style={{'marginLeft': '58px'}}
                     value={nameInputValue}
                     onChange={e => setNameInputValue(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && onCreateAccount()}
                     placeholder="Full Name..."
                   />
                 </div>
@@ -285,6 +316,7 @@ const LoginPage = () => {
                     style={{'marginLeft': '89px'}}
                     value={emailInputValue}
                     onChange={e => setEmailInputValue(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && onCreateAccount()}
                     placeholder="Email..."
                   />
                 </div>
@@ -298,6 +330,7 @@ const LoginPage = () => {
                     style={{'marginLeft': '59px'}}
                     value={newPassword}
                     onChange={e => setNewPassword(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && onCreateAccount()}
                     placeholder="Password..."
                   />
                 </div>
@@ -310,14 +343,17 @@ const LoginPage = () => {
                     type="password"
                     value={confirmNewPassword}
                     onChange={e => setConfirmNewPassword(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && onCreateAccount()}
                     placeholder="Confirm Password..."
                   />
                 </div>
                 {/* After user has set password, direct them to login. */}
                 {passwordSetSuccessful && 
-                  <LoginEmailDescription>
-                    Your Account has been created! Please verify your email using the link that was sent to you before logging in. 
-                  </LoginEmailDescription>
+                  <CreationSuccessMessage>
+                    Your Account has been created! Please verify your email using the link that was sent to you before logging in.
+                    The email is from no-reply@mailgun2.mapc.org. Please check your spam folder and wait up to three minutes for the email to arrive.
+                    If you never receive the email, please reach out to datacommon@mapc.org.
+                  </CreationSuccessMessage>
                 }
               </>
             }

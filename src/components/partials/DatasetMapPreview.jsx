@@ -17,27 +17,80 @@ import {
   fetchGisBoundaryLayer,
   fetchNativeBoundaryGeojson,
   filterRowsForMapPreview,
+  filterRowsByMapDimensions,
+  detectMapExtraDimensions,
+  areMapDimensionsSelected,
   formatMapValue,
+  getColumnHeaderLabel,
   getColumnUnit,
   getMarginColumnForBase,
   getMappableColumns,
   isBoundariesCategory,
   adaptMunicipalBoundaryGeojson,
   resolveMapGeographyColumn,
+  supportsTabularGeojsonExport,
+  fetchMapcMunicipalityPolygons,
+  fetchMassgisDistrictOverlay,
+  buildMapcRegionIndex,
+  filterGeojsonByGeographicFrame,
+  getMapVariableKind,
+  parseCodedCategoryLabels,
+  parsePairedCategoryNameLabels,
 } from "../../utils/datasetMapPreview";
 import { ExportLoadingMask, useExportFileDownload } from "./ExportLoadingMask";
+import axios from "axios";
+import html2canvas from "html2canvas";
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_API_TOKEN;
 
 const SOURCE_ID = "dataset-map-preview";
 const FILL_LAYER_ID = "dataset-map-preview-fill";
 const LINE_LAYER_ID = "dataset-map-preview-line";
+const SELECTED_FILL_LAYER_ID = "dataset-map-preview-selected-fill";
 const SELECTED_LINE_LAYER_ID = "dataset-map-preview-selected";
+const CIRCLE_LAYER_ID = "dataset-map-preview-circle";
+const SELECTED_CIRCLE_LAYER_ID = "dataset-map-preview-circle-selected";
 const MUNI_SOURCE_ID = "dataset-map-preview-muni";
 const MUNI_LINE_LAYER_ID = "dataset-map-preview-muni-line";
+const HOUSE_SOURCE_ID = "dataset-map-preview-house";
+const HOUSE_LINE_LAYER_ID = "dataset-map-preview-house-line";
+const SENATE_SOURCE_ID = "dataset-map-preview-senate";
+const SENATE_LINE_LAYER_ID = "dataset-map-preview-senate-line";
 const MAPC_SOURCE_ID = "dataset-map-preview-mapc";
 const MAPC_LINE_LAYER_ID = "dataset-map-preview-mapc-line";
 const EMPTY_FC = { type: "FeatureCollection", features: [] };
+
+const GEOGRAPHIC_FRAME = {
+  massachusetts: "massachusetts",
+  mapc: "mapc",
+};
+
+/** Bounds for the MAPC region in Massachusetts */
+const MAPC_REGION_BOUNDS = [
+  [-71.6606345781778, 42.0024105200978],
+  [-70.7113301211872, 42.7128927511039],
+];
+
+function extendBoundsFromCoords(bounds, coords, state) {
+  if (!Array.isArray(coords) || !coords.length) return;
+  if (typeof coords[0] === "number") {
+    if (Number.isFinite(coords[0]) && Number.isFinite(coords[1])) {
+      bounds.extend([coords[0], coords[1]]);
+      state.hasCoord = true;
+    }
+    return;
+  }
+  coords.forEach((item) => extendBoundsFromCoords(bounds, item, state));
+}
+
+function boundsFromGeojson(geojson) {
+  const features = geojson?.type === "Feature" ? [geojson] : geojson?.features || [];
+  if (!features.length) return null;
+  const bounds = new mapboxgl.LngLatBounds();
+  const state = { hasCoord: false };
+  features.forEach((feature) => extendBoundsFromCoords(bounds, feature?.geometry?.coordinates, state));
+  return state.hasCoord && !bounds.isEmpty() ? bounds : null;
+}
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -47,11 +100,30 @@ function escapeHtml(value) {
     .replace(/"/g, "&quot;");
 }
 
+function geographyEntityLabel(geographyType, { plural = false } = {}) {
+  switch (geographyType) {
+    case MAP_VIEW_GEOGRAPHY_TYPES.census_tracts:
+      return plural ? "census tracts" : "census tract";
+    case MAP_VIEW_GEOGRAPHY_TYPES.boundary:
+      return plural ? "features" : "feature";
+    default:
+      return plural ? "municipalities" : "municipality";
+  }
+}
+
+function formatLegendFilterLine(items = []) {
+  return items
+    .map((item) => String(item?.value ?? "").trim())
+    .filter(Boolean)
+    .join(", ");
+}
+
 function buildFeatureDetails(props, {
   mapYear,
   geographyType,
   geometryJoinKey,
   marginColumn,
+  extraDimensionLabels = [],
 } = {}) {
   if (!props) return null;
   const rawValue = props.__mapValue;
@@ -67,9 +139,9 @@ function buildFeatureDetails(props, {
   const joinKey = String(props.__joinKey || geometryJoinKey || "").toLowerCase();
   const isMunicipal =
     geographyType === MAP_VIEW_GEOGRAPHY_TYPES.municipal ||
-    joinKey === "muni_id" ||
-    joinKey === "municipal" ||
-    props.muni_id != null;
+    ((joinKey === "muni_id" || joinKey === "municipal" || props.muni_id != null) &&
+      geographyType !== MAP_VIEW_GEOGRAPHY_TYPES.school_districts &&
+      geographyType !== MAP_VIEW_GEOGRAPHY_TYPES.schools);
 
   const label =
     (isMunicipal && formattedMunicipalName) ||
@@ -106,22 +178,90 @@ function buildFeatureDetails(props, {
     marginOfError,
     year: mapYear != null ? String(mapYear) : null,
     tractBoundary,
+    extraDimensionLabels,
   };
+}
+
+function buildRankingRows(features, { geographyType, geometryJoinKey, marginColumn } = {}) {
+  const rows = [];
+  (features || []).forEach((feature) => {
+    const details = buildFeatureDetails(feature.properties, {
+      geographyType,
+      geometryJoinKey,
+      marginColumn,
+    });
+    if (!details || !Number.isFinite(details.value)) return;
+    const key = String(feature.properties?.__mapKey ?? "");
+    if (!key) return;
+    rows.push({
+      key,
+      label: details.label,
+      value: details.value,
+      marginOfError: details.marginOfError,
+    });
+  });
+  rows.sort((a, b) => compareRankingRows(a, b, "value", "desc"));
+  return rows;
+}
+
+const RANKING_SORT_DEFAULT = { column: "value", direction: "desc" };
+
+function compareRankingRows(a, b, column, direction) {
+  const dir = direction === "asc" ? 1 : -1;
+  if (column === "label") {
+    const byLabel = String(a.label).localeCompare(String(b.label), undefined, {
+      numeric: true,
+      sensitivity: "base",
+    });
+    return byLabel * dir;
+  }
+
+  const aValue = a[column];
+  const bValue = b[column];
+  const aMissing = aValue == null || !Number.isFinite(aValue);
+  const bMissing = bValue == null || !Number.isFinite(bValue);
+  if (aMissing || bMissing) {
+    if (aMissing && bMissing) {
+      return String(a.label).localeCompare(String(b.label), undefined, { numeric: true, sensitivity: "base" });
+    }
+    return aMissing ? 1 : -1;
+  }
+  if (aValue !== bValue) return (aValue - bValue) * dir;
+  return String(a.label).localeCompare(String(b.label), undefined, { numeric: true, sensitivity: "base" });
+}
+
+function RankingSortHeader({ column, label, sort, onSort }) {
+  const isSorted = sort.column === column;
+  const ariaSort = !isSorted ? "none" : sort.direction === "asc" ? "ascending" : "descending";
+  return (
+    <th scope="col" aria-sort={ariaSort}>
+      <button
+        type="button"
+        className="dataset-map-preview__ranking-sort"
+        onClick={() => onSort(column)}
+      >
+        <span>{label}</span>
+        <span
+          className={`dataset-map-preview__ranking-sort-icon${isSorted ? " is-active" : ""}`}
+          aria-hidden="true"
+        >
+          {isSorted && sort.direction === "asc" ? "▲" : "▼"}
+        </span>
+      </button>
+    </th>
+  );
 }
 
 function featureDetailsToPopupHtml(details, {
   geographyType,
   activeVariableLabel,
   activeVariableUnit,
+  mapValueKind = "quantitative",
+  categoryLabels = null,
 } = {}) {
   if (!details) return "";
-  const placeLabel =
-    geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts
-      ? "Census tract"
-      : geographyType === MAP_VIEW_GEOGRAPHY_TYPES.boundary
-        ? "Feature"
-        : "Municipality";
-  const valueText = formatMapValue(details.value, activeVariableUnit);
+  const placeLabel = geographyEntityLabel(geographyType).replace(/^./, (s) => s.toUpperCase());
+  const valueText = formatMapValue(details.value, activeVariableUnit, { kind: mapValueKind, categoryLabels });
   const moeText =
     details.marginOfError != null
       ? ` ± ${formatMapValue(details.marginOfError, activeVariableUnit)}`
@@ -140,6 +280,11 @@ function featureDetailsToPopupHtml(details, {
       `<div class="dataset-map-preview__hover-tooltip-row"><strong>Boundary</strong> <span>${escapeHtml(details.tractBoundary)}</span></div>`,
     );
   }
+  (details.extraDimensionLabels || []).forEach((item) => {
+    rows.push(
+      `<div class="dataset-map-preview__hover-tooltip-row dataset-map-preview__hover-tooltip-row--stacked"><strong>${escapeHtml(item.label)}</strong><span>${escapeHtml(item.value)}</span></div>`,
+    );
+  });
   if (activeVariableLabel) {
     rows.push(
       `<div class="dataset-map-preview__hover-tooltip-row dataset-map-preview__hover-tooltip-row--metric"><strong>${escapeHtml(activeVariableLabel)}</strong> <span>${escapeHtml(valueText)}${escapeHtml(moeText)}</span></div>`,
@@ -148,24 +293,43 @@ function featureDetailsToPopupHtml(details, {
   return `<div class="dataset-map-preview__hover-tooltip">${rows.join("")}</div>`;
 }
 
+function polygonGeometryFilter() {
+  return ["match", ["geometry-type"], ["Polygon", "MultiPolygon"], true, false];
+}
+
+function selectedKeyFilter(selectedFeatureKey) {
+  return selectedFeatureKey != null && selectedFeatureKey !== ""
+    ? ["==", ["to-string", ["get", "__mapKey"]], String(selectedFeatureKey)]
+    : ["==", ["get", "__mapKey"], "__none__"];
+}
+
+function hasDistrictPolygons(geojson, layerKey) {
+  const feature = geojson?.features?.[0];
+  const geomType = feature?.geometry?.type || "";
+  if (!/Polygon$/.test(geomType)) return false;
+  const props = feature.properties || {};
+  return layerKey === "house"
+    ? Boolean(props.REP_DIST || props.DIST_CODE)
+    : Boolean(props.SEN_DIST);
+}
+
 function syncMapLayerOrder(map) {
   if (!map) return;
-  // Bottom → top: fill, feature outlines, boundary overlays, selected highlight.
-  if (map.getLayer(FILL_LAYER_ID)) {
-    map.moveLayer(FILL_LAYER_ID);
-  }
-  if (map.getLayer(LINE_LAYER_ID)) {
-    map.moveLayer(LINE_LAYER_ID);
-  }
-  if (map.getLayer(MUNI_LINE_LAYER_ID)) {
-    map.moveLayer(MUNI_LINE_LAYER_ID);
-  }
-  if (map.getLayer(MAPC_LINE_LAYER_ID)) {
-    map.moveLayer(MAPC_LINE_LAYER_ID);
-  }
-  if (map.getLayer(SELECTED_LINE_LAYER_ID)) {
-    map.moveLayer(SELECTED_LINE_LAYER_ID);
-  }
+  // Bottom → top: fill, outlines, boundary overlays, selected fill/outline.
+  [
+    FILL_LAYER_ID,
+    LINE_LAYER_ID,
+    CIRCLE_LAYER_ID,
+    MUNI_LINE_LAYER_ID,
+    HOUSE_LINE_LAYER_ID,
+    SENATE_LINE_LAYER_ID,
+    MAPC_LINE_LAYER_ID,
+    SELECTED_FILL_LAYER_ID,
+    SELECTED_LINE_LAYER_ID,
+    SELECTED_CIRCLE_LAYER_ID,
+  ].forEach((layerId) => {
+    if (map.getLayer(layerId)) map.moveLayer(layerId);
+  });
 }
 
 function DatasetMapPreview({
@@ -180,6 +344,10 @@ function DatasetMapPreview({
   geographyType = null,
   mapVariable = null,
   onMapVariableChange,
+  geographicFrame: geographicFrameProp = GEOGRAPHIC_FRAME.mapc,
+  onGeographicFrameChange,
+  mapDimensionSelections = null,
+  onMapDimensionSelectionsChange,
   menu1 = null,
   title = "",
   source = "",
@@ -196,14 +364,38 @@ function DatasetMapPreview({
   const [mapReady, setMapReady] = useState(false);
   const [apiBoundaryGeojson, setApiBoundaryGeojson] = useState(null);
   const [geometryJoinKey, setGeometryJoinKey] = useState(null);
+  const [geometryYear, setGeometryYear] = useState(null);
   const [boundariesError, setBoundariesError] = useState("");
   const [boundariesLoading, setBoundariesLoading] = useState(false);
   const [overlaysLoading, setOverlaysLoading] = useState(true);
-  const [showMunicipalLayer, setShowMunicipalLayer] = useState(false);
+  const [showMunicipalLayer, setShowMunicipalLayer] = useState(geographyType !== 'municipal');
   const [showMapcRegionLayer, setShowMapcRegionLayer] = useState(false);
+  const [showHouseDistricts, setShowHouseDistricts] = useState(false);
+  const [showSenateDistricts, setShowSenateDistricts] = useState(false);
+  const [geographicFrame, setGeographicFrameState] = useState(
+    geographicFrameProp === GEOGRAPHIC_FRAME.massachusetts || geographicFrameProp === GEOGRAPHIC_FRAME.mapc
+      ? geographicFrameProp
+      : GEOGRAPHIC_FRAME.mapc,
+  );
   const [muniOverlayGeojson, setMuniOverlayGeojson] = useState(EMPTY_FC);
   const [mapcOverlayGeojson, setMapcOverlayGeojson] = useState(EMPTY_FC);
+  const [mapcMunicipalityGeojson, setMapcMunicipalityGeojson] = useState(EMPTY_FC);
+  const [houseDistricts, setHouseDistricts] = useState(EMPTY_FC);
+  const [senateDistricts, setSenateDistricts] = useState(EMPTY_FC);
+  const [houseDistrictsLoading, setHouseDistrictsLoading] = useState(false);
+  const [senateDistrictsLoading, setSenateDistrictsLoading] = useState(false);
+  const [boundariesMenuOpen, setBoundariesMenuOpen] = useState(false);
+  const houseDistrictsRef = useRef(houseDistricts);
+  const senateDistrictsRef = useRef(senateDistricts);
+  houseDistrictsRef.current = houseDistricts;
+  senateDistrictsRef.current = senateDistricts;
+  const didFitGeographicFrameRef = useRef(false);
   const [selectedFeatureKey, setSelectedFeatureKey] = useState(null);
+  const [muniForSelectedCt, setMuniForSelectedCt] = useState(null);
+  const [loadingMuniForCt, setLoadingMuniForCt] = useState(false);
+  const [dimensionSelections, setDimensionSelections] = useState(
+    mapDimensionSelections && typeof mapDimensionSelections === "object" ? mapDimensionSelections : {},
+  );
   const hoverPopupRef = useRef(null);
   const { isExporting, exportError, runExportDownload, clearExportError } = useExportFileDownload();
 
@@ -243,13 +435,32 @@ function DatasetMapPreview({
     [filteredRows, rows, geographyType, geometryJoinKey, apiBoundaryGeojson],
   );
 
+  const extraDimensions = useMemo(() => {
+    if (isBoundariesCategory(menu1) || geographyType === MAP_VIEW_GEOGRAPHY_TYPES.boundary) {
+      return { hasDuplicates: false, dimensions: [] };
+    }
+    return detectMapExtraDimensions({
+      rows,
+      geographyColumn,
+      yearColumn: queryYearColumn,
+      columnKeys,
+    });
+  }, [rows, geographyColumn, queryYearColumn, columnKeys, menu1, geographyType]);
+
+  const extraDimensionNames = useMemo(
+    () => new Set(extraDimensions.dimensions.map((dimension) => dimension.name)),
+    [extraDimensions],
+  );
+
   const mappableColumns = useMemo(() => {
     // Prefer geometry-joined properties when the 15k table preview is missing this year.
     const geometryRows =
       apiBoundaryGeojson?.features?.map((feature) => feature.properties).filter(Boolean) || [];
     const sampleRows = filteredRows.length ? filteredRows : geometryRows.length ? geometryRows : rows;
-    return getMappableColumns(columnKeys, sampleRows, geographyColumn, queryYearColumn);
-  }, [columnKeys, filteredRows, rows, apiBoundaryGeojson, geographyColumn, queryYearColumn]);
+    return getMappableColumns(columnKeys, sampleRows, geographyColumn, queryYearColumn).filter(
+      (col) => !extraDimensionNames.has(col.name),
+    );
+  }, [columnKeys, filteredRows, rows, apiBoundaryGeojson, geographyColumn, queryYearColumn, extraDimensionNames]);
 
   const activeVariable =
     mapVariable && mappableColumns.some((col) => col.name === mapVariable)
@@ -257,7 +468,10 @@ function DatasetMapPreview({
       : mappableColumns[0]?.name || null;
 
   const activeVariableLabel =
-    mappableColumns.find((col) => col.name === activeVariable)?.label || activeVariable || "";
+    getColumnHeaderLabel(columnKeys, activeVariable) ||
+    mappableColumns.find((col) => col.name === activeVariable)?.label ||
+    activeVariable ||
+    "";
 
   const activeVariableUnit = useMemo(() => {
     const column =
@@ -279,6 +493,51 @@ function DatasetMapPreview({
   }, [activeVariable, mapVariable, onMapVariableChange]);
 
   const mapYear = selectedYears?.[0] ?? null;
+  const extraDimensionKey = extraDimensions.dimensions.map((dimension) => dimension.name).join("|");
+
+  useEffect(() => {
+    if (!extraDimensions.dimensions.length) return;
+    setDimensionSelections((prev) => {
+      const next = {};
+      extraDimensions.dimensions.forEach((dimension) => {
+        const current = prev[dimension.name];
+        if (current == null || String(current) === "") return;
+        const allowed = (dimension.values || []).some((value) => String(value) === String(current));
+        if (allowed) next[dimension.name] = String(current);
+      });
+      const prevKeys = Object.keys(prev);
+      const nextKeys = Object.keys(next);
+      if (prevKeys.length === nextKeys.length && nextKeys.every((key) => prev[key] === next[key])) {
+        return prev;
+      }
+      return next;
+    });
+  }, [extraDimensionKey, table, extraDimensions]);
+
+  useEffect(() => {
+    onGeographicFrameChange?.(geographicFrame);
+  }, [geographicFrame, onGeographicFrameChange]);
+
+  useEffect(() => {
+    onMapDimensionSelectionsChange?.(dimensionSelections);
+  }, [dimensionSelections, onMapDimensionSelectionsChange]);
+
+  const needsDimensionPicker = extraDimensions.hasDuplicates && extraDimensions.dimensions.length > 0;
+  const dimensionsReady = areMapDimensionsSelected(extraDimensions.dimensions, dimensionSelections);
+
+  const extraDimensionLabels = useMemo(() => {
+    if (!needsDimensionPicker || !dimensionsReady) return [];
+    return extraDimensions.dimensions.map((dimension) => ({
+      label: getColumnHeaderLabel(columnKeys, dimension.name),
+      value: String(dimensionSelections[dimension.name] ?? ""),
+    }));
+  }, [needsDimensionPicker, dimensionsReady, extraDimensions.dimensions, dimensionSelections, columnKeys]);
+
+  const choroplethRows = useMemo(() => {
+    if (!needsDimensionPicker) return filteredRows;
+    if (!dimensionsReady) return [];
+    return filterRowsByMapDimensions(filteredRows, dimensionSelections);
+  }, [needsDimensionPicker, dimensionsReady, filteredRows, dimensionSelections]);
 
   useEffect(() => {
     let cancelled = false;
@@ -287,20 +546,21 @@ function DatasetMapPreview({
       setOverlaysLoading(true);
       try {
         // Load independently so one failure (e.g. unauthorized MAPC table) does not block both.
-        const [muniResult, mapcResult] = await Promise.allSettled([
-          fetchGisBoundaryLayer("municipal"),
+        // MAPC clip/outline only. Municipal GIS polygons are fetched when that overlay is turned on.
+        const [mapcResult, mapcMuniResult] = await Promise.allSettled([
           fetchGisBoundaryLayer("mapcRegion"),
+          fetchMapcMunicipalityPolygons(),
         ]);
         if (cancelled) return;
-        if (muniResult.status === "fulfilled") {
-          setMuniOverlayGeojson(muniResult.value);
-        } else {
-          console.error("Failed to load municipal overlay boundaries:", muniResult.reason);
-        }
         if (mapcResult.status === "fulfilled") {
           setMapcOverlayGeojson(mapcResult.value);
         } else {
           console.error("Failed to load MAPC region overlay boundaries:", mapcResult.reason);
+        }
+        if (mapcMuniResult.status === "fulfilled") {
+          setMapcMunicipalityGeojson(mapcMuniResult.value);
+        } else {
+          console.error("Failed to load MAPC municipality polygons:", mapcMuniResult.reason);
         }
       } finally {
         if (!cancelled) {
@@ -315,7 +575,77 @@ function DatasetMapPreview({
     };
   }, []);
 
-  const isBoundaryLoading = boundariesLoading || overlaysLoading;
+  useEffect(() => {
+    if (!showMunicipalLayer) return undefined;
+    if (muniOverlayGeojson?.features?.length) return undefined;
+    let cancelled = false;
+    fetchGisBoundaryLayer("municipal")
+      .then((fc) => {
+        if (!cancelled) setMuniOverlayGeojson(fc);
+      })
+      .catch((err) => {
+        console.error("Failed to load municipal overlay boundaries:", err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [showMunicipalLayer, muniOverlayGeojson]);
+
+  useEffect(() => {
+    if (!showHouseDistricts) {
+      setHouseDistrictsLoading(false);
+      return undefined;
+    }
+    if (hasDistrictPolygons(houseDistrictsRef.current, "house")) {
+      setHouseDistrictsLoading(false);
+      return undefined;
+    }
+    let cancelled = false;
+    setHouseDistrictsLoading(true);
+    fetchMassgisDistrictOverlay("house")
+      .then((fc) => {
+        if (!cancelled) setHouseDistricts(fc);
+      })
+      .catch((err) => {
+        console.error("Failed to load MA House district overlay:", err);
+      })
+      .finally(() => {
+        if (!cancelled) setHouseDistrictsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+      setHouseDistrictsLoading(false);
+    };
+  }, [showHouseDistricts]);
+
+  useEffect(() => {
+    if (!showSenateDistricts) {
+      setSenateDistrictsLoading(false);
+      return undefined;
+    }
+    if (hasDistrictPolygons(senateDistrictsRef.current, "senate")) {
+      setSenateDistrictsLoading(false);
+      return undefined;
+    }
+    let cancelled = false;
+    setSenateDistrictsLoading(true);
+    fetchMassgisDistrictOverlay("senate")
+      .then((fc) => {
+        if (!cancelled) setSenateDistricts(fc);
+      })
+      .catch((err) => {
+        console.error("Failed to load MA Senate district overlay:", err);
+      })
+      .finally(() => {
+        if (!cancelled) setSenateDistrictsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+      setSenateDistrictsLoading(false);
+    };
+  }, [showSenateDistricts]);
+
+  const isBoundaryLoading = boundariesLoading;
   // Boundaries category tables already have polygons in `shape` — no geometry-API join.
   const isBoundariesDataset = isBoundariesCategory(menu1);
   const shapeAttributeColumns = useMemo(
@@ -325,14 +655,20 @@ function DatasetMapPreview({
   const boundaryLayerLabel = title || "Boundaries";
 
   useEffect(() => {
+    const isMunicipalTable =
+      geographyType === MAP_VIEW_GEOGRAPHY_TYPES.municipal && !isBoundariesDataset;
+    const hasMunicipalFallback = Boolean(isMunicipalTable && municipalGeojson?.features?.length);
+    // Map year is single-select: fetch that year's rows already joined to polygons.
+    // Skip the Geometry API only for municipal tables with no year (static town polygons).
     const usesGeometryApi =
       !isBoundariesDataset &&
       (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts ||
-        geographyType === MAP_VIEW_GEOGRAPHY_TYPES.municipal);
+        (isMunicipalTable && (needsDimensionPicker || (queryYearColumn && mapYear != null))));
 
     if (!usesGeometryApi && !isBoundariesDataset) {
       setApiBoundaryGeojson(null);
-      setGeometryJoinKey(null);
+      setGeometryJoinKey(hasMunicipalFallback ? "muni_id" : null);
+      setGeometryYear(hasMunicipalFallback ? mapYear : null);
       setBoundariesError("");
       setBoundariesLoading(false);
       return undefined;
@@ -344,6 +680,7 @@ function DatasetMapPreview({
     }
 
     let cancelled = false;
+    setGeometryJoinKey((current) => current || (hasMunicipalFallback ? "muni_id" : current));
     setBoundariesLoading(true);
     setBoundariesError("");
 
@@ -379,11 +716,15 @@ function DatasetMapPreview({
         if (cancelled) return;
         setApiBoundaryGeojson(result.featureCollection);
         setGeometryJoinKey(result.joinKey);
+        setGeometryYear(mapYear);
         setBoundariesLoading(false);
       } catch (primaryError) {
         if (cancelled) return;
-        setApiBoundaryGeojson(null);
-        setGeometryJoinKey(null);
+        if (!hasMunicipalFallback) {
+          setApiBoundaryGeojson(null);
+          setGeometryJoinKey(null);
+          setGeometryYear(null);
+        }
         if (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.municipal && !isBoundariesDataset) {
           setBoundariesError(
             primaryError?.message
@@ -415,15 +756,55 @@ function DatasetMapPreview({
     isBoundariesDataset,
     shapeAttributeColumns,
     boundaryLayerLabel,
+    needsDimensionPicker,
   ]);
 
   const baseGeojson = useMemo(() => {
     if (apiBoundaryGeojson) return apiBoundaryGeojson;
-    if (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.municipal && !boundariesLoading && municipalGeojson) {
+    if (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.municipal && municipalGeojson) {
       return adaptMunicipalBoundaryGeojson(municipalGeojson);
     }
     return null;
-  }, [apiBoundaryGeojson, geographyType, boundariesLoading, municipalGeojson]);
+  }, [apiBoundaryGeojson, geographyType, municipalGeojson]);
+
+  const mapcRegionIndex = useMemo(
+    () => buildMapcRegionIndex(mapcMunicipalityGeojson),
+    [mapcMunicipalityGeojson],
+  );
+
+  const mapVariableColumn = useMemo(
+    () =>
+      columnKeys.find((col) => col.name === activeVariable) ||
+      mappableColumns.find((col) => col.name === activeVariable) ||
+      null,
+    [columnKeys, mappableColumns, activeVariable],
+  );
+  const mapColumnValues = useMemo(
+    () => (rows || []).map((row) => row?.[activeVariable]),
+    [rows, activeVariable],
+  );
+  const mapValueKind = useMemo(
+    () => getMapVariableKind(mapVariableColumn, mapColumnValues),
+    [mapVariableColumn, mapColumnValues],
+  );
+  const categoryLabels = useMemo(() => {
+    return (
+      parseCodedCategoryLabels(mapVariableColumn) ||
+      parsePairedCategoryNameLabels(mapVariableColumn, rows)
+    );
+  }, [mapVariableColumn, rows]);
+  const isCategoricalVariable = mapValueKind === "binary" || mapValueKind === "categorical";
+
+  const framedBaseGeojson = useMemo(() => {
+    if (!baseGeojson) return null;
+    // Category maps need every class visible (e.g. 0 and 1), so do not clip the frame.
+    if (isCategoricalVariable) return baseGeojson;
+    return filterGeojsonByGeographicFrame(baseGeojson, {
+      frame: geographicFrame,
+      mapcIndex: mapcRegionIndex,
+      mapcBbox: [-71.6606345781778, 42.0024105200978, -70.7113301211872, 42.7128927511039],
+    });
+  }, [baseGeojson, geographicFrame, mapcRegionIndex, isCategoricalVariable]);
 
   const tractBoundaryLabel = useMemo(() => {
     if (isBoundariesDataset) return null;
@@ -445,14 +826,40 @@ function DatasetMapPreview({
     return null;
   }, [isBoundariesDataset, geographyType, geometryJoinKey, baseGeojson]);
 
+  const geometryReadyForSelectedYear =
+    Boolean(apiBoundaryGeojson?.features?.length) &&
+    (mapYear == null || String(geometryYear) === String(mapYear));
+
   const valueByGeography = useMemo(() => {
     if (!activeVariable) return new Map();
 
+    if (needsDimensionPicker) {
+      if (!dimensionsReady) return new Map();
+      // Geometry API has the full selected year (not the 15k table preview).
+      if (geometryReadyForSelectedYear) {
+        const fromFeatures = buildValueByGeographyFromFeatures({
+          features: framedBaseGeojson?.features || [],
+          valueColumn: activeVariable,
+          geographyType,
+          selections: dimensionSelections,
+        });
+        if (fromFeatures.size) return fromFeatures;
+      }
+      if (!geographyColumn || !choroplethRows.length) return new Map();
+      return buildValueByGeography({
+        rows: choroplethRows,
+        geographyColumn,
+        valueColumn: activeVariable,
+        yearColumn: queryYearColumn,
+        geographyType,
+      });
+    }
+
     // Geometry API features already include full table columns for the selected year
     // and are not subject to the browser's 15k-row preview limit.
-    if (apiBoundaryGeojson?.features?.length) {
+    if (geometryReadyForSelectedYear) {
       const fromFeatures = buildValueByGeographyFromFeatures({
-        features: apiBoundaryGeojson.features,
+        features: framedBaseGeojson?.features || [],
         valueColumn: activeVariable,
         geographyType,
       });
@@ -468,20 +875,47 @@ function DatasetMapPreview({
       geographyType,
     });
   }, [
+    needsDimensionPicker,
+    dimensionsReady,
+    dimensionSelections,
+    choroplethRows,
     filteredRows,
     geographyColumn,
     activeVariable,
     queryYearColumn,
     geographyType,
     apiBoundaryGeojson,
+    framedBaseGeojson,
+    geometryReadyForSelectedYear,
   ]);
 
   const moeByGeography = useMemo(() => {
     if (!marginColumn) return null;
 
-    if (apiBoundaryGeojson?.features?.length) {
+    if (needsDimensionPicker) {
+      if (!dimensionsReady) return null;
+      if (geometryReadyForSelectedYear) {
+        const fromFeatures = buildValueByGeographyFromFeatures({
+          features: framedBaseGeojson?.features || [],
+          valueColumn: marginColumn,
+          geographyType,
+          selections: dimensionSelections,
+        });
+        if (fromFeatures.size) return fromFeatures;
+      }
+      if (!geographyColumn || !choroplethRows.length) return null;
+      return buildValueByGeography({
+        rows: choroplethRows,
+        geographyColumn,
+        valueColumn: marginColumn,
+        yearColumn: queryYearColumn,
+        geographyType,
+      });
+    }
+
+    if (geometryReadyForSelectedYear) {
       const fromFeatures = buildValueByGeographyFromFeatures({
-        features: apiBoundaryGeojson.features,
+        features: framedBaseGeojson?.features || [],
         valueColumn: marginColumn,
         geographyType,
       });
@@ -498,11 +932,17 @@ function DatasetMapPreview({
     });
   }, [
     marginColumn,
+    needsDimensionPicker,
+    dimensionsReady,
+    dimensionSelections,
+    choroplethRows,
     apiBoundaryGeojson,
+    framedBaseGeojson,
     geographyType,
     geographyColumn,
     filteredRows,
     queryYearColumn,
+    geometryReadyForSelectedYear,
   ]);
 
   const { colorForValue, legend, binningDescription } = useMemo(() => {
@@ -515,19 +955,24 @@ function DatasetMapPreview({
         binningDescription: "Classification: Boundary outline",
       };
     }
-    return buildChoroplethScale(values, { unit: activeVariableUnit });
-  }, [valueByGeography, activeVariableUnit, boundaryLayerLabel, isBoundariesDataset]);
+    return buildChoroplethScale(values, {
+      unit: activeVariableUnit,
+      kind: mapValueKind,
+      categoryLabels,
+      columnValues: mapColumnValues,
+    });
+  }, [valueByGeography, activeVariableUnit, boundaryLayerLabel, isBoundariesDataset, mapValueKind, categoryLabels, mapColumnValues]);
 
   const paintedGeojson = useMemo(() => {
-    if (!baseGeojson) return { type: "FeatureCollection", features: [] };
+    if (!framedBaseGeojson) return { type: "FeatureCollection", features: [] };
     return enrichBoundariesWithValues({
-      baseGeojson,
+      baseGeojson: framedBaseGeojson,
       valueByGeography,
       moeByGeography,
       geographyType,
       colorForValue,
     });
-  }, [baseGeojson, valueByGeography, moeByGeography, geographyType, colorForValue]);
+  }, [framedBaseGeojson, valueByGeography, moeByGeography, geographyType, colorForValue]);
 
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return undefined;
@@ -540,6 +985,7 @@ function DatasetMapPreview({
       pitchWithRotate: false,
       bounds: MAP_CONFIG.bounds,
       fitBoundsOptions: { padding: { top: 24, bottom: 24, left: 24, right: 24 }, animate: false },
+      preserveDrawingBuffer: true, // for export to png
     });
 
     map.addControl(
@@ -561,9 +1007,10 @@ function DatasetMapPreview({
         id: FILL_LAYER_ID,
         type: "fill",
         source: SOURCE_ID,
+        filter: polygonGeometryFilter(),
         paint: {
           "fill-color": ["coalesce", ["get", "__mapColor"], "#E0E0E0"],
-          "fill-opacity": 0.88,
+          "fill-opacity": 0.92,
         },
       });
 
@@ -571,11 +1018,37 @@ function DatasetMapPreview({
         id: LINE_LAYER_ID,
         type: "line",
         source: SOURCE_ID,
+        filter: polygonGeometryFilter(),
         paint: {
           "line-color": "#334155",
           "line-width": 0.7,
           "line-opacity": 0.55,
         },
+      });
+
+      map.addLayer({
+        id: CIRCLE_LAYER_ID,
+        type: "circle",
+        source: SOURCE_ID,
+        filter: ["==", ["geometry-type"], "Point"],
+        paint: {
+          "circle-color": ["coalesce", ["get", "__mapColor"], "#E0E0E0"],
+          "circle-radius": 7,
+          "circle-stroke-width": 1,
+          "circle-stroke-color": "#334155",
+          "circle-opacity": 0.92,
+        },
+      });
+
+      map.addLayer({
+        id: SELECTED_FILL_LAYER_ID,
+        type: "fill",
+        source: SOURCE_ID,
+        paint: {
+          "fill-color": ["coalesce", ["get", "__mapColor"], "#E0E0E0"],
+          "fill-opacity": 0.94,
+        },
+        filter: ["all", polygonGeometryFilter(), ["==", ["get", "__mapKey"], "__none__"]],
       });
 
       map.addLayer({
@@ -587,7 +1060,28 @@ function DatasetMapPreview({
           "line-width": 2.2,
           "line-opacity": 1,
         },
-        filter: ["==", ["get", "__mapKey"], "__none__"],
+        filter: [
+          "all",
+          polygonGeometryFilter(),
+          ["==", ["get", "__mapKey"], "__none__"],
+        ],
+      });
+
+      map.addLayer({
+        id: SELECTED_CIRCLE_LAYER_ID,
+        type: "circle",
+        source: SOURCE_ID,
+        paint: {
+          "circle-radius": 10,
+          "circle-color": "rgba(0,0,0,0)",
+          "circle-stroke-width": 2.2,
+          "circle-stroke-color": "#0f172a",
+        },
+        filter: [
+          "all",
+          ["==", ["geometry-type"], "Point"],
+          ["==", ["get", "__mapKey"], "__none__"],
+        ],
       });
 
       map.addSource(MUNI_SOURCE_ID, {
@@ -603,6 +1097,38 @@ function DatasetMapPreview({
           "line-color": "#5a5a5a",
           "line-width": 1.6,
           "line-opacity": 1,
+        },
+      });
+
+      map.addSource(HOUSE_SOURCE_ID, {
+        type: "geojson",
+        data: EMPTY_FC,
+      });
+      map.addLayer({
+        id: HOUSE_LINE_LAYER_ID,
+        type: "line",
+        source: HOUSE_SOURCE_ID,
+        layout: { visibility: "none" },
+        paint: {
+          "line-color": "#b45309",
+          "line-width": 1.5,
+          "line-opacity": 0.95,
+        },
+      });
+
+      map.addSource(SENATE_SOURCE_ID, {
+        type: "geojson",
+        data: EMPTY_FC,
+      });
+      map.addLayer({
+        id: SENATE_LINE_LAYER_ID,
+        type: "line",
+        source: SENATE_SOURCE_ID,
+        layout: { visibility: "none" },
+        paint: {
+          "line-color": "#1d4ed8",
+          "line-width": 2,
+          "line-opacity": 0.95,
         },
       });
 
@@ -628,6 +1154,12 @@ function DatasetMapPreview({
         map.getCanvas().style.cursor = "pointer";
       });
       map.on("mouseleave", FILL_LAYER_ID, () => {
+        map.getCanvas().style.cursor = "";
+      });
+      map.on("mouseenter", CIRCLE_LAYER_ID, () => {
+        map.getCanvas().style.cursor = "pointer";
+      });
+      map.on("mouseleave", CIRCLE_LAYER_ID, () => {
         map.getCanvas().style.cursor = "";
       });
 
@@ -680,6 +1212,26 @@ function DatasetMapPreview({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
+    const source = map.getSource(HOUSE_SOURCE_ID);
+    if (source) {
+      source.setData(houseDistricts || EMPTY_FC);
+    }
+    syncMapLayerOrder(map);
+  }, [houseDistricts, mapReady]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    const source = map.getSource(SENATE_SOURCE_ID);
+    if (source) {
+      source.setData(senateDistricts || EMPTY_FC);
+    }
+    syncMapLayerOrder(map);
+  }, [senateDistricts, mapReady]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
     const visibility = showMunicipalLayer ? "visible" : "none";
     if (map.getLayer(MUNI_LINE_LAYER_ID)) {
       map.setLayoutProperty(MUNI_LINE_LAYER_ID, "visibility", visibility);
@@ -700,6 +1252,26 @@ function DatasetMapPreview({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
+    const visibility = showHouseDistricts ? "visible" : "none";
+    if (map.getLayer(HOUSE_LINE_LAYER_ID)) {
+      map.setLayoutProperty(HOUSE_LINE_LAYER_ID, "visibility", visibility);
+      if (showHouseDistricts) syncMapLayerOrder(map);
+    }
+  }, [showHouseDistricts, mapReady]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    const visibility = showSenateDistricts ? "visible" : "none";
+    if (map.getLayer(SENATE_LINE_LAYER_ID)) {
+      map.setLayoutProperty(SENATE_LINE_LAYER_ID, "visibility", visibility);
+      if (showSenateDistricts) syncMapLayerOrder(map);
+    }
+  }, [showSenateDistricts, mapReady]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
     const source = map.getSource(SOURCE_ID);
     if (source) {
       source.setData(paintedGeojson);
@@ -711,32 +1283,45 @@ function DatasetMapPreview({
         geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts ? 0.4 : 0.7,
       );
     }
-    if (isBoundariesDataset && paintedGeojson?.features?.length) {
-      const bounds = new mapboxgl.LngLatBounds();
-      let hasCoord = false;
-      const extendCoords = (coords) => {
-        if (!Array.isArray(coords) || !coords.length) return;
-        if (typeof coords[0] === "number") {
-          if (Number.isFinite(coords[0]) && Number.isFinite(coords[1])) {
-            bounds.extend([coords[0], coords[1]]);
-            hasCoord = true;
-          }
-          return;
-        }
-        coords.forEach(extendCoords);
-      };
-      paintedGeojson.features.forEach((feature) => extendCoords(feature?.geometry?.coordinates));
-      if (hasCoord && !bounds.isEmpty()) {
-        map.fitBounds(bounds, {
-          padding: { top: 28, bottom: 28, left: 28, right: 28 },
-          animate: false,
-          maxZoom: 12,
-        });
-      }
-    }
     // Keep layer stack: boundaries under selected highlight.
     syncMapLayerOrder(map);
-  }, [paintedGeojson, mapReady, geographyType, isBoundariesDataset]);
+  }, [paintedGeojson, mapReady, geographyType]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return undefined;
+
+    const fitToFrame = () => {
+      const container = map.getContainer?.();
+      if (!container?.offsetWidth || !container?.offsetHeight) return false;
+
+      let bounds = null;
+      let maxZoom = 12;
+      if (!isCategoricalVariable && geographicFrame === GEOGRAPHIC_FRAME.mapc) {
+        bounds = MAPC_REGION_BOUNDS;
+        maxZoom = 11;
+      } else {
+        bounds = boundsFromGeojson(baseGeojson) || MAP_CONFIG.bounds;
+        maxZoom = 8;
+      }
+      if (!bounds) return false;
+
+      const duration = didFitGeographicFrameRef.current ? 700 : 0;
+      didFitGeographicFrameRef.current = true;
+      map.fitBounds(bounds, {
+        padding: 24,
+        duration,
+        maxZoom,
+      });
+      return true;
+    };
+
+    if (fitToFrame()) return undefined;
+    const frameId = window.requestAnimationFrame(() => {
+      fitToFrame();
+    });
+    return () => window.cancelAnimationFrame(frameId);
+  }, [mapReady, geographicFrame, baseGeojson, isCategoricalVariable]);
 
   useEffect(() => {
     setSelectedFeatureKey(null);
@@ -747,12 +1332,22 @@ function DatasetMapPreview({
     if (!map || !mapReady || !map.getLayer(SELECTED_LINE_LAYER_ID)) return;
     // Use a non-matching sentinel when nothing is selected — matching "" would
     // highlight every feature whose __mapKey is missing/empty.
-    map.setFilter(
-      SELECTED_LINE_LAYER_ID,
-      selectedFeatureKey != null && selectedFeatureKey !== ""
-        ? ["==", ["to-string", ["get", "__mapKey"]], String(selectedFeatureKey)]
-        : ["==", ["get", "__mapKey"], "__none__"],
-    );
+    const keyFilter = selectedKeyFilter(selectedFeatureKey);
+    if (map.getLayer(SELECTED_FILL_LAYER_ID)) {
+      map.setFilter(SELECTED_FILL_LAYER_ID, ["all", polygonGeometryFilter(), keyFilter]);
+    }
+    map.setFilter(SELECTED_LINE_LAYER_ID, [
+      "all",
+      polygonGeometryFilter(),
+      keyFilter,
+    ]);
+    if (map.getLayer(SELECTED_CIRCLE_LAYER_ID)) {
+      map.setFilter(SELECTED_CIRCLE_LAYER_ID, [
+        "all",
+        ["==", ["geometry-type"], "Point"],
+        keyFilter,
+      ]);
+    }
     syncMapLayerOrder(map);
   }, [selectedFeatureKey, mapReady, paintedGeojson]);
 
@@ -781,6 +1376,7 @@ function DatasetMapPreview({
           geographyType,
           geometryJoinKey,
           marginColumn,
+          extraDimensionLabels,
         });
         popup
           .setLngLat(e.lngLat)
@@ -789,6 +1385,8 @@ function DatasetMapPreview({
               geographyType,
               activeVariableLabel,
               activeVariableUnit,
+              mapValueKind,
+              categoryLabels,
             }),
           )
           .addTo(map);
@@ -801,30 +1399,31 @@ function DatasetMapPreview({
 
       map.on("mousemove", FILL_LAYER_ID, onMouseMove);
       map.on("mouseleave", FILL_LAYER_ID, onMouseLeave);
+      map.on("mousemove", CIRCLE_LAYER_ID, onMouseMove);
+      map.on("mouseleave", CIRCLE_LAYER_ID, onMouseLeave);
       return () => {
         map.off("mousemove", FILL_LAYER_ID, onMouseMove);
         map.off("mouseleave", FILL_LAYER_ID, onMouseLeave);
+        map.off("mousemove", CIRCLE_LAYER_ID, onMouseMove);
+        map.off("mouseleave", CIRCLE_LAYER_ID, onMouseLeave);
         popup.remove();
       };
     }
 
-    const onFeatureClick = (e) => {
-      const feature = e.features?.[0];
-      const key = feature?.properties?.__mapKey;
+    const interactiveLayers = [FILL_LAYER_ID, CIRCLE_LAYER_ID].filter((id) => map.getLayer(id));
+
+    const onMapClick = (e) => {
+      const hits = map.queryRenderedFeatures(e.point, { layers: interactiveLayers });
+      if (!hits.length) {
+        setSelectedFeatureKey(null);
+        return;
+      }
+      const key = hits[0]?.properties?.__mapKey;
       setSelectedFeatureKey(key != null && key !== "" ? String(key) : null);
     };
 
-    const onMapClick = (e) => {
-      const hits = map.queryRenderedFeatures(e.point, { layers: [FILL_LAYER_ID] });
-      if (!hits.length) {
-        setSelectedFeatureKey(null);
-      }
-    };
-
-    map.on("click", FILL_LAYER_ID, onFeatureClick);
     map.on("click", onMapClick);
     return () => {
-      map.off("click", FILL_LAYER_ID, onFeatureClick);
       map.off("click", onMapClick);
     };
   }, [
@@ -834,8 +1433,11 @@ function DatasetMapPreview({
     geographyType,
     geometryJoinKey,
     marginColumn,
+    extraDimensionLabels,
     activeVariableLabel,
     activeVariableUnit,
+    mapValueKind,
+    categoryLabels,
   ]);
 
   const selectedFeature = useMemo(() => {
@@ -854,10 +1456,133 @@ function DatasetMapPreview({
       geographyType,
       geometryJoinKey,
       marginColumn,
+      extraDimensionLabels,
     });
-  }, [selectedFeature, mapYear, geographyType, geometryJoinKey, marginColumn]);
+  }, [selectedFeature, mapYear, geographyType, geometryJoinKey, marginColumn, extraDimensionLabels]);
 
-  const canDownloadGeojson = Boolean(table) && !isBoundaryLoading && !isExporting;
+  // when viewing a census tract, fetch the muni for that census tract
+  useEffect(() => {
+    if (geographyType !== 'census_tracts') return;
+    if (!selectedDetails) return;
+
+    let tableName;
+    let columnName;
+    if (selectedDetails.tractBoundary === "2020 Census tracts") {
+      tableName = "_datakeys_geog_xw_2020";
+      columnName = "ct20_id";
+    } else if (selectedDetails.tractBoundary === "2010 Census tracts") {
+      tableName = "_datakeys_geog_xw_2010";
+      columnName = "ct10_id";
+    }
+    if (!tableName || !columnName) return;
+
+    const url = `/api?token=datacommon&database=ds&schema=tabular&table=${tableName}` +
+      `&columns=DISTINCT(muni_id),muni_name,${columnName}&filters=${columnName}:${selectedFeatureKey}`;
+    setLoadingMuniForCt(true);
+    setMuniForSelectedCt(null);
+    axios.get(url)
+      .then(res => {
+        const rows = res.data.rows;
+        if (rows.length === 0) {
+          console.error("Found no muni for selected census tract");
+          return;
+        }
+        const result = rows.map(r => r.muni_name).join(", ");
+        setMuniForSelectedCt(result);
+      })
+      .catch(err => {
+        console.error("Error while fetching muni for selected census tract", err);
+      })
+      .finally(() => {
+        setLoadingMuniForCt(false);
+      });
+  }, [geographyType, selectedFeatureKey, selectedDetails]);
+
+  const rankingRows = useMemo(
+    () =>
+      buildRankingRows(paintedGeojson.features, {
+        geographyType,
+        geometryJoinKey,
+        marginColumn,
+      }),
+    [paintedGeojson, geographyType, geometryJoinKey, marginColumn],
+  );
+  const rankingHasMoe = rankingRows.some((row) => row.marginOfError != null);
+  const rankingPlaceHeader = geographyEntityLabel(geographyType).replace(/^./, (s) => s.toUpperCase());
+  const rankingDimensionColumns = extraDimensionLabels.filter(
+    (item) => String(item.label ?? "").trim() && String(item.value ?? "").trim(),
+  );
+  const rankingScrollRef = useRef(null);
+  const [rankingSort, setRankingSort] = useState(RANKING_SORT_DEFAULT);
+
+  useEffect(() => {
+    setRankingSort(RANKING_SORT_DEFAULT);
+  }, [table, activeVariable]);
+
+  useEffect(() => {
+    if (!rankingHasMoe && rankingSort.column === "marginOfError") {
+      setRankingSort(RANKING_SORT_DEFAULT);
+    }
+  }, [rankingHasMoe, rankingSort.column]);
+
+  const sortedRankingRows = useMemo(() => {
+    const { column, direction } = rankingSort;
+    if (column === "value" && direction === "desc") return rankingRows;
+    return [...rankingRows].sort((a, b) => compareRankingRows(a, b, column, direction));
+  }, [rankingRows, rankingSort]);
+
+  const handleRankingSort = (column) => {
+    setRankingSort((prev) => {
+      if (prev.column === column) {
+        return { column, direction: prev.direction === "asc" ? "desc" : "asc" };
+      }
+      return { column, direction: column === "label" ? "asc" : "desc" };
+    });
+  };
+
+  useEffect(() => {
+    if (selectedFeatureKey == null) return;
+    const container = rankingScrollRef.current;
+    if (!container) return;
+    const row = container.querySelector(
+      `[data-ranking-key="${CSS.escape(String(selectedFeatureKey))}"]`,
+    );
+    if (!row) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const rowRect = row.getBoundingClientRect();
+    const headerHeight = container.querySelector("thead")?.getBoundingClientRect().height ?? 0;
+    const visibleTop = containerRect.top + headerHeight;
+    if (rowRect.top < visibleTop) {
+      container.scrollTop += rowRect.top - visibleTop;
+    } else if (rowRect.bottom > containerRect.bottom) {
+      container.scrollTop += rowRect.bottom - containerRect.bottom;
+    }
+  }, [selectedFeatureKey]);
+
+  const mapcRowForYear = useMemo(() => {
+    if (geographyType !== 'municipal') return null;
+
+    let filtered = rows;
+    if (queryYearColumn && selectedYears?.length) {
+      const yearSet = new Set(selectedYears.map(String));
+      filtered = filtered.filter((row) => yearSet.has(String(row[queryYearColumn])));
+    }
+
+    filtered = filtered.filter(row => row.muni_id === 352) // I believe 352 is always MAPC
+    if (filtered.length === 1) {
+      return filtered[0];
+    } else {
+      return null;
+    }
+
+  }, [rows, queryYearColumn, selectedYears, geographyType]);
+
+  const canDownloadGeojson =
+    Boolean(table) &&
+    !isBoundaryLoading &&
+    !isExporting &&
+    supportsTabularGeojsonExport(table, geographyType, { menu1 });
 
   const handleDownloadGeojson = async () => {
     if (!canDownloadGeojson) return;
@@ -900,6 +1625,28 @@ function DatasetMapPreview({
     );
   }
 
+  const handleExportToPng = async () => {
+    if (!mapRef.current) return;
+
+    // first hide the map controls:
+    const layersButton = document.getElementById("layer-button-controls-container");
+    layersButton.style.display = 'none';
+
+    const canvas = await html2canvas(document.getElementById("top-level-map-container"));
+    const url = canvas.toDataURL('image/png');
+    
+    const link = document.createElement('a');
+    link.download = 'map-export.png';
+    link.href = url;
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    // unhide the map controls:
+    layersButton.style.display = 'flex';
+  }
+
   // Boundary-only layers (e.g. Boundaries category / ma_municipalities) have no numeric choropleth columns.
   const isBoundaryOnlyMap = isBoundariesDataset || Boolean(apiBoundaryGeojson);
   if (!mappableColumns.length && !isBoundaryLoading && !isBoundaryOnlyMap) {
@@ -916,49 +1663,129 @@ function DatasetMapPreview({
         {boundariesError && (
           <span className="dataset-map-preview__status dataset-map-preview__status--error">{boundariesError}</span>
         )}
+        {mapcRowForYear && (
+          <div className="dataset-map-preview__mapc-total-box">
+            <div>
+              <b>Result for MAPC region:</b>
+            </div>
+            <div>
+              {activeVariableLabel || 'Selected Variable'} : {mapcRowForYear[activeVariable].toLocaleString() || 'Unknown'}
+            </div>
+          </div>
+        )}
         <div className="dataset-map-preview__map-body">
-          <div className="dataset-map-preview__map-shell">
+          <div className="dataset-map-preview__map-column">
+          <div className="dataset-map-preview__map-shell" id="top-level-map-container">
             {!isEmbedView && <ExportLoadingMask active={isExporting} />}
             <div className="dataset-map-preview__map-controls">
               <div className="dataset-map-preview__north-arrow" aria-hidden="true" title="North">
                 <span className="dataset-map-preview__north-arrow-pointer" />
                 <span className="dataset-map-preview__north-arrow-label">N</span>
               </div>
-              <div className="dataset-map-preview__layer-toggles" role="group" aria-label="Map overlay layers">
-                <label className={`dataset-map-preview__layer-toggle${overlaysLoading ? " dataset-map-preview__layer-toggle--disabled" : ""}`}>
-                  <input
-                    type="checkbox"
-                    checked={showMunicipalLayer}
-                    disabled={overlaysLoading}
-                    onChange={(e) => setShowMunicipalLayer(e.target.checked)}
-                  />
-                  <span>Municipal boundaries</span>
-                </label>
-                <label className={`dataset-map-preview__layer-toggle${overlaysLoading ? " dataset-map-preview__layer-toggle--disabled" : ""}`}>
-                  <input
-                    type="checkbox"
-                    checked={showMapcRegionLayer}
-                    disabled={overlaysLoading}
-                    onChange={(e) => setShowMapcRegionLayer(e.target.checked)}
-                  />
-                  <span>MAPC region</span>
-                </label>
+              <div className={`dataset-map-preview__layer-toggles${boundariesMenuOpen ? " is-open" : ""}`} id="layer-button-controls-container">
+                <button
+                  type="button"
+                  className="dataset-map-preview__layer-toggles-header"
+                  aria-expanded={boundariesMenuOpen}
+                  aria-controls="dataset-map-preview-boundary-layers"
+                  aria-label="Boundaries"
+                  title="Boundaries"
+                  onClick={() => setBoundariesMenuOpen((open) => !open)}
+                >
+                  <svg className="dataset-map-preview__layer-toggles-icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <polygon points="12 3 3 8 12 13 21 8 12 3" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+                    <polyline points="3 12.5 12 17.5 21 12.5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+                    <polyline points="3 17 12 22 21 17" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+                  </svg>
+                </button>
+                {boundariesMenuOpen && (
+                  <div
+                    id="dataset-map-preview-boundary-layers"
+                    className="dataset-map-preview__layer-toggles-list"
+                    role="group"
+                    aria-label="Boundary overlay layers"
+                  >
+                    <label className={`dataset-map-preview__layer-toggle${overlaysLoading ? " dataset-map-preview__layer-toggle--disabled" : ""}`}>
+                      <input
+                        type="checkbox"
+                        checked={showMunicipalLayer}
+                        disabled={overlaysLoading}
+                        onChange={(e) => setShowMunicipalLayer(e.target.checked)}
+                      />
+                      <span>Municipal boundaries</span>
+                    </label>
+                    <label className={`dataset-map-preview__layer-toggle${overlaysLoading ? " dataset-map-preview__layer-toggle--disabled" : ""}`}>
+                      <input
+                        type="checkbox"
+                        checked={showMapcRegionLayer}
+                        disabled={overlaysLoading}
+                        onChange={(e) => setShowMapcRegionLayer(e.target.checked)}
+                      />
+                      <span>MAPC region</span>
+                    </label>
+                    <label className="dataset-map-preview__layer-toggle">
+                      <input
+                        type="checkbox"
+                        checked={showHouseDistricts}
+                        aria-busy={houseDistrictsLoading || undefined}
+                        onChange={(e) => setShowHouseDistricts(e.target.checked)}
+                      />
+                      <span>MA House districts</span>
+                    </label>
+                    <label className="dataset-map-preview__layer-toggle">
+                      <input
+                        type="checkbox"
+                        checked={showSenateDistricts}
+                        aria-busy={senateDistrictsLoading || undefined}
+                        onChange={(e) => setShowSenateDistricts(e.target.checked)}
+                      />
+                      <span>MA Senate districts</span>
+                    </label>
+                  </div>
+                )}
               </div>
             </div>
             <div ref={mapContainerRef} className="dataset-map-preview__map" role="img" aria-label={`Choropleth map of ${activeVariableLabel}`} />
             {isBoundaryLoading && (
-              <div className="dataset-map-preview__loading" role="status" aria-live="polite" aria-label="Loading boundaries">
+              <div
+                className="dataset-map-preview__loading"
+                role="status"
+                aria-live="polite"
+                aria-label={
+                  mapYear != null
+                    ? `Loading ${mapYear} map data`
+                    : "Loading map data"
+                }
+              >
                 <MoonLoader size={42} color="#767676" />
+                <span className="dataset-map-preview__loading-title">
+                  {mapYear != null ? `Loading ${mapYear} map data` : "Loading map data"}
+                </span>
+                <span className="dataset-map-preview__loading-info">
+                  Fetching this year’s records and joining them to the map boundaries.
+                </span>
               </div>
             )}
             <div className="dataset-map-preview__legend" aria-label="Map legend">
               {(activeVariableLabel || tractBoundaryLabel) && (
                 <div className="dataset-map-preview__legend-header">
                   {activeVariableLabel && (
-                    <h3 className="dataset-map-preview__legend-title">{activeVariableLabel}</h3>
+                    <h3 className="dataset-map-preview__legend-title">
+                      {activeVariableLabel}
+                    </h3>
+                  )}
+                  {extraDimensionLabels.length > 0 && (
+                    <p className="dataset-map-preview__legend-filters">
+                      {formatLegendFilterLine(extraDimensionLabels)}
+                    </p>
                   )}
                   {tractBoundaryLabel && (
                     <p className="dataset-map-preview__legend-boundary">{tractBoundaryLabel}</p>
+                  )}
+                  {needsDimensionPicker && !dimensionsReady && (
+                    <p className="dataset-map-preview__legend-boundary">
+                      Select a category in the Variable panel to color the map
+                    </p>
                   )}
                 </div>
               )}
@@ -970,6 +1797,44 @@ function DatasetMapPreview({
               ))}
             </div>
           </div>
+          <div className="metadata dataset-map-preview__metadata">
+            {binningDescription && (
+              <span className="dataset-map-preview__metadata-item">{binningDescription}</span>
+            )}
+            <span className="dataset-map-preview__metadata-item">
+              Source:
+              {" "}
+              {source || "Unknown"}
+            </span>
+            <span className="dataset-map-preview__metadata-item">
+              Years:
+              {" "}
+              {mapYear != null
+                ? String(mapYear)
+                : selectedYears?.length
+                  ? selectedYears.map(String).join(", ")
+                  : "N/A"}
+            </span>
+            {datasetId != null && datasetId !== "" && title && (
+              <span className="dataset-map-preview__metadata-item link">
+                Link to:
+                {" "}
+                <a
+                  href={`/browser/datasets/${datasetId}/map${(() => {
+                    const params = new URLSearchParams(location.search || "");
+                    params.delete("embed");
+                    const qs = params.toString();
+                    return qs ? `?${qs}` : "";
+                  })()}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {title}
+                </a>
+              </span>
+            )}
+          </div>
+          </div>
 
           {!isEmbedView && (
             <div className="dataset-map-preview__side-panels">
@@ -977,23 +1842,79 @@ function DatasetMapPreview({
                 <div className="dataset-map-preview__detail-header">
                   <h2 className="dataset-map-preview__detail-title">Variable</h2>
                 </div>
+                <label className="dataset-map-preview__variable-field">
+                  <span className="dataset-map-preview__variable-field-label">Geographic frame</span>
+                  <select
+                    className="dataset-map-preview__variable-select"
+                    value={geographicFrame}
+                    onChange={(e) => setGeographicFrameState(e.target.value)}
+                    aria-label="Geographic frame"
+                  >
+                    <option value={GEOGRAPHIC_FRAME.massachusetts}>Massachusetts</option>
+                    <option value={GEOGRAPHIC_FRAME.mapc}>MAPC region</option>
+                  </select>
+                </label>
                 {mappableColumns.length ? (
-                  <label className="dataset-map-preview__variable-field">
-                    <span className="dataset-map-preview__variable-field-label">Choose a column to color the map</span>
-                    <select
-                      className="dataset-map-preview__variable-select"
-                      value={activeVariable || ""}
-                      onChange={(e) => onMapVariableChange?.(e.target.value)}
-                      aria-label="Map variable"
-                      title={activeVariableLabel || undefined}
-                    >
-                      {mappableColumns.map((col) => (
-                        <option key={col.name} value={col.name}>
-                          {col.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  <>
+                    <label className="dataset-map-preview__variable-field">
+                      <span className="dataset-map-preview__variable-field-label">Choose a column to color the map</span>
+                        <select
+                        className="dataset-map-preview__variable-select dataset-map-preview__variable-select--truncate"
+                        value={activeVariable || ""}
+                        disabled={boundariesLoading}
+                        onChange={(e) => {
+                          if (boundariesLoading) return;
+                          onMapVariableChange?.(e.target.value);
+                        }}
+                        aria-label="Map variable"
+                        aria-busy={boundariesLoading || undefined}
+                        title={boundariesLoading ? "Loading year data" : (activeVariableLabel || undefined)}
+                      >
+                        {mappableColumns.map((col) => (
+                          <option key={col.name} value={col.name}>
+                            {col.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {needsDimensionPicker && (
+                      <div className="dataset-map-preview__dimension-fields">
+                        <p className="dataset-map-preview__dimension-hint">
+                          This dataset reports more than one category for each{" "}
+                          {geographyEntityLabel(geographyType)}{" "}
+                          in the selected year. Choose a category below so the map compares one value per place.
+                        </p>
+                        {extraDimensions.dimensions.map((dimension) => {
+                          const dimensionTitle = getColumnHeaderLabel(columnKeys, dimension.name);
+                          return (
+                            <label key={dimension.name} className="dataset-map-preview__variable-field">
+                              <span className="dataset-map-preview__variable-field-label">{dimensionTitle}</span>
+                              <select
+                                className={`dataset-map-preview__variable-select dataset-map-preview__variable-select--truncate${!dimensionSelections[dimension.name] ? " dataset-map-preview__variable-select--required" : ""}`}
+                                value={dimensionSelections[dimension.name] ?? ""}
+                                disabled={boundariesLoading}
+                                onChange={(e) => {
+                                  if (boundariesLoading) return;
+                                  const value = e.target.value;
+                                  setDimensionSelections((prev) => ({ ...prev, [dimension.name]: value }));
+                                }}
+                                aria-label={dimensionTitle}
+                                aria-busy={boundariesLoading || undefined}
+                                title={boundariesLoading ? "Loading year data" : (dimensionSelections[dimension.name] || undefined)}
+                              >
+                                <option value="">Select {dimensionTitle}</option>
+                                {dimension.values.map((value) => (
+                                  <option key={String(value)} value={String(value)}>
+                                    {String(value)}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <p className="dataset-map-preview__variable-field-label">
                     This boundary layer has no numeric columns to choropleth. Click a feature for details.
@@ -1017,23 +1938,22 @@ function DatasetMapPreview({
                 </div>
                 {!selectedDetails ? (
                   <p className="dataset-map-preview__detail-empty">
-                    Click a{" "}
-                    {geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts
-                      ? "census tract"
-                      : geographyType === MAP_VIEW_GEOGRAPHY_TYPES.boundary
-                        ? "feature"
-                        : "municipality"}{" "}
-                    on the map to view its values.
+                    Click a {geographyEntityLabel(geographyType)} on the map to view its values.
                   </p>
                 ) : (
                   <dl className="dataset-map-preview__detail-list">
+                    {geographyType === 'census_tracts' && (
+                      <div className="dataset-map-preview__detail-row dataset-map-preview__detail-row--inline">
+                        <dt>Municipality</dt>
+                        {loadingMuniForCt && <MoonLoader size={14}/>}
+                        {!loadingMuniForCt && (
+                          <dd>{muniForSelectedCt || "Unknown Municipality"}</dd>
+                        )}
+                      </div>
+                    )}
                     <div className="dataset-map-preview__detail-row dataset-map-preview__detail-row--inline">
                       <dt>
-                        {geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts
-                          ? "Census tract"
-                          : geographyType === MAP_VIEW_GEOGRAPHY_TYPES.boundary
-                            ? "Feature"
-                            : "Municipality"}
+                        {geographyEntityLabel(geographyType).replace(/^./, (s) => s.toUpperCase())}
                       </dt>
                       <dd>{selectedDetails.label}</dd>
                     </div>
@@ -1049,10 +1969,19 @@ function DatasetMapPreview({
                         <dd>{selectedDetails.tractBoundary}</dd>
                       </div>
                     )}
+                    {(selectedDetails.extraDimensionLabels || []).map((item) => (
+                      <div
+                        key={item.label}
+                        className="dataset-map-preview__detail-row"
+                      >
+                        <dt>{item.label}</dt>
+                        <dd>{item.value}</dd>
+                      </div>
+                    ))}
                     <div className="dataset-map-preview__detail-row dataset-map-preview__detail-row--inline dataset-map-preview__detail-row--metric">
                       <dt>{activeVariableLabel}</dt>
                       <dd>
-                        {formatMapValue(selectedDetails.value, activeVariableUnit)}
+                        {formatMapValue(selectedDetails.value, activeVariableUnit, { kind: mapValueKind, categoryLabels })}
                         {selectedDetails.marginOfError != null && (
                           <span className="dataset-map-preview__detail-metric-moe">
                             {" "}
@@ -1079,9 +2008,11 @@ function DatasetMapPreview({
                     role="tooltip"
                     className="dataset-map-preview__download-tooltip"
                   >
-                    {mapYear != null
-                      ? `Download the current map with selected year ${mapYear} as GeoJSON, with all table properties.`
-                      : "Download the current map as GeoJSON, with all table properties."}
+                    {!supportsTabularGeojsonExport(table, geographyType, { menu1 })
+                      ? "GeoJSON export is not available for this geography type."
+                      : mapYear != null
+                        ? `Download the whole state map data as GeoJSON for selected year ${mapYear}.`
+                        : "Download the whole state map data as GeoJSON."}
                   </span>
                   {exportError && (
                     <p className="dataset-map-preview__download-error" role="alert">
@@ -1089,45 +2020,91 @@ function DatasetMapPreview({
                     </p>
                   )}
                 </div>
+                <button
+                  type="button"
+                  className="dataset-map-preview__download-geojson"
+                  onClick={handleExportToPng}
+                  disabled={!mapRef.current || !canDownloadGeojson}
+                  aria-busy={isExporting}
+                  aria-describedby="dataset-map-geojson-download-tip"
+                >
+                  {isExporting ? "Preparing…" : "Download as PNG"}
+                </button>
               </aside>
             </div>
           )}
-        </div>
-        <div className="metadata dataset-map-preview__metadata">
-          {binningDescription && (
-            <span className="dataset-map-preview__metadata-item">{binningDescription}</span>
-          )}
-          <span className="dataset-map-preview__metadata-item">
-            Source:
-            {" "}
-            {source || "Unknown"}
-          </span>
-          <span className="dataset-map-preview__metadata-item">
-            Years:
-            {" "}
-            {mapYear != null
-              ? String(mapYear)
-              : selectedYears?.length
-                ? selectedYears.map(String).join(", ")
-                : "N/A"}
-          </span>
-          {datasetId != null && datasetId !== "" && title && (
-            <span className="dataset-map-preview__metadata-item link">
-              Link to:
-              {" "}
-              <a
-                href={`/browser/datasets/${datasetId}/map${(() => {
-                  const params = new URLSearchParams(location.search || "");
-                  params.delete("embed");
-                  const qs = params.toString();
-                  return qs ? `?${qs}` : "";
-                })()}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {title}
-              </a>
-            </span>
+          {!isEmbedView && rankingRows.length > 0 && (
+            <div className="dataset-map-preview__ranking">
+              <p className="dataset-map-preview__ranking-caption">
+                Ranked by {activeVariableLabel || "selected variable"}
+              </p>
+              <div ref={rankingScrollRef} className="dataset-map-preview__ranking-scroll">
+                <table className="dataset-map-preview__ranking-table">
+                  <thead>
+                    <tr>
+                      <th style={{ borderRight: '1px solid #666666'}}>
+                        {/* this is the gutter on the left */}
+                      </th>
+                      <RankingSortHeader
+                        column="label"
+                        label={rankingPlaceHeader}
+                        sort={rankingSort}
+                        onSort={handleRankingSort}
+                      />
+                      {rankingDimensionColumns.map((item, index) => (
+                        <th key={`${item.label}-${index}`} scope="col">{item.label}</th>
+                      ))}
+                      <RankingSortHeader
+                        column="value"
+                        label={activeVariableLabel || "Value"}
+                        sort={rankingSort}
+                        onSort={handleRankingSort}
+                      />
+                      {rankingHasMoe && (
+                        <RankingSortHeader
+                          column="marginOfError"
+                          label="Margin of error"
+                          sort={rankingSort}
+                          onSort={handleRankingSort}
+                        />
+                      )}
+                    </tr>
+                  </thead>
+                  {/* TODO: should this just be the data view table component? Stephen want something like that */}
+                  <tbody>
+                    {sortedRankingRows.map((row, index) => {
+                      const isSelected = selectedFeatureKey != null && String(selectedFeatureKey) === row.key;
+                      return (
+                        <tr
+                          key={row.key}
+                          data-ranking-key={row.key}
+                          className={isSelected ? "is-selected" : undefined}
+                          onClick={() => setSelectedFeatureKey(row.key)}
+                        >
+                          <th style={{ borderRight: '1px solid #666666', padding: '8px 4px 8px 6px', color: '#666666'}}>
+                            {index + 1}
+                          </th>
+                          <th scope="row">{row.label}</th>
+                          {rankingDimensionColumns.map((item, index) => (
+                            <td key={`${item.label}-${index}`} className="dataset-map-preview__ranking-dimension">
+                              {item.value}
+                            </td>
+                          ))}
+                          <td>{formatMapValue(row.value, activeVariableUnit, { kind: mapValueKind, categoryLabels })}</td>
+                          {rankingHasMoe && (
+                            <td>
+                              {row.marginOfError != null
+                                ? formatMapValue(row.marginOfError, activeVariableUnit)
+                                : "—"}
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           )}
         </div>
       </div>
@@ -1152,6 +2129,10 @@ DatasetMapPreview.propTypes = {
   ]),
   mapVariable: PropTypes.string,
   onMapVariableChange: PropTypes.func,
+  geographicFrame: PropTypes.oneOf(["massachusetts", "mapc"]),
+  onGeographicFrameChange: PropTypes.func,
+  mapDimensionSelections: PropTypes.objectOf(PropTypes.string),
+  onMapDimensionSelectionsChange: PropTypes.func,
   menu1: PropTypes.string,
   title: PropTypes.string,
   source: PropTypes.string,

@@ -1,11 +1,10 @@
 import axios from 'axios';
-import React, { useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from "react-router"
 import styled from 'styled-components';
 
 import { getCookie, logoutUser } from '../utils/cookies';
-
-const ALLOWED_ROLES = ['ADMIN', 'SADMIN', 'MAPC_USER'];
+import { isUserAdmin, isUserFromMAPC } from '../utils/auth';
 
 const AdminMainWrapper = styled.div`
   display: flex;
@@ -15,6 +14,7 @@ const AdminMainWrapper = styled.div`
 
 const AdminLeftNavContainer = styled.div`
   min-width: 16rem;
+  min-height: 500px;
   border: 1px solid #dddddd;
 `;
 
@@ -22,9 +22,16 @@ const AdminLeftNavHeader = styled.div`
   padding: 8px 12px;
   background: #1F4E46;
   border-radius: 4px;
-  font-size: 24px;
+  font-size: 20px;
   font-weight: bold;
   color: white;
+`;
+
+const AdminLinksContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: calc(100% - 45px);
 `;
 
 const AdminPageRoute = styled.div`
@@ -65,6 +72,12 @@ const AdminWrapper = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const [user, setUser] = useState(null);
+
+  const sendUserToHome = useCallback(() => {
+    navigate("/");
+  }, [navigate]);
+
   // Whenever the user navigates to an admin page or sub-page, verify their login and auth
   useEffect(() => {
     const cookie = getCookie('datacommon_mapc_token');
@@ -78,53 +91,64 @@ const AdminWrapper = () => {
     // bounce the user to the home page if they're not an admin or token is invalid
     axios.get("/api/users/me")
       .then(res => {
-        const userRole = res.data?.user?.role;
-        if (!ALLOWED_ROLES.includes(userRole)) {
+        const user = res?.data?.user;
+        setUser(user);
+        const isAdmin = isUserAdmin(user);
+        if (!isAdmin) {
           sendUserToHome();
           return;
         }
-      }).catch(err => {
+      }).catch(() => {
         sendUserToHome();
         return;
       });
 
-    // Finally, redirect from the base /admin page to /admin/teammates
+    // Finally, redirect from the base /admin page to /admin/job
     if (location.pathname === "/admin") {
-      navigate("/admin/teammates");
+      navigate("/admin/jobs");
     }
-  }, [location.pathname]);
-
-  const sendUserToHome = () => {
-    navigate("/");
-  };
+  }, [location.pathname, sendUserToHome, navigate]);
 
   const onLogoutClicked = () => {
     logoutUser();
     sendUserToHome();
   };
 
+  const availablePages = useMemo(() => {
+    const pages = [];
+
+    if (isUserFromMAPC(user)) {
+      pages.push({ name: "Pipeline Jobs", path: "/admin/jobs" });
+    }
+
+    if (isUserAdmin(user)) {
+      pages.push({ name: "Municipal Description", path: "/admin/muni-description" });
+      pages.push({ name: "Municipal Links", path: "/admin/muni-links" });
+    }
+
+    return pages;
+  }, [user]);
+
   return (
     <AdminMainWrapper>
       <AdminLeftNavContainer>
         <AdminLeftNavHeader>DataCommon Admin</AdminLeftNavHeader>
-        <AdminPageRoute
-          className={location.pathname === '/admin/teammates' ? 'active' : ''}
-          onClick={() => navigate("/admin/teammates")}
-        >
-          Teammates
-        </AdminPageRoute>
-        <AdminPageRoute
-          className={location.pathname === '/admin/jobs' ? 'active' : ''}
-          onClick={() => navigate("/admin/jobs")}
-        >
-          Pipeline Jobs
-        </AdminPageRoute>
-        <AdminPageRoute >
-          More Coming Soon! 
-        </AdminPageRoute>
-        <AdminLogoutButton onClick={() => onLogoutClicked()}>
-          Logout
-        </AdminLogoutButton>
+        <AdminLinksContainer>
+          <div>
+            {availablePages.map(page => (
+              <AdminPageRoute
+                key={page.path}
+                className={location.pathname === page.path ? 'active' : ''}
+                onClick={() => navigate(page.path)}
+              >
+                {page.name}
+              </AdminPageRoute>
+            ))}
+          </div>
+          <AdminLogoutButton onClick={() => onLogoutClicked()}>
+            Logout
+          </AdminLogoutButton>
+        </AdminLinksContainer>
       </AdminLeftNavContainer>
       <Outlet />
     </AdminMainWrapper>

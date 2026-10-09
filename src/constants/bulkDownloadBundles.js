@@ -1,5 +1,59 @@
 /** Helpers for bulk download bundle table config (loaded from DB via bulkDownloadApi). */
 
+/** max tables (bundle + inventory) that can be included in one download. */
+export const MAX_BULK_DOWNLOAD_TABLES = 40;
+
+/** front-end only: pick municipal tables from Data Inventory (no curated table list). */
+export const CUSTOM_BULK_DOWNLOAD_BUNDLE_ID = "custom";
+
+export const CUSTOM_BULK_DOWNLOAD_BUNDLE = {
+  id: CUSTOM_BULK_DOWNLOAD_BUNDLE_ID,
+  title: "Custom Data Download",
+  description:
+    "Choose municipal tables from the Data Inventory and download them for one or more interested geographies.",
+  geographyType: "municipality",
+  tables: [],
+  isCustomInventory: true,
+};
+
+export function isCustomBulkDownloadBundle(bundleId) {
+  return bundleId === CUSTOM_BULK_DOWNLOAD_BUNDLE_ID;
+}
+
+/** Map a Data Inventory dataset to a bulk-download table config. */
+export function tableConfigFromInventoryDataset(dataset) {
+  return {
+    table: dataset.table_name,
+    datasetId: dataset.seq_id != null && dataset.seq_id !== "" ? String(dataset.seq_id) : null,
+    database: dataset.db_name || "ds",
+    schema: dataset.schemaname || "tabular",
+    geoColumn: String(dataset.geocolumn || dataset.geo_column || "").trim(),
+    source: dataset.source || "",
+    yearColumn: dataset.yearcolumn || "",
+    availableYears: [],
+    isCustom: true,
+  };
+}
+
+/**
+ * Dropdown options for geography search: `{ muniId, municipal }` from
+ * bulk_download_datakeys_all.
+ */
+export function buildBulkDownloadMunicipalitySearchable(rows = []) {
+  const options = [];
+  const seen = new Set();
+
+  rows.forEach((row) => {
+    const municipal = String(row.municipal || "").trim();
+    const muniId = Number(row.muniId);
+    if (!municipal || !Number.isFinite(muniId) || seen.has(muniId)) return;
+    seen.add(muniId);
+    options.push({ muniId, municipal });
+  });
+
+  return options;
+}
+
 /** @param {object} tableConfig */
 export function tableHasYearFilter(tableConfig) {
   return Boolean(tableConfig.yearColumn);
@@ -18,9 +72,10 @@ export function buildBulkExportTableEntry(tableConfig) {
     database: tableConfig.database || "ds",
     schema: tableConfig.schema || "tabular",
     table: tableConfig.table,
-    geoColumn: tableConfig.geoColumn || "municipal",
     years,
   };
+
+  entry.geoColumn = tableConfig.geoColumn || "municipal";
 
   if (hasYearFilter && years.length > 0) {
     entry.yearColumn = tableConfig.yearColumn;

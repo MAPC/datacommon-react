@@ -13,7 +13,6 @@ import DataRow from "./DataRow";
 import DatasetTableContextMenu from "./DatasetTableContextMenu";
 import FilterCreationModal from "./FilterCreationModal"
 import {
-  applyPreviewRowOrder,
   getDatasetRowKey,
   getHiddenColumnMarkerLabel,
   getPreviewTableColumnSegments,
@@ -32,7 +31,6 @@ class DatasetTable extends React.Component {
       inputPageNum: props.currentPage,
       contextMenu: null,
       dragColumnIndex: null,
-      dragRowIndex: null,
       filterModalOpen: false,
       filterModalColumn: null,
     };
@@ -60,17 +58,24 @@ class DatasetTable extends React.Component {
     const { updateSelectedColumns, selectedColumns } = this.props;
     const rect = e.currentTarget.getBoundingClientRect();
     const isSorted = sortColumn === column.name;
-    const sortAscendingNext = !isSorted || sortDirection === "desc";
 
-    const items = [
-      {
-        label: sortAscendingNext
-          ? "Sort this column in ascending order"
-          : "Sort this column in descending order",
-        icon: sortAscendingNext ? faArrowUp : faArrowDown,
-        onSelect: () => this.handleSort(column.name),
-      },
-    ];
+    const items = [];
+
+    if (!(isSorted && sortDirection === 'asc')) {
+      items.push({
+        label: "Sort this column in ascending order",
+        icon: faArrowUp,
+        onSelect: () => this.handleSort(column.name, 'asc'),
+      });
+    }
+
+    if (!(isSorted && sortDirection === 'desc')) {
+      items.push({
+        label: "Sort this column in descending order",
+        icon: faArrowDown,
+        onSelect: () => this.handleSort(column.name, 'desc'),
+      });
+    }
 
     if (updateSelectedColumns && selectedColumns.includes(column.name)) {
       items.push({
@@ -99,17 +104,7 @@ class DatasetTable extends React.Component {
     });
   }
 
-  handleSort(columnName) {
-    const { sortColumn, sortDirection } = this.state;
-    let newDirection = "asc";
-
-    if (sortColumn === columnName) {
-      newDirection = sortDirection === "asc" ? "desc" : "asc";
-    }
-
-    // Column sort overrides manual row drag order so rows stay sorted.
-    this.props.onPreviewRowOrderChange?.([]);
-
+  handleSort(columnName, newDirection) {
     this.setState({
       sortColumn: columnName,
       sortDirection: newDirection,
@@ -254,33 +249,6 @@ class DatasetTable extends React.Component {
     this.setState({ dragColumnIndex: null });
   }
 
-  handleRowDragStart(e, index) {
-    this.setState({ dragRowIndex: index });
-    e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", String(index));
-  }
-
-  handleRowDrop(e, toIndex, rowKeysInView) {
-    e.preventDefault();
-    const { dragRowIndex } = this.state;
-    const { previewRowOrder, onPreviewRowOrderChange } = this.props;
-    if (dragRowIndex == null || !onPreviewRowOrderChange) return;
-
-    const order = previewRowOrder?.length ? [...previewRowOrder] : [...rowKeysInView];
-    const fromKey = rowKeysInView[dragRowIndex];
-    const toKey = rowKeysInView[toIndex];
-    const from = order.indexOf(fromKey);
-    const to = order.indexOf(toKey);
-    if (from === -1 || to === -1) {
-      const rebuilt = rowKeysInView;
-      onPreviewRowOrderChange(reorderList(rebuilt, dragRowIndex, toIndex));
-    } else {
-      onPreviewRowOrderChange(reorderList(order, from, to));
-    }
-    this.setState({ dragRowIndex: null });
-  }
-
-
   sortData(data, columnName, direction) {
     if (!columnName) return data;
 
@@ -357,17 +325,14 @@ class DatasetTable extends React.Component {
       geographyColumn = null,
       linkRowsToDatasetView = false,
       updatePage,
-      updateSelectedColumns,
       showHiddenColumns,
       addNewColumnFilter,
       columnFilters,
       previewColumnOrder = [],
-      previewRowOrder = [],
       onPreviewColumnOrderChange,
-      onPreviewRowOrderChange,
       onResetPreviewLayout,
     } = this.props;
-    const { sortColumn, sortDirection, inputPageNum, contextMenu, dragRowIndex } = this.state;
+    const { sortColumn, sortDirection, inputPageNum, contextMenu } = this.state;
 
     const orderedColumnKeys = orderColumnKeys(columnKeys, selectedColumns, previewColumnOrder);
     const columnSegments = getPreviewTableColumnSegments(previewColumnOrder, columnKeys, selectedColumns);
@@ -376,7 +341,7 @@ class DatasetTable extends React.Component {
     );
     const hasVisibleColumns = orderedColumnKeys.length > 0;
 
-    // Avoid a broken table (row drag gutter only) when all columns are deselected.
+    // Avoid a broken table when all columns are deselected.
     if (columnKeys.length > 0 && !hasVisibleColumns) {
       const isEmbedView = new URLSearchParams(location.search).get("embed") === "1";
 
@@ -484,30 +449,18 @@ class DatasetTable extends React.Component {
     const effectiveSortDirection = sortColumn ? sortDirection : "asc";
     const sortedRows = this.sortData(allRows, effectiveSortColumn, effectiveSortDirection);
 
-    const showRowDragControls = Boolean(
-      !linkRowsToDatasetView && (updateSelectedColumns || onPreviewRowOrderChange),
-    );
-    const showRowGutter = showRowDragControls || linkRowsToDatasetView;
-    const canCustomizeLayout = Boolean(
-      showRowDragControls || onPreviewColumnOrderChange,
-    );
+    const canCustomizeLayout = Boolean(onPreviewColumnOrderChange);
 
-    const previewRows = applyPreviewRowOrder(sortedRows, previewRowOrder);
-    const rowKeysInView = previewRows.map((row, i) => getDatasetRowKey(row, i));
-
-    const dataRows = previewRows.map((row, i) => (
+    const rowKeysInView = sortedRows.map((row, i) => getDatasetRowKey(row, i));
+    const dataRows = sortedRows.map((row, i) => (
       <DataRow
         key={rowKeysInView[i]}
+        index={i}
         rowData={row}
         columnSegments={columnSegments}
         showHiddenColumnMarkers={showHiddenColumnMarkers}
         linkRowsToDatasetView={linkRowsToDatasetView}
-        showRowDragControls={showRowDragControls}
-        isDragging={dragRowIndex === i}
-        onDragHandleDragStart={(e) => this.handleRowDragStart(e, i)}
-        onDragHandleDragEnd={() => this.setState({ dragRowIndex: null })}
-        onRowDragOver={this.handleColumnDragOver}
-        onRowDrop={(e) => this.handleRowDrop(e, i, rowKeysInView)}
+        queryYearColumn={queryYearColumn}
       />
     ));
 
@@ -523,7 +476,7 @@ class DatasetTable extends React.Component {
       visibleColumnNames,
       columnKeys,
     );
-    const hasPreviewCustomization = columnOrderCustom || previewRowOrder.length > 0;
+    const hasPreviewCustomization = columnOrderCustom;
 
     return (
       <div className="table-wrapper">
@@ -542,12 +495,10 @@ class DatasetTable extends React.Component {
                 <table className="ui sortable unstackable selectable compact table ember-view sticky-header-table dataset-table--preview">
                   <thead className="sticky-header">
                     <tr>
-                      {showRowGutter && (
-                        <th
-                          className="dataset-table__gutter"
-                          aria-label={linkRowsToDatasetView ? "Open dataset" : "Row controls"}
-                        />
-                      )}
+                      <th
+                        className="dataset-table__gutter"
+                        aria-label={linkRowsToDatasetView ? "Open dataset" : "Row controls"}
+                      />
                       {renderedHeaders}
                     </tr>
                   </thead>
@@ -653,9 +604,7 @@ DatasetTable.propTypes = {
   addNewColumnFilter: PropTypes.func,
   columnFilters: PropTypes.arrayOf(PropTypes.object),
   previewColumnOrder: PropTypes.arrayOf(PropTypes.string),
-  previewRowOrder: PropTypes.arrayOf(PropTypes.string),
   onPreviewColumnOrderChange: PropTypes.func,
-  onPreviewRowOrderChange: PropTypes.func,
   onResetPreviewLayout: PropTypes.func,
 };
 

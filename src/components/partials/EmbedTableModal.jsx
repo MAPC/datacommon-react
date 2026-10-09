@@ -38,12 +38,12 @@ const EmbedTableModal = ({
   isOpen,
   onClose,
   datasetId,
-  title,
   shareUrl: shareUrlProp,
   embedUrl: embedUrlProp,
+  title = "",
   urlTooLong = false,
-  adjustUrlFiltersSlot = null,
   viewMode = "table",
+  adjustUrlFiltersSlot = null,
 }) => {
   const [panel, setPanel] = useState("share");
   /** Shown in inputs while typing; only digits (empty allowed briefly). */
@@ -271,7 +271,7 @@ const EmbedTableModal = ({
               <p className="embed-table-modal-section-title">Copy link to page</p>
               <p className="embed-table-modal-section-hint">
                 {viewMode === "map"
-                  ? "This link opens the map view and includes the selected map variable, geography, and year."
+                  ? "This link opens the map view and includes the geographic frame, selected map variables, geography, and year."
                   : "This link includes the selected filters (columns, geography, and years)."}
               </p>
               {shareEmbedFilterHelp}
@@ -307,7 +307,7 @@ const EmbedTableModal = ({
               <p className="embed-table-modal-section-title">Copy embed code</p>
               <p className="embed-table-modal-section-hint">
                 {viewMode === "map"
-                  ? "The embed URL uses the map view and updates with the selected map variable, geography, and year."
+                  ? "The embed URL uses the map view and updates with the geographic frame, selected map variables, geography, and year."
                   : "The embed URL updates based on the applied filters (columns, geography, and years)."}
               </p>
               {shareEmbedFilterHelp}
@@ -418,12 +418,6 @@ EmbedTableModal.propTypes = {
   urlTooLong: PropTypes.bool,
   adjustUrlFiltersSlot: PropTypes.node,
   viewMode: PropTypes.oneOf(["table", "map"]),
-};
-
-EmbedTableModal.defaultProps = {
-  title: "",
-  urlTooLong: false,
-  viewMode: "table",
 };
 
 export default EmbedTableModal;

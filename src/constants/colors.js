@@ -33,6 +33,7 @@ export default {
     PRIMARY: '#6FC68E',
     SECONDARY: '#44AD89',
     BACKGROUND_DARK: '#1F4E46',
+    SUBREGION_HIGHLIGHT: '#287CCB',
   },
   CHART: {
     PRIMARY: new Map(primary),

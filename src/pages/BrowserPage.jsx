@@ -1,15 +1,19 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faLock } from "@fortawesome/free-solid-svg-icons";
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+import { faLock, faStar } from "@fortawesome/free-solid-svg-icons";
+import { faStar as faStarOutline } from "@fortawesome/free-regular-svg-icons";
+import axios from "axios";
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import styled from 'styled-components';
 
 import MetadataModal from "../components/partials/MetadataModal";
 import { fetchDatasets } from '../reducers/datasetSlice';
-import { filterDatasets, highlightDatasets, sortDatasets, compressDatasetsByGeography } from "../utils/manageDatasets";
+import { isUserFromMAPC } from "../utils/auth";
+import { getCookie } from "../utils/cookies";
 import { pickDatasetOfTheWeek } from "../utils/featuredDataset";
 import { formatUpdated } from '../utils/formatUpdated';
+import { filterDatasets, highlightDatasets, sortDatasets, compressDatasetsByGeography } from "../utils/manageDatasets";
 
 const PageContainer = styled.section`
   &.route.categories {
@@ -29,11 +33,9 @@ const Sidebar = styled.div`
   width: 25%;
   min-width: 250px;
   background: #f8f9fa;
-  padding: 1.5rem;
+  padding: 1rem 1.5rem;
   border-radius: 8px;
   height: fit-content;
-  position: sticky;
-  top: 2rem;
 `;
 
 const SidebarTitleContainer = styled.div`
@@ -42,7 +44,7 @@ const SidebarTitleContainer = styled.div`
 `;
 
 const SidebarTitle = styled.h3`
-  margin: 0 0 1.5rem 0;
+  margin: 0 0 1rem 0;
   font-size: 1.25rem;
   font-weight: 700;
   color: #333;
@@ -67,7 +69,7 @@ const ClearAllFiltersButton = styled.button`
 `;
 
 const FilterSection = styled.div`
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
 `;
 
 const FilterHeader = styled.div`
@@ -84,25 +86,11 @@ const FilterTitle = styled.h4`
   color: #333;
 `;
 
-const ClearButton = styled.button`
-  background: none;
-  border: none;
-  color: #4ea56c;
-  font-size: 0.875rem;
-  cursor: pointer;
-  padding: 0;
-  text-decoration: underline;
-  
-  &:hover {
-    color: #367a4e;
-  }
-`;
-
 const FilterList = styled.ul`
   list-style: none;
   padding: 0;
   margin: 0;
-  max-height: 200px;
+  max-height: 250px;
   overflow-y: auto;
   overflow-x: hidden;
 
@@ -130,7 +118,7 @@ const FilterListCategories = styled.ul`
   list-style: none;
   padding: 0;
   margin: 0;
-  max-height: 400px;
+  max-height: 225px;
   overflow-y: auto;
   overflow-x: hidden;
 
@@ -165,6 +153,25 @@ const FilterTreeChevron = styled.div`
   padding-right: 8px;
   padding-left: 8px;
   cursor: pointer;
+`;
+
+const FilterGroupToggle = styled.div`
+  font-size: 20px;
+  cursor: pointer;
+  user-select: none;
+`;
+
+const ExpandFilterGroupContainer = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  cursor: pointer;
+`;
+
+const ExpandFilterGroupChevron = styled.div`
+  top: -7px;
+  font-size: 26px;
+  padding-left: 8px;
 `;
 
 const FilterItemChildren = styled.div`
@@ -273,7 +280,7 @@ const DatasetGrid = styled.div`
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
-  max-height: 40em;
+  max-height: 54em;
   overflow-y: auto;
   overflow-x: hidden;
   
@@ -455,60 +462,12 @@ const DatasetCount = styled.div`
   }
 `;
 
-const BulkDownloadLink = styled(Link)`
-  display: inline-block;
-  margin-top: 1rem;
-  color: #5aba8c;
-  font-size: 0.95rem;
-  font-weight: 600;
-  text-decoration: none;
-
-  &:hover {
-    text-decoration: underline;
-  }
-`;
-
-const SearchAndGeoFilterContainer = styled.div`
+const SearchContainer = styled.div`
   display: flex;
   flex-direction: column;
   gap: 1rem;
   margin-bottom: 1.5rem;
   position: relative;
-`;
-
-const GeographyBarContainer = styled.div`
-  display: flex;
-  justify-content: space-between;
-`;
-
-const GeographyFilterContainer = styled.div`
-  display: flex;
-  gap: 0.5rem;
-`;
-
-const GeographyFilterPill = styled.div`
-  display: flex;
-  gap: 10px;
-  color: #867676;
-  border: 1px solid #867676;
-  border-radius: 12px;
-  padding: 4px 8px 6px;
-  line-height: 14px;
-  cursor: pointer;
-
-  &:hover {
-    color: #463e3e;
-    border: 1px solid #463e3e;
-  }
-
-  &.selected {
-    color: #4ea56c;
-    border: 1px solid #4ea56c;
-    &:hover {
-      color: #367a4e;
-      border: 1px solid #367a4e;
-    }
-  }
 `;
 
 const SearchInput = styled.input`
@@ -532,7 +491,6 @@ const SearchInput = styled.input`
 
 const DatasetsEmptyState = styled.div`
   text-align: center;
-  padding: 1rem 1rem 0.5rem;
   max-width: 720px;
   margin: 0 auto;
   color: #555;
@@ -561,7 +519,6 @@ const InventoryCardSection = styled.div`
 const FeaturedDatasetSection = styled.div`
   margin-top: 0.75rem;
   padding-top: 1.25rem;
-  border-top: 1px solid #e0e0e0;
 `;
 
 const FeaturedDatasetTitle = styled.h2`
@@ -571,6 +528,14 @@ const FeaturedDatasetTitle = styled.h2`
   color: #333;
   text-align: center;
 `;
+
+const GEOGRAPHIES = [
+  {name: "Municipal", key: "municipal" },
+  {name: "Census Tracts", key: "census_tracts" },
+  {name: "Block Groups", key: "block_groups" },
+  {name: "Blocks", key: "blocks" },
+  {name: "Other", key: "other" },
+];
 
 const BrowserPage = () => {
   const dispatch = useDispatch();
@@ -601,7 +566,19 @@ const BrowserPage = () => {
   const [selectedGeoFilters, setSelectedGeoFilters] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     const geoFilterParams = params.get("geos");
-    return geoFilterParams ? geoFilterParams.split(",").filter(Boolean) : ['all'];
+    return geoFilterParams ? geoFilterParams.split(",").filter(Boolean) : [];
+  });
+
+  const [filterToFavorites, setFilterToFavorites] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const favoritesParam = params.get("favorites");
+    return Boolean(favoritesParam);
+  });
+
+  const [filterToNonActive, setFilterToNonActive] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const nonActiveParam = params.get("non-active");
+    return Boolean(nonActiveParam);
   });
 
   const [selectedGeographyTabs, setSelectedGeographyTabs] = useState({});
@@ -616,6 +593,17 @@ const BrowserPage = () => {
   const [displayDatasets, setDisplayDatasets] = useState([]);
   const [highlightMatches, setHighlightMatches] = useState({});
   const [shareCopied, setShareCopied] = useState(false);
+  const [user, setUser] = useState(null);
+  const [favoriteDatasets, setFavoriteDatasets] = useState(null);
+  const [loadingFavorites, setLoadingFavorites] = useState(false);
+
+  // for powering the filter panel on the left
+  const [categoriesOpened, setCategoriesOpened] = useState(true);
+  const [categoriesExpanded, setCategoriesExpanded] = useState(false);
+  const [geographiesOpened, setGeographiesOpened] = useState(true);
+  const [sourcesOpened, setSourcesOpened] = useState(true);
+  const [sourcesExpanded, setSourcesExpanded] = useState(false);
+  const [groupsOpened, setGroupsOpened] = useState(true);
 
   const arraysEqual = (a, b) => {
     if (a.length !== b.length) return false;
@@ -628,6 +616,36 @@ const BrowserPage = () => {
   useEffect(() => {
     dispatch(fetchDatasets());
   }, [dispatch]);
+
+  useEffect(() => {
+    const cookie = getCookie('datacommon_mapc_token');
+    if (cookie) {
+      axios.get("/api/users/me")
+        .then(res => {
+          setUser(res.data.user);
+        }).catch(err => {
+          setUser(null);
+          console.error("Error while fetching user:", err);
+        });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      axios.get("/api/datasets/favorites")
+        .then(res => {
+          setFavoriteDatasets(res.data);
+        }).catch(err => {
+          setFavoriteDatasets(null);
+          console.error("Error while fetching favorite datasets:", err);
+        });
+    }
+  }, [user]);
+
+  const userIsFromMAPC = useMemo(() => {
+    if (!user) return false;
+    return isUserFromMAPC(user);
+  }, [user]);
 
   // Get unique sources
   const sources = useMemo(() => {
@@ -663,7 +681,8 @@ const BrowserPage = () => {
     });
 
     setCategoryOptionTree(categoryTree);
-  }, [datasets]);
+  // eslint-disable-next-line
+  }, [datasets]); // I don't want this to run when location.search changes
 
   const menu1OptionList = useMemo(() => {
     return Object.keys(categoryOptionTree).sort();
@@ -684,6 +703,8 @@ const BrowserPage = () => {
       categories: selectedMenu1s,
       subcategories: selectedMenu2s,
       geographies: selectedGeoFilters,
+      favoriteDatasets: (filterToFavorites && favoriteDatasets) ? favoriteDatasets.map(f => f.table_name) : null,
+      filterToNonActive: filterToNonActive,
     });
 
     // "Compress" the datasets into fewer cards, datasets with the same base table but different geographies
@@ -751,7 +772,7 @@ const BrowserPage = () => {
 
     setHighlightMatches(highlights);
     setDisplayDatasets(compressedDatasets);
-  }, [datasets, selectedSources, selectedMenu1s, selectedMenu2s, selectedGeoFilters, searchQuery]);
+  }, [datasets, selectedSources, selectedMenu1s, selectedMenu2s, selectedGeoFilters, filterToFavorites, favoriteDatasets, filterToNonActive, searchQuery]);
 
   // Keep URL query parameters in sync with search and filters so users can share links
   useEffect(() => {
@@ -762,13 +783,17 @@ const BrowserPage = () => {
     const currentCategories = (params.get("category") || "").split(",").filter(Boolean);
     const currentSubcategories = (params.get("subcategory") || "").split(",").filter(Boolean);
     const currentGeoFilters = (params.get("geos") || "").split(",").filter(Boolean);
+    const currentFavoritesFilter = (params.get("favorites") || "");
+    const currentNonActiveFilter = (params.get("non-active") || "");
 
     const shouldUpdate =
       currentQ !== searchQuery ||
       !arraysEqual(currentSources, selectedSources) ||
       !arraysEqual(currentCategories, selectedMenu1s) ||
       !arraysEqual(currentSubcategories, selectedMenu2s) ||
-      !arraysEqual(currentGeoFilters, selectedGeoFilters);
+      !arraysEqual(currentGeoFilters, selectedGeoFilters) ||
+      currentFavoritesFilter !== filterToFavorites ||
+      currentNonActiveFilter !== filterToNonActive;
 
     if (!shouldUpdate) {
       return;
@@ -804,6 +829,18 @@ const BrowserPage = () => {
       params.delete("geos");
     }
 
+    if (filterToFavorites) {
+      params.set("favorites", true);
+    } else {
+      params.delete("favorites");
+    }
+
+    if (filterToNonActive) {
+      params.set("non-active", true);
+    } else {
+      params.delete("non-active");
+    }
+
     const newSearch = params.toString();
     const newUrl = `${location.pathname}${newSearch ? `?${newSearch}` : ""}`;
     const currentUrl = `${location.pathname}${location.search}`;
@@ -811,7 +848,7 @@ const BrowserPage = () => {
     if (newUrl !== currentUrl) {
       navigate(newUrl, { replace: true });
     }
-  }, [searchQuery, selectedSources, selectedMenu1s, selectedMenu2s, selectedGeoFilters, location.pathname, location.search, navigate]);
+  }, [searchQuery, selectedSources, selectedMenu1s, selectedMenu2s, selectedGeoFilters, filterToFavorites, filterToNonActive, location.pathname, location.search, navigate]);
 
   // Sort datasets
   const sortedDatasets = useMemo(() => {
@@ -838,6 +875,24 @@ const BrowserPage = () => {
   const datasetOfTheWeek = useMemo(() => {
     return noDupesDatasets ? pickDatasetOfTheWeek(noDupesDatasets) : pickDatasetOfTheWeek(datasets);
   }, [noDupesDatasets, datasets]);
+
+  const maybeTruncatedMenu1Options = useMemo(() => {
+    return (!categoriesExpanded && menu1OptionList.length) ? menu1OptionList.slice(0, 5) : menu1OptionList;
+  }, [categoriesExpanded, menu1OptionList]);
+
+  useEffect(() => {
+    if (categoriesExpanded || menu1OptionList.length === 0 || selectedMenu1s.length === 0) {
+      return;
+    }
+    const visible = menu1OptionList.slice(0, 5);
+    if (selectedMenu1s.some((category) => !visible.includes(category))) {
+      setCategoriesExpanded(true);
+    }
+  }, [categoriesExpanded, menu1OptionList, selectedMenu1s]);
+
+  const maybeTruncatedSources = useMemo(() => {
+    return (!sourcesExpanded && sources.length) ? sources.slice(0, 5) : sources;
+  }, [sourcesExpanded, sources]);
 
   const renderHighlightedText = (text, datasetId, key) => {
     if (!text) {
@@ -881,6 +936,30 @@ const BrowserPage = () => {
     }
 
     return <>{segments}</>;
+  };
+
+  const handleToggleDatasetFavorite = async (table) => {
+    // bail out if currently loading
+    if (loadingFavorites) return;
+
+    try {
+      setLoadingFavorites(true);
+      await axios.post("/api/datasets/toggle-favorite", { tableName: table });
+
+      // if toggle request succeeds, re-fetch updated datasets:
+      axios.get("/api/datasets/favorites")
+        .then(res => {
+          setFavoriteDatasets(res?.data || null);
+          setLoadingFavorites(false);
+        }).catch(err => {
+          console.error("Error while fetching dataset favorites: ", err);
+          setFavoriteDatasets(null);
+          setLoadingFavorites(false);
+        });
+    } catch (err) {
+      console.error('Error while toggling dataset favorite status');
+      setLoadingFavorites(false);
+    }
   };
 
   const handleCopyShareLink = async () => {
@@ -956,42 +1035,20 @@ const BrowserPage = () => {
     setSelectedMenu2s(newMenu2s);
   };
 
-  const onGeoFilterClick = (geoVal, selectedGeoFilters) => {
-    let newGeoFilters = [...selectedGeoFilters];
-    const allGeos = ['municipal', 'census_tracts', 'block_groups', 'blocks', 'other'];
-
-    // if all was selected, break up into individual
-    if (newGeoFilters.includes('all')) {
-      newGeoFilters = allGeos;
-    }
-
-    if (!newGeoFilters.includes(geoVal)) {
-      newGeoFilters = [...newGeoFilters, geoVal];
-    } else {
-      newGeoFilters = newGeoFilters.filter(gf => gf !== geoVal);
-    }
-
-    // if all are now selected, replace with all
-    if (allGeos.every(geo => newGeoFilters.includes(geo))) {
-      newGeoFilters = ['all'];
-    }
-
-    setSelectedGeoFilters(newGeoFilters);
+  const handleGeoFilterChange = (geoKey) => {
+    setSelectedGeoFilters(prev => {
+      if (prev.includes(geoKey)) {
+        return prev.filter(s => s !== geoKey);
+      } else {
+        return [...prev, geoKey];
+      }
+    });
   };
 
   const onCategoryFilterOpenClose = (menu1) => {
     const newTree = {...categoryOptionTree};
     newTree[menu1].open = !categoryOptionTree[menu1].open;
     setCategoryOptionTree(newTree);
-  };
-
-  const clearSourceFilter = () => {
-    setSelectedSources([]);
-  };
-
-  const clearCategoryFilters = () => {
-    setSelectedMenu1s([]);
-    setSelectedMenu2s([]);
   };
 
   const handleViewMetadata = (dataset) => {
@@ -1039,15 +1096,16 @@ const BrowserPage = () => {
 
   const areFiltersPresent = () => {
     const categoryFiltersPresent = selectedMenu1s.length > 0 || selectedMenu2s.length > 0;
-    const geographyFiltersPresent = selectedGeoFilters.length > 0 && !selectedGeoFilters.includes('all');
-    return (searchQuery.trim() || selectedSources.length > 0 || categoryFiltersPresent || geographyFiltersPresent);
+    const geographyFiltersPresent = selectedGeoFilters.length > 0;
+    return (searchQuery.trim() || selectedSources.length > 0 || categoryFiltersPresent || geographyFiltersPresent || filterToFavorites || filterToNonActive);
   };
 
   const clearAllFilters = () => {
     setSelectedMenu1s([]);
     setSelectedMenu2s([]);
     setSelectedSources([]);
-    setSelectedGeoFilters(['all']);
+    setSelectedGeoFilters([]);
+    setFilterToFavorites(false);
     setSearchQuery('');
   };
 
@@ -1061,6 +1119,7 @@ const BrowserPage = () => {
   const renderCompressedDatasetCard = (compressedDataset) => {
     const compressedDatasetId = compressedDataset.seq_id;
     const selectedDatasetFromTab = getSelectedDataset(compressedDataset);
+    const isFavorited = favoriteDatasets && favoriteDatasets.map(f => f.table_name).includes(selectedDatasetFromTab.table_name);
     return (
       <DatasetContainer key={compressedDatasetId}>
         <DatasetTabs>
@@ -1081,7 +1140,15 @@ const BrowserPage = () => {
           <DatasetHeaderContainer>
             <DatasetHeader>
               {selectedDatasetFromTab?.active === 'N' &&
-                <FontAwesomeIcon icon={faLock} style={{ color: '#af971a', marginRight: '8px' }} title="This dataset is not active"/>
+                <FontAwesomeIcon icon={faLock} style={{ color: '#5c5c5c', marginRight: '8px' }} title="This dataset is not active"/>
+              }
+              {favoriteDatasets && 
+                <FontAwesomeIcon 
+                  icon={isFavorited ? faStar : faStarOutline}
+                  style={{ color: '#bfa825', marginRight: '8px' }}
+                  onClick={(e) => {e.stopPropagation(); handleToggleDatasetFavorite(selectedDatasetFromTab.table_name);}}
+                  title="Toggle favorite dataset"
+                />
               }
               {renderHighlightedText(selectedDatasetFromTab.menu3, selectedDatasetFromTab.seq_id, 'menu3')}
             </DatasetHeader>
@@ -1130,9 +1197,6 @@ const BrowserPage = () => {
         <DatasetCount>
           <strong>{noDupesDatasets?.length || 0}</strong> {noDupesDatasets?.length === 1 ? 'dataset' : 'datasets'} available
         </DatasetCount>
-        <BulkDownloadLink to="/browser/bulk-download">
-          Download data for planning 
-        </BulkDownloadLink>
       </PageHeader>
       <MainContent>
         <Sidebar>
@@ -1148,60 +1212,90 @@ const BrowserPage = () => {
           <FilterSection>
             <FilterHeader>
               <FilterTitle>Category</FilterTitle>
-              {(selectedMenu1s.length > 0 || selectedMenu2s.length > 0) && (
-                <ClearButton onClick={clearCategoryFilters}>Clear</ClearButton>
-              )}
+              <FilterGroupToggle onClick={() => setCategoriesOpened(!categoriesOpened)}>
+                {categoriesOpened ? "▲" : "▼"}
+              </FilterGroupToggle>
             </FilterHeader>
-            <FilterListCategories>
-              {menu1OptionList.map(menu1 => (
-                <div key={menu1}>
-                  <FilterItem>
-                    <CheckboxInput
-                      type="checkbox"
-                      id={`menu1-${menu1}`}
-                      checked={selectedMenu1s.includes(menu1)}
-                      onChange={() => handleMenu1Change(
-                        menu1, categoryOptionTree[menu1].children, selectedMenu1s, selectedMenu2s
-                      )}
-                    />
-                    <CheckboxLabel htmlFor={`menu1-${menu1}`}>
-                      {menu1}
-                    </CheckboxLabel>
-                    <FilterTreeChevron onClick={() => onCategoryFilterOpenClose(menu1)}>
-                      {categoryOptionTree[menu1].open ? "▲" : "▼"}
-                    </FilterTreeChevron>
-                  </FilterItem>
-                  {categoryOptionTree[menu1].open && <FilterItemChildren>
-                    {categoryOptionTree[menu1].children.map(menu2 => (
-                      <FilterItem key={menu2}>
-                        <CheckboxInput
-                          type="checkbox"
-                          id={`menu2-${menu2}`}
-                          checked={selectedMenu1s.includes(menu1) || selectedMenu2s.includes(menu2)}
-                          onChange={() => handleMenu2Change(
-                            menu1, menu2, categoryOptionTree[menu1].children, selectedMenu1s, selectedMenu2s
-                          )}
-                        />
-                        <CheckboxLabel htmlFor={`menu2-${menu2}`}>
-                          {menu2}
-                        </CheckboxLabel>
-                      </FilterItem>
-                    ))}
-                  </FilterItemChildren>}
-                </div>
-              ))}
-            </FilterListCategories>
+            {categoriesOpened && 
+              <FilterListCategories>
+                {maybeTruncatedMenu1Options.map(menu1 => (
+                  <div key={menu1}>
+                    <FilterItem>
+                      <CheckboxInput
+                        type="checkbox"
+                        id={`menu1-${menu1}`}
+                        checked={selectedMenu1s.includes(menu1)}
+                        onChange={() => handleMenu1Change(
+                          menu1, categoryOptionTree[menu1].children, selectedMenu1s, selectedMenu2s
+                        )}
+                      />
+                      <CheckboxLabel htmlFor={`menu1-${menu1}`}>
+                        {menu1}
+                      </CheckboxLabel>
+                      <FilterTreeChevron onClick={() => onCategoryFilterOpenClose(menu1)}>
+                        {categoryOptionTree[menu1].open ? "▲" : "▼"}
+                      </FilterTreeChevron>
+                    </FilterItem>
+                    {categoryOptionTree[menu1].open && <FilterItemChildren>
+                      {categoryOptionTree[menu1].children.map(menu2 => (
+                        <FilterItem key={menu2}>
+                          <CheckboxInput
+                            type="checkbox"
+                            id={`menu2-${menu2}`}
+                            checked={selectedMenu1s.includes(menu1) || selectedMenu2s.includes(menu2)}
+                            onChange={() => handleMenu2Change(
+                              menu1, menu2, categoryOptionTree[menu1].children, selectedMenu1s, selectedMenu2s
+                            )}
+                          />
+                          <CheckboxLabel htmlFor={`menu2-${menu2}`}>
+                            {menu2}
+                          </CheckboxLabel>
+                        </FilterItem>
+                      ))}
+                    </FilterItemChildren>}
+                  </div>
+                ))}
+                {!categoriesExpanded && (
+                  <ExpandFilterGroupContainer onClick={() => setCategoriesExpanded(true)}>
+                    <div>Show {menu1OptionList.length - 5} more</div>
+                    <ExpandFilterGroupChevron>⌄</ExpandFilterGroupChevron>
+                  </ExpandFilterGroupContainer>
+                )}
+              </FilterListCategories>
+            }
+          </FilterSection>
+
+          <FilterSection>
+            <FilterHeader>
+              <FilterTitle>Geographies</FilterTitle>
+              <FilterGroupToggle onClick={() => setGeographiesOpened(!geographiesOpened)}>
+                {geographiesOpened ? "▲" : "▼"}
+              </FilterGroupToggle>
+            </FilterHeader>
+            {geographiesOpened && GEOGRAPHIES.map(geo => <FilterList key={geo.key}>
+              <FilterItem>
+                <CheckboxInput
+                  type="checkbox"
+                  id={`geography-${geo.key}`}
+                  checked={selectedGeoFilters.includes(geo.key)}
+                  onChange={() => handleGeoFilterChange(geo.key)}
+                />
+                <CheckboxLabel htmlFor={`geography-${geo.key}`}>
+                  {geo.name}
+                </CheckboxLabel>
+              </FilterItem>
+            </FilterList>)}
           </FilterSection>
 
           <FilterSection>
             <FilterHeader>
               <FilterTitle>Data Source</FilterTitle>
-              {selectedSources.length > 0 && (
-                <ClearButton onClick={clearSourceFilter}>Clear</ClearButton>
-              )}
+              <FilterGroupToggle onClick={() => setSourcesOpened(!sourcesOpened)}>
+                {sourcesOpened ? "▲" : "▼"}
+              </FilterGroupToggle>
             </FilterHeader>
-            <FilterList>
-              {sources.map((source) => (
+            {sourcesOpened && <FilterList>
+              {maybeTruncatedSources.map((source) => (
                 <FilterItem key={source}>
                   <CheckboxInput
                     type="checkbox"
@@ -1214,67 +1308,60 @@ const BrowserPage = () => {
                   </CheckboxLabel>
                 </FilterItem>
               ))}
-            </FilterList>
+              {!sourcesExpanded && (
+                <ExpandFilterGroupContainer onClick={() => setSourcesExpanded(true)}>
+                  <div>Show {sources.length - 5} more</div>
+                  <ExpandFilterGroupChevron>⌄</ExpandFilterGroupChevron>
+                </ExpandFilterGroupContainer>
+              )}
+            </FilterList>}
           </FilterSection>
+
+          {user && <FilterSection>
+            <FilterHeader>
+              <FilterTitle>Groups</FilterTitle>
+              <FilterGroupToggle onClick={() => setGroupsOpened(!groupsOpened)}>
+                {groupsOpened ? "▲" : "▼"}
+              </FilterGroupToggle>
+            </FilterHeader>
+            {groupsOpened && <FilterList>
+              <FilterItem>
+                <CheckboxInput
+                  type="checkbox"
+                  id="my-favorites"
+                  checked={filterToFavorites}
+                  onChange={() => setFilterToFavorites(!filterToFavorites)}
+                />
+                <CheckboxLabel htmlFor="my-favorites">
+                  <FontAwesomeIcon icon={faStar} style={{ color: '#bfa825', marginRight: '8px' }} />
+                  My Favorites
+                </CheckboxLabel>
+              </FilterItem>
+              {userIsFromMAPC && <FilterItem>
+                <CheckboxInput
+                  type="checkbox"
+                  id="non-active-datasets"
+                  checked={filterToNonActive}
+                  onChange={() => setFilterToNonActive(!filterToNonActive)}
+                />
+                <CheckboxLabel htmlFor="non-active-datasets">
+                  <FontAwesomeIcon icon={faLock} style={{ color: '#5c5c5c', marginRight: '8px' }} />
+                  Internal Datasets
+                </CheckboxLabel>
+              </FilterItem>}
+            </FilterList>}
+          </FilterSection>}
 
         </Sidebar>
 
         <ContentArea>
-          <SearchAndGeoFilterContainer>
+          <SearchContainer>
             <SearchInput
               placeholder="Search by table name or title..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
-            <GeographyBarContainer>
-              <GeographyFilterContainer>
-                <GeographyFilterPill
-                  onClick={() => onGeoFilterClick('municipal', selectedGeoFilters)}
-                  className={(selectedGeoFilters.includes('municipal') || selectedGeoFilters.includes('all')) ? 'selected' : ''}
-                >
-                  Municipalities
-                  {(selectedGeoFilters.includes('municipal') || selectedGeoFilters.includes('all')) && <span>✓</span>}
-                </GeographyFilterPill>
-                <GeographyFilterPill
-                  onClick={() => onGeoFilterClick('census_tracts', selectedGeoFilters)}
-                  className={(selectedGeoFilters.includes('census_tracts') || selectedGeoFilters.includes('all')) ? 'selected' : ''}
-                >
-                  Census Tracts
-                  {(selectedGeoFilters.includes('census_tracts') || selectedGeoFilters.includes('all')) && <span>✓</span>}
-                </GeographyFilterPill>
-                <GeographyFilterPill
-                  onClick={() => onGeoFilterClick('block_groups', selectedGeoFilters)}
-                  className={(selectedGeoFilters.includes('block_groups') || selectedGeoFilters.includes('all')) ? 'selected' : ''}
-                >
-                  Block Groups
-                  {(selectedGeoFilters.includes('block_groups') || selectedGeoFilters.includes('all')) && <span>✓</span>}
-                </GeographyFilterPill>
-                <GeographyFilterPill
-                  onClick={() => onGeoFilterClick('blocks', selectedGeoFilters)}
-                  className={(selectedGeoFilters.includes('blocks') || selectedGeoFilters.includes('all')) ? 'selected' : ''}
-                >
-                  Blocks
-                  {(selectedGeoFilters.includes('blocks') || selectedGeoFilters.includes('all')) && <span>✓</span>}
-                </GeographyFilterPill>
-                <GeographyFilterPill
-                  onClick={() => onGeoFilterClick('other', selectedGeoFilters)}
-                  className={(selectedGeoFilters.includes('other') || selectedGeoFilters.includes('all')) ? 'selected' : ''}
-                >
-                  Other
-                  {(selectedGeoFilters.includes('other') || selectedGeoFilters.includes('all')) && <span>✓</span>}
-                </GeographyFilterPill>
-              </GeographyFilterContainer>
-              <GeographyFilterPill
-                onClick={() => selectedGeoFilters.length === 0 ? setSelectedGeoFilters(['all']) : setSelectedGeoFilters([])}
-                className={selectedGeoFilters.length === 0 ? 'selected' : ''}
-              >
-                <>
-                  {selectedGeoFilters.length === 0 ? "Select all geographies" : "Clear all geographies"}
-                </>
-                <span>{selectedGeoFilters.length !== 0 ? "X" : "✓"}</span>
-              </GeographyFilterPill>
-            </GeographyBarContainer>
-          </SearchAndGeoFilterContainer>
+          </SearchContainer>
           
           {filtersActive && (
             <ContentHeader>
@@ -1308,6 +1395,13 @@ const BrowserPage = () => {
 
           {filtersActive ? (
             <DatasetGrid ref={datasetGridRef}>
+              {filterToFavorites && favoriteDatasets?.length === 0 && (
+                <DatasetsEmptyState>
+                  <p>
+                    You haven't favorited any datasets yet. Click on the star next to a dataset name to add it to your favorites.
+                  </p>
+                </DatasetsEmptyState>
+              )}
               {sortedDatasets.map(renderCompressedDatasetCard)}
             </DatasetGrid>
           ) : (

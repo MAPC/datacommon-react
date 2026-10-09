@@ -5,6 +5,8 @@ export const MAP_VIEW_GEOGRAPHY_TYPES = {
   census_tracts: "census_tracts",
   block_groups: "block_groups",
   blocks: "blocks",
+  school_districts: "school_districts",
+  schools: "schools",
   /** `_data_browser.menu1 === "Boundaries"` — table already has polygons in `shape`. */
   boundary: "boundary",
 };
@@ -18,6 +20,8 @@ const TRACT_GEO_COLUMNS = [
   "geoid",
   "GEOID",
 ];
+const SCHOOL_DISTRICT_MAP_JOIN_COLUMNS = ["districtid", "org8code", "org4code"];
+const SCHOOL_MAP_JOIN_COLUMNS = ["schid"];
 
 const OWN_SHAPE_COLUMN_NAMES = new Set(["shape", "geometry", "geom"]);
 
@@ -27,14 +31,14 @@ export function isBoundariesCategory(menu1) {
 }
 
 /**
- * Detect geography type from `_data_browser.geography`, or Boundaries category.
- * Known geography values: municipal, census_tracts, block_groups, blocks, null.
+ * Detect geography type from `_data_browser.geography`, table columns, or Boundaries category.
+ * Known geography values: municipal, census_tracts, block_groups, blocks, school_districts, schools, null.
  *
- * @param {string|null|undefined} [_tableName]
+ * @param {string|null|undefined} [tableName]
  * @param {string|null|undefined} [geography] `_data_browser.geography`
- * @param {{ menu1?: string|null }} [options]
+ * @param {{ menu1?: string|null, sampleRow?: object|null }} [options]
  */
-export function detectDatasetGeographyType(_tableName, geography = null, { menu1 = null } = {}) {
+export function detectDatasetGeographyType(tableName, geography = null, { menu1 = null, sampleRow = null } = {}) {
   if (geography != null && geography !== "") {
     const value = String(geography).trim().toLowerCase();
     if (value === MAP_VIEW_GEOGRAPHY_TYPES.municipal) {
@@ -49,15 +53,33 @@ export function detectDatasetGeographyType(_tableName, geography = null, { menu1
     if (value === MAP_VIEW_GEOGRAPHY_TYPES.blocks) {
       return MAP_VIEW_GEOGRAPHY_TYPES.blocks;
     }
+    if (
+      value === MAP_VIEW_GEOGRAPHY_TYPES.school_districts ||
+      value === "school_district" ||
+      value === "districts"
+    ) {
+      return MAP_VIEW_GEOGRAPHY_TYPES.school_districts;
+    }
+    if (value === MAP_VIEW_GEOGRAPHY_TYPES.schools || value === "school") {
+      return MAP_VIEW_GEOGRAPHY_TYPES.schools;
+    }
   }
-  if (isBoundariesCategory(menu1)) {
-    return MAP_VIEW_GEOGRAPHY_TYPES.boundary;
+
+  // handle school districts and schools by table name because those tables's geography columns are empty
+  const table = String(tableName).toLowerCase();
+  if (table.endsWith("_districts")) {
+    return MAP_VIEW_GEOGRAPHY_TYPES.school_districts;
   }
+  if (table.endsWith("_schools")) {
+    return MAP_VIEW_GEOGRAPHY_TYPES.schools;
+  }
+  // handle boundaries by menu1
+  if (isBoundariesCategory(menu1)) return MAP_VIEW_GEOGRAPHY_TYPES.boundary;
   return null;
 }
 
 /**
- * Map preview: municipal + census tract choropleths, and Boundaries-category layers.
+ * Map preview: municipal + census tract choropleths and Boundaries layers.
  */
 export function isMapPreviewSupported(geographyType) {
   return (
@@ -95,6 +117,10 @@ const NON_MAPPABLE_COLUMN_NAMES = new Set(
     "funcstat",
     "intptlat",
     "intptlon",
+    "districtid",
+    "district",
+    "schid",
+    "schoolyear",
     ...MUNICIPAL_MAP_JOIN_COLUMNS,
     ...TRACT_GEO_COLUMNS,
   ].map((name) => name.toLowerCase()),
@@ -120,9 +146,7 @@ export function supportsTabularGeojsonExport(tableName, geography = null, { menu
 }
 
 /**
- * Column used for the tabular geography dropdown / filter 
- * @param {Object} sampleRow
- * @returns {string}
+ * Column used for the tabular "All geographies" dropdown (municipal name, not muni_id).
  */
 export function resolveTableGeographyColumn(sampleRow) {
   if (!sampleRow) return null;
@@ -136,8 +160,8 @@ export function resolveTableGeographyColumn(sampleRow) {
 /**
  * Column used to join table rows to map polygons (prefer muni_id / tract ids).
  * @param {object|null} sampleRow
- * @param {"municipal"|"census_tracts"|"boundary"|null} geographyType
- * @param {string|null} [preferredColumn]
+ * @param {"municipal"|"census_tracts"|"boundary"|"school_districts"|"schools"|null} geographyType
+ * @param {string|null} [preferredColumn] preferred column name to use for joining
  */
 export function resolveMapGeographyColumn(sampleRow, geographyType, preferredColumn = null) {
   if (preferredColumn && sampleRow && sampleRow[preferredColumn] != null && sampleRow[preferredColumn] !== "") {
@@ -148,7 +172,11 @@ export function resolveMapGeographyColumn(sampleRow, geographyType, preferredCol
   const candidates =
     geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts
       ? TRACT_GEO_COLUMNS
-      : MUNICIPAL_MAP_JOIN_COLUMNS;
+      : geographyType === MAP_VIEW_GEOGRAPHY_TYPES.school_districts
+        ? SCHOOL_DISTRICT_MAP_JOIN_COLUMNS
+        : geographyType === MAP_VIEW_GEOGRAPHY_TYPES.schools
+          ? SCHOOL_MAP_JOIN_COLUMNS
+          : MUNICIPAL_MAP_JOIN_COLUMNS;
 
   // Prefer a column that actually has a value (older ACS years often have ct10_id only).
   const withValue = candidates.find((col) => sampleRow[col] != null && sampleRow[col] !== "");
@@ -163,6 +191,248 @@ function isNumericLike(value) {
   if (typeof value === "boolean") return false;
   const n = Number(String(value).replace(/,/g, "").trim());
   return Number.isFinite(n);
+}
+
+const BINARY_TRUE_TOKENS = new Set(["1", "true", "t", "yes", "y"]);
+const BINARY_FALSE_TOKENS = new Set(["0", "false", "f", "no", "n"]);
+const CATEGORICAL_UNIQUE_MAX = 16;
+const CATEGORICAL_COLORS = [
+  "#2CA25F",
+  "#7570B3",
+  "#E7298A",
+  "#D95F02",
+  "#1B9E77",
+  "#E6AB02",
+  "#A6761D",
+  "#666666",
+  "#1F78B4",
+  "#B2DF8A",
+  "#FB9A99",
+  "#CAB2D6",
+];
+const BINARY_YES_COLOR = "#2CA25F";
+/** Darker than NO_DATA_COLOR so “No” / “not provided” towns are not confused with missing data. */
+const BINARY_NO_COLOR = "#737373";
+
+function columnSearchText(column) {
+  return `${column?.name || ""} ${column?.alias || column?.label || ""} ${column?.details || ""}`.toLowerCase();
+}
+
+function normalizeCategoryToken(value) {
+  if (typeof value === "boolean") return value ? "true" : "false";
+  if (value == null || value === "") return "";
+  return String(value).trim().toLowerCase();
+}
+
+function isBinaryLikeValue(value) {
+  if (typeof value === "boolean") return true;
+  const token = normalizeCategoryToken(value);
+  return BINARY_TRUE_TOKENS.has(token) || BINARY_FALSE_TOKENS.has(token);
+}
+
+function isBinaryTruthy(value) {
+  return BINARY_TRUE_TOKENS.has(normalizeCategoryToken(value));
+}
+
+function uniquePresentValues(values = []) {
+  const unique = [];
+  const seen = new Set();
+  for (const value of values) {
+    if (value == null || value === "") continue;
+    const key = String(value);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(value);
+  }
+  return unique;
+}
+
+function isBinaryFalseValue(value) {
+  if (isBinaryTruthy(value) || Number(value) === 1) return false;
+  const token = normalizeCategoryToken(value);
+  return BINARY_FALSE_TOKENS.has(token) || Number(value) === 0;
+}
+
+/** 0/1, true/false, yes/no — a category, not a quantity. A lone 0 is still a number. */
+export function isBinaryCategoryValues(values = [], column = null) {
+  const unique = uniquePresentValues(values);
+  if (!unique.length) return false;
+  if (!unique.every((value) => isBinaryLikeValue(value))) return false;
+  const hasTrue = unique.some((value) => isBinaryTruthy(value) || Number(value) === 1);
+  const hasFalse = unique.some((value) => isBinaryFalseValue(value));
+  if (hasTrue && hasFalse) return true;
+  return Boolean(column && looksLikeCategoryColumn(column));
+}
+
+function isIdentifierCodeColumn(col) {
+  const name = String(col?.name || "").toLowerCase();
+  const text = columnSearchText(col);
+  if (/\bfips\b/.test(text) || /\bgeoid\b/.test(text)) return true;
+  if (/^cosub_/.test(name)) return true;
+  if (/\bcounty subdivision\b/.test(text) && /\bcode\b/.test(text)) return true;
+  return false;
+}
+
+function looksLikeCategoryColumn(column) {
+  const name = String(column?.name || "").toLowerCase();
+  const text = columnSearchText(column);
+  if (/\b(binary|indicating|flag|dummy)\b/.test(text)) return true;
+  if (/\b(yes\s*\/\s*no|true\s*\/\s*false)\b/.test(text)) return true;
+  if (/\b(classification|sub-?type|community type|id number)\b/.test(text)) return true;
+  if (/_id$/i.test(name) && !ID_LIKE_COLUMN_PATTERN.test(name)) return true;
+  return false;
+}
+
+/**
+ * Quantitative = magnitude (counts, percents, dollars).
+ * Binary = only yes/no (0/1) values across the full column.
+ * Categorical = a few coded classes (including flags with 0/1/2).
+ * Pass the whole column, not a filtered extra-dimension slice.
+ */
+export function getMapVariableKind(column, values = []) {
+  const unique = uniquePresentValues(values);
+  if (isBinaryCategoryValues(unique, column)) return "binary";
+  const numericUnique = unique.filter((value) => Number.isFinite(Number(value)));
+  if (numericUnique.length > CATEGORICAL_UNIQUE_MAX) return "quantitative";
+  if (looksLikeCategoryColumn(column) && unique.length > 0 && unique.length <= CATEGORICAL_UNIQUE_MAX) {
+    return "categorical";
+  }
+  return "quantitative";
+}
+
+function parseCodedCategoryLabelsFromText(text) {
+  const source = String(text || "").trim();
+  if (!source) return null;
+  const labels = {};
+  const pattern = /(\d+)\s*if\s+([\s\S]+?)(?=\s*[;,]?\s*\d+\s*if\b|[.;]|$)/gi;
+  let match;
+  while ((match = pattern.exec(source))) {
+    const code = String(Number(match[1]));
+    const label = match[2]
+      .replace(/[;:,.\s]+$/g, "")
+      .replace(/^(the\s+)/i, "")
+      .trim();
+    if (!label) continue;
+    labels[code] = label.charAt(0).toUpperCase() + label.slice(1);
+  }
+  return Object.keys(labels).length >= 2 ? labels : null;
+}
+
+/** Parse "0 if no sewer, 1 if fully sewered; 2 if partially sewered." from metadata. */
+export function parseCodedCategoryLabels(column) {
+  return (
+    parseCodedCategoryLabelsFromText(column?.details) ||
+    parseCodedCategoryLabelsFromText(column?.alias) ||
+    parseCodedCategoryLabelsFromText(column?.label) ||
+    null
+  );
+}
+
+/** cmsbt08_id → cmsbt08 (“Streetcar Suburb”), cmtyp08_id → cmtyp08, subrg_id → subrg_nm */
+export function parsePairedCategoryNameLabels(column, rows = []) {
+  const idName = String(column?.name || "");
+  if (!/_id$/i.test(idName)) return null;
+  const base = idName.replace(/_id$/i, "");
+  if (!base) return null;
+  const pairCandidates = [base, `${base}_nm`, `${base}_name`, `${base}_title`];
+  const pair = pairCandidates.find((name) =>
+    rows.some((row) => row?.[name] != null && String(row[name]).trim() !== ""),
+  );
+  if (!pair) return null;
+
+  const labels = {};
+  rows.forEach((row) => {
+    const code = categoryKey(row?.[idName]);
+    const label = row?.[pair];
+    const name = String(label).trim();
+    if (!code || !name) return;
+    labels[code] = name.toLowerCase().startsWith(String(code).toLowerCase())
+      ? name
+      : `${code} ${name}`;
+  });
+  return Object.keys(labels).length >= 2 ? labels : null;
+}
+
+function categoryKey(value) {
+  if (value == null || value === "") return "";
+  if (typeof value === "boolean") return value ? "1" : "0";
+  if (Number.isFinite(Number(value)) && String(value).trim() !== "") return String(Number(value));
+  return String(value);
+}
+
+function categoryLabel(value, kind, labels = null) {
+  const coded = labels?.[categoryKey(value)];
+  if (coded) return coded;
+  if (kind === "binary") {
+    if (isBinaryTruthy(value) || Number(value) === 1) return "Yes";
+    const token = normalizeCategoryToken(value);
+    if (BINARY_FALSE_TOKENS.has(token) || value === 0 || Number(value) === 0) return "No";
+    return String(value);
+  }
+  if (Number.isInteger(Number(value)) && Number.isFinite(Number(value))) {
+    return String(Number(value));
+  }
+  return String(value);
+}
+
+function shouldExcludeAsIdentifierCode(col, sample = []) {
+  if (isIdentifierCodeColumn(col)) return true;
+  if (!looksLikeCategoryColumn(col)) return false;
+  const unique = uniquePresentValues(sample.map((row) => row?.[col.name]));
+  return unique.length > CATEGORICAL_UNIQUE_MAX;
+}
+
+function categorySortValue(value) {
+  if (typeof value === "boolean") return value ? 1 : 0;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : String(value);
+}
+
+function buildCategoricalScale(values = [], kind = "categorical", labels = null, columnValues = null) {
+  const classSource = columnValues?.length ? columnValues : values;
+  let classes = uniquePresentValues(classSource);
+  if (kind === "binary") {
+    const yes = classes.find((value) => isBinaryTruthy(value) || Number(value) === 1);
+    const no = classes.find((value) => !isBinaryTruthy(value) && Number(value) !== 1);
+    classes = [yes, no].filter((value) => value != null && value !== "");
+    if (!classes.length) classes = uniquePresentValues(classSource);
+  } else {
+    classes.sort((a, b) => {
+      const av = categorySortValue(a);
+      const bv = categorySortValue(b);
+      if (typeof av === "number" && typeof bv === "number") return av - bv;
+      return String(av).localeCompare(String(bv), undefined, { numeric: true, sensitivity: "base" });
+    });
+  }
+
+  const colorByKey = new Map();
+  classes.forEach((value, index) => {
+    const color =
+      kind === "binary"
+        ? isBinaryTruthy(value) || Number(value) === 1
+          ? BINARY_YES_COLOR
+          : BINARY_NO_COLOR
+        : CATEGORICAL_COLORS[index % CATEGORICAL_COLORS.length];
+    colorByKey.set(String(value), color);
+    if (Number.isFinite(Number(value))) colorByKey.set(String(Number(value)), color);
+  });
+
+  const colorForValue = (n) => {
+    if (n == null || n === "") return NO_DATA_COLOR;
+    return colorByKey.get(String(n)) || colorByKey.get(String(Number(n))) || NO_DATA_COLOR;
+  };
+
+  return {
+    colorForValue,
+    legend: [
+      ...classes.map((value) => ({
+        label: categoryLabel(value, kind, labels),
+        color: colorForValue(value),
+      })),
+      { label: "No data", color: NO_DATA_COLOR },
+    ],
+    binningDescription: kind === "binary" ? "Classification: Unique values" : "Classification: Unique values",
+  };
 }
 
 /**
@@ -264,9 +534,29 @@ export function getMarginColumnForBase(columnKeys = [], baseColumnName) {
   return pairs[0] || null;
 }
 
+function findMetadataColumn(columnKeys = [], columnName) {
+  const wanted = String(columnName ?? "").trim();
+  if (!wanted) return null;
+  const wantedLower = wanted.toLowerCase();
+  return (
+    (columnKeys || []).find((col) => String(col?.name || "").trim() === wanted) ||
+    (columnKeys || []).find((col) => String(col?.name || "").trim().toLowerCase() === wantedLower) ||
+    null
+  );
+}
+
+/** Same title the table uses: metadata alias, then the column name. */
+export function getColumnHeaderLabel(columnKeys = [], columnName) {
+  const column = findMetadataColumn(columnKeys, columnName);
+  const alias = String(column?.alias ?? "").trim();
+  if (alias) return alias;
+  return String(column?.name || columnName || "");
+}
+
 /**
- * Columns that can draw a choropleth 
- * Uses all table columns */
+ * Columns that can draw a choropleth
+ * Uses all table columns
+ */
 export function getMappableColumns(columnKeys = [], rows = [], geographyColumn = null, yearColumn = "") {
   const sample = rows.slice(0, 40);
 
@@ -293,10 +583,13 @@ export function getMappableColumns(columnKeys = [], rows = [], geographyColumn =
       const details = String(col?.details || "").toLowerCase();
       return !(alias.includes("margin of error") || details.includes("margin of error"));
     })
-    .filter((col) => sample.some((row) => isNumericLike(row?.[col.name])))
+    .filter((col) => !shouldExcludeAsIdentifierCode(col, sample))
+    .filter((col) =>
+      sample.some((row) => isNumericLike(row?.[col.name]) || isBinaryLikeValue(row?.[col.name])),
+    )
     .map((col) => ({
       name: col.name,
-      label: col.alias || col.name,
+      label: getColumnHeaderLabel(columnKeys, col.name),
     }));
 }
 
@@ -364,6 +657,279 @@ export function filterRowsForMapPreview({
   return filtered;
 }
 
+const SKIP_MAP_DIMENSION_COLUMNS = new Set(
+  [
+    "seq_id",
+    "id",
+    "objectid",
+    "gid",
+    "shape",
+    "geometry",
+    "geom",
+    "logrecno",
+    "adj_year",
+    "website",
+    "statefp",
+    "countyfp",
+    "tractce",
+    "name",
+    "namelsad",
+    "mtfcc",
+    "funcstat",
+    "intptlat",
+    "intptlon",
+    "town",
+    "town_id",
+    "bg10_id",
+    "bg20_id",
+    "bl10_id",
+    "bl20_id",
+    "districtid",
+    "district",
+    "schid",
+    "schoolyear",
+    ...MUNICIPAL_MAP_JOIN_COLUMNS,
+    ...MUNICIPAL_TABLE_FILTER_COLUMNS,
+    ...TRACT_GEO_COLUMNS,
+  ].map((name) => name.toLowerCase()),
+);
+
+const KNOWN_MAP_DIMENSION_NAMES = [
+  "restype_nm",
+ /*  "res_type", */
+  "race_eth",
+  "naicstitle",
+  "naicscode",
+  "naics",
+  "fuel_type",
+  "powertrain_fuel_type",
+  "fuel",
+  "owner_type",
+  "owner_ty_te",
+  "veh_use",
+  "hybrid",
+  "mode",
+  "line",
+  "pws_name",
+  "pwsid",
+];
+
+// 4-digit NAICS Name has 600+ unique titles (code revisions / aliases); 2-digit stays under 400.
+const MAX_GENERIC_MAP_DIMENSION_VALUES = 400;
+const MAX_KNOWN_MAP_DIMENSION_VALUES = 2000;
+
+function looksLikeDimensionTitle(name) {
+  const n = String(name || "").toLowerCase();
+  if (/(^|_)(muni_name|municipality|town)$/.test(n)) return false;
+  return /(title|_nm$|(^|_)name$)/.test(n);
+}
+
+function looksLikeDimensionCode(name) {
+  return /(code|_cd$)/i.test(String(name || ""));
+}
+
+function isAllLabel(value) {
+  return String(value).trim().toLowerCase().split(/\s+/)[0] === "all";
+}
+// sort map dimension values to put "All" values first (useful for categorical choropleths)
+function sortMapDimensionValues(values) {
+  return [...values].sort((a, b) => {
+    const aAll = isAllLabel(a);
+    const bAll = isAllLabel(b);
+    if (aAll !== bAll) return aAll ? -1 : 1;
+    return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: "base" });
+  });
+}
+
+function dimensionVariesInGroup(group, column) {
+  const first = String(group[0]?.[column] ?? "");
+  return group.some((row) => String(row?.[column] ?? "") !== first);
+}
+
+function rowKey(row, columns) {
+  return columns.map((col) => String(row?.[col] ?? "")).join("||");
+}
+
+function columnsUniquelyIdentifyRows(groups, columns) {
+  if (!columns.length) return false;
+  return groups.every((group) => {
+    const seen = new Set(group.map((row) => rowKey(row, columns)));
+    return seen.size === group.length;
+  });
+}
+
+// Extra rows that still share a map place (and the same selected category values).
+// Cambridge with 5 race rows = 4 leftovers. After splitting by race_eth, leftovers should be 0.
+function countLeftoverDuplicates(groups, categoryColumns) {
+  let leftover = 0;
+
+  groups.forEach((group) => {
+    if (!categoryColumns.length) {
+      leftover += Math.max(0, group.length - 1);
+      return;
+    }
+
+    const rowsByCategory = new Map();
+    group.forEach((row) => {
+      const key = rowKey(row, categoryColumns);
+      rowsByCategory.set(key, (rowsByCategory.get(key) || 0) + 1);
+    });
+    rowsByCategory.forEach((count) => {
+      leftover += Math.max(0, count - 1);
+    });
+  });
+
+  return leftover;
+}
+
+/**
+ * When one geography has multiple rows in the same year, find category columns
+ * (e.g. res_type, race_eth) the user must pick before the choropleth is drawn.
+ * Groups by place + year so the pickers stay put when the selected year changes.
+ */
+export function detectMapExtraDimensions({
+  rows = [],
+  geographyColumn,
+  yearColumn = "",
+  columnKeys = [],
+} = {}) {
+  if (!geographyColumn || !rows.length) {
+    return { hasDuplicates: false, dimensions: [] };
+  }
+
+  const groups = new Map();
+  rows.forEach((row) => {
+    const geo = String(row?.[geographyColumn] ?? "").trim();
+    if (!geo) return;
+    const key = yearColumn ? `${geo}||${String(row?.[yearColumn] ?? "")}` : geo;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(row);
+  });
+
+  const duplicateGroups = [...groups.values()].filter((group) => group.length > 1);
+  if (!duplicateGroups.length) {
+    return { hasDuplicates: false, dimensions: [] };
+  }
+
+  const sampleRow = rows[0] || {};
+  const candidateNames = Object.keys(sampleRow).filter((name) => {
+    if (name === geographyColumn || name === yearColumn) return false;
+    return !SKIP_MAP_DIMENSION_COLUMNS.has(String(name).toLowerCase());
+  });
+
+  const scored = [];
+  // Score columns by how well they split duplicate rows onto the map.
+  candidateNames.forEach((name) => {
+    const varies = duplicateGroups.some((group) => dimensionVariesInGroup(group, name));
+    if (!varies) return;
+
+    const uniqueValues = new Set();
+    rows.forEach((row) => {
+      const value = row?.[name];
+      if (value == null || String(value).trim() === "") return;
+      uniqueValues.add(String(value));
+    });
+
+    const lower = name.toLowerCase();
+    const knownIndex = KNOWN_MAP_DIMENSION_NAMES.findIndex(
+      (known) => lower === known || lower.includes(known),
+    );
+    const maxUnique =
+      knownIndex >= 0 || looksLikeDimensionTitle(name)
+        ? MAX_KNOWN_MAP_DIMENSION_VALUES
+        : MAX_GENERIC_MAP_DIMENSION_VALUES;
+    if (uniqueValues.size < 2 || uniqueValues.size > maxUnique) return;
+    const valuesAreNumeric = [...uniqueValues].every((value) => Number.isFinite(Number(value)));
+    const looksLikeMeasure =
+      valuesAreNumeric && uniqueValues.size > 25 && knownIndex < 0;
+    if (looksLikeMeasure) return;
+
+    const label = getColumnHeaderLabel(columnKeys, name);
+    let score = 0;
+    if (knownIndex >= 0) score += 120 - knownIndex;
+    if (!valuesAreNumeric) score += 25;
+    if (label && label !== name) score += 15;
+    if (looksLikeDimensionTitle(name)) score += 40;
+    if (looksLikeDimensionCode(name)) score -= 25;
+    score += Math.max(0, 50 - uniqueValues.size);
+
+    scored.push({
+      name,
+      label,
+      uniqueCount: uniqueValues.size,
+      score,
+    });
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+
+  const titleCandidates = scored.filter((candidate) => looksLikeDimensionTitle(candidate.name));
+  const ranked = scored.filter((candidate) => {
+    if (!looksLikeDimensionCode(candidate.name) || !titleCandidates.length) return true;
+    // Prefer NAICS Name over NAICS code when the title splits the same duplicate rows.
+    return !titleCandidates.some((title) => {
+      const leftoverCode = countLeftoverDuplicates(duplicateGroups, [candidate.name]);
+      const leftoverTitle = countLeftoverDuplicates(duplicateGroups, [title.name]);
+      return leftoverTitle <= leftoverCode;
+    });
+  });
+
+  const dimensions = [];
+  ranked.forEach((candidate) => {
+    const selectedNames = dimensions.map((dimension) => dimension.name);
+    if (columnsUniquelyIdentifyRows(duplicateGroups, selectedNames)) return;
+
+    const leftoverBefore = countLeftoverDuplicates(duplicateGroups, selectedNames);
+    const leftoverAfter = countLeftoverDuplicates(duplicateGroups, [...selectedNames, candidate.name]);
+    // Skip columns that do not split any duplicate rows onto the map.
+    if (leftoverAfter >= leftoverBefore) return;
+
+    dimensions.push({
+      name: candidate.name,
+      label: candidate.label,
+      values: sortMapDimensionValues(
+        [...new Set(
+          rows
+            .map((row) => row?.[candidate.name])
+            .filter((value) => value != null && String(value).trim() !== ""),
+        )],
+      ),
+    });
+  });
+
+  return {
+    hasDuplicates: true,
+    dimensions,
+  };
+}
+
+export function areMapDimensionsSelected(dimensions = [], selections = {}) {
+  if (!dimensions.length) return true;
+  return dimensions.every((dimension) => {
+    const value = selections?.[dimension.name];
+    return value != null && String(value) !== "";
+  });
+}
+
+export function filterRowsByMapDimensions(rows = [], selections = {}) {
+  let filtered = Array.isArray(rows) ? [...rows] : [];
+  Object.entries(selections || {}).forEach(([columnName, value]) => {
+    if (value == null || String(value) === "") return;
+    filtered = filtered.filter((row) => String(row?.[columnName] ?? "").toLowerCase() === String(value).toLowerCase());
+  });
+  return filtered;
+}
+
+function attributeRowsFromFeature(properties = {}) {
+  if (Array.isArray(properties.__dataRows) && properties.__dataRows.length) {
+    return properties.__dataRows;
+  }
+  if (Array.isArray(properties.data) && properties.data.length) {
+    return properties.data;
+  }
+  return [properties];
+}
+
 export function normalizeMunicipalKey(value) {
   return String(value || "")
     .trim()
@@ -380,9 +946,46 @@ export function normalizeTractKey(value) {
   return digits || raw.toLowerCase();
 }
 
+/** DESE org codes: 4-digit `0635` or 8-digit `06350000`. */
+export function normalizeDistrictKey(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return raw.toLowerCase();
+  if (digits.length <= 4) return `${digits.padStart(4, "0")}0000`;
+  return digits.padStart(8, "0").slice(0, 8);
+}
+
+export function normalizeSchoolKey(value) {
+  return String(value || "").trim();
+}
+
+/** Skip DESE state/region totals (`00000000`, MAPC `352`) so they do not dominate choropleth scales. */
+function isUnmappableEducationGeography(rawValue, geographyType) {
+  if (
+    geographyType !== MAP_VIEW_GEOGRAPHY_TYPES.school_districts &&
+    geographyType !== MAP_VIEW_GEOGRAPHY_TYPES.schools
+  ) {
+    return false;
+  }
+  const raw = String(rawValue ?? "").trim();
+  const digits = raw.replace(/\D/g, "");
+  if (!digits || /^0+$/.test(digits)) return true;
+  if (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.schools) {
+    return digits.length !== 8;
+  }
+  return digits.length !== 4 && digits.length !== 8;
+}
+
 function toNumber(value) {
   if (value == null || value === "") return null;
+  if (typeof value === "boolean") return value ? 1 : 0;
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  const token = normalizeCategoryToken(value);
+  if (BINARY_TRUE_TOKENS.has(token) && !Number.isFinite(Number(String(value).trim()))) return 1;
+  if (BINARY_FALSE_TOKENS.has(token) && !Number.isFinite(Number(String(value).replace(/,/g, "").trim()))) {
+    return 0;
+  }
   const n = Number(String(value).replace(/,/g, "").trim());
   return Number.isFinite(n) ? n : null;
 }
@@ -400,12 +1003,18 @@ export function buildValueByGeography({
   const normalize =
     geographyType === MAP_VIEW_GEOGRAPHY_TYPES.census_tracts
       ? normalizeTractKey
-      : normalizeMunicipalKey;
+      : geographyType === MAP_VIEW_GEOGRAPHY_TYPES.school_districts
+        ? normalizeDistrictKey
+        : geographyType === MAP_VIEW_GEOGRAPHY_TYPES.schools
+          ? normalizeSchoolKey
+          : normalizeMunicipalKey;
 
   const map = new Map();
 
   (rows || []).forEach((row) => {
-    const key = normalize(row?.[geographyColumn]);
+    const rawGeo = row?.[geographyColumn];
+    if (isUnmappableEducationGeography(rawGeo, geographyType)) return;
+    const key = normalize(rawGeo);
     if (!key) return;
     const value = toNumber(row?.[valueColumn]);
     if (value == null) return;
@@ -441,6 +1050,7 @@ export function buildValueByGeographyFromFeatures({
   features = [],
   valueColumn,
   geographyType,
+  selections = {},
 } = {}) {
   const map = new Map();
   (features || []).forEach((feature) => {
@@ -455,6 +1065,19 @@ export function buildValueByGeographyFromFeatures({
         properties.geoid ??
         (joinKey && properties[joinKey] != null ? properties[joinKey] : null);
       key = normalizeTractKey(raw);
+    } else if (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.school_districts) {
+      const raw =
+        properties.districtid ??
+        properties.ORG8CODE ??
+        properties.ORG4CODE ??
+        (joinKey && properties[joinKey] != null ? properties[joinKey] : null);
+      key = normalizeDistrictKey(raw);
+    } else if (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.schools) {
+      const raw =
+        properties.schid ??
+        properties.SCHID ??
+        (joinKey && properties[joinKey] != null ? properties[joinKey] : null);
+      key = normalizeSchoolKey(raw);
     } else {
       const raw =
         (joinKey && properties[joinKey] != null ? properties[joinKey] : null) ??
@@ -464,8 +1087,11 @@ export function buildValueByGeographyFromFeatures({
         properties.NAME;
       key = normalizeMunicipalKey(raw);
     }
-    if (!key) return;
-    const value = toNumber(properties[valueColumn]);
+    if (!key || isUnmappableEducationGeography(key, geographyType)) return;
+    const matched = filterRowsByMapDimensions(attributeRowsFromFeature(properties), selections);
+    const source = matched[0];
+    if (!source) return;
+    const value = toNumber(source[valueColumn]);
     if (value == null) return;
     map.set(key, value);
   });
@@ -483,11 +1109,87 @@ function quantileBreaks(sortedValues, breakCount) {
   return [...new Set(breaks)].sort((a, b) => a - b);
 }
 
+/** Consecutive integers with few uniques (months 0–12, scores, counts) collapse under quantile. */
+const SMALL_INTEGER_UNIQUE_MAX = 15;
+
+function pickRampColors(count) {
+  const ramp = CHOROPLETH_COLORS;
+  if (count <= 1) return [ramp[0]];
+  if (count >= ramp.length) return [...ramp];
+  return Array.from({ length: count }, (_, i) => {
+    const idx = Math.round((i / (count - 1)) * (ramp.length - 1));
+    return ramp[idx];
+  });
+}
+
+/** Split sorted unique numbers into up to `classCount` contiguous inclusive classes. */
+function partitionSortedUniques(uniqueSorted, classCount) {
+  const n = uniqueSorted.length;
+  const k = Math.min(Math.max(classCount, 1), n);
+  const ranges = [];
+  let next = 0;
+  for (let i = 0; i < k; i += 1) {
+    const remainingClasses = k - i;
+    const remainingValues = n - next;
+    const size = Math.ceil(remainingValues / remainingClasses);
+    const start = next;
+    const end = Math.min(n - 1, start + size - 1);
+    ranges.push({
+      min: uniqueSorted[start],
+      max: uniqueSorted[end],
+      colorIndex: i,
+    });
+    next = end + 1;
+  }
+  return ranges;
+}
+
+/** Quantile cuts on integer counts often yield [0,1), [1,2), … — collapse those into real ranges. */
+function mergeIntegerSingletonRanges(ranges) {
+  if (ranges.length < 2) return ranges;
+  const isSingleton = (range, isLast) =>
+    isLast ? range.min === range.max : range.max === range.min + 1;
+  const merged = [];
+  for (let i = 0; i < ranges.length; i += 1) {
+    const range = { min: ranges[i].min, max: ranges[i].max };
+    const currentSingleton = isSingleton(range, i === ranges.length - 1);
+    if (merged.length && currentSingleton) {
+      merged[merged.length - 1].max = range.max;
+      continue;
+    }
+    const prev = merged[merged.length - 1];
+    if (prev && isSingleton(prev, false)) {
+      prev.max = range.max;
+      continue;
+    }
+    merged.push(range);
+  }
+  return merged.map((range, i) => ({ ...range, colorIndex: i }));
+}
+
+function scaleFromInclusiveRanges(ranges, format, description) {
+  const colors = pickRampColors(ranges.length);
+  const colorForValue = (n) => {
+    if (!Number.isFinite(n)) return NO_DATA_COLOR;
+    for (let i = 0; i < ranges.length; i += 1) {
+      if (n >= ranges[i].min && n <= ranges[i].max) return colors[i];
+    }
+    return NO_DATA_COLOR;
+  };
+  const legend = ranges.map((range, i) => ({
+    label:
+      range.max === range.min
+        ? format(range.min)
+        : `${format(range.min)}-${format(range.max)}`,
+    color: colors[i],
+  }));
+  legend.push({ label: "No data", color: NO_DATA_COLOR });
+  return { colorForValue, legend, binningDescription: description };
+}
+
 /**
  * Infer a display unit from column metadata / naming.
  * Metadata has no dedicated unit field; ACS aliases often use "% …" or end in `_p`.
- * @param {{name?: string, alias?: string, details?: string, label?: string}|null|undefined} column
- * @returns {string|null}
  */
 export function getColumnUnit(column) {
   if (!column) return null;
@@ -507,21 +1209,25 @@ export function getColumnUnit(column) {
 }
 
 /**
- * @param {number[]} values
- * @param {{ unit?: string|null }} [options]
- * @returns {{
- *   colorForValue: (n:number|null)=>string,
- *   legend: Array<{label:string,color:string}>,
- *   binningDescription: string,
- * }}
+ * handles binary, categorical, and quantitative values.
+ * `columnValues` is the full column (not an extra-dimension slice) and decides
+ * unique-integer vs quantile binning the same way kind is decided.
  */
-export function buildChoroplethScale(values = [], { unit = null } = {}) {
+export function buildChoroplethScale(
+  values = [],
+  { unit = null, kind = "quantitative", categoryLabels = null, columnValues = null } = {},
+) {
+  const kindSource = columnValues?.length ? columnValues : values;
+  if (kind === "binary" || kind === "categorical") {
+    return buildCategoricalScale(values, kind, categoryLabels, kindSource);
+  }
+
   const numeric = values.filter((v) => Number.isFinite(v)).sort((a, b) => a - b);
   if (!numeric.length) {
     return {
       colorForValue: () => NO_DATA_COLOR,
       legend: [{ label: "No data", color: NO_DATA_COLOR }],
-      binningDescription: "Classification: no numeric values",
+      binningDescription: "Classification: No numeric values",
     };
   }
 
@@ -543,7 +1249,7 @@ export function buildChoroplethScale(values = [], { unit = null } = {}) {
         { label: format(uniqueValues[0]), color: CHOROPLETH_COLORS[0] },
         { label: "No data", color: NO_DATA_COLOR },
       ],
-      binningDescription: "Classification: single value",
+      binningDescription: "Classification: Single value",
     };
   }
 
@@ -558,6 +1264,36 @@ export function buildChoroplethScale(values = [], { unit = null } = {}) {
     const upper = Number((max - step).toFixed(decimals));
     return Math.max(min, upper);
   };
+
+  const referenceNumeric = (columnValues || [])
+    .map((value) => toNumber(value))
+    .filter((value) => value != null && Number.isFinite(value));
+  const referenceUniques = [...new Set(referenceNumeric)];
+  const referenceAreIntegers =
+    referenceNumeric.length > 0 && referenceNumeric.every((n) => Number.isInteger(n));
+  const fullColumnIsSmallIntegerSet =
+    referenceAreIntegers &&
+    referenceUniques.length > 1 &&
+    referenceUniques.length <= CHOROPLETH_COLORS.length &&
+    Math.max(...referenceUniques) - Math.min(...referenceUniques) <= SMALL_INTEGER_UNIQUE_MAX;
+
+  // Unique-integer classes only when the whole column is a small coded domain (e.g. 0–12).
+  if (fullColumnIsSmallIntegerSet && valuesAreIntegers && uniqueValues.length <= CHOROPLETH_COLORS.length) {
+    return scaleFromInclusiveRanges(
+      uniqueValues.map((value, i) => ({ min: value, max: value, colorIndex: i })),
+      format,
+      "Classification: Unique values",
+    );
+  }
+  if (fullColumnIsSmallIntegerSet && valuesAreIntegers && domainMax - domainMin <= SMALL_INTEGER_UNIQUE_MAX) {
+    const integerDomain = [];
+    for (let i = domainMin; i <= domainMax; i += 1) integerDomain.push(i);
+    return scaleFromInclusiveRanges(
+      partitionSortedUniques(integerDomain, CHOROPLETH_COLORS.length),
+      format,
+      "Classification: Equal interval",
+    );
+  }
 
   // Quantile classification across all numeric values.
   const classifyValues = numeric;
@@ -605,6 +1341,20 @@ export function buildChoroplethScale(values = [], { unit = null } = {}) {
         colorIndex: i,
       });
     }
+  }
+
+  if (valuesAreIntegers && ranges.length > 1) {
+    const merged = mergeIntegerSingletonRanges(ranges);
+    ranges.length = 0;
+    ranges.push(...merged);
+  }
+
+  if (ranges.length < 2 && classifyUnique.length > 1) {
+    return scaleFromInclusiveRanges(
+      partitionSortedUniques(classifyUnique, availableColors.length),
+      format,
+      "Classification: Equal interval",
+    );
   }
 
   // Mutually exclusive classes: [min, max) for every class except the last, which is [min, max].
@@ -667,6 +1417,25 @@ export function enrichBoundariesWithValues({
           ? properties[properties.__joinKey]
           : null);
       return normalizeTractKey(raw);
+    }
+    if (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.school_districts) {
+      const raw =
+        properties.districtid ||
+        properties.ORG8CODE ||
+        properties.ORG4CODE ||
+        (properties.__joinKey && properties[properties.__joinKey] != null
+          ? properties[properties.__joinKey]
+          : null);
+      return normalizeDistrictKey(raw);
+    }
+    if (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.schools) {
+      const raw =
+        properties.schid ||
+        properties.SCHID ||
+        (properties.__joinKey && properties[properties.__joinKey] != null
+          ? properties[properties.__joinKey]
+          : null);
+      return normalizeSchoolKey(raw);
     }
     // Boundaries / native shape layers: prefer a per-feature id over a shared parent id.
     if (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.boundary) {
@@ -863,11 +1632,22 @@ function resultJoinToken(result) {
     .toLowerCase();
 }
 
+function rowsForYear(rowsByYear, year) {
+  if (!rowsByYear || typeof rowsByYear !== "object") return [];
+  if (year == null || year === "") {
+    const first = Object.values(rowsByYear).find((rows) => Array.isArray(rows));
+    return first || [];
+  }
+  const wanted = String(year);
+  if (Array.isArray(rowsByYear[wanted])) return rowsByYear[wanted];
+  const match = Object.keys(rowsByYear).find((key) => String(key) === wanted);
+  return match && Array.isArray(rowsByYear[match]) ? rowsByYear[match] : [];
+}
+
 function countResultRowsForYear(result, yearKey) {
   const rowsByYear = result?.rows || {};
   if (yearKey) {
-    const rows = rowsByYear[yearKey];
-    if (!Array.isArray(rows)) return 0;
+    const rows = rowsForYear(rowsByYear, yearKey);
     return rows.filter((row) => row?.geometry).length || rows.length;
   }
   return Object.values(rowsByYear).reduce((sum, rows) => {
@@ -931,8 +1711,7 @@ export function pickGeometryApiResult(payload, year) {
  */
 export function geometryApiResultToFeatureCollection(result, year) {
   if (!result?.rows) return { type: "FeatureCollection", features: [] };
-  const yearKey = year != null ? String(year) : Object.keys(result.rows)[0];
-  const rows = (yearKey && result.rows[yearKey]) || [];
+  const rows = rowsForYear(result.rows, year);
   const joinKey = result.join_key || result.data_column || "ct20_id";
   const isMunicipal = joinKey === "muni_id" || joinKey === "municipal";
 
@@ -952,8 +1731,7 @@ export function geometryApiResultToFeatureCollection(result, year) {
           ...(nested && typeof nested === "object" ? nested : {}),
           ...rest,
         };
-        // Keep full nested rows for export when present.
-        if (Array.isArray(data) && data.length > 1) {
+        if (Array.isArray(data) && data.length) {
           properties.__dataRows = data;
         }
 
@@ -1055,7 +1833,11 @@ export async function fetchDatasetGeometry(params = {}) {
   };
 }
 
-export function formatMapValue(value, unit = null) {
+export function formatMapValue(value, unit = null, { kind = "quantitative", categoryLabels = null } = {}) {
+  if (kind === "binary" || kind === "categorical") {
+    if (value == null || value === "") return "—";
+    return categoryLabel(value, kind, categoryLabels);
+  }
   if (!Number.isFinite(value)) return "—";
   const formatted = new Intl.NumberFormat("en-US", {
     maximumFractionDigits: Math.abs(value) >= 100 ? 0 : 2,
@@ -1474,4 +2256,370 @@ export async function fetchGisBoundaryLayer(layerKey) {
     gisBoundaryCache.delete(layerKey);
     throw err;
   }
+}
+
+const MASSGIS_DISTRICT_OVERLAYS = {
+  house: {
+    label: "MA House districts",
+    queryUrl:
+      "https://arcgisserver.digital.mass.gov/arcgisserver/rest/services/AGOL/House2021/MapServer/1/query",
+    outFields: "OBJECTID,DIST_CODE,REP_DIST,REP,REP_PARTY",
+  },
+  senate: {
+    label: "MA Senate districts",
+    queryUrl:
+      "https://arcgisserver.digital.mass.gov/arcgisserver/rest/services/AGOL/Senate2021/MapServer/1/query",
+    outFields: "OBJECTID,SENDISTNUM,SEN_DIST,SENATOR,SEN_PARTY",
+  },
+};
+
+const massgisDistrictCache = new Map();
+
+/**
+ * Fetch 2021 MA House or Senate district polygons from MassGIS ArcGIS.
+ * @param {"house"|"senate"} layerKey
+ */
+export async function fetchMassgisDistrictOverlay(layerKey) {
+  const config = MASSGIS_DISTRICT_OVERLAYS[layerKey];
+  if (!config) {
+    throw new Error(`Unknown MassGIS district overlay: ${layerKey}`);
+  }
+
+  if (massgisDistrictCache.has(layerKey)) {
+    return massgisDistrictCache.get(layerKey);
+  }
+
+  const pending = (async () => {
+    const search = new URLSearchParams({
+      where: "1=1",
+      outFields: config.outFields,
+      returnGeometry: "true",
+      returnTrueCurves: "false",
+      outSR: "4326",
+      f: "geojson",
+    });
+    const response = await fetch(`${config.queryUrl}?${search.toString()}`);
+    if (!response.ok) {
+      throw new Error(`${config.label} HTTP ${response.status}`);
+    }
+    const fc = await response.json();
+    if (fc?.error) {
+      throw new Error(fc.error.message || `${config.label} query failed`);
+    }
+    if (!fc?.features?.length) {
+      throw new Error(`${config.label} returned no features`);
+    }
+    return fc;
+  })();
+
+  massgisDistrictCache.set(layerKey, pending);
+  try {
+    return await pending;
+  } catch (err) {
+    massgisDistrictCache.delete(layerKey);
+    throw err;
+  }
+}
+
+let mapcMunicipalityCache = null;
+
+/** 101 MAPC member municipalities (`src/assets/data/MAPC.geojson`). */
+export async function fetchMapcMunicipalityPolygons() {
+  if (mapcMunicipalityCache) return mapcMunicipalityCache;
+  const pending = (async () => {
+    const assetUrl = (await import("../assets/data/MAPC.geojson?url")).default;
+    const response = await fetch(assetUrl);
+    if (!response.ok) {
+      throw new Error(`MAPC municipalities HTTP ${response.status}`);
+    }
+    const fc = await response.json();
+    if (!fc?.features?.length) {
+      throw new Error("MAPC municipality asset has no features");
+    }
+    return fc;
+  })();
+  mapcMunicipalityCache = pending;
+  try {
+    return await pending;
+  } catch (err) {
+    mapcMunicipalityCache = null;
+    throw err;
+  }
+}
+
+function pointInPolygonRings(point, rings) {
+  if (!rings?.length) return false;
+  if (!pointInRing(point, rings[0])) return false;
+  return !rings.slice(1).some((hole) => pointInRing(point, hole));
+}
+
+function pointInGeometry(point, geometry) {
+  if (!point || !geometry?.coordinates) return false;
+  if (geometry.type === "Polygon") return pointInPolygonRings(point, geometry.coordinates);
+  if (geometry.type === "MultiPolygon") {
+    return geometry.coordinates.some((rings) => pointInPolygonRings(point, rings));
+  }
+  return false;
+}
+
+function featureBbox(feature) {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  walkCoords(feature?.geometry?.coordinates, ([x, y]) => {
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
+  });
+  if (!Number.isFinite(minX)) return null;
+  return [minX, minY, maxX, maxY];
+}
+
+function addInteriorPoint(points, point, geometry, maxPoints) {
+  if (!point || points.length >= maxPoints) return;
+  if (pointInGeometry(point, geometry)) points.push(point);
+}
+
+/**
+ * Sample points inside a municipality/tract, not on its border.
+ * Border vertices sit on shared district edges and falsely match neighbors.
+ */
+function sampleInteriorPoints(feature, maxPoints = 9) {
+  const geometry = feature?.geometry;
+  const points = [];
+  if (!geometry) return points;
+
+  addInteriorPoint(points, featureCentroid(feature), geometry, maxPoints);
+
+  const bbox = featureBbox(feature);
+  if (bbox) {
+    const [minX, minY, maxX, maxY] = bbox;
+    [0.3, 0.5, 0.7].forEach((fx) => {
+      [0.3, 0.5, 0.7].forEach((fy) => {
+        addInteriorPoint(
+          points,
+          [minX + (maxX - minX) * fx, minY + (maxY - minY) * fy],
+          geometry,
+          maxPoints,
+        );
+      });
+    });
+  }
+
+  if (points.length) return points;
+
+  const center = featureCentroid(feature);
+  if (!center) return points;
+  walkCoords(geometry.coordinates, (coord) => {
+    if (points.length >= maxPoints) return;
+    addInteriorPoint(
+      points,
+      [coord[0] * 0.2 + center[0] * 0.8, coord[1] * 0.2 + center[1] * 0.8],
+      geometry,
+      maxPoints,
+    );
+  });
+  return points;
+}
+
+function legislativeDistrictFromProps(properties = {}) {
+  const name = String(properties.REP_DIST || properties.SEN_DIST || properties.DIST_CODE || "").trim();
+  const member = String(properties.REP || properties.SENATOR || "").trim();
+  const party = String(properties.REP_PARTY || properties.SEN_PARTY || "").trim();
+  return name ? { name, member, party } : null;
+}
+
+export function formatLegislativeDistrictLine(district) {
+  if (!district?.name) return "";
+  const member = String(district.member || "")
+    .replace(/\u00a0/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!member) return district.name;
+  const party = String(district.party || "").replace(/[()]/g, "").trim();
+  if (!party || member.includes(`(${party})`) || member.includes(party)) {
+    return `${district.name} — ${member}`;
+  }
+  return `${district.name} — ${member} (${party})`;
+}
+
+/**
+ * House / Senate districts that contain a clicked municipality or census tract.
+ * Only interior points are tested so shared border vertices do not pull in neighbors.
+ */
+export function findLegislativeDistrictsForFeature(feature, districtGeojson, { maxSamplePoints = 9 } = {}) {
+  if (!feature || !districtGeojson?.features?.length) return [];
+  const samples = sampleInteriorPoints(feature, maxSamplePoints);
+  if (!samples.length) return [];
+
+  const matches = [];
+  const seen = new Set();
+  districtGeojson.features.forEach((district) => {
+    const parsed = legislativeDistrictFromProps(district.properties);
+    if (!parsed || seen.has(parsed.name)) return;
+    const bbox = featureBbox(district);
+    if (bbox && !samples.some((point) => pointInBbox(point, bbox))) return;
+    if (!samples.some((point) => pointInGeometry(point, district.geometry))) return;
+    seen.add(parsed.name);
+    matches.push(parsed);
+  });
+  return matches;
+}
+
+function polygonOuterRings(geometry) {
+  if (!geometry?.coordinates) return [];
+  if (geometry.type === "Polygon") return [geometry.coordinates[0]];
+  if (geometry.type === "MultiPolygon") {
+    return geometry.coordinates.map((polygon) => polygon[0]).filter(Boolean);
+  }
+  if (geometry.type === "LineString") {
+    const ring = geometry.coordinates.slice();
+    const first = ring[0];
+    const last = ring[ring.length - 1];
+    if (first && last && (first[0] !== last[0] || first[1] !== last[1])) {
+      ring.push(first);
+    }
+    return [ring];
+  }
+  return [];
+}
+
+function pointInRing(point, ring) {
+  if (!Array.isArray(ring) || ring.length < 3) return false;
+  const [x, y] = point;
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const xi = ring[i]?.[0];
+    const yi = ring[i]?.[1];
+    const xj = ring[j]?.[0];
+    const yj = ring[j]?.[1];
+    if (![xi, yi, xj, yj].every(Number.isFinite)) continue;
+    const intersect = yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi + Number.EPSILON) + xi;
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+function ringBbox(ring) {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  (ring || []).forEach((coord) => {
+    const x = coord?.[0];
+    const y = coord?.[1];
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
+  });
+  if (!Number.isFinite(minX)) return null;
+  return [minX, minY, maxX, maxY];
+}
+
+function pointInBbox(point, bbox) {
+  if (!bbox) return false;
+  return point[0] >= bbox[0] && point[0] <= bbox[2] && point[1] >= bbox[1] && point[1] <= bbox[3];
+}
+
+function walkCoords(coords, visit) {
+  if (!Array.isArray(coords) || !coords.length) return;
+  if (typeof coords[0] === "number") {
+    if (Number.isFinite(coords[0]) && Number.isFinite(coords[1])) visit(coords);
+    return;
+  }
+  coords.forEach((item) => walkCoords(item, visit));
+}
+
+function featureCentroid(feature) {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  walkCoords(feature?.geometry?.coordinates, ([x, y]) => {
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
+  });
+  if (!Number.isFinite(minX)) return null;
+  return [(minX + maxX) / 2, (minY + maxY) / 2];
+}
+
+function municipalityIdFromProps(props = {}) {
+  const id = props.muni_id ?? props.town_id;
+  return id == null ? "" : String(id);
+}
+
+function municipalityNameFromProps(props = {}) {
+  return String(props.municipal ?? props.town ?? props.NAME ?? "")
+    .trim()
+    .toLowerCase();
+}
+
+/**
+ * Precompute MAPC member ids / names / polygons for choropleth clipping.
+ * @param {GeoJSON.FeatureCollection} geojson
+ */
+export function buildMapcRegionIndex(geojson) {
+  const muniIds = new Set();
+  const townNames = new Set();
+  const polygons = [];
+  (geojson?.features || []).forEach((feature) => {
+    const props = feature.properties || {};
+    const id = municipalityIdFromProps(props);
+    const name = municipalityNameFromProps(props);
+    if (id) muniIds.add(id);
+    if (name) townNames.add(name);
+    const rings = polygonOuterRings(feature.geometry);
+    const bboxes = rings.map(ringBbox);
+    polygons.push({ rings, bboxes });
+  });
+  return { muniIds, townNames, polygons };
+}
+
+function featureInMapcRegion(feature, mapcIndex) {
+  if (!mapcIndex) return false;
+  const props = feature?.properties || {};
+  const id = municipalityIdFromProps(props);
+  if (id && mapcIndex.muniIds.has(id)) return true;
+  const name = municipalityNameFromProps(props);
+  if (name && mapcIndex.townNames.has(name)) return true;
+  const centroid = featureCentroid(feature);
+  if (!centroid) return false;
+  return mapcIndex.polygons.some(({ rings, bboxes }) =>
+    rings.some((ring, i) => pointInBbox(centroid, bboxes[i]) && pointInRing(centroid, ring)),
+  );
+}
+
+/**
+ * Keep only choropleth features inside the selected geographic frame.
+ */
+export function filterGeojsonByGeographicFrame(
+  geojson,
+  { frame = "mapc", mapcIndex = null, mapcBbox = null } = {},
+) {
+  if (!geojson?.features?.length) return geojson || { type: "FeatureCollection", features: [] };
+  if (frame === "mapc") {
+    if (mapcIndex?.polygons?.length || mapcIndex?.muniIds?.size) {
+      return {
+        ...geojson,
+        features: geojson.features.filter((feature) => featureInMapcRegion(feature, mapcIndex)),
+      };
+    }
+    if (mapcBbox) {
+      return {
+        ...geojson,
+        features: geojson.features.filter((feature) => {
+          const centroid = featureCentroid(feature);
+          return centroid && pointInBbox(centroid, mapcBbox);
+        }),
+      };
+    }
+    return { ...geojson, features: [] };
+  }
+  return geojson;
 }

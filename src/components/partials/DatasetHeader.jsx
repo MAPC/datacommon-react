@@ -1,24 +1,32 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import axios from "axios";
 import PropTypes from "prop-types";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEllipsisVertical, faMap, faShareNodes, faTable } from "@fortawesome/free-solid-svg-icons";
-import { faMessage } from "@fortawesome/free-regular-svg-icons";
+import { faEllipsisVertical, faMap, faShareNodes, faTable, faStar as filledFaStar } from "@fortawesome/free-solid-svg-icons";
+import { faMessage, faStar } from "@fortawesome/free-regular-svg-icons";
 
 import { formatUpdated } from "../../utils/formatUpdated";
 import ExportDataModal from "./ExportDataModal";
 import EmbedTableModal from "./EmbedTableModal";
 import MetadataModal from "./MetadataModal";
 import { buildDatasetViewShareSearchParams, DATASET_VIEW_SHARE_MAX_URL_LENGTH } from "../../utils/datasetViewShareQuery";
+import { getCookie } from "../../utils/cookies";
+import styled, { keyframes } from "styled-components";
 
 const setSelectYears = (availableYears, updateSelectedYears, selectedYears, { singleSelect = false } = {}) => {
   if (availableYears.length > 0) {
+    const selected = new Set((selectedYears || []).map((year) => String(year)));
     return (
       <div className="year-filter">
         <span>{singleSelect ? "Select Year:" : "Select Years:"}</span>
         <ul>
           {availableYears.map((year) => (
-            <li key={year.toString()} onClick={(e) => updateSelectedYears(e, year)} className={selectedYears.includes(year) ? "selected" : ""}>
+            <li
+              key={year.toString()}
+              onClick={(e) => updateSelectedYears(e, year)}
+              className={selected.has(String(year)) ? "selected" : ""}
+            >
               {year}
             </li>
           ))}
@@ -32,8 +40,22 @@ const setSelectYears = (availableYears, updateSelectedYears, selectedYears, { si
 const GeographyFilter = ({ availableGeographies = [], selectedGeographies = [], updateSelectedGeographies }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const dropdownRef = useRef(null);
   const [showAllSelectedTags, setShowAllSelectedTags] = useState(false);
+  const [mapcMunis, setMapcMunis] = useState([]);
+  const [loadingMapcMunis, setLoadingMapcMunis] = useState(true);
+  const dropdownRef = useRef(null);
+
+  // Fetch MAPC munis for the "MAPC only" filter:
+  useEffect(() => {
+    axios.get(`/api?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&filters=rpa_id:352&columns=muni_id,muni_name`)
+      .then(res => {
+        setLoadingMapcMunis(false);
+        setMapcMunis(res.data?.rows?.map(row => row.muni_name) || []);
+      }).catch(err => {
+        setLoadingMapcMunis(false);
+        console.error("Error while fetching MAPC munis: ", err);
+      });
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -90,6 +112,24 @@ const GeographyFilter = ({ availableGeographies = [], selectedGeographies = [], 
           <div className="column-dropdown-header">
             <span>{displayText}</span>
             <div className="column-dropdown-bulk-actions" role="group" aria-label="Geography bulk selection">
+              <button
+                type="button"
+                className="select-all-button"
+                disabled={mapcMunis.every(mapcMuni => selectedGeographies.includes(mapcMuni)) && !selectedGeographies.some(selectedGeo => !mapcMunis.includes(selectedGeo))}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  availableGeographies.forEach((geo) => {
+                    if (mapcMunis.includes(geo) && !selectedGeographies.includes(geo)) {
+                      updateSelectedGeographies(geo);
+                    } else if (!mapcMunis.includes(geo) && selectedGeographies.includes(geo)){
+                      updateSelectedGeographies(geo);
+                    }
+                  });
+                }}
+              >
+                {!loadingMapcMunis && "Select Only MAPC"}
+                {loadingMapcMunis && <Spinner />}
+              </button>
               <button
                 type="button"
                 className="select-all-button"
@@ -635,6 +675,21 @@ const FilterPill = ({ filter, removeColumnFilter }) => {
   )
 }
 
+const spin = keyframes`
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+`;
+
+const Spinner = styled.div`
+  width: 12px;
+  height: 12px;
+  margin-left: 10.5px;
+  border: 2px solid #978080;
+  border-top: 2px solid transparent;
+  border-radius: 50%;
+  animation: ${spin} 0.8s linear infinite;
+`;
+
 function DatasetHeader({
   title = "",
   table = "",
@@ -659,6 +714,8 @@ function DatasetHeader({
   removeColumnFilter,
   updateSelectedGeographies,
   geographyColumn,
+  geographyLevels = [],
+  onGeographyLevelChange,
   rowsPerPage,
   updateRowsPerPage,
   numberOfRows,
@@ -666,6 +723,8 @@ function DatasetHeader({
   onViewModeChange,
   mapPreviewSupported = false,
   mapVariable = null,
+  geographicFrame = null,
+  mapDimensionSelections = null,
   geographyType = null,
 }) {
   const location = useLocation();
@@ -674,8 +733,11 @@ function DatasetHeader({
   const [embedModalOpen, setEmbedModalOpen] = useState(false);
   const [metadataModalOpen, setMetadataModalOpen] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
+  const [favoriteDatasets, setFavoriteDatasets] = useState(null);
+  const [loadingFavorites, setLoadingFavorites] = useState(null);
   const actionsDropdownRef = useRef(null);
 
+  // create the share / embed URLs whenever one of the parameters changes
   const { sharePageUrl, embedPageUrl, shareUrlTooLong } = useMemo(() => {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     const viewSuffix = viewMode === "map" ? "/map" : "";
@@ -683,6 +745,8 @@ function DatasetHeader({
     const shareArgs = {
       viewMode,
       mapVariable: viewMode === "map" ? mapVariable : null,
+      geographicFrame: viewMode === "map" ? geographicFrame : null,
+      mapDimensionSelections: viewMode === "map" ? mapDimensionSelections : null,
       columnKeys,
       selectedColumns,
       availableGeographies,
@@ -705,6 +769,8 @@ function DatasetHeader({
     datasetId,
     viewMode,
     mapVariable,
+    geographicFrame,
+    mapDimensionSelections,
     columnKeys,
     selectedColumns,
     selectedGeographies,
@@ -713,6 +779,33 @@ function DatasetHeader({
     availableYears,
     queryYearColumn,
   ]);
+
+  // Fetch dataset favorites if the user is logged in 
+  useEffect(() => {
+    // If the user has a login cookie set, attempt to fetch their favorite datasets
+    const cookie = getCookie('datacommon_mapc_token');
+    if (cookie) {
+      setLoadingFavorites(true);
+      axios.get("/api/datasets/favorites")
+        .then(res => {
+          setFavoriteDatasets(res?.data || null);
+          setLoadingFavorites(false);
+        }).catch(err => {
+          console.error("Error while fetching dataset favorites: ", err);
+          setFavoriteDatasets(null);
+          setLoadingFavorites(false);
+        });
+    }
+  }, []);
+
+  // Is the current dataset favorited:
+  const isFavorited = useMemo(() => {
+    if (!favoriteDatasets) {
+      return false;
+    }
+
+    return favoriteDatasets.map(fav => fav.table_name).includes(table);
+  }, [favoriteDatasets]);
 
   const embedModalAdjustFilters = useMemo(
     () => (
@@ -760,6 +853,30 @@ function DatasetHeader({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [actionsOpen]);
 
+  const handleToggleDatasetFavorite = async () => {
+    // bail out if currently loading
+    if (loadingFavorites) return;
+
+    try {
+      setLoadingFavorites(true);
+      await axios.post("/api/datasets/toggle-favorite", { tableName: table });
+
+      // if toggle request succeeds, re-fetch updated datasets:
+      axios.get("/api/datasets/favorites")
+        .then(res => {
+          setFavoriteDatasets(res?.data || null);
+          setLoadingFavorites(false);
+        }).catch(err => {
+          console.error("Error while fetching dataset favorites: ", err);
+          setFavoriteDatasets(null);
+          setLoadingFavorites(false);
+        });
+    } catch (err) {
+      console.error('Error while toggling dataset favorite status');
+      setLoadingFavorites(false);
+    }
+  }
+
   return (
     isEmbedView && viewMode === "map" ? (
       <div className="embed-map-header-actions" role="group" aria-label="Embed map header">
@@ -800,7 +917,152 @@ function DatasetHeader({
             </button>
           </div>
         )}
-        <h2>{title}</h2>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <h2>{title}</h2>
+          <div className="details-content-column download-links">
+            {mapPreviewSupported && onViewModeChange && (
+              <div className="dataset-view-toggle" role="group" aria-label="Dataset view">
+                <button
+                  type="button"
+                  className={`dataset-view-toggle__btn${viewMode === "table" ? " dataset-view-toggle__btn--active" : ""}`}
+                  onClick={() => onViewModeChange("table")}
+                  aria-pressed={viewMode === "table"}
+                >
+                  <FontAwesomeIcon icon={faTable} size="sm" aria-hidden="true" />
+                  Table
+                </button>
+                <button
+                  type="button"
+                  className={`dataset-view-toggle__btn${viewMode === "map" ? " dataset-view-toggle__btn--active" : ""}`}
+                  onClick={() => onViewModeChange("map")}
+                  aria-pressed={viewMode === "map"}
+                >
+                  <FontAwesomeIcon icon={faMap} size="sm" aria-hidden="true" />
+                  Map
+                </button>
+              </div>
+            )}
+            <div className="dataset-actions-dropdown" ref={actionsDropdownRef}>
+              <button
+                type="button"
+                className="button file-button dataset-actions-trigger"
+                onClick={() => setActionsOpen((open) => !open)}
+                aria-expanded={actionsOpen}
+                aria-haspopup="menu"
+              >
+                Actions <span className="dropdown-arrow">{actionsOpen ? "▲" : "▼"}</span>
+              </button>
+              {actionsOpen && (
+                <div className="dataset-actions-menu" role="menu" aria-label="Dataset actions">
+                  <button
+                    type="button"
+                    className="dataset-actions-item"
+                    onClick={() => {
+                      setMetadataModalOpen(true);
+                      setActionsOpen(false);
+                    }}
+                  >
+                    <span className="dataset-actions-item-icon" aria-hidden="true">
+                      <FontAwesomeIcon icon={faTable} size="sm" />
+                    </span>
+                    View Metadata
+                  </button>
+                  <button
+                    type="button"
+                    className="dataset-actions-item"
+                    onClick={() => {
+                      setEmbedModalOpen(true);
+                      setActionsOpen(false);
+                    }}
+                  >
+                    <span className="dataset-actions-item-icon" aria-hidden="true">
+                      <FontAwesomeIcon icon={faShareNodes} size="sm" />
+                    </span>
+                    Share and embed
+                  </button>
+                  <button
+                    type="button"
+                    className="dataset-actions-item"
+                    onClick={() => {
+                      window.open(
+                        "https://airtable.com/appqSr3MqAkN1GCfb/pagdcSeY2bc4rblam/form",
+                        "_blank",
+                        "noopener,noreferrer",
+                      );
+                      setActionsOpen(false);
+                    }}
+                  >
+                    <span className="dataset-actions-item-icon" aria-hidden="true">
+                      <FontAwesomeIcon icon={faMessage} size="sm" />
+                    </span>
+                    Submit data feedback
+                  </button>
+                  <button
+                    type="button"
+                    className="dataset-actions-item"
+                    onClick={() => handleToggleDatasetFavorite()}
+                  >
+                    <span className="dataset-actions-item-icon" aria-hidden="true">
+                      <FontAwesomeIcon icon={filledFaStar} size="sm" />
+                    </span>
+                    {isFavorited ? "Un-favorite Dataset" : "Favorite Dataset"}
+                  </button>
+                </div>
+              )}
+            </div>
+            <button type="button" className="button file-button" onClick={() => setDownloadModalOpen(true)}>
+              Export
+            </button>
+            {(favoriteDatasets || loadingFavorites) && (
+              <div
+                className="favorite-icon-container"
+                title={isFavorited ? "Click to remove favorite" : "Click to favorite"}
+                onClick={() => handleToggleDatasetFavorite()}
+              >
+                {loadingFavorites && <Spinner />}
+                {!loadingFavorites && isFavorited && <FontAwesomeIcon icon={filledFaStar} size="xl" />}
+                {!loadingFavorites && !isFavorited && <FontAwesomeIcon icon={faStar} size="xl" />}
+              </div>
+            )}
+          </div>
+        </div>
+        {!isEmbedView && geographyLevels.length > 0 && (
+          <div className="year-filter">
+            <span id="dataset-geography-level-label">Geography:</span>
+            <ul aria-labelledby="dataset-geography-level-label">
+              {geographyLevels.map((level) => {
+                const isActive = String(level.id) === String(datasetId);
+                const blockedOnMap = viewMode === "map" && level.mapSupported === false;
+                const canSwitch =
+                  geographyLevels.length > 1 &&
+                  typeof onGeographyLevelChange === "function" &&
+                  !blockedOnMap;
+                const className = [
+                  isActive ? "selected" : "",
+                  canSwitch ? "" : "is-static",
+                  blockedOnMap ? "is-disabled" : "",
+                ].filter(Boolean).join(" ");
+                return (
+                  <li
+                    key={String(level.id)}
+                    className={className}
+                    onClick={canSwitch ? () => onGeographyLevelChange(level.id) : undefined}
+                    aria-pressed={isActive}
+                    aria-disabled={blockedOnMap || undefined}
+                    tabIndex={blockedOnMap ? 0 : undefined}
+                    data-tooltip={
+                      blockedOnMap
+                        ? `Map view is not available for ${level.label}. Switch to Table to select this geography.`
+                        : undefined
+                    }
+                  >
+                    {level.label}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
         <div className={isEmbedView ? "dataset-details-content dataset-details-content--embed" : "dataset-details-content"}>
           <div className="details-content-column">
             <ul className="table-meta">
@@ -823,7 +1085,7 @@ function DatasetHeader({
               singleSelect: viewMode === "map",
             })}
             {viewMode !== "map" && (
-              <div style={{ marginTop: "12px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
                 <ColumnSelectorDropdown
                   columnKeys={columnKeys}
                   updateSelectedColumns={updateSelectedColumns}
@@ -839,91 +1101,7 @@ function DatasetHeader({
           </div>
           {!isEmbedView && (
             <div className="details-content-column download-section">
-              <div className="details-content-column download-links">
-                {mapPreviewSupported && onViewModeChange && (
-                  <div className="dataset-view-toggle" role="group" aria-label="Dataset view">
-                    <button
-                      type="button"
-                      className={`dataset-view-toggle__btn${viewMode === "table" ? " dataset-view-toggle__btn--active" : ""}`}
-                      onClick={() => onViewModeChange("table")}
-                      aria-pressed={viewMode === "table"}
-                    >
-                      <FontAwesomeIcon icon={faTable} size="sm" aria-hidden="true" />
-                      Table
-                    </button>
-                    <button
-                      type="button"
-                      className={`dataset-view-toggle__btn${viewMode === "map" ? " dataset-view-toggle__btn--active" : ""}`}
-                      onClick={() => onViewModeChange("map")}
-                      aria-pressed={viewMode === "map"}
-                    >
-                      <FontAwesomeIcon icon={faMap} size="sm" aria-hidden="true" />
-                      Map
-                    </button>
-                  </div>
-                )}
-                <div className="dataset-actions-dropdown" ref={actionsDropdownRef}>
-                  <button
-                    type="button"
-                    className="button file-button dataset-actions-trigger"
-                    onClick={() => setActionsOpen((open) => !open)}
-                    aria-expanded={actionsOpen}
-                    aria-haspopup="menu"
-                  >
-                    Actions <span className="dropdown-arrow">{actionsOpen ? "▲" : "▼"}</span>
-                  </button>
-                  {actionsOpen && (
-                    <div className="dataset-actions-menu" role="menu" aria-label="Dataset actions">
-                      <button
-                        type="button"
-                        className="dataset-actions-item"
-                        onClick={() => {
-                          setMetadataModalOpen(true);
-                          setActionsOpen(false);
-                        }}
-                      >
-                        <span className="dataset-actions-item-icon" aria-hidden="true">
-                          <FontAwesomeIcon icon={faTable} size="sm" />
-                        </span>
-                        View Metadata
-                      </button>
-                      <button
-                        type="button"
-                        className="dataset-actions-item"
-                        onClick={() => {
-                          setEmbedModalOpen(true);
-                          setActionsOpen(false);
-                        }}
-                      >
-                        <span className="dataset-actions-item-icon" aria-hidden="true">
-                          <FontAwesomeIcon icon={faShareNodes} size="sm" />
-                        </span>
-                        Share and embed
-                      </button>
-                      <button
-                        type="button"
-                        className="dataset-actions-item"
-                        onClick={() => {
-                          window.open(
-                            "https://airtable.com/appqSr3MqAkN1GCfb/pagdcSeY2bc4rblam/form",
-                            "_blank",
-                            "noopener,noreferrer",
-                          );
-                          setActionsOpen(false);
-                        }}
-                      >
-                        <span className="dataset-actions-item-icon" aria-hidden="true">
-                          <FontAwesomeIcon icon={faMessage} size="sm" />
-                        </span>
-                        Submit data feedback
-                      </button>
-                    </div>
-                  )}
-                </div>
-                <button type="button" className="button file-button" onClick={() => setDownloadModalOpen(true)}>
-                  Export
-                </button>
-              </div>
+              
               {viewMode === "table" && (
                 <div className="rows-per-page-selector">
                   <label htmlFor="rows-per-page" className="rows-per-page-label">
@@ -1029,6 +1207,15 @@ DatasetHeader.propTypes = {
   selectedGeographies: PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.string, PropTypes.number])),
   updateSelectedGeographies: PropTypes.func,
   geographyColumn: PropTypes.string,
+  geographyLevels: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+      label: PropTypes.string.isRequired,
+      geography: PropTypes.string,
+      mapSupported: PropTypes.bool,
+    }),
+  ),
+  onGeographyLevelChange: PropTypes.func,
   universe: PropTypes.string,
   updatedAt: PropTypes.string,
   rowsPerPage: PropTypes.number,
@@ -1038,7 +1225,15 @@ DatasetHeader.propTypes = {
   onViewModeChange: PropTypes.func,
   mapPreviewSupported: PropTypes.bool,
   mapVariable: PropTypes.string,
-  geographyType: PropTypes.oneOf(["municipal", "census_tracts", "block_groups"]),
+  geographicFrame: PropTypes.oneOf(["massachusetts", "mapc"]),
+  mapDimensionSelections: PropTypes.objectOf(PropTypes.string),
+  geographyType: PropTypes.oneOf([
+    "municipal",
+    "census_tracts",
+    "block_groups",
+    "school_districts",
+    "schools",
+  ]),
 };
 
 export default DatasetHeader;

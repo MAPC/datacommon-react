@@ -17,4 +17,14 @@ describe('Header navigation', () => {
   test('displays inactive link for other non-matching path locations and links', () => {
     expect(handleActivePage('/browser', '/profile')).toBeNull();
   });
+
+  test('marks Data for Planning as active on bulk download routes', () => {
+    expect(handleActivePage('/browser/bulk-download', '/browser/bulk-download')).toBe('active');
+    expect(handleActivePage('/browser/bulk-download/housing', '/browser/bulk-download')).toBe('active');
+  });
+
+  test('does not mark Datasets as active on bulk download routes', () => {
+    expect(handleActivePage('/browser/bulk-download', '/browser')).toBeNull();
+    expect(handleActivePage('/browser/bulk-download/housing', '/browser')).toBeNull();
+  });
 });

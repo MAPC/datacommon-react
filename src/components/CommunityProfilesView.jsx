@@ -1,6 +1,9 @@
+import axios from "axios";
 import { useEffect, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
+import styled, { keyframes } from "styled-components";
+
 import Tab from "./Tab";
 import Dropdown from "./field/Dropdown";
 import MunicipalityPolygon from "./MunicipalityPolygon";
@@ -25,10 +28,40 @@ import DownloadAllChartsButton from "./field/DownloadAllChartsButton";
 import DataTableModal from "./field/DataTableModal";
 import { store } from "../store";
 
+const spin = keyframes`
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+`;
+
+const Spinner = styled.div`
+  width: 40px;
+  height: 40px;
+  margin-left: 50px;
+  margin-top: 20px;
+  margin-bottom: 20px;
+  border: 2px solid #978080;
+  border-top: 2px solid transparent;
+  border-radius: 50%;
+  animation: ${spin} 0.8s linear infinite;
+`;
+
+const TRAILMAP_COMMUNITY_PROFILE_EMBED =
+  "https://staging.trailmap.mapc.org/embed/communityTrailsProfile";
+
+function trailmapCommunityProfileSrc(muniSlug) {
+  if (!muniSlug) return null;
+  return `${TRAILMAP_COMMUNITY_PROFILE_EMBED}?muni=${encodeURIComponent(String(muniSlug).toLowerCase())}`;
+}
+
 const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { muni, tab } = useParams();
+  const [muniId, setMuniId] = useState(null);
+  const [loadingDescription, setLoadingDescription] = useState(true);
+  const [muniDescription, setMuniDescription] = useState(null);
+  const [loadingLinks, setLoadingLinks] = useState(true);
+  const [muniLinks, setMuniLinks] = useState([]);
   const [activeTab, setActiveTab] = useState(tab || "demographics");
   const [modalConfig, setModalConfig] = useState({
     show: false,
@@ -36,6 +69,52 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
     title: "",
     tableKey: "",
   });
+  const trailProfileSrc = trailmapCommunityProfileSrc(muniSlug);
+
+  useEffect(() => {
+    // first fetch the muni id for this muni name
+    // TODO: this whole page should really be based on muni-id but its a large fix with little business value
+    setLoadingDescription(true);
+    axios.get(
+      `/api?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&columns=muni_id&filters=muni_name~${name}`
+    ).then(resp => {
+      const rowData = resp.data?.rows;
+      const respMuniId = rowData?.length === 1 ? rowData[0].muni_id : null;
+      setMuniId(respMuniId);
+    }).catch(() => {
+      console.error("Error fetching muni id for description");
+      setLoadingDescription(false);
+    });
+  }, [name]);
+
+  useEffect(() => {
+    if (!muniId) return;
+
+    setLoadingDescription(true);
+    axios.get(`/api/muni-info/description?muni_id=${muniId}`)
+      .then(resp => {
+        const rowData = resp.data;
+        const respDescription = rowData?.length === 1 ? rowData[0].description : null;
+        setMuniDescription(respDescription);
+      }).catch(() => {
+        setMuniDescription('');
+        console.error("Error fetching muni description");
+      }).finally(() => {
+        setLoadingDescription(false);
+      });
+
+    setLoadingLinks(true);
+    axios.get(`/api/muni-info/links?muni_id=${muniId}`)
+      .then(resp => {
+        const rowData = resp.data;
+        setMuniLinks(rowData);
+      }).catch(() => {
+        setMuniLinks([]);
+        console.error("Error fetching muni links");
+      }).finally(() => {
+        setLoadingLinks(false);
+      });
+  }, [muniId]);
 
   const handleShowModal = (data, title, tableKey = "") => {
     setModalConfig({
@@ -148,7 +227,9 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
         .tab__row.digital-equity-resources,
         .tab__row.digital-equity-resources *,
         .tab__row.municipal-finances-resources,
-        .tab__row.municipal-finances-resources * {
+        .tab__row.municipal-finances-resources *,
+        .tab__row.trail-profile-embed,
+        .tab__row.trail-profile-embed * {
           display: none !important;
         }
         /* Hide any chart panels that only show "Data not available." */
@@ -263,12 +344,27 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
             </div>
             <div className="description-wrapper">
               <p className="description">{descriptions[muniSlug.toLowerCase()] || "No description available."}</p>
+              {loadingDescription && <Spinner />}
+              {!loadingDescription && muniDescription && (
+                <div>
+                  <b>Description from municipality:</b>
+                  <p className="description">{muniDescription || ""}</p>
+                </div>
+              )}
               <div className="button-group">
                 <button onClick={handlePrintCharts} type="button" className="print-button">
                   Print charts
                 </button>
                 <DownloadAllChartsButton muni={muni} datatype={'municipality'} displayName={name} />
               </div>
+            </div>
+            <div className="muni-links-container">
+              {!loadingLinks && muniLinks.length > 0 && <b>Links provided by municipality:</b>}
+              {!loadingLinks && muniLinks.length > 0 && muniLinks.map(link => (
+                <div className='muni-link' key={`${link.name}_${link.link}`} onClick={() => window.location.href = link.link} title={link.name}>
+                  {link.name}
+                </div>
+              ))}
             </div>
           </section>
         </div>
@@ -584,6 +680,24 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
                   <PieChart chart={charts.transportation.commute_to_work} muni={muni} />
                 </ChartDetails>
               </div>
+              {trailProfileSrc && (
+                <div className="tab__row trail-profile-embed">
+                  <div className="chart-wrapper" style={{ maxWidth: "100%", flex: "0 0 100%" }}>
+                    <div className="chart-body">
+                      <iframe
+                        key={muniSlug}
+                        src={trailProfileSrc}
+                        title={`${name} trail profile`}
+                        width="100%"
+                        height="640"
+                        style={{ border: 0, maxWidth: "100%" }}
+                        loading="lazy"
+                        referrerPolicy="no-referrer-when-downgrade"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </Tab>
           </div>
         </div>

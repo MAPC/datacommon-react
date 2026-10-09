@@ -1,5 +1,56 @@
 import { parseUpdatedForSort } from './formatUpdated';
 
+/** Known `_data_browser.geography` values used by the Datasets geography filter. */
+export const DATASET_GEOGRAPHIES = ['municipal', 'census_tracts', 'block_groups', 'blocks'];
+
+export const DATASET_GEOGRAPHY_LABELS = {
+  municipal: 'Municipalities',
+  census_tracts: 'Census Tracts',
+  block_groups: 'Block Groups',
+  blocks: 'Blocks',
+  other: 'Other',
+};
+
+/** All Datasets geography-filter values, including "other". */
+export const ALL_DATASET_GEOGRAPHY_FILTERS = [...DATASET_GEOGRAPHIES, 'other'];
+
+/**
+ * Same classification as the Datasets geography filter:
+ * return the `_data_browser.geography` value when it is one of DATASET_GEOGRAPHIES,
+ * otherwise "other" (including null).
+ * @param {object} dataset
+ */
+export function getDatasetGeography(dataset) {
+  if (DATASET_GEOGRAPHIES.some((geo) => dataset?.geography === geo)) {
+    return dataset.geography;
+  }
+  return 'other';
+}
+
+/** @param {object} dataset */
+export function getDatasetGeographyLabel(dataset) {
+  return DATASET_GEOGRAPHY_LABELS[getDatasetGeography(dataset)] || DATASET_GEOGRAPHY_LABELS.other;
+}
+
+const TITLE_GEOGRAPHY_SUFFIXES = [
+  " (Municipal)",
+  " (Municipality)",
+  " (Census Tracts)",
+  " (Census Tract)",
+  " (Block Groups)",
+  " (Block Group)",
+  " (Blocks)",
+];
+
+/**
+ * some tables don't have the geography suffix to indicate the geography, so we need to strip it from the title
+ */
+export function stripGeographyFromTitle(name) {
+  const title = String(name).trim();
+  const suffix = TITLE_GEOGRAPHY_SUFFIXES.find((ending) => title.endsWith(ending));
+  return suffix ? title.slice(0, -suffix.length) : title;
+}
+
 /**
  * Filters the given list of datasets based on the filtering criteria provided. Returns a new list of filtered data
  * 
@@ -9,6 +60,7 @@ import { parseUpdatedForSort } from './formatUpdated';
  * @param {list[string]} options.categories The list of categories (menu1s). Datasets with any of the categories will be included
  * @param {list[string]} options.subcategories The list of subcategories (menu2s). Datasets with any of the sub-cats will be included
  * @param {list[string]} options.geographies A list of geographies corresponding to the end of table names (e.g. _m for municipal, _ct for census tracts)
+ * @param {list[string]} options.favoriteDatasets A list of table_names that the user has favorited 
  * @param {string} options.searchQuery The search query the user searched for. Will be broken into individual terms. matches table_name and dataset name
  * @param {boolean} options.shouldRemoveDupes Whether to remove datasets that share the same table_name from the return list
  * @returns A filtered list of dataset using all the filtering criteria provided
@@ -19,6 +71,8 @@ export function filterDatasets({
   categories = [],
   subcategories = [],
   geographies = [],
+  favoriteDatasets = null,
+  filterToNonActive = false,
   searchQuery = '',
   shouldRemoveDupes = true,
 }) {
@@ -38,21 +92,17 @@ export function filterDatasets({
   }
 
   // check if the table name matches the selected geographies, don't do anything if 'all' selected
-  if (!geographies.includes('all')) {
-    filtered = filtered.filter(d => {
-      // If the table name ends with a selected geo include it.
-      if (geographies.some(g => d.geography === g)) {
-        return true;
-      }
+  if (geographies.length > 0 && !geographies.includes("all")) {
+    filtered = filtered.filter((d) => geographies.some((g) => getDatasetGeography(d) === g));
+  }
 
-      // If other is selected, return it if the table name doesn't match any of the available geos
-      const allGeos = ['municipal', 'census_tracts', 'block_groups', 'blocks'];
-      if (geographies.includes('other')) {
-        return !allGeos.some(g => d.geography === g);
-      }
+  // only filter to favorites if the favoriteDatasets option is passed as an array.
+  if (favoriteDatasets) {
+    filtered = filtered.filter((d) => favoriteDatasets.includes(d.table_name));
+  }
 
-      return false;
-    });
+  if (filterToNonActive) {
+    filtered = filtered.filter((d) => d.active === 'N');
   }
 
   if (searchQuery.trim()) {
@@ -238,9 +288,9 @@ export function sortDatasets({ datasets = [], sortOrder = 'Relevance', searchQue
     sortType = 'A to Z';
   }
   
+  const searchTokens = trimmedSearch.split(" ").filter(st => !!st).map(st => st.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
   switch (sortType) {
     case 'Relevance':
-      const searchTokens = trimmedSearch.split(" ").filter(st => !!st).map(st => st.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
       // Count number to table_name and dataset name (menu3) matches
       // prioritize higher number of matches and earlier avg index of terms
       // de-prioritize datasets containing the word 'by'
@@ -425,4 +475,52 @@ export function compressDatasetsByGeography(datasets) {
       geoIdPairs: sortedGeoIdPairs,
     };
   });
+}
+
+function isSameDatasetId(left, right) {
+  return Number(left) === Number(right);
+}
+
+function pillLabel(dataset, groupedName = null) {
+  if (groupedName) return groupedName;
+  const key = String(dataset?.geography || "").trim().toLowerCase();
+  return DATASET_GEOGRAPHY_LABELS[key] || getDatasetGeographyLabel(dataset);
+}
+
+/**
+ * Look up a dataset and any sibling tables at other geography levels
+ * (municipal, census tract, block group, block).
+ *
+ * Returns a title without “(Municipal)” / “(Census Tracts)” etc., and a `levels`
+ * list for the Geography pills. There is always at least one level.
+ */
+export function findDatasetGeographyGroup(datasets, seqId) {
+  const catalog = datasets;
+  const current = catalog.find((row) => isSameDatasetId(row.seq_id || row.id, seqId));
+  if (!current) return null;
+
+  const group = compressDatasetsByGeography(catalog).find((item) =>
+    item.geoIdPairs.some((pair) => isSameDatasetId(pair.id, seqId)),
+  );
+
+  const siblingLevels = (group?.geoIdPairs || [])
+    .filter((pair) => pair.geography && pair.id != null)
+    .map((pair) => ({
+      id: pair.id,
+      geography: pair.geography,
+      label: pillLabel(current, pair.geography),
+    }));
+
+  return {
+    title: stripGeographyFromTitle(group?.menu3 || current.menu3),
+    levels: siblingLevels.length
+      ? siblingLevels
+      : [
+          {
+            id: current.seq_id || current.id,
+            geography: current.geography || getDatasetGeography(current),
+            label: pillLabel(current),
+          },
+        ],
+  };
 }
