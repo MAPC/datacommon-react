@@ -39,7 +39,7 @@ const Home = () => {
           target="_blank"
           rel="noopener noreferrer"
         >
-          Sign up for the latest updates
+          Email updates
         </a>
       </div>
       <div className="page-header">
