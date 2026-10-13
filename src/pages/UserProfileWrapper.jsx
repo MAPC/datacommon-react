@@ -7,13 +7,15 @@ import { getCookie, logoutUser } from '../utils/cookies';
 
 const UserProfileMainWrapper = styled.div`
   display: flex;
+  /* width and max-width same as header */
   width: 1400px;
+  max-width: calc(100% - 4em);
   margin: 10px auto; 
 `;
 
 const UserProfileLeftNavContainer = styled.div`
   min-width: 16rem;
-  min-height: 500px;
+  min-height: 520px;
   border: 1px solid #dddddd;
 `;
 

@@ -134,7 +134,7 @@ const ProfileTeammatesPage = () => {
           <OrgCountMessage>
             {selectedOrg} has {usersByOrgMap[selectedOrg].length} {usersByOrgMap[selectedOrg].length === 1 ? 'user' : 'users'}.
           </OrgCountMessage>
-          <table style={{ display: 'block', maxHeight: '370px', overflowY: 'auto', borderCollapse: 'separate' }}>
+          <table style={{ display: 'block', maxHeight: '350px', overflowY: 'auto', borderCollapse: 'separate' }}>
             <thead>
               <TeammatesTableHeader style={{ position: 'sticky', top: '0px', zIndex: 10 }}>
                 <TeammatesTableCell style={{ width: '250px' }}>
