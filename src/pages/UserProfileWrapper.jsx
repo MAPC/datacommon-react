@@ -15,7 +15,7 @@ const UserProfileMainWrapper = styled.div`
 
 const UserProfileLeftNavContainer = styled.div`
   min-width: 16rem;
-  min-height: 500px;
+  min-height: 520px;
   border: 1px solid #dddddd;
 `;
 
