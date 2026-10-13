@@ -33,6 +33,14 @@ const Home = () => {
           <span className="home-anniversary-banner__dot" aria-hidden="true">·</span>
           2006-2026
         </p>
+        <a
+          className="home-anniversary-banner__signup"
+          href="https://lp.constantcontactpages.com/sl/IXXgrZB"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Email updates
+        </a>
       </div>
       <div className="page-header">
         <div className="container">

@@ -6,6 +6,11 @@
 
   .home-anniversary-banner {
     box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.55rem 0.9rem;
     min-height: var(--home-banner-height);
     padding: 0.5rem 1.5rem;
     background: $color_bg-dark;
@@ -41,11 +46,47 @@
       transform: translateY(-0.06em);
     }
 
+    &__signup {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.38rem 0.95rem 0.38rem 1rem;
+      border: none;
+      border-radius: 6px;
+      background: $color_brand-primary;
+      color: $color_bg-dark;
+      font-size: 0.8125rem;
+      font-weight: 800;
+      line-height: 1.2;
+      letter-spacing: 0.01em;
+      text-decoration: none;
+      white-space: nowrap;
+      cursor: pointer;
+
+      &::after {
+        content: "→";
+        font-weight: 700;
+        line-height: 1;
+      }
+
+      &:hover,
+      &:focus-visible {
+        background: $color_font-light;
+        color: $color_bg-dark;
+        outline: none;
+      }
+    }
+
     @include media(small) {
       padding: 0.5rem 1rem;
 
       p {
         font-size: 0.75rem;
+      }
+
+      &__signup {
+        font-size: 0.75rem;
+        padding: 0.36rem 0.9rem;
       }
     }
   }
