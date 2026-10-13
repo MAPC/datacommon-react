@@ -42,6 +42,11 @@ function Footer() {
             </a>
           </li>
           <li>
+            <a href="https://lp.constantcontactpages.com/sl/IXXgrZB" target="_blank" rel="noopener noreferrer">
+              Sign up for the latest updates
+            </a>
+          </li>
+          <li>
             <a href="https://share-open-data-metroboston.hub.arcgis.com/" target="_blank" rel="noopener noreferrer">
               MAPC spatial data hub
             </a>
