@@ -50,7 +50,11 @@ const TRAILMAP_COMMUNITY_PROFILE_EMBED =
 
 function trailmapCommunityProfileSrc(muniSlug) {
   if (!muniSlug) return null;
-  return `${TRAILMAP_COMMUNITY_PROFILE_EMBED}?muni=${encodeURIComponent(String(muniSlug).toLowerCase())}`;
+
+  // manchester-by-the-sea does include dashes instead of spaces:
+  // trailmap expects the URL to have encoded spaces instead of dashes
+  const formattedName = muniSlug !== 'manchester-by-the-sea' ? muniSlug.replaceAll("-", " ") : muniSlug;
+  return `${TRAILMAP_COMMUNITY_PROFILE_EMBED}?muni=${encodeURIComponent(String(formattedName).toLowerCase())}`;
 }
 
 const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
