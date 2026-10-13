@@ -44,7 +44,7 @@ const Home = () => {
       </div>
       <div className="page-header">
         <div className="container">
-          <h1 className="home-community-title">Explore data for your community</h1>
+          <h1 className="home-community-title">Explore data for the MAPC region</h1>
           <div className="home-community-map">
             <CommunitySelectorMap searchBeside />
           </div>

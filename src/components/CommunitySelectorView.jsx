@@ -244,7 +244,7 @@ const CommunitySelectorView = ({ muniLines, muniHighlight, muniFill, municipalit
   const homepageSearch = (
     <div className="home-geo-search">
       <div className="home-geo-intro">
-        <p className="home-geo-intro__title">Explore the MAPC region through data.</p>
+        <p className="home-geo-intro__title">Understand your community through data</p>
         <p className="home-geo-intro__lede">
           Discover housing, demographics, transportation, environment, and more—and explore the communities that matter to you.
         </p>
@@ -359,7 +359,7 @@ const CommunitySelectorView = ({ muniLines, muniHighlight, muniFill, municipalit
     <>
       {searchBeside ? (
         <div className="home-geo-intro">
-          <p className="home-geo-intro__title">Explore the MAPC region through data.</p>
+          <p className="home-geo-intro__title">Understand your community through data</p>
           <p className="home-geo-intro__lede">
             Discover housing, demographics, transportation, environment, and more—and explore the communities that matter to you.
           </p>
