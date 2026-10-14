@@ -45,6 +45,62 @@ function parseYearList(value) {
   return [];
 }
 
+const COLUMN_PICKER_SKIP = new Set([
+  "seq_id",
+  "muni_id",
+  "logrecno",
+  "geoid",
+  "ct10_id",
+  "ct20_id",
+  "bg10_id",
+  "bg20_id",
+  "shape",
+  "geom",
+  "geometry",
+  "wkb_geometry",
+]);
+
+/**
+ * Indicator columns for one table. Labels are metadata aliases; `name` is the database column.
+ * @returns {Promise<{ name: string, label: string }[]>}
+ */
+export async function fetchTableColumnOptions({
+  database = "ds",
+  schema = "tabular",
+  table,
+  geoColumn = "",
+  yearColumn = "",
+}) {
+  const token = import.meta.env.VITE_MAPC_API_TOKEN;
+  const params = new URLSearchParams({
+    token,
+    database,
+    schema,
+    table,
+  });
+  const response = await fetch(`${locations.BROWSER_API}/metadata?${params}`);
+  if (!response.ok) {
+    throw new Error(`Metadata request failed (${response.status})`);
+  }
+
+  const json = await response.json();
+  const rows = json?.[table] ?? json?.data?.[table] ?? [];
+  const hidden = new Set(
+    [geoColumn, yearColumn]
+      .filter(Boolean)
+      .map((name) => String(name).toLowerCase()),
+  );
+
+  return rows
+    .filter((row) => row?.data_type && row?.name)
+    .filter((row) => !COLUMN_PICKER_SKIP.has(String(row.name).toLowerCase()))
+    .filter((row) => !hidden.has(String(row.name).toLowerCase()))
+    .map((row) => ({
+      name: String(row.name),
+      label: String(row.alias || "").trim() || String(row.name),
+    }));
+}
+
 /**
  * Pre-select the latest available year (availableYears are ordered newest-first).
  * @param {string[]} availableYears
@@ -278,15 +334,13 @@ export async function fetchBulkDownloadBundle(bundleId) {
   };
 }
 
-function selectedMunicipalityNames(municipalities = []) {
-  return municipalities.map((muni) => (typeof muni === "string" ? muni : muni.municipal)).filter(Boolean);
+function downloadTitle(title, bundleSlug) {
+  const label = String(title)
+  return label ?? "download";
 }
 
-export function buildBulkDownloadFilename(municipalities, bundleSlug, extension) {
-  const names = selectedMunicipalityNames(municipalities);
-  const muniLabel = names.length === 1 ? names[0] : "municipalities";
-  const dateStamp = formatDateStamp();
-  return `${muniLabel} ${bundleSlug} data ${dateStamp}.${extension}`;
+export function buildBulkDownloadFilename(title, extension, bundleSlug = "") {
+  return `${downloadTitle(title, bundleSlug)} ${formatDateStamp()}.${extension}`;
 }
 
 export async function requestBulkExport({
@@ -294,6 +348,7 @@ export async function requestBulkExport({
   tables,
   format = "zip",
   bundleSlug = "housing",
+  title = "",
   useMetadataColumns = true,
 }) {
   if (tables.length === 0) {
@@ -318,6 +373,7 @@ export async function requestBulkExport({
     token: import.meta.env.VITE_MAPC_API_TOKEN,
     format,
     bundleSlug,
+    title,
     municipalityIds,
     useMetadataColumns,
     tables: tables.map((tableConfig) => buildBulkExportTableEntry(tableConfig)),
@@ -334,7 +390,7 @@ export async function requestBulkExport({
   }
 
   const blob = await response.blob();
-  const filename = buildBulkDownloadFilename(municipalities, bundleSlug, defaultExtension);
+  const filename = buildBulkDownloadFilename(title, defaultExtension, bundleSlug);
 
   return { blob, filename };
 }

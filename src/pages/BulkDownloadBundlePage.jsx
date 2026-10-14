@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import PropTypes from "prop-types";
@@ -12,6 +12,7 @@ import {
   tableConfigFromInventoryDataset,
   MAX_BULK_DOWNLOAD_TABLES,
   buildBulkDownloadMunicipalitySearchable,
+  bulkDownloadSelectionTooLarge,
 } from "../constants/bulkDownloadBundles";
 import {
   downloadBlob,
@@ -20,6 +21,7 @@ import {
   fetchBulkDownloadMunicipalities,
   fetchAvailableYearsForTable,
   fetchGeoColumnForTable,
+  fetchTableColumnOptions,
   resolveDefaultSelectedYears,
   BULK_DOWNLOAD_EXPORT_FAILED,
   BULK_DOWNLOAD_EXPORT_FAILED_MESSAGE,
@@ -44,6 +46,100 @@ YearPill.propTypes = {
   disabled: PropTypes.bool,
 };
 
+const ColumnPicker = ({
+  tableName,
+  options,
+  selected,
+  loading,
+  disabled,
+  onToggle,
+  onSetSelected,
+}) => {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const normalizedQuery = query.trim().toLowerCase();
+  const visibleOptions = normalizedQuery
+    ? options.filter(
+        (option) =>
+          option.label.toLowerCase().includes(normalizedQuery) ||
+          option.name.toLowerCase().includes(normalizedQuery),
+      )
+    : options;
+  const summary = loading
+    ? "Loading columns…"
+    : options.length === 0
+      ? "No columns available"
+      : `${selected.length} of ${options.length} columns`;
+
+  return (
+    <div className={`bulk-download__columns${disabled ? " bulk-download__columns--disabled" : ""}`}>
+      <span className="bulk-download__table-years-label">Columns</span>
+      <div className="bulk-download__column-picker">
+        <button
+          type="button"
+          className="bulk-download__column-picker-toggle"
+          aria-expanded={open}
+          onClick={() => setOpen((current) => !current)}
+        >
+          {summary}
+        </button>
+        {open && !loading && options.length > 0 && (
+          <div className="bulk-download__column-picker-panel">
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search columns"
+              aria-label={`Search columns for ${tableName}`}
+            />
+            <div className="bulk-download__column-picker-actions">
+              <button type="button" onClick={() => onSetSelected(tableName, options.map((option) => option.name))}>
+                Select all
+              </button>
+              <button type="button" onClick={() => onSetSelected(tableName, [])}>
+                Clear
+              </button>
+            </div>
+            {visibleOptions.length === 0 ? (
+              <p className="bulk-download__table-years-loading">No matching columns</p>
+            ) : (
+              <ul>
+                {visibleOptions.map((option) => (
+                  <li key={option.name}>
+                    <label title={option.name}>
+                      <input
+                        type="checkbox"
+                        checked={selected.includes(option.name)}
+                        onChange={() => onToggle(tableName, option.name)}
+                      />
+                      <span>{option.label}</span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+ColumnPicker.propTypes = {
+  tableName: PropTypes.string.isRequired,
+  options: PropTypes.arrayOf(
+    PropTypes.shape({
+      name: PropTypes.string.isRequired,
+      label: PropTypes.string.isRequired,
+    }),
+  ).isRequired,
+  selected: PropTypes.arrayOf(PropTypes.string).isRequired,
+  loading: PropTypes.bool,
+  disabled: PropTypes.bool,
+  onToggle: PropTypes.func.isRequired,
+  onSetSelected: PropTypes.func.isRequired,
+};
+
 const TableRow = ({
   tableConfig,
   datasets,
@@ -51,8 +147,14 @@ const TableRow = ({
   tableYears,
   availableYears,
   yearsAreLoading,
+  showColumnPicker,
+  columnOptions,
+  selectedColumns,
+  columnsAreLoading,
   onToggle,
   onToggleYear,
+  onToggleColumn,
+  onSetColumns,
   onRemove,
 }) => {
   const { title, source } = getTableDisplayInfo(tableConfig, datasets);
@@ -123,6 +225,17 @@ const TableRow = ({
             )}
           </>
         )}
+        {showColumnPicker && (
+          <ColumnPicker
+            tableName={tableConfig.table}
+            options={columnOptions}
+            selected={selectedColumns}
+            loading={columnsAreLoading}
+            disabled={!checked}
+            onToggle={onToggleColumn}
+            onSetSelected={onSetColumns}
+          />
+        )}
       </div>
     </li>
   );
@@ -135,8 +248,14 @@ TableRow.propTypes = {
   tableYears: PropTypes.arrayOf(PropTypes.string).isRequired,
   availableYears: PropTypes.arrayOf(PropTypes.string),
   yearsAreLoading: PropTypes.bool,
+  showColumnPicker: PropTypes.bool,
+  columnOptions: PropTypes.arrayOf(PropTypes.object),
+  selectedColumns: PropTypes.arrayOf(PropTypes.string),
+  columnsAreLoading: PropTypes.bool,
   onToggle: PropTypes.func.isRequired,
   onToggleYear: PropTypes.func.isRequired,
+  onToggleColumn: PropTypes.func,
+  onSetColumns: PropTypes.func,
   onRemove: PropTypes.func,
 };
 
@@ -266,6 +385,10 @@ const BulkDownloadBundlePage = () => {
   const [availableYearsByTable, setAvailableYearsByTable] = useState({});
   const [selectedYearsByTable, setSelectedYearsByTable] = useState({});
   const [yearsLoadingByTable, setYearsLoadingByTable] = useState({});
+  const [columnOptionsByTable, setColumnOptionsByTable] = useState({});
+  const [selectedColumnsByTable, setSelectedColumnsByTable] = useState({});
+  const [columnsLoadingByTable, setColumnsLoadingByTable] = useState({});
+  const loadedColumnTables = useRef(new Set());
   const [yearsLoading, setYearsLoading] = useState(true);
   const [downloadFormat, setDownloadFormat] = useState(bundleId === "housing" ? "xlsx" : "zip");
   const [isDownloading, setIsDownloading] = useState(false);
@@ -276,6 +399,10 @@ const BulkDownloadBundlePage = () => {
 
   useEffect(() => {
     setDownloadFormat(bundleId === "housing" ? "xlsx" : "zip");
+    loadedColumnTables.current = new Set();
+    setColumnOptionsByTable({});
+    setSelectedColumnsByTable({});
+    setColumnsLoadingByTable({});
   }, [bundleId]);
 
   useEffect(() => {
@@ -368,6 +495,55 @@ const BulkDownloadBundlePage = () => {
     return [...customTables, ...bundle.tables];
   }, [bundle, customTables]);
 
+  const showColumnPicker = bundleId === "cep";
+
+  useEffect(() => {
+    if (!showColumnPicker || displayTables.length === 0) return undefined;
+    let cancelled = false;
+    const started = [];
+
+    displayTables.forEach((tableConfig) => {
+      if (loadedColumnTables.current.has(tableConfig.table)) return;
+      loadedColumnTables.current.add(tableConfig.table);
+      started.push(tableConfig.table);
+      setColumnsLoadingByTable((prev) => ({ ...prev, [tableConfig.table]: true }));
+
+      fetchTableColumnOptions({
+        database: tableConfig.database,
+        schema: tableConfig.schema,
+        table: tableConfig.table,
+        geoColumn: tableConfig.geoColumn,
+        yearColumn: tableConfig.yearColumn,
+      })
+        .then((options) => {
+          if (cancelled) return;
+          setColumnOptionsByTable((prev) => ({ ...prev, [tableConfig.table]: options }));
+          setSelectedColumnsByTable((prev) =>
+            Array.isArray(prev[tableConfig.table])
+              ? prev
+              : { ...prev, [tableConfig.table]: options.map((option) => option.name) },
+          );
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setColumnOptionsByTable((prev) => ({ ...prev, [tableConfig.table]: [] }));
+          setSelectedColumnsByTable((prev) =>
+            Array.isArray(prev[tableConfig.table]) ? prev : { ...prev, [tableConfig.table]: [] },
+          );
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setColumnsLoadingByTable((prev) => ({ ...prev, [tableConfig.table]: false }));
+          }
+        });
+    });
+
+    return () => {
+      cancelled = true;
+      started.forEach((tableName) => loadedColumnTables.current.delete(tableName));
+    };
+  }, [displayTables, showColumnPicker]);
+
   const alreadyAddedTableNames = useMemo(
     () => new Set(displayTables.map((tableConfig) => tableConfig.table)),
     [displayTables],
@@ -380,8 +556,11 @@ const BulkDownloadBundlePage = () => {
         .map((t) => ({
           ...t,
           years: selectedYearsByTable[t.table] || [],
+          ...(showColumnPicker && Array.isArray(selectedColumnsByTable[t.table])
+            ? { columns: selectedColumnsByTable[t.table] }
+            : {}),
         })),
-    [displayTables, selectedTableNames, selectedYearsByTable],
+    [displayTables, selectedColumnsByTable, selectedTableNames, selectedYearsByTable, showColumnPicker],
   );
 
   const showLimitReached = useCallback(() => {
@@ -450,6 +629,22 @@ const BulkDownloadBundlePage = () => {
       delete next[tableName];
       return next;
     });
+    loadedColumnTables.current.delete(tableName);
+    setColumnOptionsByTable((prev) => {
+      const next = { ...prev };
+      delete next[tableName];
+      return next;
+    });
+    setSelectedColumnsByTable((prev) => {
+      const next = { ...prev };
+      delete next[tableName];
+      return next;
+    });
+    setColumnsLoadingByTable((prev) => {
+      const next = { ...prev };
+      delete next[tableName];
+      return next;
+    });
   };
 
   const handleOpenPicker = () => {
@@ -480,7 +675,19 @@ const BulkDownloadBundlePage = () => {
 
   const isPageLoading = status !== "succeeded" || yearsLoading || municipalitiesLoading;
   const allTablesSelected = selectedTableNames.length === displayTables.length;
-  const canDownload = selectedTableNames.length > 0 && !yearsLoading && municipalities.length > 0;
+  const columnsReady =
+    !showColumnPicker ||
+    selectedTableNames.every((tableName) => Array.isArray(selectedColumnsByTable[tableName]));
+  const selectionTooLargeMessage = bulkDownloadSelectionTooLarge(
+    selectedTableConfigs,
+    municipalities.length,
+  );
+  const canDownload =
+    selectedTableNames.length > 0 &&
+    !yearsLoading &&
+    columnsReady &&
+    municipalities.length > 0 &&
+    !selectionTooLargeMessage;
 
   const handleMuniSelect = (selection) => {
     const muniId = Number(selection?.muniId);
@@ -489,6 +696,15 @@ const BulkDownloadBundlePage = () => {
 
     setMunicipalities((prev) => (prev.some((muni) => muni.muniId === muniId) ? prev : [...prev, { muniId, municipal }]));
     setDownloadError("");
+  };
+
+  const selectAllGeographies = () => {
+    setMunicipalities(municipalityOptions);
+    setDownloadError("");
+  };
+
+  const clearGeographies = () => {
+    setMunicipalities([]);
   };
 
   const removeMunicipality = (muniId) => {
@@ -510,6 +726,20 @@ const BulkDownloadBundlePage = () => {
     });
   };
 
+  const toggleTableColumn = (tableName, columnName) => {
+    const order = (columnOptionsByTable[tableName] || []).map((option) => option.name);
+    setSelectedColumnsByTable((prev) => {
+      const current = new Set(prev[tableName] || []);
+      if (current.has(columnName)) current.delete(columnName);
+      else current.add(columnName);
+      return { ...prev, [tableName]: order.filter((name) => current.has(name)) };
+    });
+  };
+
+  const setTableColumns = (tableName, columnNames) => {
+    setSelectedColumnsByTable((prev) => ({ ...prev, [tableName]: columnNames }));
+  };
+
   const handleDownload = async () => {
     if (selectedTableNames.length > MAX_BULK_DOWNLOAD_TABLES) {
       showLimitReached();
@@ -518,6 +748,11 @@ const BulkDownloadBundlePage = () => {
 
     if (municipalities.length === 0) {
       setDownloadError("Select at least one geography.");
+      return;
+    }
+
+    if (selectionTooLargeMessage) {
+      setDownloadError(selectionTooLargeMessage);
       return;
     }
 
@@ -563,6 +798,7 @@ const BulkDownloadBundlePage = () => {
         tables: tablesForExport,
         format: downloadFormat,
         bundleSlug: bundleId,
+        title: bundle.title,
       });
       setDownloadStatus("Downloading…");
       downloadBlob(blob, filename);
@@ -599,8 +835,24 @@ const BulkDownloadBundlePage = () => {
               <section className="bulk-download__panel">
                 <h2>Geography</h2>
                 <p className="bulk-download__hint">
-                  Required - search and select one or more geographies in Massachusetts
+                  {showColumnPicker
+                    ? "Required. Search for geographies, or select every municipality in Massachusetts."
+                    : "Required - search and select one or more geographies in Massachusetts"}
                 </p>
+                {showColumnPicker && (
+                  <div className="bulk-download__geo-actions">
+                    <button
+                      type="button"
+                      onClick={selectAllGeographies}
+                      disabled={municipalityOptions.length === 0 || municipalities.length === municipalityOptions.length}
+                    >
+                      Select all
+                    </button>
+                    <button type="button" onClick={clearGeographies} disabled={municipalities.length === 0}>
+                      Clear
+                    </button>
+                  </div>
+                )}
                 <SearchBar
                   contextKey="municipality"
                   searchColumn="municipal"
@@ -609,6 +861,11 @@ const BulkDownloadBundlePage = () => {
                   className="small"
                   searchable={municipalitySearchable}
                 />
+                {showColumnPicker && municipalities.length > 0 && (
+                  <p className="bulk-download__selected-muni">
+                    {municipalities.length} of {municipalityOptions.length} geographies selected
+                  </p>
+                )}
                 {municipalities.length > 0 && (
                   <ul className="bulk-download__muni-list" aria-label="Selected municipalities">
                     {municipalities.map(({ muniId, municipal }) => (
@@ -655,6 +912,9 @@ const BulkDownloadBundlePage = () => {
                     Select no more than {MAX_BULK_DOWNLOAD_TABLES} tables to download.
                   </p>
                 )}
+                {selectionTooLargeMessage && (
+                  <p className="bulk-download__validation">{selectionTooLargeMessage}</p>
+                )}
                 {downloadStatus && <p className="bulk-download__status">{downloadStatus}</p>}
                 {downloadError === BULK_DOWNLOAD_EXPORT_FAILED ? (
                   <p className="bulk-download__error" role="alert">
@@ -693,8 +953,10 @@ const BulkDownloadBundlePage = () => {
                 </div>
               </div>
               <p className="bulk-download__hint">
-                Recommended tables are selected by default, and the most recent year is pre-selected. You can add more
-                municipal tables from the Data Inventory or change your table and year selections.
+                Recommended tables are selected by default, and the most recent year is pre-selected.
+                {showColumnPicker
+                  ? " Choose which columns belong in each table. The table of contents uses those columns."
+                  : " You can add more municipal tables from the Data Inventory or change your table and year selections."}
               </p>
               <button type="button" className="bulk-download__add-tables-btn" onClick={handleOpenPicker}>
                 + Add tables from Data Inventory
@@ -719,8 +981,14 @@ const BulkDownloadBundlePage = () => {
                         tableYears={selectedYearsByTable[tableConfig.table] || []}
                         availableYears={availableYearsByTable[tableConfig.table]}
                         yearsAreLoading={Boolean(yearsLoadingByTable[tableConfig.table])}
+                        showColumnPicker={showColumnPicker}
+                        columnOptions={columnOptionsByTable[tableConfig.table] || []}
+                        selectedColumns={selectedColumnsByTable[tableConfig.table] || []}
+                        columnsAreLoading={Boolean(columnsLoadingByTable[tableConfig.table])}
                         onToggle={toggleTable}
                         onToggleYear={toggleTableYear}
+                        onToggleColumn={toggleTableColumn}
+                        onSetColumns={setTableColumns}
                         onRemove={removeCustomTable}
                       />
                     ))}
@@ -750,8 +1018,14 @@ const BulkDownloadBundlePage = () => {
                       tableYears={selectedYearsByTable[tableConfig.table] || []}
                       availableYears={availableYearsByTable[tableConfig.table]}
                       yearsAreLoading={Boolean(yearsLoadingByTable[tableConfig.table])}
+                      showColumnPicker={showColumnPicker}
+                      columnOptions={columnOptionsByTable[tableConfig.table] || []}
+                      selectedColumns={selectedColumnsByTable[tableConfig.table] || []}
+                      columnsAreLoading={Boolean(columnsLoadingByTable[tableConfig.table])}
                       onToggle={toggleTable}
                       onToggleYear={toggleTableYear}
+                      onToggleColumn={toggleTableColumn}
+                      onSetColumns={setTableColumns}
                     />
                   ))}
                 </ul>

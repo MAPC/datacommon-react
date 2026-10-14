@@ -3,6 +3,34 @@
 /** max tables (bundle + inventory) that can be included in one download. */
 export const MAX_BULK_DOWNLOAD_TABLES = 40;
 
+/** Match prql-js/export/bulkExport.js. One row per geography per year. */
+export const MAX_BULK_DOWNLOAD_ROWS_PER_TABLE = 10_000;
+export const MAX_BULK_DOWNLOAD_TOTAL_ROWS = 50_000;
+const MAX_BULK_DOWNLOAD_YEARS_WHEN_UNFILTERED = 35;
+
+function yearSpanForBulkEstimate(table) {
+  if (Array.isArray(table.years) && table.years.length > 0) return table.years.length;
+  if (table.yearColumn) return MAX_BULK_DOWNLOAD_YEARS_WHEN_UNFILTERED;
+  return 1;
+}
+
+/** Empty string when the selection fits. Otherwise the reason to block the download. */
+export function bulkDownloadSelectionTooLarge(tables, geographyCount) {
+  const geoCount = Math.max(Number(geographyCount) || 0, 0);
+  let total = 0;
+  for (const table of tables) {
+    const rows = geoCount * yearSpanForBulkEstimate(table);
+    if (rows > MAX_BULK_DOWNLOAD_ROWS_PER_TABLE) {
+      return "This selection is too large. Choose fewer years or fewer geographies.";
+    }
+    total += rows;
+  }
+  if (total > MAX_BULK_DOWNLOAD_TOTAL_ROWS) {
+    return "This selection is too large. Choose fewer years, tables, or geographies.";
+  }
+  return "";
+}
+
 /** Map a Data Inventory dataset to a bulk-download table config. */
 export function tableConfigFromInventoryDataset(dataset) {
   return {
@@ -62,6 +90,13 @@ export function buildBulkExportTableEntry(tableConfig) {
 
   if (hasYearFilter && years.length > 0) {
     entry.yearColumn = tableConfig.yearColumn;
+  }
+
+  if (Array.isArray(tableConfig.columns)) {
+    entry.columns = tableConfig.columns
+      .map((column) => String(column).trim())
+      .filter(Boolean)
+      .join(",");
   }
 
   return entry;
