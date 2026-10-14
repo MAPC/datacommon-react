@@ -11,6 +11,7 @@ import {
   tableHasYearFilter,
   tableConfigFromInventoryDataset,
   MAX_BULK_DOWNLOAD_TABLES,
+  MAX_BULK_DOWNLOAD_GEOGRAPHIES,
   buildBulkDownloadMunicipalitySearchable,
   bulkDownloadSelectionTooLarge,
 } from "../constants/bulkDownloadBundles";
@@ -682,11 +683,16 @@ const BulkDownloadBundlePage = () => {
     selectedTableConfigs,
     municipalities.length,
   );
+  const geographyLimitMessage =
+    bundleId !== "cep" && municipalities.length > MAX_BULK_DOWNLOAD_GEOGRAPHIES
+      ? `Only ${MAX_BULK_DOWNLOAD_GEOGRAPHIES} geographies can be exported at a time.`
+      : "";
   const canDownload =
     selectedTableNames.length > 0 &&
     !yearsLoading &&
     columnsReady &&
     municipalities.length > 0 &&
+    !geographyLimitMessage &&
     !selectionTooLargeMessage;
 
   const handleMuniSelect = (selection) => {
@@ -748,6 +754,10 @@ const BulkDownloadBundlePage = () => {
 
     if (municipalities.length === 0) {
       setDownloadError("Select at least one geography.");
+      return;
+    }
+
+    if (geographyLimitMessage) {
       return;
     }
 
@@ -857,10 +867,19 @@ const BulkDownloadBundlePage = () => {
                   contextKey="municipality"
                   searchColumn="municipal"
                   onSelect={handleMuniSelect}
-                  placeholder="Search for a geography in Massachusetts"
+                  placeholder={
+                    geographyLimitMessage
+                      ? "Geography limit reached"
+                      : "Search for a geography in Massachusetts"
+                  }
                   className="small"
                   searchable={municipalitySearchable}
                 />
+                {geographyLimitMessage && (
+                  <p className="bulk-download__error" role="alert">
+                    {geographyLimitMessage}
+                  </p>
+                )}
                 {showColumnPicker && municipalities.length > 0 && (
                   <p className="bulk-download__selected-muni">
                     {municipalities.length} of {municipalityOptions.length} geographies selected

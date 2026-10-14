@@ -3,6 +3,9 @@
 /** max tables (bundle + inventory) that can be included in one download. */
 export const MAX_BULK_DOWNLOAD_TABLES = 40;
 
+/** Other bundles. Community Engagement Plan is not capped. Matches prql-js MAX_MUNICIPALITIES_PER_REQUEST. */
+export const MAX_BULK_DOWNLOAD_GEOGRAPHIES = 10;
+
 /** Match prql-js/export/bulkExport.js. One row per geography per year. */
 export const MAX_BULK_DOWNLOAD_ROWS_PER_TABLE = 10_000;
 export const MAX_BULK_DOWNLOAD_TOTAL_ROWS = 50_000;
@@ -21,12 +24,12 @@ export function bulkDownloadSelectionTooLarge(tables, geographyCount) {
   for (const table of tables) {
     const rows = geoCount * yearSpanForBulkEstimate(table);
     if (rows > MAX_BULK_DOWNLOAD_ROWS_PER_TABLE) {
-      return "This selection is too large. Choose fewer years or fewer geographies.";
+      return "This download is too large for one table. Each geography and year adds a row, and this combination is over the limit. Select fewer years or fewer geographies.";
     }
     total += rows;
   }
   if (total > MAX_BULK_DOWNLOAD_TOTAL_ROWS) {
-    return "This selection is too large. Choose fewer years, tables, or geographies.";
+    return "This download is too large. Geographies, years, and tables together are over the limit. Select fewer years, fewer tables, or fewer geographies.";
   }
   return "";
 }
