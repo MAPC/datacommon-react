@@ -1,4 +1,3 @@
-import React from "react";
 import ReactMarkdown from "react-markdown";
 import { useAirtableCMS } from "@mapc/airtable-cms";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -262,9 +261,6 @@ const AboutOverviewPage = () => {
                 <div className="about-overview__error">
                   <p><strong>Unable to Load Major Releases</strong></p>
                   <p>{majorReleaseErrorMessage}</p>
-                  {process.env.NODE_ENV === 'development' && (
-                    <p style={{ fontSize: '0.85rem', marginTop: '0.5rem' }}>Debug: {majorReleaseError?.message || JSON.stringify(majorReleaseError)}</p>
-                  )}
                 </div>
               </div>
             )}

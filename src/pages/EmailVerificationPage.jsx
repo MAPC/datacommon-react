@@ -1,7 +1,6 @@
 import axios from "axios";
-import React, { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router";
-import { useSearchParams } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 
 import { logoutUser } from "../utils/cookies";
@@ -49,18 +48,6 @@ const EmailVerificationMainContainer = styled.div`
 const EmailVerificationDescription = styled.div`
   font-size: 16px;
   margin-bottom: 1rem;
-`;
-
-const EmailVerificationLabel = styled.label`
-  margin-right: 0.5rem;
-  font-weight: bold;
-`;
-
-const EmailVerificationInput = styled.input`
-  width: calc(100% - 15rem);
-  padding: 0.5rem;
-  border-radius: 5px;
-  margin-top: 1rem;
 `;
 
 const EmailVerificationErrorMessage = styled.div`
@@ -119,29 +106,29 @@ const EmailVerificationPage = () => {
   const [errorMessage, setErrorMessage] = useState(null);
   const [accountVerificationSuccessful, setAccountVerificationSuccessful] = useState(false);
 
-  const onVerifyEmail = () => {
+  const onVerifyEmail = useCallback(() => {
     setLoading(true);
     setErrorMessage(null);
     setAccountVerificationSuccessful(false);
 
     axios.post(`/api/users/verify-email`, { email: email, token: token})
-      .then(resp => {
+      .then(() => {
         setAccountVerificationSuccessful(true);
 
         // remove any existing cookies
         logoutUser();
-      }).catch(e => {
+      }).catch(() => {
         setErrorMessage("There was an error while verifying your account.")
       }).finally(() => {
         setLoading(false);
       });
-  };
+  }, [email, token]);
 
   useEffect(() => {
-    if (email) {
+    if (email && token) {
       onVerifyEmail();
     }
-  }, [email]);
+  }, [email, token, onVerifyEmail]);
 
   return (
     <PageContainer className="route api">

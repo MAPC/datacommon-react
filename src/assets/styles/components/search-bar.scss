@@ -38,6 +38,15 @@
     border-top: none;
   }
 
+  .search-results-heading {
+    padding: 0.65em 1.1em 0.35em;
+    color: $color_font-medium;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: default;
+    pointer-events: none;
+  }
+
 
   @mixin _small() {
     min-width: 200px;

@@ -3,6 +3,8 @@ import mapcLogo from '../assets/images/mapc-logo.svg';
 import twitterImg from '../assets/images/twitter.svg';
 import instagramImg from '../assets/images/instagram.svg';
 import facebookImg from '../assets/images/facebook.svg';
+import githubImg from '../assets/images/github.svg';
+import emailImg from '../assets/images/email.svg';
 
 function Footer() {
   return (
@@ -42,8 +44,13 @@ function Footer() {
             </a>
           </li>
           <li>
+            <a href="https://lp.constantcontactpages.com/sl/IXXgrZB" target="_blank" rel="noopener noreferrer">
+              Email updates
+            </a>
+          </li>
+          <li>
             <a href="https://share-open-data-metroboston.hub.arcgis.com/" target="_blank" rel="noopener noreferrer">
-              MAPC spatial data hub
+              MAPC spatial data hub (beta)
             </a>
           </li>
         </ul>
@@ -61,6 +68,16 @@ function Footer() {
             <li>
               <a href="https://facebook.com/MAPCMetroBoston" target="_blank">
                 <img src={facebookImg} alt="MAPC on Facebook" />
+              </a>
+            </li>
+            <li>
+              <a href="https://github.com/MAPC/datacommon-react" target="_blank" rel="noopener noreferrer">
+                <img src={githubImg} alt="DataCommon on GitHub" />
+              </a>
+            </li>
+            <li>
+              <a href="mailto:datacommon@mapc.org">
+                <img src={emailImg} alt="Email datacommon@mapc.org" />
               </a>
             </li>
           </ul>

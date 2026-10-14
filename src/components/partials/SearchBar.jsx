@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { useDispatch, useSelector } from 'react-redux';
 import { setResults, setHovering, clearContext } from '../../reducers/searchSlice';
@@ -9,12 +9,17 @@ const SearchBar = ({
   contextKey, 
   searchColumn, 
   onSelect, 
+  onEnter,
   placeholder, 
   className = '',
+  disabled = false,
   additionalSearchable = [],
   searchable = null,
+  clearOnSelect = true,
+  resultsHeading = "",
 }) => {
   const dispatch = useDispatch();
+  const inputRef = useRef(null);
   const searchState = useSelector((state) => state.search[contextKey]);
   
   // Get searchable data based on context, unless a custom list is provided
@@ -42,7 +47,21 @@ const SearchBar = ({
   // Handle result selection
   const handleResultSelect = (result) => {
     onSelect(result);
-    dispatch(clearContext({ contextKey }));
+    if (clearOnSelect) {
+      dispatch(clearContext({ contextKey }));
+      return;
+    }
+    const displayValue = result[searchColumn] || result;
+    dispatch(setResults({ contextKey, results: [], query: displayValue }));
+    inputRef.current?.focus();
+  };
+
+  const handleKeyDown = (event) => {
+    if (event.key !== "Enter" || !onEnter) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const { results, query } = searchState;
+    onEnter(results[0] || query || undefined);
   };
 
   // Handle result hover
@@ -60,6 +79,9 @@ const SearchBar = ({
 
     return (
       <ul className="styled lift">
+        {resultsHeading ? (
+          <li className="search-results-heading">{resultsHeading}</li>
+        ) : null}
         {results.map((result) => {
           const displayValue = result[searchColumn] || result;
           const key = result[searchColumn] 
@@ -91,9 +113,12 @@ const SearchBar = ({
   return (
     <div className={`component SearchBar ${className}`}>
       <input
+        ref={inputRef}
         value={searchState.query || ''}
         placeholder={placeholder}
+        disabled={disabled}
         onChange={({ target }) => handleSearch(target.value)}
+        onKeyDown={handleKeyDown}
       />
       {renderSearchResults()}
     </div>
@@ -104,10 +129,13 @@ SearchBar.propTypes = {
   contextKey: PropTypes.string.isRequired,
   searchColumn: PropTypes.string,
   onSelect: PropTypes.func.isRequired,
+  onEnter: PropTypes.func,
+  clearOnSelect: PropTypes.bool,
   placeholder: PropTypes.string.isRequired,
   className: PropTypes.string,
   additionalSearchable: PropTypes.arrayOf(PropTypes.string),
   searchable: PropTypes.array,
+  resultsHeading: PropTypes.string,
 };
 
 export default SearchBar; 

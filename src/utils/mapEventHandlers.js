@@ -15,25 +15,23 @@ export const setupMouseEvents = (map, muniPoly, toProfile) => {
     );
 
     if (hoveredFeature) {
-      const source = map.getSource("ma-fill");
-      if (source) {
-        source.setData({
-          type: "FeatureCollection",
-          features: [hoveredFeature],
-        });
-      }
+      const selection = {
+        type: "FeatureCollection",
+        features: [hoveredFeature],
+      };
+      map.getSource("ma-fill")?.setData(selection);
+      map.getSource("ma-selection-line")?.setData(selection);
     }
   });
 
   map.on("mouseleave", "hover-fill", () => {
     map.getCanvas().style.cursor = "";
-    const source = map.getSource("ma-fill");
-    if (source) {
-      source.setData({
-        type: "FeatureCollection",
-        features: [],
-      });
-    }
+    const empty = {
+      type: "FeatureCollection",
+      features: [],
+    };
+    map.getSource("ma-fill")?.setData(empty);
+    map.getSource("ma-selection-line")?.setData(empty);
   });
 
   map.on("click", "hover-fill", (e) => {

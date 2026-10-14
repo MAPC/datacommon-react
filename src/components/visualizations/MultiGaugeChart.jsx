@@ -1,25 +1,18 @@
-import React, { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useCallback } from "react";
 import PropTypes from "prop-types";
 import * as d3 from "d3";
 import MoonLoader from "react-spinners/MoonLoader";
 
 import colors from "../../constants/colors";
-import { chartSourceIsAcs } from "../../constants/charts";
-import { drawLegend, sortKeys } from "../../utils/charts";
+import { drawLegend } from "../../utils/charts";
 
 
 const primaryColors = Array.from(colors.CHART.PRIMARY.values());
+const extendedColors = Array.from(colors.CHART.EXTENDED.values());
 
 const container = {
   width: 500,
   height: 500,
-};
-
-const defaultMargin = {
-  top: 20,
-  left: 20,
-  right: 20,
-  bottom: -5, 
 };
 
 const MultiGaugeChart = (props) => {
@@ -31,14 +24,13 @@ const MultiGaugeChart = (props) => {
   const legendContainerRef = useRef(null);
   const colorRef = useRef(null);
   
-
   useEffect(() => {
     // Create tooltip
     tooltipRef.current = d3
       .select("body")
       .append("div")
       .attr("class", "chart-tooltip")
-      .style("opacity", 0)
+      .style("display", "none")
       .style("position", "absolute")
       .style("pointer-events", "none")
       .style("background", "white")
@@ -65,7 +57,7 @@ const MultiGaugeChart = (props) => {
     };
   }, []);
 
-  const renderChart = () => {
+  const renderChart = useCallback(() => {
     const chart = chartGroupRef.current;
     const tooltip = tooltipRef.current;
 
@@ -107,7 +99,7 @@ const MultiGaugeChart = (props) => {
     let offset = 0;
     const minValue = props.minValue || 0;
     const maxValue = props.maxValue || 100;
-    dataItems.forEach((dataItem, idx) => {
+    dataItems.forEach((dataItem) => {
       const value = dataItem.value || 0;
       const clampedPct = Math.max(minValue, Math.min(maxValue, value));
       const dashValue = (clampedPct / 100) * halfCirc;
@@ -134,7 +126,7 @@ const MultiGaugeChart = (props) => {
             return `<div>${labelIcon}${dataItem.label}: ${formattedPercentage}</div>`
           });
           tooltip
-            .style("opacity", 1)
+            .style("display", "inline")
             .html(
               `
               <div style="padding: 4px;">
@@ -151,22 +143,22 @@ const MultiGaugeChart = (props) => {
             .style("left", `${event.pageX + 10}px`).style("top", `${event.pageY - 10}px`)
         })
         .on("mouseout", () => {
-          tooltip.style("opacity", 0);
+          tooltip.style("display", "none");
         });
       
       offset += dashGap;
     });
 
-    // Center label
-    const percentagesByLabels = dataItems.map(dataItem => {
-      const value = dataItem.value || 0;
-      const mappedValue = Math.max(minValue, Math.min(maxValue, value));
-      const percent = ((value - minValue) / (maxValue - minValue)) * 100;
-      return { percent, label: dataItem.label };
-    });
-    const firstValue = percentagesByLabels[0];
-    const displayLabel = `${firstValue.percent.toFixed(1)}%`;
+    // Center label - unused for now
+    // const percentagesByLabels = dataItems.map(dataItem => {
+    //   const value = dataItem.value || 0;
+    //   const percent = ((value - minValue) / (maxValue - minValue)) * 100;
+    //   return { percent, label: dataItem.label };
+    // });
+
     // leaving out the main-label for now
+    // const firstValue = percentagesByLabels[0];
+    // const displayLabel = `${firstValue.percent.toFixed(1)}%`;
     // const valueText = chart
     //   .append("text")
     //   .attr("x", cx)
@@ -195,7 +187,7 @@ const MultiGaugeChart = (props) => {
     const legend = d3.select(legendContainerRef.current);
     legend.selectAll("*").remove();
     drawLegend(legend, colorRef.current, keys);
-  };
+  }, [props]);
 
   const renderBlankChart = () => {
     const chart = chartGroupRef.current;
@@ -232,7 +224,7 @@ const MultiGaugeChart = (props) => {
       // Not loading and no data -> show "Data not available."
       renderBlankChart();
     }
-  }, [props.data, props.hasData, props.isLoading]);
+  }, [props.data, props.hasData, props.isLoading, renderChart]);
 
   return (
     <div className="component chart GaugeChart">

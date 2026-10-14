@@ -99,24 +99,15 @@ export const fetchRPAregionChartData = createAsyncThunk(
   }
 );
 
+// Only support one region "MAPC"
 export const fetchRPAregionData = createAsyncThunk(
   "rparegion/fetchData",
   async () => {
-    const api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular`;
-    // TODO: enable this without passing SQL to the backend if we support RPA regions in the future
-    // const query = `
-    //   SELECT 
-    //     muni_id,
-    //     muni_name,
-    //     region as rpa_name,
-		// region_id as rpa_id
-    //   FROM tabular._datakeys_muni_all
-    //   WHERE rpa_name IS NOT NULL
-    //   ORDER BY region, muni_name
-    // `;
-    const query = '';
+    // we only fetch MAPC data here because that's the only region we want to support
+    let api = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all`;
+    api += `&columns=muni_id,muni_name,region,region_id&filters=rpa_id:352`;
 
-    const response = await fetch(`${api}${encodeURIComponent(query)}`);
+    const response = await fetch(`${api}`);
     
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -128,24 +119,24 @@ export const fetchRPAregionData = createAsyncThunk(
     const rparegionMap = {};
 
     payload.rows?.forEach((row) => {
-      const { muni_id, muni_name, rpa_name, rpa_id} = row;
+      const { muni_id, muni_name, region, region_id} = row;
 
-      if (!rparegionMap[rpa_id]) {
-        rparegionMap[rpa_id] = {
-            rpa_name,
+      if (!rparegionMap[region_id]) {
+        rparegionMap[region_id] = {
+          rpa_name: region,
           municipalities: [],
           totalMunis: 0,
         };
       }
 
       // Add municipality data
-      rparegionMap[rpa_id].municipalities.push({
+      rparegionMap[region_id].municipalities.push({
         muni_name,
         muni_id,
       });
 
-      rparegionMap[rpa_id].totalMunis =
-        rparegionMap[rpa_id].municipalities.length;
+      rparegionMap[region_id].totalMunis =
+        rparegionMap[region_id].municipalities.length;
     });
 
     return rparegionMap;
@@ -189,9 +180,9 @@ const rparegionSlice = createSlice({
         state.loading = false;
         state.error = action.error.message;
       })
-      .addCase(fetchRPAregionChartData.fulfilled, (state, action) => {
-        // No need to handle this case since we're using updateRPAregionChart reducer
-      });
+      // .addCase(fetchRPAregionChartData.fulfilled, (state, action) => {
+      //   // No need to handle this case since we're using updateRPAregionChart reducer
+      // });
   },
 });
 

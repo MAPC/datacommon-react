@@ -1,12 +1,10 @@
-import React, { useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import SubregionProfilesView from '../components/SubregionProfilesView';
 import { fetchSubregionData } from '../reducers/subregionSlice';
 
 const SubregionProfilesPage = () => {
   const dispatch = useDispatch();
-  const { subregionId } = useParams();
   
   // Get all subregion data from Redux store
   const subregionData = useSelector(state => state.subregion.data);

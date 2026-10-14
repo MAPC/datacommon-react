@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from "react";
+import { useRef, useEffect } from "react";
 import PropTypes from "prop-types";
 import * as d3 from "d3";
 import MoonLoader from "react-spinners/MoonLoader";
@@ -13,13 +13,6 @@ const container = {
   height: 500,
 };
 
-const defaultMargin = {
-  top: 20,
-  left: 20,
-  right: 20,
-  bottom: -5, 
-};
-
 const GaugeChart = (props) => {
   const chartRef = useRef(null);
   const svgRef = useRef(null);
@@ -32,7 +25,7 @@ const GaugeChart = (props) => {
       .select("body")
       .append("div")
       .attr("class", "chart-tooltip")
-      .style("opacity", 0)
+      .style("display", "none")
       .style("position", "absolute")
       .style("pointer-events", "none")
       .style("background", "white")
@@ -166,7 +159,7 @@ const GaugeChart = (props) => {
             : "";
 
         tooltip
-          .style("opacity", 1)
+          .style("display", "inline")
           .html(
             `
             <div style="padding: 4px;">
@@ -184,7 +177,7 @@ const GaugeChart = (props) => {
         tooltip.style("left", `${event.pageX + 10}px`).style("top", `${event.pageY - 10}px`);
       })
       .on("mouseout", () => {
-        tooltip.style("opacity", 0);
+        tooltip.style("display", "none")
       });
 
     // Animate the value arc drawing from 0 to final (smooth ease-out)

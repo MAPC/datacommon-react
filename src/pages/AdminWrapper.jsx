@@ -1,5 +1,5 @@
 import axios from 'axios';
-import React, { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from "react-router"
 import styled from 'styled-components';
 
@@ -74,6 +74,10 @@ const AdminWrapper = () => {
 
   const [user, setUser] = useState(null);
 
+  const sendUserToHome = useCallback(() => {
+    navigate("/");
+  }, [navigate]);
+
   // Whenever the user navigates to an admin page or sub-page, verify their login and auth
   useEffect(() => {
     const cookie = getCookie('datacommon_mapc_token');
@@ -94,7 +98,7 @@ const AdminWrapper = () => {
           sendUserToHome();
           return;
         }
-      }).catch(err => {
+      }).catch(() => {
         sendUserToHome();
         return;
       });
@@ -103,11 +107,7 @@ const AdminWrapper = () => {
     if (location.pathname === "/admin") {
       navigate("/admin/jobs");
     }
-  }, [location.pathname]);
-
-  const sendUserToHome = () => {
-    navigate("/");
-  };
+  }, [location.pathname, sendUserToHome, navigate]);
 
   const onLogoutClicked = () => {
     logoutUser();

@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 import PropTypes from "prop-types";
 import * as d3 from "d3";
 
@@ -65,7 +65,7 @@ const StackedBarChart = (props) => {
     const primaryMeLine = meDisplay != null ? `<div>${meLabel}: ${meDisplay}</div>` : "";
 
     tooltip
-      .style("opacity", 1)
+      .style("display", "inline")
       .html(
         `
         <div style="padding: 4px;">
@@ -84,7 +84,7 @@ const StackedBarChart = (props) => {
 
   useEffect(() => {
     const loadXAxisLabel = async () => {
-      if (typeof props.xAxis.label === "function") {
+      if (typeof props.xAxis?.label === "function") {
         try {
           const label = await props.xAxis.label();
           setXAxisLabel(label);
@@ -98,7 +98,7 @@ const StackedBarChart = (props) => {
     };
 
     loadXAxisLabel();
-  }, [props.xAxis.label]);
+  }, [props.xAxis]);
 
   useEffect(() => {
     // Create tooltip
@@ -106,7 +106,7 @@ const StackedBarChart = (props) => {
       .select("body")
       .append("div")
       .attr("class", "chart-tooltip")
-      .style("opacity", 0)
+      .style("display", "none")
       .style("position", "absolute")
       .style("pointer-events", "none")
       .style("background", "white")
@@ -130,9 +130,9 @@ const StackedBarChart = (props) => {
       if (tooltipRef.current) tooltipRef.current.remove();
       if (svgRef.current) svgRef.current.remove();
     };
-  }, []);
+  }, [props.height, props.width]);
 
-  const renderChart = () => {
+  const renderChart = useCallback(() => {
     const chart = chartGroupRef.current;
     const tooltip = tooltipRef.current;
     const stack = stackRef.current;
@@ -364,7 +364,7 @@ const StackedBarChart = (props) => {
                 : "";
 
           tooltip
-            .style("opacity", 1)
+            .style("display", "inline")
             .html(
               `
             <div style="padding: 4px;">
@@ -417,7 +417,7 @@ const StackedBarChart = (props) => {
                 : "";
 
           tooltip
-            .style("opacity", 1)
+            .style("display", "inline")
             .html(
               `
             <div style="padding: 4px;">
@@ -453,7 +453,7 @@ const StackedBarChart = (props) => {
     };
 
     const stackedBarLeave = () => {
-      tooltip.style("opacity", 0);
+      tooltip.style("display", "none");
     };
 
     // Add bars (visible + transparent hit target so tiny segments stay easy to hover)
@@ -562,7 +562,7 @@ const StackedBarChart = (props) => {
 
     const yAxisG = g.append("g").attr("class", "axis axis-y").call(yAxis.tickSize(0));
     if (props.wrapLeftLabel && props.horizontal && clippedMaxLeftLabel == LEFT_LABEL_MAX) {
-      yAxisG.selectAll("text").each(function (x) {
+      yAxisG.selectAll("text").each(function () {
         const text = d3.select(this);
         const rows = splitPhrase(text.text(), LEFT_LABEL_MAX);
         text.text(null);
@@ -602,7 +602,7 @@ const StackedBarChart = (props) => {
     // Add a no data message if there's no data
     if (isArray(props.data) && props.data.length > 0 && props.data.every(d => !d.y)) {
       const noDataMessage = props.chart?.noDataMessage || "No data was found for this timeframe.";
-      const valueText = chart
+      chart
         .append("text")
         .attr("x", 280)
         .attr("y", 250)
@@ -618,7 +618,7 @@ const StackedBarChart = (props) => {
     const legend = d3.select(legendContainerRef.current);
     legend.selectAll("*").remove();
     drawLegend(legend, colorRef.current, keys);
-  };
+  }, [props.chart, props.horizontal, props.data, props.wrapLeftLabel, props.xAxis, props.yAxis, xAxisLabel]);
 
   const renderBlankChart = () => {
     const chart = chartGroupRef.current;
@@ -647,7 +647,7 @@ const StackedBarChart = (props) => {
     } else {
       renderBlankChart();
     }
-  }, [props.data, props.hasData, props.horizontal]);
+  }, [props.data, props.hasData, props.horizontal, renderChart]);
 
   return (
     <div className="component chart StackedBarChart">

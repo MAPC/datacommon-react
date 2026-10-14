@@ -917,19 +917,114 @@ function DatasetHeader({
             </button>
           </div>
         )}
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-          {(favoriteDatasets || loadingFavorites) && (
-            <div
-              className="favorite-icon-container"
-              title={isFavorited ? "Click to remove favorite" : "Click to favorite"}
-              onClick={() => handleToggleDatasetFavorite()}
-            >
-              {loadingFavorites && <Spinner />}
-              {!loadingFavorites && isFavorited && <FontAwesomeIcon icon={filledFaStar} size="lg" />}
-              {!loadingFavorites && !isFavorited && <FontAwesomeIcon icon={faStar} size="lg" />}
-            </div>
-          )}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <h2>{title}</h2>
+          <div className="details-content-column download-links">
+            {mapPreviewSupported && onViewModeChange && (
+              <div className="dataset-view-toggle" role="group" aria-label="Dataset view">
+                <button
+                  type="button"
+                  className={`dataset-view-toggle__btn${viewMode === "table" ? " dataset-view-toggle__btn--active" : ""}`}
+                  onClick={() => onViewModeChange("table")}
+                  aria-pressed={viewMode === "table"}
+                >
+                  <FontAwesomeIcon icon={faTable} size="sm" aria-hidden="true" />
+                  Table
+                </button>
+                <button
+                  type="button"
+                  className={`dataset-view-toggle__btn${viewMode === "map" ? " dataset-view-toggle__btn--active" : ""}`}
+                  onClick={() => onViewModeChange("map")}
+                  aria-pressed={viewMode === "map"}
+                >
+                  <FontAwesomeIcon icon={faMap} size="sm" aria-hidden="true" />
+                  Map
+                </button>
+              </div>
+            )}
+            <div className="dataset-actions-dropdown" ref={actionsDropdownRef}>
+              <button
+                type="button"
+                className="button file-button dataset-actions-trigger"
+                onClick={() => setActionsOpen((open) => !open)}
+                aria-expanded={actionsOpen}
+                aria-haspopup="menu"
+              >
+                Actions <span className="dropdown-arrow">{actionsOpen ? "▲" : "▼"}</span>
+              </button>
+              {actionsOpen && (
+                <div className="dataset-actions-menu" role="menu" aria-label="Dataset actions">
+                  <button
+                    type="button"
+                    className="dataset-actions-item"
+                    onClick={() => {
+                      setMetadataModalOpen(true);
+                      setActionsOpen(false);
+                    }}
+                  >
+                    <span className="dataset-actions-item-icon" aria-hidden="true">
+                      <FontAwesomeIcon icon={faTable} size="sm" />
+                    </span>
+                    View Metadata
+                  </button>
+                  <button
+                    type="button"
+                    className="dataset-actions-item"
+                    onClick={() => {
+                      setEmbedModalOpen(true);
+                      setActionsOpen(false);
+                    }}
+                  >
+                    <span className="dataset-actions-item-icon" aria-hidden="true">
+                      <FontAwesomeIcon icon={faShareNodes} size="sm" />
+                    </span>
+                    Share and embed
+                  </button>
+                  <button
+                    type="button"
+                    className="dataset-actions-item"
+                    onClick={() => {
+                      window.open(
+                        "https://airtable.com/appqSr3MqAkN1GCfb/pagdcSeY2bc4rblam/form",
+                        "_blank",
+                        "noopener,noreferrer",
+                      );
+                      setActionsOpen(false);
+                    }}
+                  >
+                    <span className="dataset-actions-item-icon" aria-hidden="true">
+                      <FontAwesomeIcon icon={faMessage} size="sm" />
+                    </span>
+                    Submit data feedback
+                  </button>
+                  <button
+                    type="button"
+                    className="dataset-actions-item"
+                    onClick={() => handleToggleDatasetFavorite()}
+                  >
+                    <span className="dataset-actions-item-icon" aria-hidden="true">
+                      <FontAwesomeIcon icon={filledFaStar} size="sm" />
+                    </span>
+                    {isFavorited ? "Un-favorite Dataset" : "Favorite Dataset"}
+                  </button>
+                </div>
+              )}
+            </div>
+            <button type="button" className="button file-button" onClick={() => setDownloadModalOpen(true)}>
+              Export
+            </button>
+            {(favoriteDatasets || loadingFavorites) && (
+              <div
+                className="favorite-icon-container"
+                title={isFavorited ? "Click to remove favorite" : "Click to favorite"}
+                onClick={() => handleToggleDatasetFavorite()}
+              >
+                {loadingFavorites && <Spinner />}
+                {!loadingFavorites && isFavorited && <FontAwesomeIcon icon={filledFaStar} size="xl" />}
+                {!loadingFavorites && !isFavorited && <FontAwesomeIcon icon={faStar} size="xl" />}
+              </div>
+            )}
+          </div>
         </div>
         {!isEmbedView && geographyLevels.length > 0 && (
           <div className="year-filter">
@@ -990,7 +1085,7 @@ function DatasetHeader({
               singleSelect: viewMode === "map",
             })}
             {viewMode !== "map" && (
-              <div style={{ marginTop: "12px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
                 <ColumnSelectorDropdown
                   columnKeys={columnKeys}
                   updateSelectedColumns={updateSelectedColumns}
@@ -1006,91 +1101,7 @@ function DatasetHeader({
           </div>
           {!isEmbedView && (
             <div className="details-content-column download-section">
-              <div className="details-content-column download-links">
-                {mapPreviewSupported && onViewModeChange && (
-                  <div className="dataset-view-toggle" role="group" aria-label="Dataset view">
-                    <button
-                      type="button"
-                      className={`dataset-view-toggle__btn${viewMode === "table" ? " dataset-view-toggle__btn--active" : ""}`}
-                      onClick={() => onViewModeChange("table")}
-                      aria-pressed={viewMode === "table"}
-                    >
-                      <FontAwesomeIcon icon={faTable} size="sm" aria-hidden="true" />
-                      Table
-                    </button>
-                    <button
-                      type="button"
-                      className={`dataset-view-toggle__btn${viewMode === "map" ? " dataset-view-toggle__btn--active" : ""}`}
-                      onClick={() => onViewModeChange("map")}
-                      aria-pressed={viewMode === "map"}
-                    >
-                      <FontAwesomeIcon icon={faMap} size="sm" aria-hidden="true" />
-                      Map
-                    </button>
-                  </div>
-                )}
-                <div className="dataset-actions-dropdown" ref={actionsDropdownRef}>
-                  <button
-                    type="button"
-                    className="button file-button dataset-actions-trigger"
-                    onClick={() => setActionsOpen((open) => !open)}
-                    aria-expanded={actionsOpen}
-                    aria-haspopup="menu"
-                  >
-                    Actions <span className="dropdown-arrow">{actionsOpen ? "▲" : "▼"}</span>
-                  </button>
-                  {actionsOpen && (
-                    <div className="dataset-actions-menu" role="menu" aria-label="Dataset actions">
-                      <button
-                        type="button"
-                        className="dataset-actions-item"
-                        onClick={() => {
-                          setMetadataModalOpen(true);
-                          setActionsOpen(false);
-                        }}
-                      >
-                        <span className="dataset-actions-item-icon" aria-hidden="true">
-                          <FontAwesomeIcon icon={faTable} size="sm" />
-                        </span>
-                        View Metadata
-                      </button>
-                      <button
-                        type="button"
-                        className="dataset-actions-item"
-                        onClick={() => {
-                          setEmbedModalOpen(true);
-                          setActionsOpen(false);
-                        }}
-                      >
-                        <span className="dataset-actions-item-icon" aria-hidden="true">
-                          <FontAwesomeIcon icon={faShareNodes} size="sm" />
-                        </span>
-                        Share and embed
-                      </button>
-                      <button
-                        type="button"
-                        className="dataset-actions-item"
-                        onClick={() => {
-                          window.open(
-                            "https://airtable.com/appqSr3MqAkN1GCfb/pagdcSeY2bc4rblam/form",
-                            "_blank",
-                            "noopener,noreferrer",
-                          );
-                          setActionsOpen(false);
-                        }}
-                      >
-                        <span className="dataset-actions-item-icon" aria-hidden="true">
-                          <FontAwesomeIcon icon={faMessage} size="sm" />
-                        </span>
-                        Submit data feedback
-                      </button>
-                    </div>
-                  )}
-                </div>
-                <button type="button" className="button file-button" onClick={() => setDownloadModalOpen(true)}>
-                  Export
-                </button>
-              </div>
+              
               {viewMode === "table" && (
                 <div className="rows-per-page-selector">
                   <label htmlFor="rows-per-page" className="rows-per-page-label">

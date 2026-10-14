@@ -432,7 +432,7 @@ class TreeMap extends React.Component {
       .select("body")
       .append("div")
       .attr("class", "chart-tooltip")
-      .style("opacity", 0)
+      .style("display", "none")
       .style("position", "absolute")
       .style("pointer-events", "none")
       .style("background", "white")
@@ -570,7 +570,7 @@ class TreeMap extends React.Component {
           .html(
             `<div style="font-size:13px;line-height:1.35"><strong>${d.data.label}</strong><br/>${formatValue(d.data.value)}</div>`,
           )
-          .style("opacity", 1)
+          .style("display", "inline")
           .style("left", `${event.pageX + 10}px`)
           .style("top", `${event.pageY - 10}px`);
       })
@@ -578,7 +578,7 @@ class TreeMap extends React.Component {
         this.tooltip.style("left", `${event.pageX + 10}px`).style("top", `${event.pageY - 10}px`);
       })
       .on("mouseout", () => {
-        this.tooltip.style("opacity", 0);
+        this.tooltip.style("display", "none");
       });
 
     // Show title + amount inside tiles that are large enough; small tiles rely on legend/tooltip.

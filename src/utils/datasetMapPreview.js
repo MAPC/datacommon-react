@@ -714,6 +714,10 @@ const KNOWN_MAP_DIMENSION_NAMES = [
   "pwsid",
 ];
 
+// 4-digit NAICS Name has 600+ unique titles (code revisions / aliases); 2-digit stays under 400.
+const MAX_GENERIC_MAP_DIMENSION_VALUES = 400;
+const MAX_KNOWN_MAP_DIMENSION_VALUES = 2000;
+
 function looksLikeDimensionTitle(name) {
   const n = String(name || "").toLowerCase();
   if (/(^|_)(muni_name|municipality|town)$/.test(n)) return false;
@@ -825,12 +829,16 @@ export function detectMapExtraDimensions({
       if (value == null || String(value).trim() === "") return;
       uniqueValues.add(String(value));
     });
-    if (uniqueValues.size < 2 || uniqueValues.size > 400) return;
 
     const lower = name.toLowerCase();
     const knownIndex = KNOWN_MAP_DIMENSION_NAMES.findIndex(
       (known) => lower === known || lower.includes(known),
     );
+    const maxUnique =
+      knownIndex >= 0 || looksLikeDimensionTitle(name)
+        ? MAX_KNOWN_MAP_DIMENSION_VALUES
+        : MAX_GENERIC_MAP_DIMENSION_VALUES;
+    if (uniqueValues.size < 2 || uniqueValues.size > maxUnique) return;
     const valuesAreNumeric = [...uniqueValues].every((value) => Number.isFinite(Number(value)));
     const looksLikeMeasure =
       valuesAreNumeric && uniqueValues.size > 25 && knownIndex < 0;
