@@ -690,11 +690,6 @@ const BrowserPage = () => {
 
   // filter datasets and set highlights whenever the filter criteria change
   useEffect(() => {
-    // reset the scroll height whenever the user changes the search or filter
-    if (datasetGridRef.current) {
-      datasetGridRef.current.scrollTop = 0;
-    }
-
     // filter based on category, subcategory, sources, and search terms. Also remove duplicates by table_name
     const filtered = filterDatasets({
       datasets,
@@ -773,6 +768,13 @@ const BrowserPage = () => {
     setHighlightMatches(highlights);
     setDisplayDatasets(compressedDatasets);
   }, [datasets, selectedSources, selectedMenu1s, selectedMenu2s, selectedGeoFilters, filterToFavorites, favoriteDatasets, filterToNonActive, searchQuery]);
+
+  // reset the scroll height whenever the user changes the search or filter
+  useEffect(() => {
+    if (datasetGridRef.current) {
+      datasetGridRef.current.scrollTop = 0;
+    }
+  }, [selectedSources, selectedMenu1s, selectedMenu2s, selectedGeoFilters, filterToFavorites, filterToNonActive, searchQuery]);
 
   // Keep URL query parameters in sync with search and filters so users can share links
   useEffect(() => {
