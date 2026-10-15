@@ -683,9 +683,10 @@ const BulkDownloadBundlePage = () => {
     selectedTableConfigs,
     municipalities.length,
   );
+  const extraGeographies = municipalities.length - MAX_BULK_DOWNLOAD_GEOGRAPHIES;
   const geographyLimitMessage =
-    bundleId !== "cep" && municipalities.length > MAX_BULK_DOWNLOAD_GEOGRAPHIES
-      ? `Only ${MAX_BULK_DOWNLOAD_GEOGRAPHIES} geographies can be exported at a time.`
+    bundleId !== "cep" && extraGeographies > 0
+      ? `You selected ${municipalities.length} geographies. This download can include up to ${MAX_BULK_DOWNLOAD_GEOGRAPHIES} at a time. Remove ${extraGeographies} to continue.`
       : "";
   const canDownload =
     selectedTableNames.length > 0 &&
@@ -932,7 +933,7 @@ const BulkDownloadBundlePage = () => {
                   </p>
                 )}
                 {selectionTooLargeMessage && (
-                  <p className="bulk-download__validation">{selectionTooLargeMessage}</p>
+                  <p className="bulk-download__error" role="alert">{selectionTooLargeMessage}</p>
                 )}
                 {downloadStatus && <p className="bulk-download__status">{downloadStatus}</p>}
                 {downloadError === BULK_DOWNLOAD_EXPORT_FAILED ? (

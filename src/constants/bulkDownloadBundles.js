@@ -1,19 +1,22 @@
-/** Helpers for bulk download bundle table config (loaded from DB via bulkDownloadApi). */
+/** Helpers for bulk download bundle table config */
 
 /** max tables (bundle + inventory) that can be included in one download. */
 export const MAX_BULK_DOWNLOAD_TABLES = 40;
 
-/** Other bundles. Community Engagement Plan is not capped. Matches prql-js MAX_MUNICIPALITIES_PER_REQUEST. */
+/** Other bundles. Community Engagement Plan can select more than 10 geographies. */
 export const MAX_BULK_DOWNLOAD_GEOGRAPHIES = 10;
 
-/** Match prql-js/export/bulkExport.js. One row per geography per year. */
-export const MAX_BULK_DOWNLOAD_ROWS_PER_TABLE = 10_000;
+
 export const MAX_BULK_DOWNLOAD_TOTAL_ROWS = 50_000;
-const MAX_BULK_DOWNLOAD_YEARS_WHEN_UNFILTERED = 35;
+
+const formatCount = (value) => Number(value).toLocaleString("en-US");
 
 function yearSpanForBulkEstimate(table) {
   if (Array.isArray(table.years) && table.years.length > 0) return table.years.length;
-  if (table.yearColumn) return MAX_BULK_DOWNLOAD_YEARS_WHEN_UNFILTERED;
+  // No years selected means the download includes every year on the table.
+  if (Array.isArray(table.availableYears) && table.availableYears.length > 0) {
+    return table.availableYears.length;
+  }
   return 1;
 }
 
@@ -22,14 +25,12 @@ export function bulkDownloadSelectionTooLarge(tables, geographyCount) {
   const geoCount = Math.max(Number(geographyCount) || 0, 0);
   let total = 0;
   for (const table of tables) {
-    const rows = geoCount * yearSpanForBulkEstimate(table);
-    if (rows > MAX_BULK_DOWNLOAD_ROWS_PER_TABLE) {
-      return "This download is too large for one table. Each geography and year adds a row, and this combination is over the limit. Select fewer years or fewer geographies.";
-    }
-    total += rows;
+    total += geoCount * yearSpanForBulkEstimate(table);
   }
   if (total > MAX_BULK_DOWNLOAD_TOTAL_ROWS) {
-    return "This download is too large. Geographies, years, and tables together are over the limit. Select fewer years, fewer tables, or fewer geographies.";
+    const tableCount = tables.length;
+    const tableWord = tableCount === 1 ? "table" : "tables";
+    return `This download would include about ${formatCount(total)} rows across ${formatCount(tableCount)} ${tableWord}. One download can include up to ${formatCount(MAX_BULK_DOWNLOAD_TOTAL_ROWS)} rows. Select fewer years, tables, or geographies.`;
   }
   return "";
 }
