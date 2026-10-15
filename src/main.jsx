@@ -10,6 +10,7 @@ import BulkDownloadIntroPage from "./pages/BulkDownloadIntroPage";
 import BulkDownloadBundlePage from "./pages/BulkDownloadBundlePage";
 import DataViewerPage from "./pages/DataViewerPage";
 import CommunitySelectorPage from "./pages/CommunitySelectorPage";
+import ExploreMapPage from "./pages/ExploreMapPage";
 import GalleryPage from "./pages/GalleryPage";
 import CalenderEntry from "./components/gallery/CalendarEntry";
 import AboutOverviewPage from "./pages/AboutOverviewPage";
@@ -132,6 +133,10 @@ const router = createBrowserRouter([
       {
         path: "communities",
         element: <CommunitySelectorPage />,
+      },
+      {
+        path: "explore",
+        element: <ExploreMapPage />,
       },
       {
         path: "/profile/:muni/:tab?",

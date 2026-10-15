@@ -22,12 +22,23 @@ function handleActivePage(subdirectory, link = "/home") {
   return null;
 }
 
+const DATA_MENU_LINKS = [
+  { href: "/browser", label: "Browse Data Catalog" },
+  { href: "/browser/bulk-download", label: "Data by Plan Type" },
+  { href: "/explore", label: "Explore on the Map" },
+];
+
 const Header = () => {
   const [userName, setUserName] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [dataMenuOpen, setDataMenuOpen] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
   const userMenuRef = useRef(null);
   const userIconRef = useRef(null);
+  const dataMenuRef = useRef(null);
+  const navRef = useRef(null);
+  const navToggleRef = useRef(null);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -68,38 +79,100 @@ const Header = () => {
     return letters.join('');
   }, [userName]);
 
+  useEffect(() => {
+    setDataMenuOpen(false);
+    setUserMenuOpen(false);
+    setNavOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    const desktopNav = window.matchMedia("(min-width: 961px)");
+    const closeMobileNav = () => {
+      if (desktopNav.matches) {
+        setNavOpen(false);
+      }
+    };
+
+    desktopNav.addEventListener("change", closeMobileNav);
+    return () => desktopNav.removeEventListener("change", closeMobileNav);
+  }, []);
+
   // handle clicking outside menu when user menu is open
   useEffect(() => {
-    if (!userMenuOpen) {
+    if (!userMenuOpen && !dataMenuOpen && !navOpen) {
       return undefined;
     }
 
     const handleClickOutside = (event) => {
-      event.stopPropagation();  
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target) && !userIconRef.current.contains(event.target)) {
+      if (
+        userMenuOpen &&
+        userMenuRef.current &&
+        !userMenuRef.current.contains(event.target) &&
+        !userIconRef.current.contains(event.target)
+      ) {
         setUserMenuOpen(false);
+      }
+
+      if (dataMenuOpen && dataMenuRef.current && !dataMenuRef.current.contains(event.target)) {
+        setDataMenuOpen(false);
+      }
+
+      if (
+        navOpen &&
+        navRef.current &&
+        navToggleRef.current &&
+        !navRef.current.contains(event.target) &&
+        !navToggleRef.current.contains(event.target)
+      ) {
+        setNavOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setUserMenuOpen(false);
+        setDataMenuOpen(false);
+        setNavOpen(false);
       }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [userMenuOpen]);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [userMenuOpen, dataMenuOpen, navOpen]);
 
   const navigateTo = (path) => {
     setUserMenuOpen(false);
+    setDataMenuOpen(false);
+    setNavOpen(false);
     navigate(path);
   };
 
+  const dataMenuActive = DATA_MENU_LINKS.some(
+    (link) => handleActivePage(location.pathname, link.href) === "active",
+  );
+
+  const navClassName = [
+    navOpen ? "header-nav--open" : "",
+    dataMenuOpen ? "header-nav--dropdown-open" : "",
+  ].filter(Boolean).join(" ");
+
   return (
     <header className="container">
-      <nav>
-        <div className="scroll-wrapper">
-          <div className="header-brand">
-            <a href="/">
-              <img src={logoImg} alt="DataCommon" />
-            </a>
-          </div>
-          <ul>
+      <div className="header-brand">
+        <a href="/">
+          <img src={logoImg} alt="DataCommon" />
+        </a>
+      </div>
+      <nav
+        id="site-navigation"
+        className={navClassName || undefined}
+        ref={navRef}
+      >
+        <ul>
             <li>
               <a
                 className={handleActivePage(location.pathname, "/communities")}
@@ -108,21 +181,35 @@ const Header = () => {
                 Community Profiles
               </a>
             </li>
-            <li>
-              <a
-                className={handleActivePage(location.pathname, "/browser")}
-                href="/browser"
+            <li
+              className={`header-dropdown${dataMenuOpen ? " header-dropdown--open" : ""}`}
+              ref={dataMenuRef}
+            >
+              <button
+                type="button"
+                className={`header-dropdown__trigger${dataMenuActive ? " active" : ""}`}
+                aria-expanded={dataMenuOpen}
+                aria-haspopup="true"
+                onClick={() => {
+                  setUserMenuOpen(false);
+                  setDataMenuOpen((open) => !open);
+                }}
               >
-                Datasets
-              </a>
-            </li>
-            <li>
-              <a
-                className={handleActivePage(location.pathname, "/browser/bulk-download")}
-                href="/browser/bulk-download"
-              >
-                Data by Plan Type
-              </a>
+                Data
+                <span className="header-dropdown__caret" aria-hidden="true" />
+              </button>
+              <ul className="header-dropdown__menu">
+                {DATA_MENU_LINKS.map((link) => (
+                  <li key={link.href}>
+                    <a
+                      className={handleActivePage(location.pathname, link.href)}
+                      href={link.href}
+                    >
+                      {link.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
             </li>
             <li>
               <a
@@ -149,33 +236,57 @@ const Header = () => {
               </a>
             </li>
           </ul>
-        </div>
       </nav>
-      {userName &&
-        <>
-          <div className="header-user-icon-container" onClick={() => setUserMenuOpen(!userMenuOpen)} ref={userIconRef}>
-            <div className="header-user-icon">
-              {initialsString}
+      <div className="header-tools">
+        {userName &&
+          <>
+            <div className="header-user-icon-container" onClick={() => {
+              setDataMenuOpen(false);
+              setNavOpen(false);
+              setUserMenuOpen(!userMenuOpen);
+            }} ref={userIconRef}>
+              <div className="header-user-icon">
+                {initialsString}
+              </div>
             </div>
-          </div>
-          {userMenuOpen && 
-            <div className="header-user-icon-menu" ref={userMenuRef}>
-              <>
-                <div className="user-icon-menu-row" onClick={() => navigateTo('/user-profile/me')}>
-                  <FontAwesomeIcon icon={faUser} />
-                  <div>Profile</div>
-                </div>
-                {isAdmin && 
-                  <div className="user-icon-menu-row" onClick={() => navigateTo('/admin/muni-description')}>
-                    <FontAwesomeIcon icon={faGear} />
-                    <div>Admin</div>
+            {userMenuOpen &&
+              <div className="header-user-icon-menu" ref={userMenuRef}>
+                <>
+                  <div className="user-icon-menu-row" onClick={() => navigateTo('/user-profile/me')}>
+                    <FontAwesomeIcon icon={faUser} />
+                    <div>Profile</div>
                   </div>
-                }
-              </>
-            </div>
-          }
-        </>
-      }
+                  {isAdmin &&
+                    <div className="user-icon-menu-row" onClick={() => navigateTo('/admin/muni-description')}>
+                      <FontAwesomeIcon icon={faGear} />
+                      <div>Admin</div>
+                    </div>
+                  }
+                </>
+              </div>
+            }
+          </>
+        }
+        <button
+          type="button"
+          className={`header-nav-toggle${navOpen ? " is-open" : ""}`}
+          aria-expanded={navOpen}
+          aria-controls="site-navigation"
+          aria-label={navOpen ? "Close menu" : "Open menu"}
+          ref={navToggleRef}
+          onClick={() => {
+            setUserMenuOpen(false);
+            setDataMenuOpen(false);
+            setNavOpen((open) => !open);
+          }}
+        >
+          <span className="header-nav-toggle__icon" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </span>
+        </button>
+      </div>
     </header>
   );
 };
