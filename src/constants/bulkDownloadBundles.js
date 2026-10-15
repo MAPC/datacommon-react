@@ -1,8 +1,39 @@
-/** Helpers for bulk download bundle table config (loaded from DB via bulkDownloadApi). */
+/** Helpers for bulk download bundle table config */
 
 /** max tables (bundle + inventory) that can be included in one download. */
 export const MAX_BULK_DOWNLOAD_TABLES = 40;
 
+/** Other bundles. Community Engagement Plan can select more than 10 geographies. */
+export const MAX_BULK_DOWNLOAD_GEOGRAPHIES = 10;
+
+
+export const MAX_BULK_DOWNLOAD_TOTAL_ROWS = 50_000;
+
+const formatCount = (value) => Number(value).toLocaleString("en-US");
+
+function yearSpanForBulkEstimate(table) {
+  if (Array.isArray(table.years) && table.years.length > 0) return table.years.length;
+  // No years selected means the download includes every year on the table.
+  if (Array.isArray(table.availableYears) && table.availableYears.length > 0) {
+    return table.availableYears.length;
+  }
+  return 1;
+}
+
+/** Empty string when the selection fits. Otherwise the reason to block the download. */
+export function bulkDownloadSelectionTooLarge(tables, geographyCount) {
+  const geoCount = Math.max(Number(geographyCount) || 0, 0);
+  let total = 0;
+  for (const table of tables) {
+    total += geoCount * yearSpanForBulkEstimate(table);
+  }
+  if (total > MAX_BULK_DOWNLOAD_TOTAL_ROWS) {
+    const tableCount = tables.length;
+    const tableWord = tableCount === 1 ? "table" : "tables";
+    return `This download would include about ${formatCount(total)} rows across ${formatCount(tableCount)} ${tableWord}. One download can include up to ${formatCount(MAX_BULK_DOWNLOAD_TOTAL_ROWS)} rows. Select fewer years, tables, or geographies.`;
+  }
+  return "";
+}
 /** front-end only: pick municipal tables from Data Inventory (no curated table list). */
 export const CUSTOM_BULK_DOWNLOAD_BUNDLE_ID = "custom";
 
@@ -79,6 +110,13 @@ export function buildBulkExportTableEntry(tableConfig) {
 
   if (hasYearFilter && years.length > 0) {
     entry.yearColumn = tableConfig.yearColumn;
+  }
+
+  if (Array.isArray(tableConfig.columns)) {
+    entry.columns = tableConfig.columns
+      .map((column) => String(column).trim())
+      .filter(Boolean)
+      .join(",");
   }
 
   return entry;
