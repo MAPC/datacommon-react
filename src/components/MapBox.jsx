@@ -9,6 +9,20 @@ import colors from "../constants/colors";
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_API_TOKEN;
 
+const boundsFromGeojson = (geojson) => {
+  const bounds = new mapboxgl.LngLatBounds();
+  const walk = (value) => {
+    if (!Array.isArray(value) || value.length === 0) return;
+    if (typeof value[0] === "number" && typeof value[1] === "number") {
+      bounds.extend(value);
+      return;
+    }
+    value.forEach(walk);
+  };
+  (geojson?.features || []).forEach((feature) => walk(feature.geometry?.coordinates));
+  return bounds.isEmpty() ? null : bounds;
+};
+
 class MapBox extends React.Component {
   state = {
     finishedLoading: false,
@@ -17,29 +31,101 @@ class MapBox extends React.Component {
 
   componentDidMount() {
     this.initializeMap();
+    this.resizeObserver = new ResizeObserver(() => {
+      window.clearTimeout(this.resizeFitTimer);
+      this.resizeFitTimer = window.setTimeout(() => this.fitToFocus({ animate: false }), 80);
+    });
+    if (this.mapContainer) {
+      this.resizeObserver.observe(this.mapContainer);
+    }
   }
 
   componentDidUpdate() {
     this.handleLayerUpdates();
+    this.syncMapcRegionVisibility();
+    const nextFocus = this.getFocusTownsKey();
+    if (nextFocus !== this.focusTownsKey) {
+      this.focusTownsKey = nextFocus;
+      this.fitToFocus({ animate: Boolean(nextFocus) });
+    }
   }
 
   componentWillUnmount() {
+    window.clearTimeout(this.resizeFitTimer);
+    this.resizeObserver?.disconnect();
     this.map?.remove();
   }
 
+  getFitPadding() {
+    return this.props.fitPadding || MAP_CONFIG.padding;
+  }
+
+  getStateBounds() {
+    return boundsFromGeojson(this.props.muniPoly) || MAP_CONFIG.bounds;
+  }
+
+  getFocusTownsKey() {
+    return (this.props.focusTowns || [])
+      .map((name) => String(name || "").toLowerCase().trim())
+      .filter(Boolean)
+      .sort()
+      .join("|");
+  }
+
+  getFocusBounds() {
+    const towns = new Set(
+      (this.props.focusTowns || []).map((name) => String(name || "").toUpperCase()),
+    );
+    if (!towns.size) return this.getStateBounds();
+    const focusGeojson = {
+      type: "FeatureCollection",
+      features: (this.props.muniPoly?.features || []).filter((feature) =>
+        towns.has(feature.properties.town),
+      ),
+    };
+    return boundsFromGeojson(focusGeojson) || this.getStateBounds();
+  }
+
+  fitToState() {
+    this.fitToFocus({ animate: false, lockMinZoom: true });
+  }
+
+  fitToFocus({ animate = false, lockMinZoom = false } = {}) {
+    if (!this.map || !this.mapContainer) return;
+    const { width, height } = this.mapContainer.getBoundingClientRect();
+    if (width < 40 || height < 40) return;
+
+    this.map.resize();
+    if (lockMinZoom) this.map.setMinZoom(0);
+    this.map.fitBounds(this.getFocusBounds(), {
+      padding: this.getFitPadding(),
+      animate,
+      duration: animate ? 900 : 0,
+      maxZoom: 11,
+    });
+    if (lockMinZoom) {
+      const fittedZoom = this.map.getZoom();
+      if (Number.isFinite(fittedZoom)) {
+        this.statewideMinZoom = fittedZoom;
+        this.map.setMinZoom(fittedZoom);
+      }
+    } else if (Number.isFinite(this.statewideMinZoom)) {
+      this.map.setMinZoom(this.statewideMinZoom);
+    }
+  }
+
   initializeMap() {
+    const { layers, muniPoly, toProfile, fitPadding, focusTowns, ...mapProps } = this.props;
+    this.focusTownsKey = this.getFocusTownsKey();
     this.map = new mapboxgl.Map({
       container: this.mapContainer,
       style: MAP_CONFIG.style,
       dragPan: true,
       dragRotate: false,
-      ...this.props,
+      ...mapProps,
     });
 
-    this.map.fitBounds(MAP_CONFIG.bounds, {
-      padding: MAP_CONFIG.padding,
-      animate: false,
-    });
+    this.fitToState();
 
     this.map.addControl(
       new mapboxgl.NavigationControl(MAP_CONFIG.navigationControl),
@@ -50,7 +136,7 @@ class MapBox extends React.Component {
   }
 
   onMapLoad() {
-    this.map.resize(); 
+    this.fitToState();
     this.initializeHoverLayer();
     this.initializeMAPCRegions();
     
@@ -120,6 +206,18 @@ class MapBox extends React.Component {
         "fill-opacity": 0.7,
       },
     });
+    this.syncMapcRegionVisibility();
+  }
+
+  syncMapcRegionVisibility() {
+    if (!this.map?.getLayer("mapc-region-line")) return;
+    const hideForFocus = Boolean(this.getFocusTownsKey());
+    const visible = this.state.showMAPCRegions && !hideForFocus;
+    this.map.setLayoutProperty(
+      "mapc-region-line",
+      "visibility",
+      visible ? "visible" : "none",
+    );
   }
 
   handleLayerUpdates() {
@@ -133,13 +231,7 @@ class MapBox extends React.Component {
       prevState => ({
         showMAPCRegions: !prevState.showMAPCRegions,
       }),
-      () => {
-        this.map?.setLayoutProperty(
-          "mapc-region-line",
-          "visibility",
-          this.state.showMAPCRegions ? "visible" : "none"
-        );
-      }
+      () => this.syncMapcRegionVisibility(),
     );
   };
 
@@ -183,6 +275,13 @@ MapBox.propTypes = {
   ),
   muniPoly: PropTypes.object,
   toProfile: PropTypes.func,
+  focusTowns: PropTypes.arrayOf(PropTypes.string),
+  fitPadding: PropTypes.shape({
+    top: PropTypes.number,
+    left: PropTypes.number,
+    right: PropTypes.number,
+    bottom: PropTypes.number,
+  }),
 };
 
 export default MapBox;

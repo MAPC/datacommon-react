@@ -615,8 +615,11 @@ export default {
         return urlQueryParams;
       },
       rparegionDataQuery: (rpaId) => {
-        // TODO: fix this without passing SQL to the backend if we want to support RPA view in the future.
-        return "";
+        const selectList = demoRaceByAgeGenderColumns.join(",");
+        let urlQueryParams = `&schema=tabular&table=demo_race_by_age_gender_m&columns=${selectList}`;
+        urlQueryParams = `${urlQueryParams}&orderByColumn=years&orderByDirection=DESC`;
+        urlQueryParams = `${urlQueryParams}&filters=muni_id:${rpaId},race_eth:All Race/Ethnicity`;
+        return urlQueryParams;
       },
     },
   },
@@ -684,7 +687,7 @@ export default {
         const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
         return years[0] || "N/A";
       },
-      transformer: (tables, chart) => {
+      transformer: (tables) => {
         const data = tables["tabular.s2801_computer_internet_acs_m_noint"];
         if (!data || data.length < 1) {
           return [{ value: 0, marginOfError: null }];
@@ -704,6 +707,15 @@ export default {
         const columns = ["municipal", "acs_year", "nocmp", "nocmpm", "nocmp_p", "nocmp_mp"];
         let queryString = `&schema=tabular&table=s2801_computer_internet_acs_m&columns=${columns.join(",")}`;
         queryString = `${queryString}&filters=acs_year:${year},muni_id:${subregionId}`;
+        return queryString;
+      },
+      rparegionDataQuery: async (rpaRegion) => {
+        const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
+        const year = years.length ? years[0] : "unknown";
+
+        const columns = ["municipal", "acs_year", "nocmp", "nocmpm", "nocmp_p", "nocmp_mp"];
+        let queryString = `&schema=tabular&table=s2801_computer_internet_acs_m&columns=${columns.join(",")}`;
+        queryString = `${queryString}&filters=acs_year:${year},muni_id:${rpaRegion}`;
         return queryString;
       },
     },
@@ -768,7 +780,7 @@ export default {
         const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
         return years[0] || "N/A";
       },
-      transformer: (tables, chart) => {
+      transformer: (tables) => {
         const data = tables["tabular.s2801_computer_internet_acs_m_no_internet"];
         if (!data || data.length < 1) {
           return [{ value: 0, marginOfError: null }];
@@ -788,6 +800,15 @@ export default {
         const columns = ["municipal", "acs_year", "noint", "nointm", "noint_p", "noint_mp"];
         let queryString = `&schema=tabular&table=s2801_computer_internet_acs_m&columns=${columns.join(",")}`;
         queryString = `${queryString}&filters=acs_year:${year},muni_id:${subregionId}`;
+        return queryString;
+      },
+      rparegionDataQuery: async (rpaId) => {
+        const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
+        const year = years.length ? years[0] : "unknown";
+
+        const columns = ["municipal", "acs_year", "noint", "nointm", "noint_p", "noint_mp"];
+        let queryString = `&schema=tabular&table=s2801_computer_internet_acs_m&columns=${columns.join(",")}`;
+        queryString = `${queryString}&filters=acs_year:${year},muni_id:${rpaId}`;
         return queryString;
       },
     },
@@ -852,7 +873,7 @@ export default {
         const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
         return years[0] || "N/A";
       },
-      transformer: (tables, chart) => {
+      transformer: (tables) => {
         const data = tables["tabular.s2801_computer_internet_acs_m_smartphone"];
         if (!data || data.length < 1) {
           return [{ value: 0, marginOfError: null }];
@@ -873,6 +894,15 @@ export default {
         const columns = ["municipal", "acs_year", "moblo", "moblom", "moblo_p", "moblo_mp"];
         let queryString = `&schema=tabular&table=s2801_computer_internet_acs_m&columns=${columns.join(",")}`;
         queryString = `${queryString}&filters=acs_year:${year},muni_id:${subregionId}`;
+        return queryString;
+      },
+      rparegionDataQuery: async (rpaId) => {
+        const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
+        const year = years.length ? years[0] : "unknown";
+
+        const columns = ["municipal", "acs_year", "moblo", "moblom", "moblo_p", "moblo_mp"];
+        let queryString = `&schema=tabular&table=s2801_computer_internet_acs_m&columns=${columns.join(",")}`;
+        queryString = `${queryString}&filters=acs_year:${year},muni_id:${rpaId}`;
         return queryString;
       },
     },
@@ -1017,6 +1047,15 @@ export default {
         queryString = `${queryString}&filters=acs_year:${year},muni_id:${subregionId}`;
         return queryString;
       },
+      rparegionDataQuery: async (rpaId) => {
+        const selectList = internetUsageByIncomeColumns.join(",");
+        const years = await fetchYears("tabular", "s2801_computer_internet_acs_m", "acs_year", 1);
+        const year = years.length ? years[0] : "unknown";
+
+        let queryString = `&schema=tabular&table=s2801_computer_internet_acs_m&columns=${selectList}`;
+        queryString = `${queryString}&filters=acs_year:${year},muni_id:${rpaId}`;
+        return queryString;
+      },
     },
     internet_subscription_types: {
       type: "grouped-bar",
@@ -1076,7 +1115,7 @@ export default {
         const earliestYear = `${start- 5}-${end -5}`;
         return `${earliestYear} and ${latestYear}`;
       },
-      transformer: (tables, chart) => {
+      transformer: (tables) => {
         const data = tables["tabular.s2801_computer_internet_acs_m_subscription"];
         if (!data || data.length == 0) {
           return [];
@@ -1136,6 +1175,22 @@ export default {
         const selectList = internetSubscriptionTypesColumns.join(",");
         let queryString = `&schema=tabular&table=s2801_computer_internet_acs_m&columns=${selectList}`;
         queryString = `${queryString}&filters=muni_id:${subregionId},acs_year:${earliestYear},acs_year:${latestYear}`;
+        queryString = `${queryString}&orderByColumn=acs_year&orderByDirection=DESC`;
+        return queryString;
+      },
+      rparegionDataQuery: async (rpaId) => {
+        let yearAPIReq = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=s2801_computer_internet_acs_m`;
+        yearAPIReq = `${yearAPIReq}&columns=acs_year`;
+        yearAPIReq = `${yearAPIReq}&limit=1&orderByColumn=acs_year&orderByDirection=DESC`;
+        const yearResp = await fetch(yearAPIReq);
+        const yearPayload = (await yearResp.json()) || {};
+        const latestYear = yearPayload?.rows?.length > 0 ? yearPayload.rows[0].acs_year : '2020-24';
+        const [start, end] = latestYear.split('-');
+        const earliestYear = `${start- 5}-${end -5}`;
+        
+        const selectList = internetSubscriptionTypesColumns.join(",");
+        let queryString = `&schema=tabular&table=s2801_computer_internet_acs_m&columns=${selectList}`;
+        queryString = `${queryString}&filters=muni_id:${rpaId},acs_year:${earliestYear},acs_year:${latestYear}`;
         queryString = `${queryString}&orderByColumn=acs_year&orderByDirection=DESC`;
         return queryString;
       },
@@ -1227,6 +1282,21 @@ export default {
         let mainDataApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=b23025_employment_acs_m`;
         mainDataApi = `${mainDataApi}&columns=${residentEmploymentColumns.join(",")}`;
         mainDataApi = `${mainDataApi}&filters=muni_id:${subregionId},acs_year:${earliestYear},acs_year:${latestYear}&orderByColumn=acs_year&orderByDirection=DESC`;
+        return mainDataApi;
+      },
+      rparegionDataQuery: async (rpaId) => {
+        let yearAPIReq = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=b23025_employment_acs_m`;
+        yearAPIReq = `${yearAPIReq}&columns=acs_year`;
+        yearAPIReq = `${yearAPIReq}&limit=1&orderByColumn=acs_year&orderByDirection=DESC`;
+        const yearResp = await fetch(yearAPIReq);
+        const yearPayload = (await yearResp.json()) || {};
+        const latestYear = yearPayload?.rows?.length > 0 ? yearPayload.rows[0].acs_year : '2020-24';
+        const [start, end] = latestYear.split('-');
+        const earliestYear = `${start- 5}-${end -5}`;
+
+        let mainDataApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=b23025_employment_acs_m`;
+        mainDataApi = `${mainDataApi}&columns=${residentEmploymentColumns.join(",")}`;
+        mainDataApi = `${mainDataApi}&filters=muni_id:${rpaId},acs_year:${earliestYear},acs_year:${latestYear}&orderByColumn=acs_year&orderByDirection=DESC`;
         return mainDataApi;
       },
     },
@@ -1550,8 +1620,11 @@ export default {
         return urlQueryParams;
       },
       rparegionDataQuery: (rpaId) => {
-        // TODO: Enable this without passing SQL to the backend if we enable RPA views in the future.
-        return "";
+        const selectList = eduAttainmentByRaceColumns.join(",");
+        let urlQueryParams = `&schema=tabular&table=c15002_educational_attainment_by_race_acs_m&columns=${selectList}`;
+        urlQueryParams = `${urlQueryParams}&orderByColumn=acs_year&orderByDirection=DESC&limit=1`;
+        urlQueryParams = `${urlQueryParams}&filters=muni_id:${rpaId}`;
+        return urlQueryParams;
       },
     },
   },
@@ -1574,7 +1647,7 @@ export default {
       source: "MassDEP",
       timeframe: "2009-15",
       datasetLinks: { "Annual Average Residential Water Use (Municipal)": 260 },
-      transformer: (tables, chart) => {
+      transformer: (tables) => {
         const waterData = tables["tabular.env_dep_reviewed_water_demand_m"];
         if (waterData.length < 1) {
           return [{ label: "Water Useage per Capita", values: [] }];
@@ -1609,23 +1682,32 @@ export default {
           },
         ];
       },
-      subregionDataQuery: async (subregionId) => {
-        // TODO: Maybe make backend improvement to prevent 2 requests here?
-        let muniIdsApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&columns=muni_id`;
-        muniIdsApi = `${muniIdsApi}&filters=subrg_id:${subregionId}`;
-        const muniIdsResp = await fetch(muniIdsApi);
-        const muniIdData = (await muniIdsResp.json()) || {};
-        const muniIdsList = muniIdData.rows.map((row) => `muni_id:${row.muni_id}`);
+      // TODO: These are per-capita rates and can't be summed or averaged to get a value at the subregion or region level
+      // subregionDataQuery: async (subregionId) => {
+      //   // TODO: Maybe make backend improvement to prevent 2 requests here?
+      //   let muniIdsApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&columns=muni_id`;
+      //   muniIdsApi = `${muniIdsApi}&filters=subrg_id:${subregionId}`;
+      //   const muniIdsResp = await fetch(muniIdsApi);
+      //   const muniIdData = (await muniIdsResp.json()) || {};
+      //   const muniIdsList = muniIdData.rows.map((row) => `muni_id:${row.muni_id}`);
 
-        const columns = ["municipal", "rgpcd2009", "rgpcd2010", "rgpcd2011", "rgpcd2012", "rgpcd2013", "rgpcd2014", "rgpcd2015"];
-        let urlQueryParams = `&schema=tabular&table=env_dep_reviewed_water_demand_m&columns=${columns.join(",")}`;
-        urlQueryParams = `${urlQueryParams}&filters=${muniIdsList.join(",")}`;
-        return urlQueryParams;
-      },
-      rparegionDataQuery: (rpaId) => {
-        // TODO: Enable this without passing SQL to the backend if we support RPA regions in the future.
-        return "";
-      },
+      //   const columns = ["municipal", "rgpcd2009", "rgpcd2010", "rgpcd2011", "rgpcd2012", "rgpcd2013", "rgpcd2014", "rgpcd2015"];
+      //   let urlQueryParams = `&schema=tabular&table=env_dep_reviewed_water_demand_m&columns=${columns.join(",")}`;
+      //   urlQueryParams = `${urlQueryParams}&filters=${muniIdsList.join(",")}`;
+      //   return urlQueryParams;
+      // },
+      // rparegionDataQuery: async (rpaId) => {
+      //   let muniIdsApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&columns=muni_id`;
+      //   muniIdsApi = `${muniIdsApi}&filters=subrg_id:${rpaId}`;
+      //   const muniIdsResp = await fetch(muniIdsApi);
+      //   const muniIdData = (await muniIdsResp.json()) || {};
+      //   const muniIdsList = muniIdData.rows.map((row) => `muni_id:${row.muni_id}`);
+
+      //   const columns = ["municipal", "rgpcd2009", "rgpcd2010", "rgpcd2011", "rgpcd2012", "rgpcd2013", "rgpcd2014", "rgpcd2015"];
+      //   let urlQueryParams = `&schema=tabular&table=env_dep_reviewed_water_demand_m&columns=${columns.join(",")}`;
+      //   urlQueryParams = `${urlQueryParams}&filters=${muniIdsList.join(",")}`;
+      //   return urlQueryParams;
+      // },
     },
     energy_usage_gas: {
       type: "stacked-area",
@@ -1696,9 +1778,21 @@ export default {
 
         return [url1QueryParams, url2QueryParams];
       },
-      rparegionDataQuery: (rpaId) => {
-        // TODO: Enable this without passing SQL to the backend if we support RPA regions in the future.
-        return ["", ""];
+      rparegionDataQuery: async (rpaId) => {
+        let muniIdsApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&columns=muni_id`;
+        muniIdsApi = `${muniIdsApi}&filters=subrg_id:${rpaId}`;
+        const muniIdsResp = await fetch(muniIdsApi);
+        const muniIdData = (await muniIdsResp.json()) || {};
+        const muniIdsList = muniIdData.rows.map((row) => `muni_id:${row.muni_id}`);
+
+        const columns = ["municipal", "cal_year", "sector", "mwh_use", "therm_use"];
+        let url1QueryParams = `&schema=tabular&table=energy_masssave_elec_gas_ci_consumption_m&columns=${columns.join(",")}`;
+        url1QueryParams = `${url1QueryParams}&filters=${muniIdsList.join(",")}`;
+
+        let url2QueryParams = `&schema=tabular&table=energy_masssave_elec_gas_res_li_consumption_m&columns=${columns.join(",")}`;
+        url2QueryParams = `${url2QueryParams}&filters=${muniIdsList.join(",")}`;
+
+        return [url1QueryParams, url2QueryParams];
       },
     },
     energy_usage_electricity: {
@@ -1770,9 +1864,22 @@ export default {
 
         return [url1QueryParams, url2QueryParams];
       },
-      rparegionDataQuery: (rpaId) => {
-        // TODO: Enable this without passing SQL to the backend if we support RPA regions in the future
-        return ["", ""];
+      rparegionDataQuery: async (rpaId) => {
+        // TODO: Maybe make backend improvement to prevent 2 requests here?
+        let muniIdsApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&columns=muni_id`;
+        muniIdsApi = `${muniIdsApi}&filters=subrg_id:${rpaId}`;
+        const muniIdsResp = await fetch(muniIdsApi);
+        const muniIdData = (await muniIdsResp.json()) || {};
+        const muniIdsList = muniIdData.rows.map((row) => `muni_id:${row.muni_id}`);
+
+        const columns = ["municipal", "cal_year", "sector", "mwh_use", "therm_use"];
+        let url1QueryParams = `&schema=tabular&table=energy_masssave_elec_gas_ci_consumption_m&columns=${columns.join(",")}`;
+        url1QueryParams = `${url1QueryParams}&filters=${muniIdsList.join(",")}`;
+
+        let url2QueryParams = `&schema=tabular&table=energy_masssave_elec_gas_res_li_consumption_m&columns=${columns.join(",")}`;
+        url2QueryParams = `${url2QueryParams}&filters=${muniIdsList.join(",")}`;
+
+        return [url1QueryParams, url2QueryParams];
       },
     },
   },
@@ -1883,6 +1990,15 @@ export default {
         urlQueryParams = `${urlQueryParams}&filters=muni_id:${subregionId},acs_year:${maxYear}`;
         return urlQueryParams;
       },
+      rparegionDataQuery: async (rpaId) => {
+        const yearResp = await fetchYears("tabular", "b25091_b25070_costburden_acs_m", "acs_year", 1);
+        const maxYear = yearResp.length ? yearResp[0] : "unknown";
+
+        const selectList = costBurdenColumns.join(",");
+        let urlQueryParams = `&schema=tabular&table=b25091_b25070_costburden_acs_m&columns=${selectList}`;
+        urlQueryParams = `${urlQueryParams}&filters=muni_id:${rpaId},acs_year:${maxYear}`;
+        return urlQueryParams;
+      },
     },
     units_permitted: {
       type: "stacked-area",
@@ -1965,8 +2081,10 @@ export default {
         return urlQueryParams;
       },
       rparegionDataQuery: (rpaId) => {
-        // TODO: enable this without passing SQL to the backend if we support RPA regions in the future
-        return "";
+        const columns = ["municipal", "cal_year", "12 as months_rep", "sf_units", "mf_units"];
+        let urlQueryParams = `&schema=tabular&table=hous_building_permits_m&columns=${columns.join(",")}`;
+        urlQueryParams = `${urlQueryParams}&filters=muni_id:${rpaId}`;
+        return urlQueryParams;
       },
     },
   },
@@ -2054,6 +2172,7 @@ export default {
         }
 
         const totals = {
+          // TODO: These shouldn't be averaged b/c they are rates and we should weight them by population
           // to calculate averages.
           whi_art: { total: 0, count: 0 },
           aa_art: { total: 0, count: 0 },
@@ -2087,7 +2206,8 @@ export default {
         );
       },
       subregionDataQuery: async (subregionId) => {
-        // TODO: Maybe make backend improvement to prevent 3 requests here
+        // TODO: we are currently fetching the rates for each muni in the subregion then averaging them together
+        //       that is incorrect since it weights the rate from each muni equally when it should be weighted by population. 
         let muniIdsApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&columns=muni_id`;
         muniIdsApi = `${muniIdsApi}&filters=subrg_id:${subregionId}`;
         const muniIdsResp = await fetch(muniIdsApi);
@@ -2102,9 +2222,15 @@ export default {
         urlQueryParams = `${urlQueryParams}&filters=${muniIdsList.join(",")},years:${year}`;
         return urlQueryParams;
       },
-      rparegionDataQuery: (rpaId) => {
-        // TODO: Enable this without passing SQL to the backend if we support RPA regions in the future
-        return "";
+      rparegionDataQuery: async (rpaId) => {
+        // This query is good b/c we have a row for MAPC in the datasets itself. 
+        const years = await fetchYears("tabular", "health_premature_mortality_race_m", "years", 1);
+        const year = years.length ? years[0] : "unknown";
+
+        const columns = ["municipal", "years", "whi_art", "aa_art", "api_art", "na_art", "oth_art", "lat_art"];
+        let urlQueryParams = `&schema=tabular&table=health_premature_mortality_race_m&columns=${columns.join(",")}`;
+        urlQueryParams = `${urlQueryParams}&filters=muni_id:${rpaId},years:${year}`;
+        return urlQueryParams;
       },
     },
     hospitalizations: {
@@ -2220,7 +2346,8 @@ export default {
         );
       },
       subregionDataQuery: async (subregionId) => {
-        // TODO: Maybe make backend improvement to prevent 3 requests here
+        // TODO: This is incorrect since we are fetching the rates for each muni and doing a raw average 
+        //       we should be doing a weighted average based on the muni's population. 
         let muniIdsApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&columns=muni_id`;
         muniIdsApi = `${muniIdsApi}&filters=subrg_id:${subregionId}`;
         const muniIdsResp = await fetch(muniIdsApi);
@@ -2235,9 +2362,14 @@ export default {
         urlQueryParams = `${urlQueryParams}&filters=${muniIdsList.join(",")},cal_years:${year}`;
         return urlQueryParams;
       },
-      rparegionDataQuery: (rpaId) => {
-        // TODO: enable this without passing SQL to the backend if we supprot RPA regions in the future
-        return "";
+      rparegionDataQuery: async (rpaId) => {
+        const years = await fetchYears("tabular", "health_hospitalizations_hypertension_m", "cal_years", 1);
+        const year = years.length ? years[0] : "unknown";
+
+        const columns = ["municipal", "cal_years", "whi_arte", "aa_arte", "api_arte", "na_arte", "oth_arte", "lat_arte"];
+        let urlQueryParams = `&schema=tabular&table=health_hospitalizations_hypertension_m&columns=${columns.join(",")}`;
+        urlQueryParams = `${urlQueryParams}&filters=muni_id:${rpaId},cal_years:${year}`;
+        return urlQueryParams;
       },
     },
   },
@@ -2320,9 +2452,18 @@ export default {
         urlQueryParams = `${urlQueryParams}&filters=${muniIdsList.join(",")}`;
         return urlQueryParams;
       },
-      rparegionDataQuery: (rpaId) => {
-        // TODO: enable without passing SQL to the backend if we support RPA regions in the future
-        return "";
+      rparegionDataQuery: async (rpaId) => {
+        // TODO: Maybe make backend improvement to prevent 2 requests here
+        let muniIdsApi = `${locations.BROWSER_API}?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=_datakeys_muni_all&columns=muni_id`;
+        muniIdsApi = `${muniIdsApi}&filters=region_id:${rpaId}`;
+        const muniIdsResp = await fetch(muniIdsApi);
+        const muniIdData = (await muniIdsResp.json()) || {};
+        const muniIdsList = muniIdData.rows.map((row) => `muni_id:${row.muni_id}`);
+
+        const columns = ["municipal", "quarter", "hh_est", "pass_vmt", "comm_vmt"];
+        let urlQueryParams = `&schema=tabular&table=trans_mavc_public_summary_m&columns=${columns.join(",")}`;
+        urlQueryParams = `${urlQueryParams}&filters=${muniIdsList.join(",")}`;
+        return urlQueryParams;
       },
     },
     commute_to_work: {
@@ -2372,8 +2513,10 @@ export default {
         return urlQueryParams;
       },
       rparegionDataQuery: (rpaId) => {
-        // Enable this without passing SQL to the backend if we decide to support RPA regions in the future
-        return "";
+        const selectList = commuteToWorkColumns.join(", ");
+        let urlQueryParams = `&schema=tabular&table=b08301_means_transportation_to_work_by_residence_acs_m&columns=${selectList}`;
+        urlQueryParams = `${urlQueryParams}&filters=muni_id:${rpaId}&orderByColumn=acs_year&orderbyDirection=DESC&limit=1`;
+        return urlQueryParams;
       },
     },
   },

@@ -38,6 +38,8 @@ import {
   parsePairedCategoryNameLabels,
 } from "../../utils/datasetMapPreview";
 import { ExportLoadingMask, useExportFileDownload } from "./ExportLoadingMask";
+import axios from "axios";
+import html2canvas from "html2canvas";
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_API_TOKEN;
 
@@ -366,7 +368,7 @@ function DatasetMapPreview({
   const [boundariesError, setBoundariesError] = useState("");
   const [boundariesLoading, setBoundariesLoading] = useState(false);
   const [overlaysLoading, setOverlaysLoading] = useState(true);
-  const [showMunicipalLayer, setShowMunicipalLayer] = useState(false);
+  const [showMunicipalLayer, setShowMunicipalLayer] = useState(geographyType !== 'municipal');
   const [showMapcRegionLayer, setShowMapcRegionLayer] = useState(false);
   const [showHouseDistricts, setShowHouseDistricts] = useState(false);
   const [showSenateDistricts, setShowSenateDistricts] = useState(false);
@@ -389,6 +391,8 @@ function DatasetMapPreview({
   senateDistrictsRef.current = senateDistricts;
   const didFitGeographicFrameRef = useRef(false);
   const [selectedFeatureKey, setSelectedFeatureKey] = useState(null);
+  const [muniForSelectedCt, setMuniForSelectedCt] = useState(null);
+  const [loadingMuniForCt, setLoadingMuniForCt] = useState(false);
   const [dimensionSelections, setDimensionSelections] = useState(
     mapDimensionSelections && typeof mapDimensionSelections === "object" ? mapDimensionSelections : {},
   );
@@ -981,6 +985,7 @@ function DatasetMapPreview({
       pitchWithRotate: false,
       bounds: MAP_CONFIG.bounds,
       fitBoundsOptions: { padding: { top: 24, bottom: 24, left: 24, right: 24 }, animate: false },
+      preserveDrawingBuffer: true, // for export to png
     });
 
     map.addControl(
@@ -1455,6 +1460,44 @@ function DatasetMapPreview({
     });
   }, [selectedFeature, mapYear, geographyType, geometryJoinKey, marginColumn, extraDimensionLabels]);
 
+  // when viewing a census tract, fetch the muni for that census tract
+  useEffect(() => {
+    if (geographyType !== 'census_tracts') return;
+    if (!selectedDetails) return;
+
+    let tableName;
+    let columnName;
+    if (selectedDetails.tractBoundary === "2020 Census tracts") {
+      tableName = "_datakeys_geog_xw_2020";
+      columnName = "ct20_id";
+    } else if (selectedDetails.tractBoundary === "2010 Census tracts") {
+      tableName = "_datakeys_geog_xw_2010";
+      columnName = "ct10_id";
+    }
+    if (!tableName || !columnName) return;
+
+    const url = `/api?token=datacommon&database=ds&schema=tabular&table=${tableName}` +
+      `&columns=DISTINCT(muni_id),muni_name,${columnName}&filters=${columnName}:${selectedFeatureKey}`;
+    setLoadingMuniForCt(true);
+    setMuniForSelectedCt(null);
+    axios.get(url)
+      .then(res => {
+        const rows = res.data.rows;
+        if (rows.length === 0) {
+          console.error("Found no muni for selected census tract");
+          return;
+        }
+        const result = rows.map(r => r.muni_name).join(", ");
+        setMuniForSelectedCt(result);
+      })
+      .catch(err => {
+        console.error("Error while fetching muni for selected census tract", err);
+      })
+      .finally(() => {
+        setLoadingMuniForCt(false);
+      });
+  }, [geographyType, selectedFeatureKey, selectedDetails]);
+
   const rankingRows = useMemo(
     () =>
       buildRankingRows(paintedGeojson.features, {
@@ -1517,6 +1560,24 @@ function DatasetMapPreview({
     }
   }, [selectedFeatureKey]);
 
+  const mapcRowForYear = useMemo(() => {
+    if (geographyType !== 'municipal') return null;
+
+    let filtered = rows;
+    if (queryYearColumn && selectedYears?.length) {
+      const yearSet = new Set(selectedYears.map(String));
+      filtered = filtered.filter((row) => yearSet.has(String(row[queryYearColumn])));
+    }
+
+    filtered = filtered.filter(row => row.muni_id === 352) // I believe 352 is always MAPC
+    if (filtered.length === 1) {
+      return filtered[0];
+    } else {
+      return null;
+    }
+
+  }, [rows, queryYearColumn, selectedYears, geographyType]);
+
   const canDownloadGeojson =
     Boolean(table) &&
     !isBoundaryLoading &&
@@ -1564,6 +1625,28 @@ function DatasetMapPreview({
     );
   }
 
+  const handleExportToPng = async () => {
+    if (!mapRef.current) return;
+
+    // first hide the map controls:
+    const layersButton = document.getElementById("layer-button-controls-container");
+    layersButton.style.display = 'none';
+
+    const canvas = await html2canvas(document.getElementById("top-level-map-container"));
+    const url = canvas.toDataURL('image/png');
+    
+    const link = document.createElement('a');
+    link.download = 'map-export.png';
+    link.href = url;
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    // unhide the map controls:
+    layersButton.style.display = 'flex';
+  }
+
   // Boundary-only layers (e.g. Boundaries category / ma_municipalities) have no numeric choropleth columns.
   const isBoundaryOnlyMap = isBoundariesDataset || Boolean(apiBoundaryGeojson);
   if (!mappableColumns.length && !isBoundaryLoading && !isBoundaryOnlyMap) {
@@ -1580,16 +1663,26 @@ function DatasetMapPreview({
         {boundariesError && (
           <span className="dataset-map-preview__status dataset-map-preview__status--error">{boundariesError}</span>
         )}
+        {mapcRowForYear && (
+          <div className="dataset-map-preview__mapc-total-box">
+            <div>
+              <b>Result for MAPC region:</b>
+            </div>
+            <div>
+              {activeVariableLabel || 'Selected Variable'} : {mapcRowForYear[activeVariable].toLocaleString() || 'Unknown'}
+            </div>
+          </div>
+        )}
         <div className="dataset-map-preview__map-body">
           <div className="dataset-map-preview__map-column">
-          <div className="dataset-map-preview__map-shell">
+          <div className="dataset-map-preview__map-shell" id="top-level-map-container">
             {!isEmbedView && <ExportLoadingMask active={isExporting} />}
             <div className="dataset-map-preview__map-controls">
               <div className="dataset-map-preview__north-arrow" aria-hidden="true" title="North">
                 <span className="dataset-map-preview__north-arrow-pointer" />
                 <span className="dataset-map-preview__north-arrow-label">N</span>
               </div>
-              <div className={`dataset-map-preview__layer-toggles${boundariesMenuOpen ? " is-open" : ""}`}>
+              <div className={`dataset-map-preview__layer-toggles${boundariesMenuOpen ? " is-open" : ""}`} id="layer-button-controls-container">
                 <button
                   type="button"
                   className="dataset-map-preview__layer-toggles-header"
@@ -1849,6 +1942,15 @@ function DatasetMapPreview({
                   </p>
                 ) : (
                   <dl className="dataset-map-preview__detail-list">
+                    {geographyType === 'census_tracts' && (
+                      <div className="dataset-map-preview__detail-row dataset-map-preview__detail-row--inline">
+                        <dt>Municipality</dt>
+                        {loadingMuniForCt && <MoonLoader size={14}/>}
+                        {!loadingMuniForCt && (
+                          <dd>{muniForSelectedCt || "Unknown Municipality"}</dd>
+                        )}
+                      </div>
+                    )}
                     <div className="dataset-map-preview__detail-row dataset-map-preview__detail-row--inline">
                       <dt>
                         {geographyEntityLabel(geographyType).replace(/^./, (s) => s.toUpperCase())}
@@ -1918,6 +2020,16 @@ function DatasetMapPreview({
                     </p>
                   )}
                 </div>
+                <button
+                  type="button"
+                  className="dataset-map-preview__download-geojson"
+                  onClick={handleExportToPng}
+                  disabled={!mapRef.current || !canDownloadGeojson}
+                  aria-busy={isExporting}
+                  aria-describedby="dataset-map-geojson-download-tip"
+                >
+                  {isExporting ? "Preparing…" : "Download as PNG"}
+                </button>
               </aside>
             </div>
           )}
@@ -1930,6 +2042,9 @@ function DatasetMapPreview({
                 <table className="dataset-map-preview__ranking-table">
                   <thead>
                     <tr>
+                      <th style={{ borderRight: '1px solid #666666'}}>
+                        {/* this is the gutter on the left */}
+                      </th>
                       <RankingSortHeader
                         column="label"
                         label={rankingPlaceHeader}
@@ -1955,8 +2070,9 @@ function DatasetMapPreview({
                       )}
                     </tr>
                   </thead>
+                  {/* TODO: should this just be the data view table component? Stephen want something like that */}
                   <tbody>
-                    {sortedRankingRows.map((row) => {
+                    {sortedRankingRows.map((row, index) => {
                       const isSelected = selectedFeatureKey != null && String(selectedFeatureKey) === row.key;
                       return (
                         <tr
@@ -1965,6 +2081,9 @@ function DatasetMapPreview({
                           className={isSelected ? "is-selected" : undefined}
                           onClick={() => setSelectedFeatureKey(row.key)}
                         >
+                          <th style={{ borderRight: '1px solid #666666', padding: '8px 4px 8px 6px', color: '#666666'}}>
+                            {index + 1}
+                          </th>
                           <th scope="row">{row.label}</th>
                           {rankingDimensionColumns.map((item, index) => (
                             <td key={`${item.label}-${index}`} className="dataset-map-preview__ranking-dimension">

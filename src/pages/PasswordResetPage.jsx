@@ -1,5 +1,5 @@
 import axios from "axios";
-import React, { useState } from "react";
+import { useState } from "react";
 import { useParams } from "react-router";
 import { useSearchParams } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
@@ -128,12 +128,12 @@ const PasswordResetPage = () => {
 
     // newPassword and confirmNewPassword are checked for equality before submit button clicked
     axios.post(`/api/users/reset-pw`, { email: email, password: newPassword, token: token})
-      .then(resp => {
+      .then(() => {
         setPasswordSetSuccessful(true);
 
         // remove any existing cookies
         logoutUser();
-      }).catch(e => {
+      }).catch(() => {
         setErrorMessage("There was an error while setting your new password.")
       }).finally(() => {
         setButtonLoading(false);

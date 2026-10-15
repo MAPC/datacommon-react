@@ -1,6 +1,6 @@
 header {
   background: $color_bg-light;
-  padding: 16px 0 10px;
+  padding: 12px 0;
   width: 100%;
   display: flex;
   align-items: center;
@@ -11,10 +11,10 @@ header {
       overflow: visible;
     }
     .scroll-wrapper {
+      display: flex;
+      align-items: center;
       width: max-content;
-      div, ul {
-        display: inline-block;
-      }
+
       ul {
         @media print {
           display: none;
@@ -72,28 +72,36 @@ header {
   }
 
   .header-brand {
+    display: flex;
+    align-items: center;
     font-size: $font_size-large;
     font-weight: 500;
     a {
       color: $color_font-dark;
+      display: flex;
+      align-items: center;
+      line-height: 0;
       &:hover {
         color: $color_font-dark--brand;
       }
     }
 
     img {
-      height: 29px;
-      margin-right: 10px;
-      top: 5px;
-      width: 29px;
+      display: block;
+      height: 64px;
+      margin-right: 0.75rem;
+      width: auto;
     }
   }
   ul {
+    display: flex;
+    align-items: center;
     font-size: $font_size-small;
-    margin-left: 2em;
+    margin-left: 1.5em;
     li {
-      display: inline-block;
-      margin: auto 2em;
+      display: flex;
+      align-items: center;
+      margin: 0 2em;
       @include media(small) {
         margin: auto 1em;
       }

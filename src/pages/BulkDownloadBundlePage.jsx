@@ -14,6 +14,7 @@ import {
   MAX_BULK_DOWNLOAD_GEOGRAPHIES,
   buildBulkDownloadMunicipalitySearchable,
   bulkDownloadSelectionTooLarge,
+  isCustomBulkDownloadBundle,
 } from "../constants/bulkDownloadBundles";
 import {
   downloadBlob,
@@ -370,6 +371,8 @@ LimitReachedModal.propTypes = {
   onClose: PropTypes.func.isRequired,
 };
 
+const GEOGRAPHY_AMOUNT_LIMIT = 10;
+
 const BulkDownloadBundlePage = () => {
   const { bundleId } = useParams();
   const dispatch = useDispatch();
@@ -659,9 +662,9 @@ const BulkDownloadBundlePage = () => {
           <nav className="bulk-download__breadcrumb" aria-label="Breadcrumb">
             <Link to="/browser">Data Browser</Link>
             <span aria-hidden="true"> / </span>
-            <Link to="/browser/bulk-download">Data for Planning</Link>
+            <Link to="/browser/bulk-download">Data by Plan Type</Link>
           </nav>
-          <h1>Data for Planning</h1>
+          <h1>Data by Plan Type</h1>
         </div>
         <div className="bulk-download__layout container tight">
           <BulkDownloadBundleSkeleton />
@@ -674,6 +677,7 @@ const BulkDownloadBundlePage = () => {
     return <Navigate to="/browser/bulk-download" replace />;
   }
 
+  const isCustomInventory = Boolean(bundle.isCustomInventory) || isCustomBulkDownloadBundle(bundleId);
   const isPageLoading = status !== "succeeded" || yearsLoading || municipalitiesLoading;
   const allTablesSelected = selectedTableNames.length === displayTables.length;
   const columnsReady =
@@ -695,6 +699,8 @@ const BulkDownloadBundlePage = () => {
     municipalities.length > 0 &&
     !geographyLimitMessage &&
     !selectionTooLargeMessage;
+  const allTablesSelected = displayTables.length > 0 && selectedTableNames.length === displayTables.length;
+  const canDownload = selectedTableNames.length > 0 && !yearsLoading && municipalities.length > 0;
 
   const handleMuniSelect = (selection) => {
     const muniId = Number(selection?.muniId);
@@ -829,7 +835,7 @@ const BulkDownloadBundlePage = () => {
         <nav className="bulk-download__breadcrumb" aria-label="Breadcrumb">
           <Link to="/browser">Data Browser</Link>
           <span aria-hidden="true"> / </span>
-          <Link to="/browser/bulk-download">Data for Planning</Link>
+          <Link to="/browser/bulk-download">Data by Plan Type</Link>
           <span aria-hidden="true"> / </span>
           <span>{bundle.title}</span>
         </nav>
@@ -839,7 +845,7 @@ const BulkDownloadBundlePage = () => {
 
       <div className="bulk-download__layout container tight">
         {isPageLoading ? (
-          <BulkDownloadBundleSkeleton tableCount={Math.min(displayTables.length, 6)} />
+          <BulkDownloadBundleSkeleton tableCount={Math.min(displayTables.length || 6, 6)} />
         ) : (
           <>
             <aside className="bulk-download__sidebar">
@@ -874,6 +880,7 @@ const BulkDownloadBundlePage = () => {
                       : "Search for a geography in Massachusetts"
                   }
                   className="small"
+                  disabled={municipalities.length >= GEOGRAPHY_AMOUNT_LIMIT}
                   searchable={municipalitySearchable}
                 />
                 {geographyLimitMessage && (
@@ -884,6 +891,9 @@ const BulkDownloadBundlePage = () => {
                 {showColumnPicker && municipalities.length > 0 && (
                   <p className="bulk-download__selected-muni">
                     {municipalities.length} of {municipalityOptions.length} geographies selected
+                {municipalities.length >= GEOGRAPHY_AMOUNT_LIMIT && (
+                  <p className="bulk-download__hint error-message">
+                    Only 10 geographies can be exported at a time.
                   </p>
                 )}
                 {municipalities.length > 0 && (
@@ -952,10 +962,13 @@ const BulkDownloadBundlePage = () => {
                   )
                 )}
                 <p className={`bulk-download__summary${selectedTableNames.length > MAX_BULK_DOWNLOAD_TABLES ? " bulk-download__summary--over-limit" : ""}`}>
-                  {selectedTableNames.length} of {displayTables.length} tables selected
-                  {selectedTableNames.length > MAX_BULK_DOWNLOAD_TABLES
-                    ? ` · ${selectedTableNames.length - MAX_BULK_DOWNLOAD_TABLES} over the ${MAX_BULK_DOWNLOAD_TABLES}-table download limit`
-                    : ` · up to ${MAX_BULK_DOWNLOAD_TABLES} can be downloaded at once`}
+                  {displayTables.length === 0
+                    ? `No tables selected · add tables from the Data Inventory · up to ${MAX_BULK_DOWNLOAD_TABLES} can be downloaded at once`
+                    : `${selectedTableNames.length} of ${displayTables.length} tables selected${
+                        selectedTableNames.length > MAX_BULK_DOWNLOAD_TABLES
+                          ? ` · ${selectedTableNames.length - MAX_BULK_DOWNLOAD_TABLES} over the ${MAX_BULK_DOWNLOAD_TABLES}-table download limit`
+                          : ` · up to ${MAX_BULK_DOWNLOAD_TABLES} can be downloaded at once`
+                      }`}
                 </p>
               </section>
             </aside>
@@ -964,7 +977,7 @@ const BulkDownloadBundlePage = () => {
               <div className="bulk-download__tables-header">
                 <h2>Tables</h2>
                 <div className="bulk-download__panel-actions">
-                  <button type="button" onClick={selectAllTables} disabled={allTablesSelected}>
+                  <button type="button" onClick={selectAllTables} disabled={displayTables.length === 0 || allTablesSelected}>
                     Select all
                   </button>
                   <button type="button" onClick={clearAllTables} disabled={!selectedTableNames.length}>
@@ -977,20 +990,20 @@ const BulkDownloadBundlePage = () => {
                 {showColumnPicker
                   ? " Choose which columns belong in each table. The table of contents uses those columns."
                   : " You can add more municipal tables from the Data Inventory or change your table and year selections."}
+                {isCustomInventory
+                  ? "Add municipal tables from the DataCommon Dataset Inventory."
+                  : "Recommended tables are selected by default, and the most recent year is pre-selected. You can add more municipal tables from the DataCommon Dataset Inventory or change your table and year selections."}
               </p>
               <button type="button" className="bulk-download__add-tables-btn" onClick={handleOpenPicker}>
-                + Add tables from Data Inventory
+                + Add tables from DataCommon Dataset Inventory
               </button>
 
-              {customTables.length > 0 && (
-                <section className="bulk-download__added-section" aria-labelledby="bulk-download-added-heading">
-                  <div className="bulk-download__tables-header">
-                    <h3 id="bulk-download-added-heading">Added tables</h3>
-                    <p className="bulk-download__section-count">
-                      {customTables.length} {customTables.length === 1 ? "table" : "tables"}
-                    </p>
-                  </div>
-                  <p className="bulk-download__hint">Tables you added from the Data Inventory.</p>
+              {isCustomInventory ? (
+                displayTables.length === 0 ? (
+                  <p className="bulk-download__empty-tables">
+                    No tables selected yet. Add municipal tables from the DataCommon Dataset Inventory to continue.
+                  </p>
+                ) : (
                   <ul className="bulk-download__table-list">
                     {customTables.map((tableConfig) => (
                       <TableRow
@@ -1013,7 +1026,66 @@ const BulkDownloadBundlePage = () => {
                       />
                     ))}
                   </ul>
-                </section>
+                )
+              ) : (
+                <>
+                  {customTables.length > 0 && (
+                    <section className="bulk-download__added-section" aria-labelledby="bulk-download-added-heading">
+                      <div className="bulk-download__tables-header">
+                        <h3 id="bulk-download-added-heading">Added tables</h3>
+                        <p className="bulk-download__section-count">
+                          {customTables.length} {customTables.length === 1 ? "table" : "tables"}
+                        </p>
+                      </div>
+                      <p className="bulk-download__hint">Tables you added from the Data Inventory.</p>
+                      <ul className="bulk-download__table-list">
+                        {customTables.map((tableConfig) => (
+                          <TableRow
+                            key={tableConfig.table}
+                            tableConfig={tableConfig}
+                            datasets={datasets}
+                            checked={selectedTableNames.includes(tableConfig.table)}
+                            tableYears={selectedYearsByTable[tableConfig.table] || []}
+                            availableYears={availableYearsByTable[tableConfig.table]}
+                            yearsAreLoading={Boolean(yearsLoadingByTable[tableConfig.table])}
+                            onToggle={toggleTable}
+                            onToggleYear={toggleTableYear}
+                            onRemove={removeCustomTable}
+                          />
+                        ))}
+                      </ul>
+                    </section>
+                  )}
+
+                  <section
+                    className="bulk-download__recommended-section"
+                    aria-labelledby={customTables.length > 0 ? "bulk-download-recommended-heading" : undefined}
+                  >
+                    {customTables.length > 0 && (
+                      <div className="bulk-download__tables-header">
+                        <h3 id="bulk-download-recommended-heading">Recommended tables</h3>
+                        <p className="bulk-download__section-count">
+                          {bundle.tables.length} {bundle.tables.length === 1 ? "table" : "tables"}
+                        </p>
+                      </div>
+                    )}
+                    <ul className="bulk-download__table-list">
+                      {bundle.tables.map((tableConfig) => (
+                        <TableRow
+                          key={tableConfig.table}
+                          tableConfig={tableConfig}
+                          datasets={datasets}
+                          checked={selectedTableNames.includes(tableConfig.table)}
+                          tableYears={selectedYearsByTable[tableConfig.table] || []}
+                          availableYears={availableYearsByTable[tableConfig.table]}
+                          yearsAreLoading={Boolean(yearsLoadingByTable[tableConfig.table])}
+                          onToggle={toggleTable}
+                          onToggleYear={toggleTableYear}
+                        />
+                      ))}
+                    </ul>
+                  </section>
+                </>
               )}
 
               <section

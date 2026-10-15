@@ -122,6 +122,7 @@ export const fetchSubregionData = createAsyncThunk(
           municipalities: [],
           totalMunis: 0,
           subregionName: `${subrg_nm} [${subrg_acr}]`,
+          subregionAcronym: subrg_acr,
         };
       }
 

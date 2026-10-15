@@ -1,5 +1,5 @@
 import axios from "axios";
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import styled, { keyframes } from "styled-components";
 
 const PageContainer = styled.section`
@@ -11,18 +11,18 @@ const PageContainer = styled.section`
 `;
 
 const AccountCreationBox = styled.div`
-  width: 600px;
+  width: 680px;
   height: 550px;
   background: #dddddd;
   border-radius: 10px;
-  box-shadow: 4px 4px 4px #dddddd;
+  box-shadow: 6px 6px 6px #bebebe;
 `;
 
 const Header = styled.div`
   width: 100%;
-  height: 3.5rem;
+  height: 3rem;
   border-radius: 10px;
-  padding: 0.5rem;
+  padding: 6px 16px;
   background: #1F4E46;
   color: white;
   font-size: 22px;
@@ -38,7 +38,7 @@ const BoxContent = styled.div`
 
 const InputsContainer = styled.div`
   width: 100%;
-  padding: 1rem 2rem;
+  padding: 8px 24px;
   padding-bottom: 0px;
   color: #111111;
 `;
@@ -46,6 +46,11 @@ const InputsContainer = styled.div`
 const InputDescription = styled.div`
   font-size: 16px;
   margin-bottom: 0.5rem;
+`;
+
+const CreationSuccessMessage = styled.div`
+  font-size: 14px;
+  margin: 10px 0px;
 `;
 
 const InputLabel = styled.label`
@@ -151,19 +156,27 @@ const MuniAccountCreationPage = () => {
 
   const sortedMunis = useMemo(() => {
     return AVAILABLE_MUNIS.sort((a, b) => a.name.localeCompare(b.name));
-  }, [AVAILABLE_MUNIS]);
+  }, []);
 
   const onCreateAccount = () => {
+    if (!emailInputValue || !nameInputValue || !newPassword || selectedMuniId === -1) {
+      setErrorMessage("Please provide a name, email, password, and select the municipality you work for.");
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setErrorMessage('Passwords do not match, please provide the same password in both inputs.');
+      return;
+    }
+
     setButtonLoading(true);
     setErrorMessage(null);
     setPasswordSetSuccessful(false);
-
-    // newPassword and confirmNewPassword are checked for equality before submit button clicked
     axios.post(`/api/users/create-account`, 
       { email: emailInputValue, name: nameInputValue, password: newPassword, muni_id: selectedMuniId })
-      .then(resp => {
+      .then(() => {
         setPasswordSetSuccessful(true);
-      }).catch(e => {
+      }).catch(() => {
         setErrorMessage("There was an error while creating your account.");
       }).finally(() => {
         setButtonLoading(false);
@@ -207,6 +220,7 @@ const MuniAccountCreationPage = () => {
                 style={{'marginLeft': '73px'}}
                 value={nameInputValue}
                 onChange={e => setNameInputValue(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && onCreateAccount()}
                 placeholder="Full Name..."
               />
             </div>
@@ -219,6 +233,7 @@ const MuniAccountCreationPage = () => {
                 style={{'marginLeft': '103px'}}
                 value={emailInputValue}
                 onChange={e => setEmailInputValue(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && onCreateAccount()}
                 placeholder="Email..."
               />
             </div>
@@ -232,6 +247,7 @@ const MuniAccountCreationPage = () => {
                 style={{'marginLeft': '73px'}}
                 value={newPassword}
                 onChange={e => setNewPassword(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && onCreateAccount()}
                 placeholder="Password..."
               />
             </div>
@@ -245,14 +261,17 @@ const MuniAccountCreationPage = () => {
                 style={{'marginLeft': '14px'}}
                 value={confirmNewPassword}
                 onChange={e => setConfirmNewPassword(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && onCreateAccount()}
                 placeholder="Confirm Password..."
               />
             </div>
             {/* After user has set password, direct them to login. */}
             {passwordSetSuccessful && 
-              <InputDescription>
-                Your Account has been created! Please verify your email using the link that was sent to you before logging in. 
-              </InputDescription>
+              <CreationSuccessMessage>
+                Your Account has been created! Please verify your email using the link that was sent to you before logging in.
+                The email is from no-reply@mailgun2.mapc.org. Please check your spam folder and wait up to three minutes for the email to arrive.
+                If you never receive the email, please reach out to datacommon@mapc.org.
+              </CreationSuccessMessage>
             }
             {errorMessage && <ErrorMessage>{errorMessage}</ErrorMessage>}
           </InputsContainer>

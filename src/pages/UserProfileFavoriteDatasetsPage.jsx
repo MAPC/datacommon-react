@@ -1,9 +1,10 @@
 import { faStar } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import axios from "axios";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import styled, { keyframes } from "styled-components";
+
 import { fetchDatasets } from "../reducers/datasetSlice";
 
 const FavoriteDatasetsContainer = styled.div`
@@ -36,7 +37,7 @@ const FavoriteDatasetRow = styled.div`
 
 const FavoriteIconContainer = styled.div`
   cursor: pointer;
-  color: rgb(191, 168, 37);
+  color: #bfa825;
 
   &:hover {
     color: rgb(165, 145, 31);
@@ -70,7 +71,7 @@ const ProfileFavoriteDatasetsPage = () => {
   const [loading, setLoading] = useState(true);
 
   const dispatch = useDispatch();
-  const { cache: datasets, noDupesDatasets } = useSelector(state => state.dataset);
+  const { noDupesDatasets } = useSelector(state => state.dataset);
 
   useEffect(() => {
     dispatch(fetchDatasets());
@@ -81,7 +82,7 @@ const ProfileFavoriteDatasetsPage = () => {
       .then(res => {
         setFavorites(res.data);
         setLoading(false);
-      }).catch(err => {
+      }).catch(() => {
         setFavorites([]);
         setLoading(false);
       });

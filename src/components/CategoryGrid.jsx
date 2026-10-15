@@ -35,7 +35,6 @@ const CategoryGrid = () => {
   const renderCategories = useMemo(() => {
     return categories.map((category) => {
       const query = new URLSearchParams({
-        geos: "all",
         category,
       }).toString();
 

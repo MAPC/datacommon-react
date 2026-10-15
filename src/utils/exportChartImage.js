@@ -661,6 +661,7 @@ export async function exportChartImageBlob(chartWrapper, { chartTitle = 'Chart T
     });
 
   } catch (error) {
+    console.error("Error:", error);
     throw error;
   }
 }

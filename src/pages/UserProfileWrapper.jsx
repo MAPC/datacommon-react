@@ -1,5 +1,5 @@
 import axios from 'axios';
-import React, { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { Outlet, useLocation, useNavigate } from "react-router"
 import styled from 'styled-components';
 
@@ -7,13 +7,15 @@ import { getCookie, logoutUser } from '../utils/cookies';
 
 const UserProfileMainWrapper = styled.div`
   display: flex;
+  /* width and max-width same as header */
   width: 1400px;
+  max-width: calc(100% - 4em);
   margin: 10px auto; 
 `;
 
 const UserProfileLeftNavContainer = styled.div`
   min-width: 16rem;
-  min-height: 500px;
+  min-height: 520px;
   border: 1px solid #dddddd;
 `;
 
@@ -70,6 +72,10 @@ const UserProfileWrapper = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const sendUserToHome = useCallback(() => {
+    navigate("/");
+  }, [navigate]);
+
   // Whenever the user navigates to an admin page or sub-page, verify their login and auth
   useEffect(() => {
     const cookie = getCookie('datacommon_mapc_token');
@@ -87,7 +93,7 @@ const UserProfileWrapper = () => {
         if (!user) {
           sendUserToHome();
         }
-      }).catch(err => {
+      }).catch(() => {
         sendUserToHome();
         return;
       });
@@ -96,11 +102,7 @@ const UserProfileWrapper = () => {
     if (location.pathname === "/user-profile") {
       navigate("/user-profile/me");
     }
-  }, [location.pathname]);
-
-  const sendUserToHome = () => {
-    navigate("/");
-  };
+  }, [location.pathname, navigate, sendUserToHome]);
 
   const onLogoutClicked = () => {
     logoutUser();

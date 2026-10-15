@@ -11,10 +11,10 @@ import StackedBarChart from "../containers/visualizations/StackedBarChart";
 import StackedAreaChart from "../containers/visualizations/StackedAreaChart";
 import ChartDetails from "./visualizations/ChartDetails";
 import PieChart from "../containers/visualizations/PieChart";
-import LineChart from "../containers/visualizations/LineChart";
 import DownloadAllChartsButton from './field/DownloadAllChartsButton';
 import DataTableModal from './field/DataTableModal';
 import GroupedBarChart from "../containers/visualizations/GroupedBarChart";
+import GaugeChart from "../containers/visualizations/GaugeChart";
 
 // Styled Components
 const MunicipalitiesList = styled.div`
@@ -115,10 +115,10 @@ const chunkArray = (array, size) => {
 const RPAregionProfilesView = () => {
   const dispatch = useDispatch();
   const { rpaId, tab } = useParams();
-  // RPA region view does not support the Digital Equity tab
-  const availableTabs = tabs.filter((t) => t.value !== "digital-equity");
+  // RPA region view does not support the Muni finance tab
+  const availableTabs = tabs.filter((t) => t.value !== "municipal-finance");
   const sanitizeTab = (value) =>
-    value && value !== "digital-equity" ? value : "demographics";
+    value && value !== "municipal-finance" ? value : "demographics";
   const [activeTab, setActiveTab] = useState(sanitizeTab(tab));
   const [modalConfig, setModalConfig] = useState({
     show: false,
@@ -264,6 +264,135 @@ const RPAregionProfilesView = () => {
               </div>
             </Tab>
 
+            <Tab active={activeTab === "digital-equity"}>
+              <header className="print-header">
+                <h3>Digital Equity</h3>
+              </header>
+              <div className="tab__row">
+                <ChartDetails 
+                  chart={charts["digital-equity"].no_computer_access} 
+                  muni={rpaId}
+                  onViewData={handleShowModal}
+                  isRPAregion={true}
+                >
+                  <GaugeChart 
+                    chart={charts["digital-equity"].no_computer_access} 
+                    muni={rpaId}
+                    isRPAregion={true}
+                  />
+                </ChartDetails>
+                <ChartDetails 
+                  chart={charts["digital-equity"].internet_access} 
+                  muni={rpaId}
+                  onViewData={handleShowModal}
+                  isRPAregion={true}
+                >
+                  <GaugeChart 
+                    chart={charts["digital-equity"].internet_access} 
+                    muni={rpaId}
+                    isRPAregion={true}
+                  />
+                </ChartDetails>
+                <ChartDetails 
+                  chart={charts["digital-equity"].smartphone_only} 
+                  muni={rpaId}
+                  onViewData={handleShowModal}
+                  isRPAregion={true}
+                >
+                  <GaugeChart 
+                    chart={charts["digital-equity"].smartphone_only} 
+                    muni={rpaId}
+                    isRPAregion={true}
+                  />
+                </ChartDetails>
+              </div>
+              <div className="tab__row">
+                <ChartDetails 
+                  chart={charts["digital-equity"].internet_usage_by_income} 
+                  muni={rpaId}
+                  onViewData={handleShowModal}
+                  isRPAregion={true}
+                >
+                  <StackedBarChart 
+                    chart={charts["digital-equity"].internet_usage_by_income} 
+                    muni={rpaId}
+                    isRPAregion={true}
+                  />
+                </ChartDetails>
+                <ChartDetails 
+                  chart={charts["digital-equity"].internet_subscription_types} 
+                  muni={rpaId}
+                  onViewData={handleShowModal}
+                  isRPAregion={true}
+                >
+                  <GroupedBarChart 
+                    chart={charts["digital-equity"].internet_subscription_types} 
+                    muni={rpaId}
+                    isRPAregion={true}
+                  />
+                </ChartDetails>
+              </div>
+              <div className="tab__row digital-equity-map">
+                <div className="chart-wrapper" style={{ maxWidth: "100%", flex: "0 0 100%" }}>
+                  <div className="chart-body">
+                    <iframe
+                      title="Digital Equity Map"
+                      src="https://experience.arcgis.com/experience/a7122a3c5c2d4b62a4ac63f3eee3f79e/"
+                      width="100%"
+                      height="600"
+                      style={{ border: "none" }}
+                      loading="lazy"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="tab__row digital-equity-resources">
+                <div className="chart-wrapper" style={{ maxWidth: "100%", flex: "0 0 100%" }}>
+                  <div className="digital-equity-resources__content">
+                    <h4 className="digital-equity-resources__title">Additional Digital Equity Resources</h4>
+                    <ul className="digital-equity-resources__list">
+                      <li>
+                        <a
+                          href="https://broadband.masstech.org/internetforall"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          MBI Internet for All MA Digital Equity Plan
+                        </a>
+                      </li>
+                      <li>
+                        <a
+                          href="https://broadbandmap.fcc.gov/data-download/nationwide-data?version=jun2025&pubDataVer=jun2025"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          FCC Broadband Serviceable Locations (BSL) Data
+                        </a>
+                      </li>
+                      <li>
+                        <a
+                          href="https://broadband.masstech.org/municipal"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          Municipal Digital Equity Plans
+                        </a>
+                      </li>
+                      <li>
+                        <a
+                          href="https://www.digitalinclusion.org/research-data/"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          National Digital Inclusion Alliance Data and Research
+                        </a>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </Tab>
+
             <Tab active={activeTab === "economy"}>
               <header className="print-header">
                 <h3>Economy</h3>
@@ -301,7 +430,7 @@ const RPAregionProfilesView = () => {
                 <h3>Education</h3>
               </header>
               <div className="tab__row">
-                <ChartDetails 
+                {/* <ChartDetails 
                   chart={charts.education.school_enrollment} 
                   muni={rpaId}
                   onViewData={handleShowModal}
@@ -313,7 +442,11 @@ const RPAregionProfilesView = () => {
                     horizontal={true}
                     isRPAregion={true}
                   />
-                </ChartDetails>
+                </ChartDetails> */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', marginRight: '150px'}}>
+                  <div>School enrollment is not available at the RPA region level.</div>
+                  <div>Please select a municipality to see its enrollment.</div>
+                </div>
                 <ChartDetails 
                   chart={charts.education.edu_attainment_by_race} 
                   muni={rpaId}
@@ -334,7 +467,7 @@ const RPAregionProfilesView = () => {
                 <h3>Environment</h3>
               </header>
               <div className="tab__row tab__row--break">
-                <ChartDetails 
+                {/* <ChartDetails 
                   chart={charts.environment.water_usage_per_cap} 
                   muni={rpaId}
                   onViewData={handleShowModal}
@@ -345,7 +478,11 @@ const RPAregionProfilesView = () => {
                     muni={rpaId}
                     isRPAregion={true}
                   />
-                </ChartDetails>
+                </ChartDetails> */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', marginRight: '150px'}}>
+                  <div>Per-capita water usage is not available at the RPA region level.</div>
+                  <div>Please select a municipality to see its usage.</div>
+                </div>
                 <ChartDetails 
                   chart={charts.environment.energy_usage_gas} 
                   muni={rpaId}

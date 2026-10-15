@@ -33,6 +33,21 @@ export function bulkDownloadSelectionTooLarge(tables, geographyCount) {
     return `This download would include about ${formatCount(total)} rows across ${formatCount(tableCount)} ${tableWord}. One download can include up to ${formatCount(MAX_BULK_DOWNLOAD_TOTAL_ROWS)} rows. Select fewer years, tables, or geographies.`;
   }
   return "";
+/** front-end only: pick municipal tables from Data Inventory (no curated table list). */
+export const CUSTOM_BULK_DOWNLOAD_BUNDLE_ID = "custom";
+
+export const CUSTOM_BULK_DOWNLOAD_BUNDLE = {
+  id: CUSTOM_BULK_DOWNLOAD_BUNDLE_ID,
+  title: "Custom Data Download",
+  description:
+    "Choose municipal tables from the Data Inventory and download them for one or more interested geographies.",
+  geographyType: "municipality",
+  tables: [],
+  isCustomInventory: true,
+};
+
+export function isCustomBulkDownloadBundle(bundleId) {
+  return bundleId === CUSTOM_BULK_DOWNLOAD_BUNDLE_ID;
 }
 
 /** Map a Data Inventory dataset to a bulk-download table config. */
