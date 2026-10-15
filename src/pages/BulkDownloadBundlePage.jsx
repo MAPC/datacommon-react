@@ -371,8 +371,6 @@ LimitReachedModal.propTypes = {
   onClose: PropTypes.func.isRequired,
 };
 
-const GEOGRAPHY_AMOUNT_LIMIT = 10;
-
 const BulkDownloadBundlePage = () => {
   const { bundleId } = useParams();
   const dispatch = useDispatch();
@@ -679,7 +677,7 @@ const BulkDownloadBundlePage = () => {
 
   const isCustomInventory = Boolean(bundle.isCustomInventory) || isCustomBulkDownloadBundle(bundleId);
   const isPageLoading = status !== "succeeded" || yearsLoading || municipalitiesLoading;
-  const allTablesSelected = selectedTableNames.length === displayTables.length;
+  const allTablesSelected = displayTables.length > 0 && selectedTableNames.length === displayTables.length;
   const columnsReady =
     !showColumnPicker ||
     selectedTableNames.every((tableName) => Array.isArray(selectedColumnsByTable[tableName]));
@@ -687,6 +685,7 @@ const BulkDownloadBundlePage = () => {
     selectedTableConfigs,
     municipalities.length,
   );
+  const geographyAmountLimitReached = bundleId !== "cep" && municipalities.length >= MAX_BULK_DOWNLOAD_GEOGRAPHIES;
   const extraGeographies = municipalities.length - MAX_BULK_DOWNLOAD_GEOGRAPHIES;
   const geographyLimitMessage =
     bundleId !== "cep" && extraGeographies > 0
@@ -699,8 +698,6 @@ const BulkDownloadBundlePage = () => {
     municipalities.length > 0 &&
     !geographyLimitMessage &&
     !selectionTooLargeMessage;
-  const allTablesSelected = displayTables.length > 0 && selectedTableNames.length === displayTables.length;
-  const canDownload = selectedTableNames.length > 0 && !yearsLoading && municipalities.length > 0;
 
   const handleMuniSelect = (selection) => {
     const muniId = Number(selection?.muniId);
@@ -875,12 +872,12 @@ const BulkDownloadBundlePage = () => {
                   searchColumn="municipal"
                   onSelect={handleMuniSelect}
                   placeholder={
-                    geographyLimitMessage
+                    geographyAmountLimitReached
                       ? "Geography limit reached"
                       : "Search for a geography in Massachusetts"
                   }
                   className="small"
-                  disabled={municipalities.length >= GEOGRAPHY_AMOUNT_LIMIT}
+                  disabled={geographyAmountLimitReached}
                   searchable={municipalitySearchable}
                 />
                 {geographyLimitMessage && (
@@ -891,9 +888,11 @@ const BulkDownloadBundlePage = () => {
                 {showColumnPicker && municipalities.length > 0 && (
                   <p className="bulk-download__selected-muni">
                     {municipalities.length} of {municipalityOptions.length} geographies selected
-                {municipalities.length >= GEOGRAPHY_AMOUNT_LIMIT && (
+                  </p>
+                )}
+                {geographyAmountLimitReached && (
                   <p className="bulk-download__hint error-message">
-                    Only 10 geographies can be exported at a time.
+                    Only {MAX_BULK_DOWNLOAD_GEOGRAPHIES} geographies can be exported at a time.
                   </p>
                 )}
                 {municipalities.length > 0 && (
@@ -986,13 +985,12 @@ const BulkDownloadBundlePage = () => {
                 </div>
               </div>
               <p className="bulk-download__hint">
-                Recommended tables are selected by default, and the most recent year is pre-selected.
-                {showColumnPicker
-                  ? " Choose which columns belong in each table. The table of contents uses those columns."
-                  : " You can add more municipal tables from the Data Inventory or change your table and year selections."}
                 {isCustomInventory
                   ? "Add municipal tables from the DataCommon Dataset Inventory."
-                  : "Recommended tables are selected by default, and the most recent year is pre-selected. You can add more municipal tables from the DataCommon Dataset Inventory or change your table and year selections."}
+                  : "Recommended tables are selected by default, and the most recent year is pre-selected. You can add more municipal tables from the DataCommon Dataset Inventory or change your table and year selections. "}
+                {showColumnPicker
+                  ? " Choose which columns belong in each table. The table of contents uses those columns."
+                  : ""}
               </p>
               <button type="button" className="bulk-download__add-tables-btn" onClick={handleOpenPicker}>
                 + Add tables from DataCommon Dataset Inventory
@@ -1048,8 +1046,14 @@ const BulkDownloadBundlePage = () => {
                             tableYears={selectedYearsByTable[tableConfig.table] || []}
                             availableYears={availableYearsByTable[tableConfig.table]}
                             yearsAreLoading={Boolean(yearsLoadingByTable[tableConfig.table])}
+                            showColumnPicker={showColumnPicker}
+                            columnOptions={columnOptionsByTable[tableConfig.table] || []}
+                            selectedColumns={selectedColumnsByTable[tableConfig.table] || []}
+                            columnsAreLoading={Boolean(columnsLoadingByTable[tableConfig.table])}
                             onToggle={toggleTable}
                             onToggleYear={toggleTableYear}
+                            onToggleColumn={toggleTableColumn}
+                            onSetColumns={setTableColumns}
                             onRemove={removeCustomTable}
                           />
                         ))}
@@ -1079,49 +1083,20 @@ const BulkDownloadBundlePage = () => {
                           tableYears={selectedYearsByTable[tableConfig.table] || []}
                           availableYears={availableYearsByTable[tableConfig.table]}
                           yearsAreLoading={Boolean(yearsLoadingByTable[tableConfig.table])}
+                          showColumnPicker={showColumnPicker}
+                          columnOptions={columnOptionsByTable[tableConfig.table] || []}
+                          selectedColumns={selectedColumnsByTable[tableConfig.table] || []}
+                          columnsAreLoading={Boolean(columnsLoadingByTable[tableConfig.table])}
                           onToggle={toggleTable}
                           onToggleYear={toggleTableYear}
+                          onToggleColumn={toggleTableColumn}
+                          onSetColumns={setTableColumns}
                         />
                       ))}
                     </ul>
                   </section>
                 </>
               )}
-
-              <section
-                className="bulk-download__recommended-section"
-                aria-labelledby={customTables.length > 0 ? "bulk-download-recommended-heading" : undefined}
-              >
-                {customTables.length > 0 && (
-                  <div className="bulk-download__tables-header">
-                    <h3 id="bulk-download-recommended-heading">Recommended tables</h3>
-                    <p className="bulk-download__section-count">
-                      {bundle.tables.length} {bundle.tables.length === 1 ? "table" : "tables"}
-                    </p>
-                  </div>
-                )}
-                <ul className="bulk-download__table-list">
-                  {bundle.tables.map((tableConfig) => (
-                    <TableRow
-                      key={tableConfig.table}
-                      tableConfig={tableConfig}
-                      datasets={datasets}
-                      checked={selectedTableNames.includes(tableConfig.table)}
-                      tableYears={selectedYearsByTable[tableConfig.table] || []}
-                      availableYears={availableYearsByTable[tableConfig.table]}
-                      yearsAreLoading={Boolean(yearsLoadingByTable[tableConfig.table])}
-                      showColumnPicker={showColumnPicker}
-                      columnOptions={columnOptionsByTable[tableConfig.table] || []}
-                      selectedColumns={selectedColumnsByTable[tableConfig.table] || []}
-                      columnsAreLoading={Boolean(columnsLoadingByTable[tableConfig.table])}
-                      onToggle={toggleTable}
-                      onToggleYear={toggleTableYear}
-                      onToggleColumn={toggleTableColumn}
-                      onSetColumns={setTableColumns}
-                    />
-                  ))}
-                </ul>
-              </section>
             </div>
           </>
         )}
