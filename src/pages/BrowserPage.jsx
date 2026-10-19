@@ -90,7 +90,7 @@ const FilterList = styled.ul`
   list-style: none;
   padding: 0;
   margin: 0;
-  max-height: 250px;
+  max-height: 300px;
   overflow-y: auto;
   overflow-x: hidden;
 
@@ -118,7 +118,7 @@ const FilterListCategories = styled.ul`
   list-style: none;
   padding: 0;
   margin: 0;
-  max-height: 225px;
+  max-height: 230px;
   overflow-y: auto;
   overflow-x: hidden;
 
@@ -1111,6 +1111,126 @@ const BrowserPage = () => {
     setSearchQuery('');
   };
 
+  const getCountForCategoryFilter = (menu1) => {
+    // return nothing if filter is selected
+    if (selectedMenu1s.includes(menu1)) {
+      return '';
+    }
+    // if there is another category or subcategory selected, this filter is additive
+    else if (selectedMenu1s.length > 0 || selectedMenu2s.length > 0) {
+      const willBeFiltered = filterDatasets({
+        datasets,
+        searchQuery,
+        sources: selectedSources,
+        categories: [...selectedMenu1s, menu1],
+        subcategories: selectedMenu2s,
+        geographies: selectedGeoFilters,
+        favoriteDatasets: (filterToFavorites && favoriteDatasets) ? favoriteDatasets.map(f => f.table_name) : null,
+        filterToNonActive: filterToNonActive,
+      });
+      return `+${willBeFiltered.length - foundDatasetCount}`;
+    }
+    // if there isn't another category filter, get the count.
+    else {
+      let categoryCount = 0;
+      sortedDatasets.forEach(compressedDs => {
+        categoryCount += compressedDs.datasets.filter(d => d.menu1 === menu1).length;
+      });
+     return categoryCount;
+    }
+  };
+
+  const getCountForSubCategoryFilter = (menu1, menu2) => {
+    // return nothing if filter is selected or parent is selected
+    if (selectedMenu2s.includes(menu2) || selectedMenu1s.includes(menu1)) {
+      return '';
+    }
+    // if there is another category or subcategory selected, this filter is additive
+    else if (selectedMenu1s.length > 0 || selectedMenu2s.length > 0) {
+      const willBeFiltered = filterDatasets({
+        datasets,
+        searchQuery,
+        sources: selectedSources,
+        categories: selectedMenu1s,
+        subcategories: [...selectedMenu2s, menu2],
+        geographies: selectedGeoFilters,
+        favoriteDatasets: (filterToFavorites && favoriteDatasets) ? favoriteDatasets.map(f => f.table_name) : null,
+        filterToNonActive: filterToNonActive,
+      });
+      return `+${willBeFiltered.length - foundDatasetCount}`;
+    }
+    // if there isn't another subcategory filter, get the count.
+    else {
+      let categoryCount = 0;
+      sortedDatasets.forEach(compressedDs => {
+        categoryCount += compressedDs.datasets.filter(d => d.menu2 === menu2).length;
+      });
+     return categoryCount;
+    }
+  };
+
+  const getCountForGeographyFilter = (geo) => {
+    // return nothing if filter is selected
+    if (selectedGeoFilters.includes(geo)) {
+      return '';
+    }
+    // if there is another geography selected, the filter is additive
+    else if (selectedGeoFilters.length > 0) {
+      const willBeFiltered = filterDatasets({
+        datasets,
+        searchQuery,
+        sources: selectedSources,
+        categories: selectedMenu1s,
+        subcategories: selectedMenu2s,
+        geographies: [...selectedGeoFilters, geo],
+        favoriteDatasets: (filterToFavorites && favoriteDatasets) ? favoriteDatasets.map(f => f.table_name) : null,
+        filterToNonActive: filterToNonActive,
+      });
+      return `+${willBeFiltered.length - foundDatasetCount}`;
+    }
+    // if there isn't another geo filter, get the count.
+    else {
+      let categoryCount = 0;
+      sortedDatasets.forEach(compressedDs => {
+        if (geo !== 'other') {
+          categoryCount += compressedDs.datasets.filter(d => d.geography === geo).length;
+        } else {
+          categoryCount += compressedDs.datasets.filter(d => !d.geography).length;
+        }
+      });
+     return categoryCount;
+    }
+  };
+
+  const getCountForSourceFilter = (source) => {
+    // return nothing if filter is selected
+    if (selectedSources.includes(source)) {
+      return '';
+    }
+    // if there is another source selected, this filter is additive
+    else if (selectedSources.length > 0) {
+      const willBeFiltered = filterDatasets({
+        datasets,
+        searchQuery,
+        sources: [...selectedSources, source],
+        categories: selectedMenu1s,
+        subcategories: selectedMenu2s,
+        geographies: selectedGeoFilters,
+        favoriteDatasets: (filterToFavorites && favoriteDatasets) ? favoriteDatasets.map(f => f.table_name) : null,
+        filterToNonActive: filterToNonActive,
+      });
+      return `+${willBeFiltered.length - foundDatasetCount}`;
+    }
+    // if there isn't another source filter, get the count.
+    else {
+      let categoryCount = 0;
+      sortedDatasets.forEach(compressedDs => {
+        categoryCount += compressedDs.datasets.filter(d => d.source.includes(source)).length;
+      });
+     return categoryCount;
+    }
+  }
+
   const filtersActive = areFiltersPresent();
 
   const toDataset = (datasetId) => {
@@ -1234,6 +1354,9 @@ const BrowserPage = () => {
                       <CheckboxLabel htmlFor={`menu1-${menu1}`}>
                         {menu1}
                       </CheckboxLabel>
+                      <div>
+                        {getCountForCategoryFilter(menu1)}
+                      </div>
                       <FilterTreeChevron onClick={() => onCategoryFilterOpenClose(menu1)}>
                         {categoryOptionTree[menu1].open ? "▲" : "▼"}
                       </FilterTreeChevron>
@@ -1252,6 +1375,9 @@ const BrowserPage = () => {
                           <CheckboxLabel htmlFor={`menu2-${menu2}`}>
                             {menu2}
                           </CheckboxLabel>
+                          <div style={{ marginRight: "25px" }}>
+                            {getCountForSubCategoryFilter(menu1, menu2)}
+                          </div>
                         </FilterItem>
                       ))}
                     </FilterItemChildren>}
@@ -1285,6 +1411,9 @@ const BrowserPage = () => {
                 <CheckboxLabel htmlFor={`geography-${geo.key}`}>
                   {geo.name}
                 </CheckboxLabel>
+                <div style={{ marginRight: "15px" }}>
+                  {getCountForGeographyFilter(geo.key)}
+                </div>
               </FilterItem>
             </FilterList>)}
           </FilterSection>
@@ -1308,6 +1437,9 @@ const BrowserPage = () => {
                   <CheckboxLabel htmlFor={`source-${source}`}>
                     {source}
                   </CheckboxLabel>
+                  <div style={{ marginRight: "15px", marginLeft: '8px' }}>
+                    {getCountForSourceFilter(source)}
+                  </div>
                 </FilterItem>
               ))}
               {!sourcesExpanded && (
