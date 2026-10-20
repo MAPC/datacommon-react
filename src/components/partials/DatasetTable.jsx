@@ -581,6 +581,7 @@ class DatasetTable extends React.Component {
           filterModalColumn={this.state.filterModalColumn}
           handleClose={() => this.setState({ filterModalOpen: false})}
           addNewColumnFilter={addNewColumnFilter}
+          allRows={sortedRows}
         />
       </div>
     );

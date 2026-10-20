@@ -7,10 +7,10 @@ import { unformattedColumns } from "../../constants/columns";
 
 const DataRow = ({
   columnSegments,
-  showHiddenColumnMarkers,
   index,
   rowData,
-  linkRowsToDatasetView,
+  showHiddenColumnMarkers = false,
+  linkRowsToDatasetView = false,
   queryYearColumn = "",
 }) => {
   const targetId = getInventoryRowDatasetId(rowData);
@@ -111,12 +111,6 @@ DataRow.propTypes = {
   rowData: PropTypes.object.isRequired,
   linkRowsToDatasetView: PropTypes.bool,
   queryYearColumn: PropTypes.string,
-};
-
-DataRow.defaultProps = {
-  showHiddenColumnMarkers: false,
-  linkRowsToDatasetView: false,
-  queryYearColumn: "",
 };
 
 export default DataRow;
