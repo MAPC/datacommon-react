@@ -9,14 +9,15 @@ function App() {
   const isEmbedMap =
     hideSiteChrome &&
     ((location.pathname || "").endsWith("/map") || location.pathname?.includes("/map"));
+  const isExploreMap = location.pathname === "/explore";
 
   return (
-    <section className={`component App${hideSiteChrome ? " App--embed" : ""}${isEmbedMap ? " App--embed-map" : ""}`}>
+    <section className={`component App${hideSiteChrome ? " App--embed" : ""}${isEmbedMap ? " App--embed-map" : ""}${isExploreMap ? " App--explore" : ""}`}>
       {!hideSiteChrome && <Header />}
       <main>
         <Outlet />
       </main>
-      {!hideSiteChrome && <Footer />}
+      {!hideSiteChrome && !isExploreMap && <Footer />}
     </section>
   )
 }

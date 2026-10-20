@@ -1,0 +1,258 @@
+.App--explore {
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
+
+  > main {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding-bottom: 0;
+    overflow: hidden;
+  }
+}
+
+.explore-map {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  background: #e8eef0;
+  overflow: hidden;
+
+  &__stage {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+  }
+
+  &__basemap {
+    position: absolute;
+    inset: 0;
+  }
+
+  &__viewer {
+    flex: 1 0 auto;
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+
+    .dataset-map-preview {
+      flex: 1 0 auto;
+      margin: 0;
+      padding: 12px;
+    }
+
+    .dataset-map-preview__map-shell,
+    .dataset-map-preview__map {
+      height: max(520px, calc(100vh - 220px));
+      min-height: 520px;
+      max-height: none;
+    }
+
+    .dataset-map-preview--external-controls .dataset-map-preview__map-body {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  &__picker {
+    position: relative;
+    z-index: 2;
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 340px;
+    width: 340px;
+    min-height: 0;
+    max-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 16px;
+    background: #fff;
+    border-right: 1px solid rgba($color_font-medium, 0.28);
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: 1.25rem;
+    }
+  }
+
+  &__search-bar {
+    position: relative;
+    z-index: 5;
+    margin: 0 0 12px;
+
+    .explore-map__dataset-search {
+      margin: 0;
+      max-width: 100%;
+      width: 100%;
+      min-width: 0;
+
+      &::before {
+        content: "";
+        position: absolute;
+        right: 1.15em;
+        top: 50%;
+        z-index: 11;
+        width: 1.2em;
+        height: 1.2em;
+        transform: translateY(-50%);
+        background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' stroke='%231F4E46' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' viewBox='0 0 24 24'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-3.5-3.5'/%3E%3C/svg%3E") no-repeat center / contain;
+        pointer-events: none;
+      }
+
+      input {
+        padding-right: 2.75em;
+      }
+    }
+  }
+
+  &__status {
+    margin: 10px 0 0;
+    font-size: 0.9rem;
+    color: $color_font-medium--dark;
+
+    &--error {
+      color: #9b1c1c;
+    }
+  }
+
+  &__selected {
+    margin: 16px 0 0;
+    color: $color_font-dark;
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+
+  &__years {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-top: 12px;
+
+    > span {
+      flex: 0 0 auto;
+      min-width: 72px;
+      padding-top: 4px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: $color_font-medium--dark;
+    }
+
+    ul {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    button {
+      border: 1px solid $color_font-medium;
+      border-radius: $elem_button-radius;
+      background: #fff;
+      color: $color_font-medium--dark;
+      cursor: pointer;
+      font: inherit;
+      font-size: 0.8rem;
+      padding: 0.15em 0.55em 0.25em;
+
+      &.is-selected {
+        border-color: $color_brand-secondary;
+        border-width: 2px;
+        color: $color_brand-secondary;
+        font-weight: 700;
+      }
+    }
+  }
+
+  &__controls {
+    margin-top: 16px;
+
+    &.datasets .dataset-map-preview__side-panels {
+      height: auto;
+      min-height: 0;
+      max-height: none;
+      overflow: visible;
+    }
+  }
+
+  &__side-loading,
+  &__loading-mask {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: $color_font-medium--dark;
+    font-size: 0.9rem;
+  }
+
+  &__side-loading {
+    flex: 1 1 auto;
+    min-height: 180px;
+  }
+
+  &__loading-mask {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    background: rgba(255, 255, 255, 0.82);
+  }
+
+  &__dataset-link {
+    display: inline-block;
+    margin-top: 12px;
+    color: $color_brand-secondary;
+    font-weight: 700;
+    font-size: 0.9rem;
+
+    &:hover {
+      color: $color_brand-secondary--dark;
+    }
+  }
+}
+
+@include media(medium) {
+  .App--explore {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+
+    > main {
+      overflow: visible;
+    }
+  }
+
+  .explore-map {
+    flex-direction: column;
+    min-height: calc(100vh - 80px);
+    overflow: visible;
+
+    &__picker {
+      flex: 0 0 auto;
+      width: auto;
+      max-height: none;
+      border-right: 0;
+      border-bottom: 1px solid rgba($color_font-medium, 0.28);
+    }
+
+    &__stage {
+      min-height: 70vh;
+    }
+
+    &__viewer .dataset-map-preview__map-shell,
+    &__viewer .dataset-map-preview__map {
+      height: 70vh;
+      min-height: 420px;
+    }
+  }
+}

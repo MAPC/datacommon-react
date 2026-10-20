@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import PropTypes from "prop-types";
 import { useSelector } from "react-redux";
 import { useLocation } from "react-router-dom";
@@ -355,6 +356,7 @@ function DatasetMapPreview({
   database = "ds",
   schema = "tabular",
   table = "",
+  sidePanelsHost = null,
 }) {
   const location = useLocation();
   const isEmbedView = new URLSearchParams(location.search).get("embed") === "1";
@@ -1460,43 +1462,57 @@ function DatasetMapPreview({
     });
   }, [selectedFeature, mapYear, geographyType, geometryJoinKey, marginColumn, extraDimensionLabels]);
 
+  const selectedTractBoundary = selectedDetails?.tractBoundary || null;
+
   // when viewing a census tract, fetch the muni for that census tract
   useEffect(() => {
-    if (geographyType !== 'census_tracts') return;
-    if (!selectedDetails) return;
+    if (geographyType !== "census_tracts" || !selectedFeatureKey || !selectedTractBoundary) {
+      setLoadingMuniForCt(false);
+      return undefined;
+    }
 
     let tableName;
     let columnName;
-    if (selectedDetails.tractBoundary === "2020 Census tracts") {
+    if (selectedTractBoundary === "2020 Census tracts") {
       tableName = "_datakeys_geog_xw_2020";
       columnName = "ct20_id";
-    } else if (selectedDetails.tractBoundary === "2010 Census tracts") {
+    } else if (selectedTractBoundary === "2010 Census tracts") {
       tableName = "_datakeys_geog_xw_2010";
       columnName = "ct10_id";
     }
-    if (!tableName || !columnName) return;
+    if (!tableName || !columnName) {
+      setLoadingMuniForCt(false);
+      return undefined;
+    }
 
-    const url = `/api?token=datacommon&database=ds&schema=tabular&table=${tableName}` +
-      `&columns=DISTINCT(muni_id),muni_name,${columnName}&filters=${columnName}:${selectedFeatureKey}`;
+    let cancelled = false;
+    const url = `/api?token=${import.meta.env.VITE_MAPC_API_TOKEN}&database=ds&schema=tabular&table=${tableName}` +
+      `&columns=DISTINCT(muni_id),muni_name,${columnName}&filters=${columnName}:${encodeURIComponent(selectedFeatureKey)}`;
     setLoadingMuniForCt(true);
     setMuniForSelectedCt(null);
     axios.get(url)
-      .then(res => {
-        const rows = res.data.rows;
+      .then((res) => {
+        if (cancelled) return;
+        const rows = res.data?.rows || [];
         if (rows.length === 0) {
           console.error("Found no muni for selected census tract");
           return;
         }
-        const result = rows.map(r => r.muni_name).join(", ");
+        const result = rows.map((row) => row.muni_name).join(", ");
         setMuniForSelectedCt(result);
       })
-      .catch(err => {
+      .catch((err) => {
+        if (cancelled) return;
         console.error("Error while fetching muni for selected census tract", err);
       })
       .finally(() => {
-        setLoadingMuniForCt(false);
+        if (!cancelled) setLoadingMuniForCt(false);
       });
-  }, [geographyType, selectedFeatureKey, selectedDetails]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [geographyType, selectedFeatureKey, selectedTractBoundary]);
 
   const rankingRows = useMemo(
     () =>
@@ -1657,8 +1673,206 @@ function DatasetMapPreview({
     );
   }
 
+  const sidePanels = !isEmbedView ? (
+    <div className="dataset-map-preview__side-panels">
+      <aside className="dataset-map-preview__detail" aria-label="Map variable">
+        <div className="dataset-map-preview__detail-header">
+          <h2 className="dataset-map-preview__detail-title">Variable</h2>
+        </div>
+        <label className="dataset-map-preview__variable-field">
+          <span className="dataset-map-preview__variable-field-label">Geographic frame</span>
+          <select
+            className="dataset-map-preview__variable-select"
+            value={geographicFrame}
+            onChange={(e) => setGeographicFrameState(e.target.value)}
+            aria-label="Geographic frame"
+          >
+            <option value={GEOGRAPHIC_FRAME.massachusetts}>Massachusetts</option>
+            <option value={GEOGRAPHIC_FRAME.mapc}>MAPC region</option>
+          </select>
+        </label>
+        {mappableColumns.length ? (
+          <>
+            <label className="dataset-map-preview__variable-field">
+              <span className="dataset-map-preview__variable-field-label">Choose a column to color the map</span>
+                <select
+                className="dataset-map-preview__variable-select dataset-map-preview__variable-select--truncate"
+                value={activeVariable || ""}
+                disabled={boundariesLoading}
+                onChange={(e) => {
+                  if (boundariesLoading) return;
+                  onMapVariableChange?.(e.target.value);
+                }}
+                aria-label="Map variable"
+                aria-busy={boundariesLoading || undefined}
+                title={boundariesLoading ? "Loading year data" : (activeVariableLabel || undefined)}
+              >
+                {mappableColumns.map((col) => (
+                  <option key={col.name} value={col.name}>
+                    {col.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {needsDimensionPicker && (
+              <div className="dataset-map-preview__dimension-fields">
+                <p className="dataset-map-preview__dimension-hint">
+                  This dataset reports more than one category for each{" "}
+                  {geographyEntityLabel(geographyType)}{" "}
+                  in the selected year. Choose a category below so the map compares one value per place.
+                </p>
+                {extraDimensions.dimensions.map((dimension) => {
+                  const dimensionTitle = getColumnHeaderLabel(columnKeys, dimension.name);
+                  return (
+                    <label key={dimension.name} className="dataset-map-preview__variable-field">
+                      <span className="dataset-map-preview__variable-field-label">{dimensionTitle}</span>
+                      <select
+                        className={`dataset-map-preview__variable-select dataset-map-preview__variable-select--truncate${!dimensionSelections[dimension.name] ? " dataset-map-preview__variable-select--required" : ""}`}
+                        value={dimensionSelections[dimension.name] ?? ""}
+                        disabled={boundariesLoading}
+                        onChange={(e) => {
+                          if (boundariesLoading) return;
+                          const value = e.target.value;
+                          setDimensionSelections((prev) => ({ ...prev, [dimension.name]: value }));
+                        }}
+                        aria-label={dimensionTitle}
+                        aria-busy={boundariesLoading || undefined}
+                        title={boundariesLoading ? "Loading year data" : (dimensionSelections[dimension.name] || undefined)}
+                      >
+                        <option value="">Select {dimensionTitle}</option>
+                        {dimension.values.map((value) => (
+                          <option key={String(value)} value={String(value)}>
+                            {String(value)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        ) : (
+          <p className="dataset-map-preview__variable-field-label">
+            This boundary layer has no numeric columns to choropleth. Click a feature for details.
+          </p>
+        )}
+      </aside>
+
+      <aside className="dataset-map-preview__detail" aria-label="Selected area details">
+        <div className="dataset-map-preview__detail-header">
+          <h2 className="dataset-map-preview__detail-title">Details</h2>
+          {selectedDetails && (
+            <button
+              type="button"
+              className="dataset-map-preview__detail-close"
+              onClick={() => setSelectedFeatureKey(null)}
+              aria-label="Clear selection"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+        {!selectedDetails ? (
+          <p className="dataset-map-preview__detail-empty">
+            Click a {geographyEntityLabel(geographyType)} on the map to view its values.
+          </p>
+        ) : (
+          <dl className="dataset-map-preview__detail-list">
+            {geographyType === 'census_tracts' && (
+              <div className="dataset-map-preview__detail-row dataset-map-preview__detail-row--inline">
+                <dt>Municipality</dt>
+                {loadingMuniForCt && <MoonLoader size={14}/>}
+                {!loadingMuniForCt && (
+                  <dd>{muniForSelectedCt || "Unknown Municipality"}</dd>
+                )}
+              </div>
+            )}
+            <div className="dataset-map-preview__detail-row dataset-map-preview__detail-row--inline">
+              <dt>
+                {geographyEntityLabel(geographyType).replace(/^./, (s) => s.toUpperCase())}
+              </dt>
+              <dd>{selectedDetails.label}</dd>
+            </div>
+            {selectedDetails.year && (
+              <div className="dataset-map-preview__detail-row dataset-map-preview__detail-row--inline">
+                <dt>Year</dt>
+                <dd>{selectedDetails.year}</dd>
+              </div>
+            )}
+            {selectedDetails.tractBoundary && (
+              <div className="dataset-map-preview__detail-row dataset-map-preview__detail-row--inline">
+                <dt>Boundary</dt>
+                <dd>{selectedDetails.tractBoundary}</dd>
+              </div>
+            )}
+            {(selectedDetails.extraDimensionLabels || []).map((item) => (
+              <div
+                key={item.label}
+                className="dataset-map-preview__detail-row"
+              >
+                <dt>{item.label}</dt>
+                <dd>{item.value}</dd>
+              </div>
+            ))}
+            <div className="dataset-map-preview__detail-row dataset-map-preview__detail-row--inline dataset-map-preview__detail-row--metric">
+              <dt>{activeVariableLabel}</dt>
+              <dd>
+                {formatMapValue(selectedDetails.value, activeVariableUnit, { kind: mapValueKind, categoryLabels })}
+                {selectedDetails.marginOfError != null && (
+                  <span className="dataset-map-preview__detail-metric-moe">
+                    {" "}
+                    ± {formatMapValue(selectedDetails.marginOfError, activeVariableUnit)}
+                  </span>
+                )}
+              </dd>
+            </div>
+          </dl>
+        )}
+        <div className="dataset-map-preview__download-wrap">
+          <button
+            type="button"
+            className="dataset-map-preview__download-geojson"
+            onClick={handleDownloadGeojson}
+            disabled={!canDownloadGeojson}
+            aria-busy={isExporting}
+            aria-describedby="dataset-map-geojson-download-tip"
+          >
+            {isExporting ? "Preparing…" : "Download as GeoJSON"}
+          </button>
+          <span
+            id="dataset-map-geojson-download-tip"
+            role="tooltip"
+            className="dataset-map-preview__download-tooltip"
+          >
+            {!supportsTabularGeojsonExport(table, geographyType, { menu1 })
+              ? "GeoJSON export is not available for this geography type."
+              : mapYear != null
+                ? `Download the whole state map data as GeoJSON for selected year ${mapYear}.`
+                : "Download the whole state map data as GeoJSON."}
+          </span>
+          {exportError && (
+            <p className="dataset-map-preview__download-error" role="alert">
+              {exportError}
+            </p>
+          )}
+        </div>
+        <button
+          type="button"
+          className="dataset-map-preview__download-geojson"
+          onClick={handleExportToPng}
+          disabled={!mapRef.current || !canDownloadGeojson}
+          aria-busy={isExporting}
+          aria-describedby="dataset-map-geojson-download-tip"
+        >
+          {isExporting ? "Preparing…" : "Download as PNG"}
+        </button>
+      </aside>
+    </div>
+  ) : null;
+
   return (
-    <div className={`dataset-map-preview${isEmbedView ? " dataset-map-preview--embed" : ""}`}>
+    <div className={`dataset-map-preview${isEmbedView ? " dataset-map-preview--embed" : ""}${sidePanelsHost ? " dataset-map-preview--external-controls" : ""}`}>
       <div className="dataset-map-preview__map-panel">
         {boundariesError && (
           <span className="dataset-map-preview__status dataset-map-preview__status--error">{boundariesError}</span>
@@ -1836,203 +2050,7 @@ function DatasetMapPreview({
           </div>
           </div>
 
-          {!isEmbedView && (
-            <div className="dataset-map-preview__side-panels">
-              <aside className="dataset-map-preview__detail" aria-label="Map variable">
-                <div className="dataset-map-preview__detail-header">
-                  <h2 className="dataset-map-preview__detail-title">Variable</h2>
-                </div>
-                <label className="dataset-map-preview__variable-field">
-                  <span className="dataset-map-preview__variable-field-label">Geographic frame</span>
-                  <select
-                    className="dataset-map-preview__variable-select"
-                    value={geographicFrame}
-                    onChange={(e) => setGeographicFrameState(e.target.value)}
-                    aria-label="Geographic frame"
-                  >
-                    <option value={GEOGRAPHIC_FRAME.massachusetts}>Massachusetts</option>
-                    <option value={GEOGRAPHIC_FRAME.mapc}>MAPC region</option>
-                  </select>
-                </label>
-                {mappableColumns.length ? (
-                  <>
-                    <label className="dataset-map-preview__variable-field">
-                      <span className="dataset-map-preview__variable-field-label">Choose a column to color the map</span>
-                        <select
-                        className="dataset-map-preview__variable-select dataset-map-preview__variable-select--truncate"
-                        value={activeVariable || ""}
-                        disabled={boundariesLoading}
-                        onChange={(e) => {
-                          if (boundariesLoading) return;
-                          onMapVariableChange?.(e.target.value);
-                        }}
-                        aria-label="Map variable"
-                        aria-busy={boundariesLoading || undefined}
-                        title={boundariesLoading ? "Loading year data" : (activeVariableLabel || undefined)}
-                      >
-                        {mappableColumns.map((col) => (
-                          <option key={col.name} value={col.name}>
-                            {col.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    {needsDimensionPicker && (
-                      <div className="dataset-map-preview__dimension-fields">
-                        <p className="dataset-map-preview__dimension-hint">
-                          This dataset reports more than one category for each{" "}
-                          {geographyEntityLabel(geographyType)}{" "}
-                          in the selected year. Choose a category below so the map compares one value per place.
-                        </p>
-                        {extraDimensions.dimensions.map((dimension) => {
-                          const dimensionTitle = getColumnHeaderLabel(columnKeys, dimension.name);
-                          return (
-                            <label key={dimension.name} className="dataset-map-preview__variable-field">
-                              <span className="dataset-map-preview__variable-field-label">{dimensionTitle}</span>
-                              <select
-                                className={`dataset-map-preview__variable-select dataset-map-preview__variable-select--truncate${!dimensionSelections[dimension.name] ? " dataset-map-preview__variable-select--required" : ""}`}
-                                value={dimensionSelections[dimension.name] ?? ""}
-                                disabled={boundariesLoading}
-                                onChange={(e) => {
-                                  if (boundariesLoading) return;
-                                  const value = e.target.value;
-                                  setDimensionSelections((prev) => ({ ...prev, [dimension.name]: value }));
-                                }}
-                                aria-label={dimensionTitle}
-                                aria-busy={boundariesLoading || undefined}
-                                title={boundariesLoading ? "Loading year data" : (dimensionSelections[dimension.name] || undefined)}
-                              >
-                                <option value="">Select {dimensionTitle}</option>
-                                {dimension.values.map((value) => (
-                                  <option key={String(value)} value={String(value)}>
-                                    {String(value)}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <p className="dataset-map-preview__variable-field-label">
-                    This boundary layer has no numeric columns to choropleth. Click a feature for details.
-                  </p>
-                )}
-              </aside>
-
-              <aside className="dataset-map-preview__detail" aria-label="Selected area details">
-                <div className="dataset-map-preview__detail-header">
-                  <h2 className="dataset-map-preview__detail-title">Details</h2>
-                  {selectedDetails && (
-                    <button
-                      type="button"
-                      className="dataset-map-preview__detail-close"
-                      onClick={() => setSelectedFeatureKey(null)}
-                      aria-label="Clear selection"
-                    >
-                      Clear
-                    </button>
-                  )}
-                </div>
-                {!selectedDetails ? (
-                  <p className="dataset-map-preview__detail-empty">
-                    Click a {geographyEntityLabel(geographyType)} on the map to view its values.
-                  </p>
-                ) : (
-                  <dl className="dataset-map-preview__detail-list">
-                    {geographyType === 'census_tracts' && (
-                      <div className="dataset-map-preview__detail-row dataset-map-preview__detail-row--inline">
-                        <dt>Municipality</dt>
-                        {loadingMuniForCt && <MoonLoader size={14}/>}
-                        {!loadingMuniForCt && (
-                          <dd>{muniForSelectedCt || "Unknown Municipality"}</dd>
-                        )}
-                      </div>
-                    )}
-                    <div className="dataset-map-preview__detail-row dataset-map-preview__detail-row--inline">
-                      <dt>
-                        {geographyEntityLabel(geographyType).replace(/^./, (s) => s.toUpperCase())}
-                      </dt>
-                      <dd>{selectedDetails.label}</dd>
-                    </div>
-                    {selectedDetails.year && (
-                      <div className="dataset-map-preview__detail-row dataset-map-preview__detail-row--inline">
-                        <dt>Year</dt>
-                        <dd>{selectedDetails.year}</dd>
-                      </div>
-                    )}
-                    {selectedDetails.tractBoundary && (
-                      <div className="dataset-map-preview__detail-row dataset-map-preview__detail-row--inline">
-                        <dt>Boundary</dt>
-                        <dd>{selectedDetails.tractBoundary}</dd>
-                      </div>
-                    )}
-                    {(selectedDetails.extraDimensionLabels || []).map((item) => (
-                      <div
-                        key={item.label}
-                        className="dataset-map-preview__detail-row"
-                      >
-                        <dt>{item.label}</dt>
-                        <dd>{item.value}</dd>
-                      </div>
-                    ))}
-                    <div className="dataset-map-preview__detail-row dataset-map-preview__detail-row--inline dataset-map-preview__detail-row--metric">
-                      <dt>{activeVariableLabel}</dt>
-                      <dd>
-                        {formatMapValue(selectedDetails.value, activeVariableUnit, { kind: mapValueKind, categoryLabels })}
-                        {selectedDetails.marginOfError != null && (
-                          <span className="dataset-map-preview__detail-metric-moe">
-                            {" "}
-                            ± {formatMapValue(selectedDetails.marginOfError, activeVariableUnit)}
-                          </span>
-                        )}
-                      </dd>
-                    </div>
-                  </dl>
-                )}
-                <div className="dataset-map-preview__download-wrap">
-                  <button
-                    type="button"
-                    className="dataset-map-preview__download-geojson"
-                    onClick={handleDownloadGeojson}
-                    disabled={!canDownloadGeojson}
-                    aria-busy={isExporting}
-                    aria-describedby="dataset-map-geojson-download-tip"
-                  >
-                    {isExporting ? "Preparing…" : "Download as GeoJSON"}
-                  </button>
-                  <span
-                    id="dataset-map-geojson-download-tip"
-                    role="tooltip"
-                    className="dataset-map-preview__download-tooltip"
-                  >
-                    {!supportsTabularGeojsonExport(table, geographyType, { menu1 })
-                      ? "GeoJSON export is not available for this geography type."
-                      : mapYear != null
-                        ? `Download the whole state map data as GeoJSON for selected year ${mapYear}.`
-                        : "Download the whole state map data as GeoJSON."}
-                  </span>
-                  {exportError && (
-                    <p className="dataset-map-preview__download-error" role="alert">
-                      {exportError}
-                    </p>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  className="dataset-map-preview__download-geojson"
-                  onClick={handleExportToPng}
-                  disabled={!mapRef.current || !canDownloadGeojson}
-                  aria-busy={isExporting}
-                  aria-describedby="dataset-map-geojson-download-tip"
-                >
-                  {isExporting ? "Preparing…" : "Download as PNG"}
-                </button>
-              </aside>
-            </div>
-          )}
+          {sidePanelsHost ? createPortal(sidePanels, sidePanelsHost) : sidePanels}
           {!isEmbedView && rankingRows.length > 0 && (
             <div className="dataset-map-preview__ranking">
               <p className="dataset-map-preview__ranking-caption">
@@ -2140,6 +2158,7 @@ DatasetMapPreview.propTypes = {
   database: PropTypes.string,
   schema: PropTypes.string,
   table: PropTypes.string,
+  sidePanelsHost: PropTypes.instanceOf(typeof Element === "undefined" ? Object : Element),
 };
 
 export default DatasetMapPreview;
