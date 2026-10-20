@@ -491,13 +491,20 @@ function pillLabel(dataset, groupedName = null) {
  * Look up a dataset and any sibling tables at other geography levels
  * (municipal, census tract, block group, block).
  *
+ * The same table can be cataloged under more than one category (`menu1`).
+ * Geography pills only include siblings in the current category
+ *
  * Returns a title without “(Municipal)” / “(Census Tracts)” etc., and a `levels`
  * list for the Geography pills. There is always at least one level.
  */
 export function findDatasetGeographyGroup(datasets, seqId) {
-  const catalog = datasets;
-  const current = catalog.find((row) => isSameDatasetId(row.seq_id || row.id, seqId));
+  const current = datasets.find((row) => isSameDatasetId(row.seq_id || row.id, seqId));
   if (!current) return null;
+
+  const category = String(current.menu1).trim();
+  const catalog = category
+    ? datasets.filter((row) => String(row.menu1).trim() === category)
+    : datasets;
 
   const group = compressDatasetsByGeography(catalog).find((item) =>
     item.geoIdPairs.some((pair) => isSameDatasetId(pair.id, seqId)),

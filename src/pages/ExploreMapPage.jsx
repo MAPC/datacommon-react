@@ -290,19 +290,13 @@ const ExploreMapPage = () => {
             <span>Geography</span>
             <ul>
               {geographyLevels.map((level) => {
-                const sibling = datasets.find((row) => +row.seq_id === +level.id);
-                const selectedTable = datasets.find((row) => String(row.seq_id) === String(datasetId))?.table_name;
-                const isSelected = sibling && sibling.table_name === selectedTable;
+                const isSelected = String(level.id) === String(datasetId);
                 return (
                   <li key={level.id}>
                     <button
                       type="button"
                       className={isSelected ? "is-selected" : ""}
-                      onClick={() => {
-                        const match = mappableDatasets.find((dataset) => String(dataset.seq_id) === String(level.id))
-                          || mappableDatasets.find((dataset) => sibling && dataset.table_name === sibling.table_name);
-                        if (match) selectDataset(match.seq_id);
-                      }}
+                      onClick={() => selectDataset(level.id)}
                     >
                       {level.label}
                     </button>
