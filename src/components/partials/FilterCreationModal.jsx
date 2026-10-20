@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import styled, { keyframes } from 'styled-components';
 
 const fadeIn = keyframes`
@@ -88,11 +88,47 @@ const ModalBody = styled.div`
   padding: 3rem 1.5rem;
   overflow-y: auto;
   flex: 1;
+  min-height: 300px;
 `;
 
 const FilterCreationRow = styled.div`
   display: flex;
   gap: 12px;
+  align-items: flex-start;
+`;
+
+const FilterCreationSelect = styled.select`
+  max-height: 30px;
+`;
+
+const FilterSearchBar = styled.div`
+  z-index: 10;
+  min-width: 200px;
+`;
+
+const FilterInput = styled.input`
+  width: 100%;
+  padding: 4px 12px;
+
+  font-size: 14px;
+  font-weight: 100;
+
+  outline: none;
+`;
+
+const FilterSearchResults = styled.ul`
+  position: absolute;
+  left: 0;
+  z-index: -1;
+  top: 20px;
+
+  padding: 0px 8px;
+
+  width: 100%;
+  max-height: 150px;
+  overflow: auto;
+
+  border: 1px solid black;
 `;
 
 const ModalFooter = styled.div`
@@ -148,9 +184,11 @@ const NUMERIC_COLUMN_TYPES = [
   'double precision',
 ];
 
-const FilterCreationModal = ({ isOpen, handleClose, filterModalColumn, addNewColumnFilter }) => {
+const FilterCreationModal = ({ isOpen, handleClose, filterModalColumn, addNewColumnFilter, allRows }) => {
   const [filterType, setFilterType] = useState('isNotEmpty');
   const [textValue, setTextValue] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
 
   // When the input column changes, determine the available filter types
   const filterTypeOptions = useMemo(() => {
@@ -161,21 +199,33 @@ const FilterCreationModal = ({ isOpen, handleClose, filterModalColumn, addNewCol
 
     // column is numeric
     if (NUMERIC_COLUMN_TYPES.includes(filterModalColumn.data_type)) {
-      options.push(<option value="greaterThan">is greater than...</option>);
-      options.push(<option value="lessThan">is less than...</option>);
-      options.push(<option value="equals">is exactly...</option>);
+      options.push(<option value="greaterThan" key="grt-thn">is greater than...</option>);
+      options.push(<option value="lessThan" key="les-thn">is less than...</option>);
+      options.push(<option value="equals" key="eq"> is exactly...</option>);
     // column is text based
     } else {
-      options.push(<option value="contains">contains...</option>);
-      options.push(<option value="is">is...</option>);
+      options.push(<option value="contains" key="cont">contains...</option>);
+      options.push(<option value="is" key="is">is...</option>);
     }
 
     // finally, all data types have is null / is not null
-    options.push(<option value="isEmpty">is empty</option>);
-    options.push(<option value="isNotEmpty">is not empty</option>);
+    options.push(<option value="isEmpty" key="is-empty">is empty</option>);
+    options.push(<option value="isNotEmpty" key="not-empty">is not empty</option>);
 
     return options;
   }, [filterModalColumn]);
+
+  // calculate the search results when the input text changes
+  useEffect(() => {
+    if (!filterModalColumn || NUMERIC_COLUMN_TYPES.includes(filterModalColumn.data_type)) {
+      setSearchResults([]);
+      return;
+    }
+
+    const filtered = allRows.filter(row => row[filterModalColumn.name] && row[filterModalColumn.name].includes(textValue));
+    const noDupes = [...new Set(filtered.map(r => r[filterModalColumn.name]))]
+    setSearchResults(noDupes);
+  }, [textValue, allRows, filterModalColumn]);
 
   const handleOverlayClick = (e) => {
     if (e.target === e.currentTarget) {
@@ -193,22 +243,28 @@ const FilterCreationModal = ({ isOpen, handleClose, filterModalColumn, addNewCol
 
     addNewColumnFilter(filter)
     closeModal();
-  }
+  };
 
   const closeModal = () => {
     setFilterType('isNotEmpty');
     setTextValue('');
     handleClose();
-  }
+  };
 
   const isTextNeeded = () => {
     return filterType !== 'isEmpty' && filterType !== 'isNotEmpty';
-  }
+  };
 
   const isCreateEnabled = () => {
     const textRequired = isTextNeeded()
     return textRequired ? !!filterType && !!textValue : !!filterType; 
-  }
+  };
+
+  const handelValueClicked = async (event, value) => {
+    event.stopPropagation();
+    setTextValue(value);
+    setShowSearchResults(false);
+  };
 
   if (!isOpen) {
     return null;
@@ -226,21 +282,39 @@ const FilterCreationModal = ({ isOpen, handleClose, filterModalColumn, addNewCol
         <ModalBody>
           <FilterCreationRow>
             <span>Where {filterModalColumn.alias}</span>
-            <select
+            <FilterCreationSelect
               value={filterType}
               onChange={e => {
                 setFilterType(e.target.value);
                 setTextValue('');
               }}
             >
-              {...filterTypeOptions}
-            </select>
+              {filterTypeOptions}
+            </FilterCreationSelect>
             {isTextNeeded() && (
-              <input
-                placeholder="Enter a value..."
-                value={textValue}
-                onChange={e => setTextValue(e.target.value)}
-              />
+              <FilterSearchBar>
+                <FilterInput
+                  placeholder="Enter a value..."
+                  value={textValue}
+                  onChange={e => setTextValue(e.target.value)}
+                  onClick={() => setShowSearchResults(true)}
+                  onBlur={() => setTimeout(() => setShowSearchResults(false), 300)}
+                />
+                {searchResults.length > 0 && showSearchResults && (
+                  <FilterSearchResults>
+                    {searchResults.map(result => (
+                      <li
+                        key={result}
+                        onClick={(e) => handelValueClicked(e, result)}
+                      >
+                        <span className="a-tag">
+                          {result}
+                        </span>
+                      </li>
+                    ))}
+                  </FilterSearchResults>
+                )}
+              </FilterSearchBar>
             )}
           </FilterCreationRow>
         </ModalBody>
