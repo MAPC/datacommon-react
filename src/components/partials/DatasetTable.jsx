@@ -326,8 +326,10 @@ class DatasetTable extends React.Component {
       linkRowsToDatasetView = false,
       updatePage,
       showHiddenColumns,
-      addNewColumnFilter,
+      setFilters,
+      setFilterJoinType,
       columnFilters,
+      filterJoinType,
       previewColumnOrder = [],
       onPreviewColumnOrderChange,
       onResetPreviewLayout,
@@ -400,47 +402,54 @@ class DatasetTable extends React.Component {
     }
 
     if (columnFilters.length > 0) {
-      columnFilters.forEach(filter => {
-        allRows = allRows.filter(row => {
-          const columnValue = row[filter.columnKey];
+      allRows = allRows.filter(row => {
+        const filterResults = [];
+        columnFilters.forEach(filter => {
+          const columnValue = row[filter.column.name];
           if (filter.filterType === 'contains') {
             if (columnValue === null || columnValue === undefined) {
-              return false;
+              filterResults.push(false);
             } else {
               const asString = columnValue.toString();
-              return asString.includes(filter.textValue.toString());
+              filterResults.push(asString.includes(filter.textValue.toString()));
             }
           } else if (filter.filterType === 'is') {
             if (columnValue === null || columnValue === undefined) {
-              return false;
+              filterResults.push(false);
             } else {
               const asString = columnValue.toString();
-              return asString === filter.textValue.toString();
+              filterResults.push(asString === filter.textValue.toString());
             }
           } else if (filter.filterType === 'greaterThan') {
             if (columnValue === null || columnValue === undefined) {
-              return false;
+              filterResults.push(false);
             } else {
-              return columnValue > filter.textValue;
+              filterResults.push(columnValue > filter.textValue);
             }
           } else if (filter.filterType === 'lessThan') {
             if (columnValue === null || columnValue === undefined) {
-              return false;
+              filterResults.push(false);
             } else {
-              return columnValue < filter.textValue;
+              filterResults.push(columnValue < filter.textValue);
             }
           } else if (filter.filterType === 'equals') {
             if (columnValue === null || columnValue === undefined) {
-              return false;
+              filterResults.push(false);
             } else {
-              return Math.abs(columnValue - filter.textValue) < 0.005;
+              filterResults.push(Math.abs(columnValue - filter.textValue) < 0.005);
             }
           } else if (filter.filterType === 'isEmpty') {
-            return columnValue === null || columnValue === undefined || columnValue === '';
+            filterResults.push(columnValue === null || columnValue === undefined || columnValue === '');
           } else if (filter.filterType === 'isNotEmpty') {
-            return columnValue == 0 || !!columnValue;
+            filterResults.push(columnValue == 0 || !!columnValue);
           }
         });
+
+        if (filterJoinType === 'AND') {
+          return filterResults.every(bool => bool === true);
+        } else {
+          return filterResults.some(bool => bool === true);
+        }
       });
     }
 
@@ -576,13 +585,16 @@ class DatasetTable extends React.Component {
             </div>
           </div>
         </div>
-        <FilterCreationModal
+        {this.state.filterModalOpen && <FilterCreationModal
           isOpen={this.state.filterModalOpen}
           filterModalColumn={this.state.filterModalColumn}
           handleClose={() => this.setState({ filterModalOpen: false})}
-          addNewColumnFilter={addNewColumnFilter}
-          allRows={sortedRows}
-        />
+          updateFilters={setFilters}
+          updateFilterJoinType={setFilterJoinType}
+          allRows={rows}
+          existingFilters={this.props.columnFilters}
+          existingFilterJoinType={this.props.filterJoinType}
+        />}
       </div>
     );
   }
@@ -602,7 +614,7 @@ DatasetTable.propTypes = {
   updatePage: PropTypes.func.isRequired,
   updateSelectedColumns: PropTypes.func,
   showHiddenColumns: PropTypes.func,
-  addNewColumnFilter: PropTypes.func,
+  setFilters: PropTypes.func,
   columnFilters: PropTypes.arrayOf(PropTypes.object),
   previewColumnOrder: PropTypes.arrayOf(PropTypes.string),
   onPreviewColumnOrderChange: PropTypes.func,

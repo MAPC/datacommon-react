@@ -663,11 +663,11 @@ const FilterPill = ({ filter, removeColumnFilter }) => {
 
   const numericTypes = ['greaterThan', 'lessThan', 'equals'];
 
-  const key = `${filter.columnName}.${filter.filterType}.${filter.textValue || ''}`
+  // const key = `${filter.columnName}.${filter.filterType}.${filter.textValue || ''}`
   const valueText = numericTypes.includes(filter.filterType) ? filter.textValue : `'${filter.textValue}'`;
   return (
     <div className="dataset-filter-pill">
-      {filter.columnAlias} {typeToDisplayName[filter.filterType]} {filter.textValue ? valueText : ''}
+      {filter.column.alias} {typeToDisplayName[filter.filterType]} {filter.textValue ? valueText : ''}
       <span className="filter-pill-close" onClick={() => removeColumnFilter(filter)}>
         X
       </span>
@@ -1129,7 +1129,7 @@ function DatasetHeader({
           <div className="filter-pill-list-container">
             {columnFilters.map(filter => (
               <FilterPill 
-                key={`${filter.columnName}.${filter.filterType}.${filter.textValue || ''}`}
+                key={`${filter.column.name}.${filter.filterType}.${filter.textValue || ''}`}
                 filter={filter}
                 removeColumnFilter={removeColumnFilter}
               />
