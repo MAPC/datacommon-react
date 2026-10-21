@@ -1,3 +1,5 @@
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faPlus, faTrash } from '@fortawesome/free-solid-svg-icons';
 import { useState, useMemo, useEffect } from 'react';
 import styled, { keyframes } from 'styled-components';
 
@@ -95,6 +97,7 @@ const FilterCreationRow = styled.div`
   display: flex;
   gap: 12px;
   align-items: flex-start;
+  margin-bottom: 10px;
 `;
 
 const FilterCreationSelect = styled.select`
@@ -119,7 +122,7 @@ const FilterInput = styled.input`
 const FilterSearchResults = styled.ul`
   position: absolute;
   left: 0;
-  z-index: -1;
+  z-index: 11;
   top: 20px;
 
   padding: 0px 8px;
@@ -129,6 +132,33 @@ const FilterSearchResults = styled.ul`
   overflow: auto;
 
   border: 1px solid black;
+`;
+
+const RemoveFilterButton = styled.div`
+  color: #555555;
+  cursor: pointer;
+  user-select: none;
+  margin-left: 12px;
+
+  &:hover {
+    color: #222222;
+  }
+`;
+
+const AddFilterButton = styled.div`
+  width: 120px;
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid #333333;
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+
+  &:hover {
+    background-color: #f2f2f2;
+  }
 `;
 
 const ModalFooter = styled.div`
@@ -184,48 +214,14 @@ const NUMERIC_COLUMN_TYPES = [
   'double precision',
 ];
 
-const FilterCreationModal = ({ isOpen, handleClose, filterModalColumn, addNewColumnFilter, allRows }) => {
-  const [filterType, setFilterType] = useState('isNotEmpty');
-  const [textValue, setTextValue] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [showSearchResults, setShowSearchResults] = useState(false);
-
-  // When the input column changes, determine the available filter types
-  const filterTypeOptions = useMemo(() => {
-    const options = [];
-    if (!filterModalColumn) {
-      return options;
-    }
-
-    // column is numeric
-    if (NUMERIC_COLUMN_TYPES.includes(filterModalColumn.data_type)) {
-      options.push(<option value="greaterThan" key="grt-thn">is greater than...</option>);
-      options.push(<option value="lessThan" key="les-thn">is less than...</option>);
-      options.push(<option value="equals" key="eq"> is exactly...</option>);
-    // column is text based
-    } else {
-      options.push(<option value="contains" key="cont">contains...</option>);
-      options.push(<option value="is" key="is">is...</option>);
-    }
-
-    // finally, all data types have is null / is not null
-    options.push(<option value="isEmpty" key="is-empty">is empty</option>);
-    options.push(<option value="isNotEmpty" key="not-empty">is not empty</option>);
-
-    return options;
-  }, [filterModalColumn]);
-
-  // calculate the search results when the input text changes
-  useEffect(() => {
-    if (!filterModalColumn || NUMERIC_COLUMN_TYPES.includes(filterModalColumn.data_type)) {
-      setSearchResults([]);
-      return;
-    }
-
-    const filtered = allRows.filter(row => row[filterModalColumn.name] && row[filterModalColumn.name].includes(textValue));
-    const noDupes = [...new Set(filtered.map(r => r[filterModalColumn.name]))]
-    setSearchResults(noDupes);
-  }, [textValue, allRows, filterModalColumn]);
+const FilterCreationModal = ({ 
+  isOpen, handleClose, filterModalColumn, updateFilters, updateFilterJoinType, allRows, existingFilters, existingFilterJoinType,
+}) => {
+  const [filterJoinType, setFilterJoinType] = useState(existingFilterJoinType);
+  const [filters, setFilters] = useState([
+    ...existingFilters, 
+    { column: filterModalColumn, filterType: "isNotEmpty", textValue: "" }
+  ]);
 
   const handleOverlayClick = (e) => {
     if (e.target === e.currentTarget) {
@@ -234,36 +230,40 @@ const FilterCreationModal = ({ isOpen, handleClose, filterModalColumn, addNewCol
   };
 
   const buildFilterThenClose = () => {
-    const filter = {
-      columnKey: filterModalColumn.name,
-      columnAlias: filterModalColumn.alias,
-      filterType,
-      textValue,
-    }
-
-    addNewColumnFilter(filter)
+    updateFilters(filters);
+    updateFilterJoinType(filterJoinType);
     closeModal();
   };
 
   const closeModal = () => {
-    setFilterType('isNotEmpty');
-    setTextValue('');
+    // setFilterType('isNotEmpty');
+    // setTextValue('');
     handleClose();
   };
 
-  const isTextNeeded = () => {
-    return filterType !== 'isEmpty' && filterType !== 'isNotEmpty';
-  };
-
   const isCreateEnabled = () => {
-    const textRequired = isTextNeeded()
-    return textRequired ? !!filterType && !!textValue : !!filterType; 
+    return true;
+    // const textRequired = isTextNeeded()
+    // return textRequired ? !!filterType && !!textValue : !!filterType; 
   };
 
-  const handelValueClicked = async (event, value) => {
-    event.stopPropagation();
-    setTextValue(value);
-    setShowSearchResults(false);
+
+  const handleUpdateFilter = (newFilter, index) => {
+    const filtersCopy = [...filters];
+    filtersCopy[index] = newFilter;
+    setFilters(filtersCopy);
+  };
+
+  const handleAddNewFilter = () => {
+    const filtersCopy = [...filters];
+    filtersCopy.push({ column: filterModalColumn, filterType: 'isNotEmpty', filterText: '' });
+    setFilters(filtersCopy);
+  };
+
+  const handleRemoveFilter = (index) => {
+    const filtersCopy = [...filters];
+    filtersCopy.splice(index, 1);
+    setFilters(filtersCopy);
   };
 
   if (!isOpen) {
@@ -280,43 +280,23 @@ const FilterCreationModal = ({ isOpen, handleClose, filterModalColumn, addNewCol
           </CloseButton>
         </ModalHeader>
         <ModalBody>
-          <FilterCreationRow>
-            <span>Where {filterModalColumn.alias}</span>
-            <FilterCreationSelect
-              value={filterType}
-              onChange={e => {
-                setFilterType(e.target.value);
-                setTextValue('');
-              }}
-            >
-              {filterTypeOptions}
-            </FilterCreationSelect>
-            {isTextNeeded() && (
-              <FilterSearchBar>
-                <FilterInput
-                  placeholder="Enter a value..."
-                  value={textValue}
-                  onChange={e => setTextValue(e.target.value)}
-                  onClick={() => setShowSearchResults(true)}
-                  onBlur={() => setTimeout(() => setShowSearchResults(false), 300)}
-                />
-                {searchResults.length > 0 && showSearchResults && (
-                  <FilterSearchResults>
-                    {searchResults.map(result => (
-                      <li
-                        key={result}
-                        onClick={(e) => handelValueClicked(e, result)}
-                      >
-                        <span className="a-tag">
-                          {result}
-                        </span>
-                      </li>
-                    ))}
-                  </FilterSearchResults>
-                )}
-              </FilterSearchBar>
-            )}
-          </FilterCreationRow>
+          <div>Show results</div>
+          {filters.map((filter, idx) => (
+            <FilterRow
+              key={`${filter.column.name}.${filter.filterType}.${idx}`}
+              index={idx}
+              filter={filter}
+              filterJoinType={filterJoinType}
+              setFilterJoinType={setFilterJoinType}
+              updateFilter={(newFilter) => handleUpdateFilter(newFilter, idx)}
+              onRemoveFilter={handleRemoveFilter}
+              allRows={allRows}
+            />
+          ))}
+          <AddFilterButton onClick={() => handleAddNewFilter()}>
+            <FontAwesomeIcon icon={faPlus} />
+            Add Filter
+          </AddFilterButton>
         </ModalBody>
         <ModalFooter>
           <CancelButton onClick={() => handleClose()}>
@@ -326,12 +306,128 @@ const FilterCreationModal = ({ isOpen, handleClose, filterModalColumn, addNewCol
             className={isCreateEnabled() ? '' : 'disabled'}
             onClick={() => buildFilterThenClose()}
           >
-            Create Filter
+            Set Filters
           </CreateButton>
         </ModalFooter>
       </ModalContainer>
     </ModalOverlay>
   );
-}
+};
+
+const FilterRow = ({ index, filter, filterJoinType, setFilterJoinType, updateFilter, onRemoveFilter, allRows }) => {
+  const [searchResults, setSearchResults] = useState([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  
+  // When the input column changes, determine the available filter types
+  const filterTypeOptions = useMemo(() => {
+    const options = [];
+    if (!filter.column) {
+      return options;
+    }
+
+    // column is numeric
+    if (NUMERIC_COLUMN_TYPES.includes(filter.column.data_type)) {
+      options.push(<option value="greaterThan" key="grt-thn">is greater than...</option>);
+      options.push(<option value="lessThan" key="les-thn">is less than...</option>);
+      options.push(<option value="equals" key="eq"> is exactly...</option>);
+    // column is text based
+    } else {
+      options.push(<option value="contains" key="cont">contains...</option>);
+      options.push(<option value="is" key="is">is...</option>);
+    }
+
+    // finally, all data types have is null / is not null
+    options.push(<option value="isEmpty" key="is-empty">is empty</option>);
+    options.push(<option value="isNotEmpty" key="not-empty">is not empty</option>);
+
+    return options;
+  }, [filter.column]);
+
+  // calculate the search results when the input text changes
+  useEffect(() => {
+    if (!filter.column || NUMERIC_COLUMN_TYPES.includes(filter.column.data_type)) {
+      setSearchResults([]);
+      return;
+    }
+
+    const filtered = allRows.filter(row => row[filter.column.name] && row[filter.column.name].includes(filter.textValue));
+    const noDupes = [...new Set(filtered.map(r => r[filter.column.name]))];
+    const sorted = noDupes.sort();
+    setSearchResults(sorted);
+  }, [filter.column, filter.textValue, allRows]);
+
+  const isTextNeeded = () => {
+    return filter.filterType !== 'isEmpty' && filter.filterType !== 'isNotEmpty';
+  };
+
+  const handleSearchResultClick = async (event, value) => {
+    event.stopPropagation();
+    onValueChange(value);
+    setShowSearchResults(false);
+  };
+
+  const onTypeChange = (newType) => {
+    const newFilter = { ...filter };
+    newFilter.filterType = newType;
+    newFilter.textValue = '';
+    updateFilter(newFilter);
+  };
+
+  const onValueChange = (newValue) => {
+    const newFilter = { ...filter };
+    newFilter.textValue = newValue;
+    updateFilter(newFilter);
+  };
+
+  return (
+    <FilterCreationRow>
+      {index === 0 && <span>Where: </span>}
+      {index === 1 && (
+        <select value={filterJoinType} onChange={e => setFilterJoinType(e.target.value)}>
+          <option value="AND">And</option>
+          <option value="OR">Or</option>
+        </select>
+      )}
+      {index > 1 && (
+        <span style={{ width: '42px', marginLeft: '8px' }}>{filterJoinType.toLowerCase()}</span>
+      )}
+      <span>{filter.column.alias}</span>
+      <FilterCreationSelect
+        value={filter.filterType}
+        onChange={e => onTypeChange(e.target.value)}
+      >
+        {filterTypeOptions}
+      </FilterCreationSelect>
+      {isTextNeeded() && (
+        <FilterSearchBar>
+          <FilterInput
+            placeholder="Enter a value..."
+            value={filter.textValue}
+            onChange={e => onValueChange(e.target.value)}
+            onClick={() => setShowSearchResults(true)}
+            onBlur={() => setTimeout(() => setShowSearchResults(false), 300)}
+          />
+          {searchResults.length > 0 && showSearchResults && (
+            <FilterSearchResults>
+              {searchResults.map(result => (
+                <li
+                  key={result}
+                  onClick={(e) => handleSearchResultClick(e, result)}
+                >
+                  <span className="a-tag">
+                    {result}
+                  </span>
+                </li>
+              ))}
+            </FilterSearchResults>
+          )}
+        </FilterSearchBar>
+      )}
+      <RemoveFilterButton onClick={() => onRemoveFilter(index)}>
+        <FontAwesomeIcon icon={faTrash} />
+      </RemoveFilterButton>
+    </FilterCreationRow>
+  );
+};
 
 export default FilterCreationModal;

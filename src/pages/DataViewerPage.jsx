@@ -84,6 +84,7 @@ class DataViewerClass extends React.Component {
       linkInventoryRows: false,
       previewColumnOrder: [],
       columnFilters: [],
+      filterJoinType: 'AND',
       viewMode: viewModeFromLocation(props.location, props.params),
       mapVariable: null,
       mapYear: null,
@@ -106,7 +107,8 @@ class DataViewerClass extends React.Component {
     this.onMapVariableChange = this.onMapVariableChange.bind(this);
     this.onGeographicFrameChange = this.onGeographicFrameChange.bind(this);
     this.onMapDimensionSelectionsChange = this.onMapDimensionSelectionsChange.bind(this);
-    this.addFilterToList = this.addFilterToList.bind(this);
+    this.setFilters = this.setFilters.bind(this);
+    this.setFilterJoinType = this.setFilterJoinType.bind(this);
     this.removeFilterFromList = this.removeFilterFromList.bind(this);
     this.hasLoaded = false; // Flag to prevent duplicate API calls in StrictMode
   }
@@ -679,11 +681,13 @@ class DataViewerClass extends React.Component {
     });
   }
 
-  addFilterToList(filter) {
-    const newFilters = [...this.state.columnFilters];
-    newFilters.push(filter);
-
+  setFilters(filters) {
+    const newFilters = [...filters];
     this.setState({ columnFilters: newFilters });
+  }
+
+  setFilterJoinType(type) {
+    this.setState({ filterJoinType: type });
   }
 
   removeFilterFromList(filter) {
@@ -817,8 +821,10 @@ class DataViewerClass extends React.Component {
               updatePage={this.updatePage}
               updateSelectedColumns={this.updateSelectedColumns}
               showHiddenColumns={this.showHiddenColumns}
-              addNewColumnFilter={this.addFilterToList}
+              setFilters={this.setFilters}
+              setFilterJoinType={this.setFilterJoinType}
               columnFilters={this.state.columnFilters}
+              filterJoinType={this.state.filterJoinType}
               previewColumnOrder={this.state.previewColumnOrder}
               onPreviewColumnOrderChange={this.onPreviewColumnOrderChange}
               onResetPreviewLayout={this.onResetPreviewLayout}
