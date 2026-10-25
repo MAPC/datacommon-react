@@ -1030,6 +1030,38 @@ const ExploreMapPage = () => {
           <span>Loading map…</span>
         </div>
       )}
+      {showSharedStory && (
+        <section className="explore-map__story-view" aria-labelledby="explore-story-view-title">
+          <div className="explore-map__story-view-head">
+            <h2 id="explore-story-view-title">
+              <FontAwesomeIcon icon={faFileLines} aria-hidden="true" />
+              {storyDisplayTitle}
+            </h2>
+            <div className="explore-map__story-view-actions">
+              <button type="button" onClick={() => setStoryOpen(true)}>
+                Edit story
+              </button>
+              {storyPrintHtml && (
+                <button
+                  type="button"
+                  aria-expanded={storyViewOpen}
+                  aria-controls="explore-story-view-body"
+                  onClick={() => setStoryViewOpen((open) => !open)}
+                >
+                  {storyViewOpen ? "Hide story" : "Show story"}
+                </button>
+              )}
+            </div>
+          </div>
+          {storyViewOpen && storyPrintHtml && (
+            <div
+              id="explore-story-view-body"
+              className="explore-map__story-view-body"
+              dangerouslySetInnerHTML={{ __html: storyPrintHtml }}
+            />
+          )}
+        </section>
+      )}
       {mapState && (
         <section className="datasets explore-map__viewer">
           <DatasetMapPreview
@@ -1059,32 +1091,6 @@ const ExploreMapPage = () => {
           />
         </section>
       )}
-      {showSharedStory && (storyViewOpen ? (
-        <aside className="explore-map__story-view" aria-labelledby="explore-story-view-title">
-          <div className="explore-map__story-view-head">
-            <h2 id="explore-story-view-title">{storyDisplayTitle}</h2>
-            <button
-              type="button"
-              className="explore-map__story-view-close"
-              aria-label="Hide story"
-              onClick={() => setStoryViewOpen(false)}
-            >
-              ×
-            </button>
-          </div>
-          {storyPrintHtml && (
-            <div className="explore-map__story-view-body" dangerouslySetInnerHTML={{ __html: storyPrintHtml }} />
-          )}
-          <button type="button" className="explore-map__story-view-edit" onClick={() => setStoryOpen(true)}>
-            Edit this story
-          </button>
-        </aside>
-      ) : (
-        <button type="button" className="explore-map__story-view-show" onClick={() => setStoryViewOpen(true)}>
-          <FontAwesomeIcon icon={faFileLines} aria-hidden="true" />
-          Show story
-        </button>
-      ))}
       </div>
     </div>
     )}
