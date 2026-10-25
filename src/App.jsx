@@ -9,7 +9,9 @@ function App() {
   const isEmbedMap =
     hideSiteChrome &&
     ((location.pathname || "").endsWith("/map") || location.pathname?.includes("/map"));
-  const isExploreMap = location.pathname === "/explore";
+  const isExploreMap =
+    location.pathname.startsWith("/explore/story/") ||
+    (location.pathname === "/explore" && Boolean(new URLSearchParams(location.search).get("dataset")));
 
   return (
     <section className={`component App${hideSiteChrome ? " App--embed" : ""}${isEmbedMap ? " App--embed-map" : ""}${isExploreMap ? " App--explore" : ""}`}>

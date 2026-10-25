@@ -1,7 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { Provider } from "react-redux";
-import { createBrowserRouter, RouterProvider, useParams, Navigate } from "react-router-dom";
+import { createBrowserRouter, RouterProvider, useParams, Navigate, Outlet } from "react-router-dom";
 
 import App from "./App";
 import Home from "./pages/HomePage";
@@ -137,6 +137,10 @@ const router = createBrowserRouter([
       {
         path: "explore",
         element: <ExploreMapPage />,
+        children: [
+          { index: true, element: <Outlet /> },
+          { path: "story/:token", element: <Outlet /> },
+        ],
       },
       {
         path: "/profile/:muni/:tab?",

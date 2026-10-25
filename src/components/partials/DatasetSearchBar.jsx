@@ -128,22 +128,44 @@ const HighlightMark = styled.mark`
   padding: 0;
 `;
 
+function datasetOptionLabel(dataset) {
+  return String(dataset?.menu3 || dataset?.table_name || "").trim();
+}
+
 const DatasetSearchBar = ({
   datasets = [],
   placeholder = "Search datasets...",
   onSelect,
+  onPick,
+  onSubmit,
   onSearchChange,
+  onQueryChange,
+  query,
+  inputId,
   maxResults = 10,
   maxWidth,
   maxHeight,
   maxHeightMobile,
   showDropdown = true,
+  confirmSelection = false,
   className = ''
 }) => {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [internalQuery, setInternalQuery] = useState('');
+  const isControlled = query !== undefined;
+  const searchQuery = isControlled ? query : internalQuery;
+  const setSearchQuery = (value) => {
+    if (isControlled) onQueryChange?.(value);
+    else setInternalQuery(value);
+  };
   const [filteredDatasets, setFilteredDatasets] = useState([]);
   const [highlightMatches, setHighlightMatches] = useState({});
+  const [closedQuery, setClosedQuery] = useState(null);
   const searchContainerRef = useRef(null);
+  const inputRef = useRef(null);
+  const confirmSelectionRef = useRef(confirmSelection);
+  const searchQueryRef = useRef(searchQuery);
+  confirmSelectionRef.current = confirmSelection;
+  searchQueryRef.current = searchQuery;
 
   // Filter datasets based on search query
   useEffect(() => {
@@ -170,6 +192,10 @@ const DatasetSearchBar = ({
     const handleClickOutside = (event) => {
       if (searchContainerRef.current && !searchContainerRef.current.contains(event.target)) {
         if (typeof event.target.closest === 'function' && event.target.closest('[data-prevent-dataset-search-clear]')) {
+          return;
+        }
+        if (confirmSelectionRef.current) {
+          setClosedQuery(searchQueryRef.current);
           return;
         }
         setSearchQuery('');
@@ -224,27 +250,58 @@ const DatasetSearchBar = ({
   };
 
   const handleDatasetSelect = (dataset) => {
+    if (confirmSelection) {
+      setClosedQuery(datasetOptionLabel(dataset));
+      if (onPick) onPick(dataset);
+      // Enter submits from the input, so keep focus there after a pick.
+      inputRef.current?.focus();
+      return;
+    }
     if (onSelect) {
       onSelect(dataset);
     }
     setSearchQuery('');
   };
 
+  const handleInputKeyDown = (event) => {
+    if (event.key !== 'Enter' || !onSubmit) return;
+    event.preventDefault();
+    setClosedQuery(searchQuery);
+    onSubmit();
+  };
+
+  const dropdownOpen = showDropdown
+    && closedQuery !== searchQuery
+    && Boolean(searchQuery.trim())
+    && filteredDatasets.length > 0;
+
   return (
     <SearchContainer ref={searchContainerRef} maxWidth={maxWidth} className={className}>
       <SearchInput
+        ref={inputRef}
+        id={inputId}
         type="text"
         placeholder={placeholder}
         value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
+        onChange={(e) => {
+          setClosedQuery(null);
+          setSearchQuery(e.target.value);
+        }}
+        onKeyDown={handleInputKeyDown}
+        onFocus={() => {
+          if (confirmSelection) setClosedQuery(null);
+        }}
       />
-      {showDropdown && searchQuery.trim() && filteredDatasets.length > 0 && (
+      {dropdownOpen && (
         <DropdownContainer maxHeight={maxHeight} maxHeightMobile={maxHeightMobile}>
           {filteredDatasets.map((dataset) => {
             const datasetId = dataset.seq_id || dataset.id;
             return (
               <DropdownItem
                 key={datasetId}
+                onMouseDown={(event) => {
+                  if (confirmSelection) event.preventDefault();
+                }}
                 onClick={() => handleDatasetSelect(dataset)}
               >
                 <DropdownItemContent>
@@ -270,12 +327,18 @@ DatasetSearchBar.propTypes = {
   datasets: PropTypes.array.isRequired,
   placeholder: PropTypes.string,
   onSelect: PropTypes.func,
+  onPick: PropTypes.func,
+  onSubmit: PropTypes.func,
   onSearchChange: PropTypes.func, // Callback with { query, results, highlights }
+  onQueryChange: PropTypes.func,
+  query: PropTypes.string,
+  inputId: PropTypes.string,
   maxResults: PropTypes.number, // Limit dropdown results (0 or undefined = no limit)
   maxWidth: PropTypes.string,
   maxHeight: PropTypes.string,
   maxHeightMobile: PropTypes.string,
   showDropdown: PropTypes.bool,
+  confirmSelection: PropTypes.bool,
   className: PropTypes.string,
 };
 
