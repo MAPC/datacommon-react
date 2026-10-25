@@ -2674,17 +2674,23 @@
     gap: 12px;
     min-width: 0;
     min-height: 0;
-    overflow-x: hidden;
+    overflow: visible;
   }
 
   .dataset-map-preview__download-wrap {
-    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
     margin-top: auto;
     width: 100%;
   }
 
   .dataset-map-preview__download-geojson {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     width: 100%;
+    box-sizing: border-box;
     border: 1px solid $color_brand-secondary;
     border-radius: 6px;
     background: $color_brand-secondary;
@@ -2705,39 +2711,67 @@
     }
   }
 
+  .dataset-map-preview__download-option {
+    position: relative;
+
+    &:hover .dataset-map-preview__download-tip,
+    &:focus-within .dataset-map-preview__download-tip {
+      opacity: 1;
+      visibility: visible;
+    }
+  }
+
+  .dataset-map-preview__download-tip {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    z-index: 9;
+    width: max-content;
+    max-width: min(240px, 100%);
+    padding: 0.4em 0.6em;
+    border-radius: 4px;
+    border: 1px solid $color_bg-dark;
+    background: #fff;
+    color: $color_bg-dark;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.3;
+    text-align: center;
+    white-space: normal;
+    transform: translateX(-50%);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+
+    &::before,
+    &::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      border-style: solid;
+      border-color: transparent;
+    }
+
+    &::before {
+      top: 100%;
+      border-width: 7px;
+      border-top-color: $color_bg-dark;
+    }
+
+    &::after {
+      top: calc(100% - 1px);
+      border-width: 6px;
+      border-top-color: #fff;
+    }
+  }
+
   .dataset-map-preview__download-error {
     margin: 8px 0 0;
     font-size: 11px;
     color: #b42318;
     line-height: 1.4;
-  }
-
-  .dataset-map-preview__download-tooltip {
-    position: absolute;
-    bottom: calc(100% + 8px);
-    left: 0;
-    right: 0;
-    z-index: 6;
-    padding: 8px 10px;
-    border-radius: 6px;
-    background: #fff;
-    color: $color_font-dark;
-    border: 1px solid rgba($color_font-medium, 0.22);
-    font-size: 12px;
-    font-weight: 400;
-    line-height: 1.4;
-    text-align: left;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
-    opacity: 0;
-    visibility: hidden;
-    pointer-events: none;
-    transition: opacity 0.12s ease, visibility 0.12s ease;
-  }
-
-  .dataset-map-preview__download-wrap:hover .dataset-map-preview__download-tooltip,
-  .dataset-map-preview__download-wrap:focus-within .dataset-map-preview__download-tooltip {
-    opacity: 1;
-    visibility: visible;
   }
 
   .dataset-map-preview__detail-header {

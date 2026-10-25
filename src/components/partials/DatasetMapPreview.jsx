@@ -398,6 +398,34 @@ function DatasetMapPreview({
   const [dimensionSelections, setDimensionSelections] = useState(
     mapDimensionSelections && typeof mapDimensionSelections === "object" ? mapDimensionSelections : {},
   );
+  // Shared stories update these props after the map is already open.
+  useEffect(() => {
+    if (
+      geographicFrameProp !== GEOGRAPHIC_FRAME.massachusetts
+      && geographicFrameProp !== GEOGRAPHIC_FRAME.mapc
+    ) {
+      return;
+    }
+    setGeographicFrameState((current) => (
+      current === geographicFrameProp ? current : geographicFrameProp
+    ));
+  }, [geographicFrameProp]);
+  useEffect(() => {
+    const next = mapDimensionSelections && typeof mapDimensionSelections === "object"
+      ? mapDimensionSelections
+      : {};
+    setDimensionSelections((prev) => {
+      const prevKeys = Object.keys(prev || {});
+      const nextKeys = Object.keys(next);
+      if (
+        prevKeys.length === nextKeys.length
+        && nextKeys.every((key) => prev[key] === next[key])
+      ) {
+        return prev;
+      }
+      return { ...next };
+    });
+  }, [mapDimensionSelections]);
   const hoverPopupRef = useRef(null);
   const { isExporting, exportError, runExportDownload, clearExportError } = useExportFileDownload();
 
@@ -999,6 +1027,12 @@ function DatasetMapPreview({
       "bottom-right",
     );
 
+    // data-map-ready lets image/PDF exports wait until tiles and layers have rendered.
+    const mapContainer = mapContainerRef.current;
+    mapContainer.setAttribute("data-map-ready", "false");
+    map.on("dataloading", () => mapContainer.setAttribute("data-map-ready", "false"));
+    map.on("idle", () => mapContainer.setAttribute("data-map-ready", "true"));
+
     map.on("load", () => {
       map.addSource(SOURCE_ID, {
         type: "geojson",
@@ -1594,11 +1628,13 @@ function DatasetMapPreview({
 
   }, [rows, queryYearColumn, selectedYears, geographyType]);
 
+  const geojsonSupported = supportsTabularGeojsonExport(table, geographyType, { menu1 });
+  const canDownloadPng = mapReady && !isExporting && !isBoundaryLoading && Boolean(table);
   const canDownloadGeojson =
     Boolean(table) &&
     !isBoundaryLoading &&
     !isExporting &&
-    supportsTabularGeojsonExport(table, geographyType, { menu1 });
+    geojsonSupported;
 
   const handleDownloadGeojson = async () => {
     if (!canDownloadGeojson) return;
@@ -1644,24 +1680,22 @@ function DatasetMapPreview({
   const handleExportToPng = async () => {
     if (!mapRef.current) return;
 
-    // first hide the map controls:
     const layersButton = document.getElementById("layer-button-controls-container");
-    layersButton.style.display = 'none';
+    if (layersButton) layersButton.style.display = "none";
 
-    const canvas = await html2canvas(document.getElementById("top-level-map-container"));
-    const url = canvas.toDataURL('image/png');
-    
-    const link = document.createElement('a');
-    link.download = 'map-export.png';
-    link.href = url;
-    
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    // unhide the map controls:
-    layersButton.style.display = 'flex';
-  }
+    try {
+      const canvas = await html2canvas(document.getElementById("top-level-map-container"));
+      const url = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.download = "map-export.png";
+      link.href = url;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } finally {
+      if (layersButton) layersButton.style.display = "flex";
+    }
+  };
 
   // Boundary-only layers (e.g. Boundaries category / ma_municipalities) have no numeric choropleth columns.
   const isBoundaryOnlyMap = isBoundariesDataset || Boolean(apiBoundaryGeojson);
@@ -1694,7 +1728,7 @@ function DatasetMapPreview({
         {mappableColumns.length ? (
           <>
             <label className="dataset-map-preview__variable-field">
-              <span className="dataset-map-preview__variable-field-label">Choose a column to color the map</span>
+              <span className="dataset-map-preview__variable-field-label">Color the map</span>
                 <select
                 className="dataset-map-preview__variable-select dataset-map-preview__variable-select--truncate"
                 value={activeVariable || ""}
@@ -1830,43 +1864,45 @@ function DatasetMapPreview({
           </dl>
         )}
         <div className="dataset-map-preview__download-wrap">
-          <button
-            type="button"
-            className="dataset-map-preview__download-geojson"
-            onClick={handleDownloadGeojson}
-            disabled={!canDownloadGeojson}
-            aria-busy={isExporting}
-            aria-describedby="dataset-map-geojson-download-tip"
-          >
-            {isExporting ? "Preparing…" : "Download as GeoJSON"}
-          </button>
-          <span
-            id="dataset-map-geojson-download-tip"
-            role="tooltip"
-            className="dataset-map-preview__download-tooltip"
-          >
-            {!supportsTabularGeojsonExport(table, geographyType, { menu1 })
-              ? "GeoJSON export is not available for this geography type."
-              : mapYear != null
-                ? `Download the whole state map data as GeoJSON for selected year ${mapYear}.`
-                : "Download the whole state map data as GeoJSON."}
-          </span>
+          <div className="dataset-map-preview__download-option">
+            <button
+              type="button"
+              className="dataset-map-preview__download-geojson"
+              disabled={!canDownloadPng}
+              aria-describedby="dataset-map-png-tip"
+              onClick={handleExportToPng}
+            >
+              Download map as PNG
+            </button>
+            <span id="dataset-map-png-tip" role="tooltip" className="dataset-map-preview__download-tip">
+              Download the map image as a PNG.
+            </span>
+          </div>
+          <div className="dataset-map-preview__download-option">
+            <button
+              type="button"
+              className="dataset-map-preview__download-geojson"
+              disabled={!canDownloadGeojson}
+              aria-describedby="dataset-map-geojson-tip"
+              aria-busy={isExporting}
+              onClick={handleDownloadGeojson}
+            >
+              {isExporting ? "Preparing…" : "Download Geojson"}
+            </button>
+            <span id="dataset-map-geojson-tip" role="tooltip" className="dataset-map-preview__download-tip">
+              {geojsonSupported
+                ? mapYear != null
+                  ? `Download the whole state map data as GeoJSON for selected year ${mapYear}.`
+                  : "Download the whole state map data as GeoJSON."
+                : "GeoJSON export is not available for this geography type."}
+            </span>
+          </div>
           {exportError && (
             <p className="dataset-map-preview__download-error" role="alert">
               {exportError}
             </p>
           )}
         </div>
-        <button
-          type="button"
-          className="dataset-map-preview__download-geojson"
-          onClick={handleExportToPng}
-          disabled={!mapRef.current || !canDownloadGeojson}
-          aria-busy={isExporting}
-          aria-describedby="dataset-map-geojson-download-tip"
-        >
-          {isExporting ? "Preparing…" : "Download as PNG"}
-        </button>
       </aside>
     </div>
   ) : null;
