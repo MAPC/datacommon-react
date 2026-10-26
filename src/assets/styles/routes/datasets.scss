@@ -2886,6 +2886,24 @@
       }
     }
 
+    // Category labels can be long (e.g. "356 Minuteman Advisory Group on Interlocal
+    // Coordination"), so stack them under the variable name instead of a nowrap value column.
+    &--category {
+      flex-direction: column;
+      gap: 2px;
+
+      dt {
+        max-width: none;
+      }
+
+      dd {
+        flex: 0 1 auto;
+        white-space: normal;
+        overflow-wrap: break-word;
+        word-break: break-word;
+      }
+    }
+
     &--emphasis dd {
       font-size: 1.15rem;
       font-weight: 400;

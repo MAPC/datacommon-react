@@ -34,6 +34,7 @@ import {
   fetchMassgisDistrictOverlay,
   buildMapcRegionIndex,
   filterGeojsonByGeographicFrame,
+  filterLegendToDrawnFeatures,
   getMapVariableKind,
   parseCodedCategoryLabels,
   parsePairedCategoryNameLabels,
@@ -823,18 +824,14 @@ function DatasetMapPreview({
       parsePairedCategoryNameLabels(mapVariableColumn, rows)
     );
   }, [mapVariableColumn, rows]);
-  const isCategoricalVariable = mapValueKind === "binary" || mapValueKind === "categorical";
-
   const framedBaseGeojson = useMemo(() => {
     if (!baseGeojson) return null;
-    // Category maps need every class visible (e.g. 0 and 1), so do not clip the frame.
-    if (isCategoricalVariable) return baseGeojson;
     return filterGeojsonByGeographicFrame(baseGeojson, {
       frame: geographicFrame,
       mapcIndex: mapcRegionIndex,
       mapcBbox: [-71.6606345781778, 42.0024105200978, -70.7113301211872, 42.7128927511039],
     });
-  }, [baseGeojson, geographicFrame, mapcRegionIndex, isCategoricalVariable]);
+  }, [baseGeojson, geographicFrame, mapcRegionIndex]);
 
   const tractBoundaryLabel = useMemo(() => {
     if (isBoundariesDataset) return null;
@@ -1003,6 +1000,11 @@ function DatasetMapPreview({
       colorForValue,
     });
   }, [framedBaseGeojson, valueByGeography, moeByGeography, geographyType, colorForValue]);
+
+  const drawnLegend = useMemo(
+    () => filterLegendToDrawnFeatures(legend, paintedGeojson.features),
+    [legend, paintedGeojson],
+  );
 
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return undefined;
@@ -1333,7 +1335,7 @@ function DatasetMapPreview({
 
       let bounds = null;
       let maxZoom = 12;
-      if (!isCategoricalVariable && geographicFrame === GEOGRAPHIC_FRAME.mapc) {
+      if (geographicFrame === GEOGRAPHIC_FRAME.mapc) {
         bounds = MAPC_REGION_BOUNDS;
         maxZoom = 11;
       } else {
@@ -1357,7 +1359,7 @@ function DatasetMapPreview({
       fitToFrame();
     });
     return () => window.cancelAnimationFrame(frameId);
-  }, [mapReady, geographicFrame, baseGeojson, isCategoricalVariable]);
+  }, [mapReady, geographicFrame, baseGeojson]);
 
   useEffect(() => {
     setSelectedFeatureKey(null);
@@ -1849,7 +1851,13 @@ function DatasetMapPreview({
                 <dd>{item.value}</dd>
               </div>
             ))}
-            <div className="dataset-map-preview__detail-row dataset-map-preview__detail-row--inline dataset-map-preview__detail-row--metric">
+            <div
+              className={`dataset-map-preview__detail-row dataset-map-preview__detail-row--inline dataset-map-preview__detail-row--metric${
+                mapValueKind === "categorical" || mapValueKind === "binary"
+                  ? " dataset-map-preview__detail-row--category"
+                  : ""
+              }`}
+            >
               <dt>{activeVariableLabel}</dt>
               <dd>
                 {formatMapValue(selectedDetails.value, activeVariableUnit, { kind: mapValueKind, categoryLabels })}
@@ -2039,7 +2047,7 @@ function DatasetMapPreview({
                   )}
                 </div>
               )}
-              {legend.map((item) => (
+              {drawnLegend.map((item) => (
                 <div key={`${item.color}-${item.label}`} className="dataset-map-preview__legend-item">
                   <span className="dataset-map-preview__legend-swatch" style={{ backgroundColor: item.color }} />
                   <span>{item.label}</span>
