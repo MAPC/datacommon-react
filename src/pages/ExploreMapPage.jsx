@@ -2,7 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, useParams, useSearchParams, Outlet } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCircleQuestion, faFileLines, faMap, faTable } from "@fortawesome/free-solid-svg-icons";
+import {
+  faCircleQuestion,
+  faFileLines,
+  faFilePdf,
+  faMap,
+  faPen,
+  faShareNodes,
+  faTable,
+} from "@fortawesome/free-solid-svg-icons";
 import axios from "axios";
 import html2canvas from "html2canvas";
 import mapboxgl from "mapbox-gl";
@@ -27,6 +35,7 @@ import {
 import { compressDatasetsByGeography, findDatasetGeographyGroup, stripGeographyFromTitle } from "../utils/manageDatasets";
 import { pickDatasetOfTheWeek } from "../utils/featuredDataset";
 import {
+  DEFAULT_MAP_COLOR_SCHEME,
   detectDatasetGeographyType,
   isMapPreviewSupported,
   resolveTableGeographyColumn,
@@ -143,6 +152,7 @@ function applyStoryToMapState(prev, story) {
     mapVariable: story.mapVar || prev.mapVariable,
     mapYear: matchedYear != null ? matchedYear : prev.mapYear,
     geographicFrame: story.geoFrame || prev.geographicFrame || "mapc",
+    colorScheme: story.colors || DEFAULT_MAP_COLOR_SCHEME,
     mapDimensionSelections: story.dims || {},
   };
 }
@@ -173,7 +183,6 @@ const ExploreMapPage = () => {
   const [pdfBusy, setPdfBusy] = useState(false);
   const [printImage, setPrintImage] = useState("");
   const [storyOpen, setStoryOpen] = useState(false);
-  const [storyViewOpen, setStoryViewOpen] = useState(true);
   const storyApplyRef = useRef(null);
   const mapStateRef = useRef(null);
   const storyTitleRef = useRef("");
@@ -219,7 +228,6 @@ const ExploreMapPage = () => {
       }
 
       setStoryError("");
-      setStoryViewOpen(true);
       const titleChanged = storyTitleRef.current !== story.title;
       const bodyChanged = storyBodyRef.current !== story.body;
       setStoryTitle(story.title);
@@ -423,6 +431,7 @@ const ExploreMapPage = () => {
           table: dataset.table_name,
           mapVariable: useStory ? pendingStory.mapVar : null,
           geographicFrame: useStory && pendingStory.geoFrame ? pendingStory.geoFrame : "mapc",
+          colorScheme: useStory && pendingStory.colors ? pendingStory.colors : DEFAULT_MAP_COLOR_SCHEME,
           mapDimensionSelections: useStory ? pendingStory.dims : {},
         });
         setLoadingMap(false);
@@ -465,6 +474,18 @@ const ExploreMapPage = () => {
     else next.set("dataset", nextId);
     setSearchParams(next);
   };
+
+  useEffect(() => {
+    if (searchParams.get("edit") !== "1") return;
+    // Let a shared story finish decoding first; it also rewrites the query string.
+    if (token && !storyHydrated) return;
+    pendingStoryOpenRef.current = true;
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("edit");
+      return next;
+    }, { replace: true });
+  }, [searchParams, token, storyHydrated, setSearchParams]);
 
   useEffect(() => {
     if (!pendingStoryOpenRef.current) return undefined;
@@ -530,6 +551,7 @@ const ExploreMapPage = () => {
         mapVar: mapState.mapVariable,
         year: mapState.mapYear,
         geoFrame: mapState.geographicFrame,
+        colors: mapState.colorScheme,
         dims: mapState.mapDimensionSelections,
         title: storyTitle,
         body: storyBody,
@@ -553,7 +575,7 @@ const ExploreMapPage = () => {
         copied = false;
       }
       setShareUrl(url);
-      setShareMessage(copied ? "Link copied." : "Copy the story link below.");
+      setShareMessage(copied ? "Link copied!" : "Could not copy. Please copy the link below.");
       navigate(path, { replace: true });
     } catch (error) {
       console.error(error);
@@ -651,6 +673,11 @@ const ExploreMapPage = () => {
       clearShareFeedback();
     }
   }, [clearShareFeedback]);
+  const handleColorSchemeChange = useCallback((colorScheme) => {
+    if (mapStateRef.current?.colorScheme === colorScheme) return;
+    clearShareFeedback();
+    setMapState((prev) => (prev ? { ...prev, colorScheme } : prev));
+  }, [clearShareFeedback]);
   const handleGeographicFrameChange = useCallback((geographicFrame) => {
     setMapState((prev) => {
       if (!prev || prev.geographicFrame === geographicFrame) return prev;
@@ -687,8 +714,11 @@ const ExploreMapPage = () => {
   const storyDisplayTitle = storyTitle.trim() || mapState?.title || "Data story";
   const storyPrintHtml = sanitizeStoryHtml(storyBody);
   const showStarter = !datasetId && !(token && !storyHydrated);
-  const showSharedStory = Boolean(token) && storyHydrated && !storyError && !storyOpen
-    && Boolean(mapState) && !loadingMap && Boolean(storyTitle.trim() || storyPrintHtml);
+  // A shared story is read-only: its text is written about these exact map settings.
+  const storyLocked = Boolean(token) && storyHydrated && !storyError && !storyOpen
+    && Boolean(storyTitle.trim() || storyPrintHtml);
+  const showSharedStory = storyLocked && Boolean(mapState) && !loadingMap;
+  const showPicker = !storyLocked || Boolean(mapError);
 
   return (
     <>
@@ -910,117 +940,120 @@ const ExploreMapPage = () => {
         </section>
       </section>
     ) : (
-    <div className="explore-map">
-      <aside className="explore-map__picker" aria-label="Choose a dataset">
-        <h1>Explore on the map</h1>
-        <div className={`explore-map__search-bar${datasetsLoading ? " is-loading" : ""}`}>
-          <DatasetSearchBar
-            className="explore-map__dataset-search"
-            datasets={mappableDatasets}
-            placeholder={datasetsLoading ? searchPlaceholder : "Search by table name or title"}
-            onSelect={(dataset) => selectDataset(dataset?.seq_id || dataset?.id)}
-            maxResults={10}
-            maxWidth="100%"
-            maxHeight="40vh"
-          />
-          {datasetsLoading && <SearchLoadingSpinner />}
-        </div>
-
-        {status === "failed" && <p className="explore-map__status explore-map__status--error">Datasets could not be loaded.</p>}
-        {mapError && <p className="explore-map__status explore-map__status--error">{mapError}</p>}
-        {storyError && <p className="explore-map__status explore-map__status--error">{storyError}</p>}
-
-        {selectedTableName && (
-          <p className="explore-map__selected">{selectedTableName}</p>
-        )}
-
-        {!loadingMap && mapState && (
-          <div className="explore-map__story-actions">
-            <div className="explore-map__story-button-wrap">
-              <button
-                type="button"
-                className="explore-map__story-button"
-                aria-describedby="explore-map-story-tip"
-                onClick={() => setStoryOpen(true)}
-              >
-                Create a data story
-              </button>
-              <span id="explore-map-story-tip" role="tooltip" className="explore-map__story-tooltip">
-                Create a data story with customized title, content, and key insights. Export it as a PDF or generate a shareable link.
-              </span>
-            </div>
-            <a
-              className="explore-map__dataset-link"
-              href={`/browser/datasets/${mapState.datasetId}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <FontAwesomeIcon icon={faTable} aria-hidden="true" />
-              <span>Open this dataset</span>
-            </a>
+    <div className={`explore-map${storyOpen && storyHydrated ? " explore-map--story-open" : ""}`}>
+      {showPicker && (
+        <aside className="explore-map__picker" aria-label="Choose a dataset">
+          <h1>Explore on the map</h1>
+          <div className={`explore-map__search-bar${datasetsLoading ? " is-loading" : ""}`}>
+            <DatasetSearchBar
+              className="explore-map__dataset-search"
+              datasets={mappableDatasets}
+              placeholder={datasetsLoading ? searchPlaceholder : "Search by table name or title"}
+              onSelect={(dataset) => selectDataset(dataset?.seq_id || dataset?.id)}
+              maxResults={10}
+              maxWidth="100%"
+              maxHeight="40vh"
+            />
+            {datasetsLoading && <SearchLoadingSpinner />}
           </div>
-        )}
 
-        {loadingMap && (
-          <div className="explore-map__side-loading" role="status" aria-live="polite">
-            <MoonLoader size={36} color="#767676" />
-            <span>Loading data…</span>
-          </div>
-        )}
+          {status === "failed" && <p className="explore-map__status explore-map__status--error">Datasets could not be loaded.</p>}
+          {mapError && <p className="explore-map__status explore-map__status--error">{mapError}</p>}
+          {storyError && <p className="explore-map__status explore-map__status--error">{storyError}</p>}
 
-        {!loadingMap && mapState && (geographyLevels.length > 1 || mapState.availableYears?.length > 0) && (
-          <div className="explore-map__filters">
-            {geographyLevels.length > 1 && (
-              <div className="explore-map__years">
-                <span>Geography</span>
-                <ul>
-                  {geographyLevels.map((level) => {
-                    const isSelected = String(level.id) === String(datasetId);
-                    return (
-                      <li key={level.id}>
-                        <button
-                          type="button"
-                          className={isSelected ? "is-selected" : ""}
-                          onClick={() => selectDataset(level.id)}
-                        >
-                          {level.label}
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            )}
+          {selectedTableName && (
+            <p className="explore-map__selected">{selectedTableName}</p>
+          )}
 
-            {mapState.availableYears?.length > 0 && (
-              <div className="explore-map__years explore-map__years--dropdown">
-                <label htmlFor="explore-map-year">Year</label>
-                <select
-                  id="explore-map-year"
-                  className="explore-map__year-select"
-                  value={mapState.mapYear != null ? String(mapState.mapYear) : ""}
-                  onChange={(event) => {
-                    const year = mapState.availableYears.find((item) => String(item) === event.target.value);
-                    if (year == null) return;
-                    clearShareFeedback();
-                    setMapState((prev) => (prev ? { ...prev, mapYear: year } : prev));
-                  }}
+          {!loadingMap && mapState && (
+            <div className="explore-map__story-actions">
+              <div className="explore-map__story-button-wrap">
+                <button
+                  type="button"
+                  className={`explore-map__story-button${storyOpen ? " is-active" : ""}`}
+                  aria-describedby="explore-map-story-tip"
+                  aria-expanded={storyOpen}
+                  onClick={() => setStoryOpen((open) => !open)}
                 >
-                  {mapState.availableYears.map((year) => (
-                    <option key={String(year)} value={String(year)}>
-                      {year}
-                    </option>
-                  ))}
-                </select>
+                  {storyOpen ? "Close data story" : "Create a data story"}
+                </button>
+                <span id="explore-map-story-tip" role="tooltip" className="explore-map__story-tooltip">
+                  Create a data story with customized title, content, and key insights. Export it as a PDF or generate a shareable link.
+                </span>
               </div>
-            )}
-          </div>
-        )}
+              <a
+                className="explore-map__dataset-link"
+                href={`/browser/datasets/${mapState.datasetId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <FontAwesomeIcon icon={faTable} aria-hidden="true" />
+                <span>Open this dataset</span>
+              </a>
+            </div>
+          )}
 
-        {mapState && (
-          <div className="datasets explore-map__controls" ref={setControlsHost} hidden={loadingMap || undefined} />
-        )}
-      </aside>
+          {loadingMap && (
+            <div className="explore-map__side-loading" role="status" aria-live="polite">
+              <MoonLoader size={36} color="#767676" />
+              <span>Loading data…</span>
+            </div>
+          )}
+
+          {!loadingMap && mapState && (geographyLevels.length > 1 || mapState.availableYears?.length > 0) && (
+            <div className="explore-map__filters">
+              {geographyLevels.length > 1 && (
+                <div className="explore-map__years">
+                  <span>Geography</span>
+                  <ul>
+                    {geographyLevels.map((level) => {
+                      const isSelected = String(level.id) === String(datasetId);
+                      return (
+                        <li key={level.id}>
+                          <button
+                            type="button"
+                            className={isSelected ? "is-selected" : ""}
+                            onClick={() => selectDataset(level.id)}
+                          >
+                            {level.label}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+
+              {mapState.availableYears?.length > 0 && (
+                <div className="explore-map__years explore-map__years--dropdown">
+                  <label htmlFor="explore-map-year">Year</label>
+                  <select
+                    id="explore-map-year"
+                    className="explore-map__year-select"
+                    value={mapState.mapYear != null ? String(mapState.mapYear) : ""}
+                    onChange={(event) => {
+                      const year = mapState.availableYears.find((item) => String(item) === event.target.value);
+                      if (year == null) return;
+                      clearShareFeedback();
+                      setMapState((prev) => (prev ? { ...prev, mapYear: year } : prev));
+                    }}
+                  >
+                    {mapState.availableYears.map((year) => (
+                      <option key={String(year)} value={String(year)}>
+                        {year}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+          )}
+
+          {mapState && (
+            <div className="datasets explore-map__controls" ref={setControlsHost} hidden={loadingMap || undefined} />
+          )}
+        </aside>
+      )}
 
       <div className="explore-map__stage">
       {!mapState && <ExploreBasemap />}
@@ -1029,38 +1062,6 @@ const ExploreMapPage = () => {
           <MoonLoader size={42} color="#767676" />
           <span>Loading map…</span>
         </div>
-      )}
-      {showSharedStory && (
-        <section className="explore-map__story-view" aria-labelledby="explore-story-view-title">
-          <div className="explore-map__story-view-head">
-            <h2 id="explore-story-view-title">
-              <FontAwesomeIcon icon={faFileLines} aria-hidden="true" />
-              {storyDisplayTitle}
-            </h2>
-            <div className="explore-map__story-view-actions">
-              <button type="button" onClick={() => setStoryOpen(true)}>
-                Edit story
-              </button>
-              {storyPrintHtml && (
-                <button
-                  type="button"
-                  aria-expanded={storyViewOpen}
-                  aria-controls="explore-story-view-body"
-                  onClick={() => setStoryViewOpen((open) => !open)}
-                >
-                  {storyViewOpen ? "Hide story" : "Show story"}
-                </button>
-              )}
-            </div>
-          </div>
-          {storyViewOpen && storyPrintHtml && (
-            <div
-              id="explore-story-view-body"
-              className="explore-map__story-view-body"
-              dangerouslySetInnerHTML={{ __html: storyPrintHtml }}
-            />
-          )}
-        </section>
       )}
       {mapState && (
         <section className="datasets explore-map__viewer">
@@ -1088,31 +1089,84 @@ const ExploreMapPage = () => {
             schema={mapState.schema}
             table={mapState.table}
             sidePanelsHost={controlsHost}
+            mapOnly={storyLocked}
+            colorScheme={mapState.colorScheme}
+            onColorSchemeChange={handleColorSchemeChange}
           />
         </section>
       )}
       </div>
-    </div>
-    )}
-    {storyOpen && storyHydrated && (
-      <div
-        className="data-story-modal"
-        role="presentation"
-        onMouseDown={(event) => {
-          if (event.target === event.currentTarget) setStoryOpen(false);
-        }}
-      >
-        <div
-          className="data-story-modal__dialog"
-          role="dialog"
-          aria-modal="true"
+
+      {showSharedStory && (
+        <section className="explore-map__story-view" aria-labelledby="explore-story-view-title">
+          <div className="explore-map__story-view-head">
+            <h2 id="explore-story-view-title">
+              <FontAwesomeIcon icon={faFileLines} aria-hidden="true" />
+              {storyDisplayTitle}
+            </h2>
+            <div className="explore-map__story-view-actions">
+              <button
+                type="button"
+                className="explore-map__story-view-primary"
+                onClick={handleShareStory}
+                disabled={sharing || pdfBusy}
+              >
+                <FontAwesomeIcon icon={faShareNodes} aria-hidden="true" />
+                {sharing ? "Preparing link…" : "Share"}
+              </button>
+              <button type="button" onClick={handleExportPdf} disabled={sharing || pdfBusy}>
+                <FontAwesomeIcon icon={faFilePdf} aria-hidden="true" />
+                {pdfBusy ? "Preparing PDF…" : "Export PDF"}
+              </button>
+              <button type="button" onClick={() => setStoryOpen(true)}>
+                <FontAwesomeIcon icon={faPen} aria-hidden="true" />
+                Edit story
+              </button>
+            </div>
+          </div>
+          <div className="explore-map__story-view-source">
+            <a href={`/browser/datasets/${mapState.datasetId}`} target="_blank" rel="noopener noreferrer">
+              <FontAwesomeIcon icon={faTable} aria-hidden="true" />
+              Open this dataset
+            </a>
+          </div>
+          {(shareMessage || shareError || pdfMessage) && (
+            <div className="explore-map__story-view-feedback">
+              {shareMessage && <p role="status">{shareMessage}</p>}
+              {shareError && <p className="is-error" role="alert">{shareError}</p>}
+              {pdfMessage && <p role="status">{pdfMessage}</p>}
+              {shareUrl && shareMessage && (
+                <input
+                  type="text"
+                  readOnly
+                  value={shareUrl}
+                  aria-label="Story link"
+                  onFocus={(event) => event.target.select()}
+                />
+              )}
+            </div>
+          )}
+          {storyPrintHtml && (
+            <div
+              id="explore-story-view-body"
+              className="explore-map__story-view-body"
+              dangerouslySetInnerHTML={{ __html: storyPrintHtml }}
+            />
+          )}
+        </section>
+      )}
+
+      {storyOpen && storyHydrated && (
+        <aside
+          className="explore-map__story-panel"
+          role="region"
           aria-labelledby="data-story-heading"
           tabIndex={-1}
           ref={storyDialogRef}
         >
           <button
             type="button"
-            className="data-story-modal__close"
+            className="explore-map__story-panel-close"
             aria-label="Close data story"
             onClick={() => setStoryOpen(false)}
           >
@@ -1143,8 +1197,9 @@ const ExploreMapPage = () => {
             onShare={handleShareStory}
             onExportPdf={handleExportPdf}
           />
-        </div>
-      </div>
+        </aside>
+      )}
+    </div>
     )}
     <article className="data-story-sheet" aria-hidden="true">
       <h1>{storyDisplayTitle}</h1>

@@ -9,6 +9,8 @@ import "mapbox-gl/dist/mapbox-gl.css";
 
 import { MAP_CONFIG } from "../../constants/mapConfig";
 import {
+  DEFAULT_MAP_COLOR_SCHEME,
+  MAP_COLOR_SCHEMES,
   MAP_VIEW_GEOGRAPHY_TYPES,
   buildChoroplethScale,
   buildValueByGeography,
@@ -358,6 +360,9 @@ function DatasetMapPreview({
   schema = "tabular",
   table = "",
   sidePanelsHost = null,
+  mapOnly = false,
+  colorScheme = DEFAULT_MAP_COLOR_SCHEME,
+  onColorSchemeChange,
 }) {
   const location = useLocation();
   const isEmbedView = new URLSearchParams(location.search).get("embed") === "1";
@@ -987,8 +992,9 @@ function DatasetMapPreview({
       kind: mapValueKind,
       categoryLabels,
       columnValues: mapColumnValues,
+      colorScheme,
     });
-  }, [valueByGeography, activeVariableUnit, boundaryLayerLabel, isBoundariesDataset, mapValueKind, categoryLabels, mapColumnValues]);
+  }, [valueByGeography, activeVariableUnit, boundaryLayerLabel, isBoundariesDataset, mapValueKind, categoryLabels, mapColumnValues, colorScheme]);
 
   const paintedGeojson = useMemo(() => {
     if (!framedBaseGeojson) return { type: "FeatureCollection", features: [] };
@@ -1709,7 +1715,7 @@ function DatasetMapPreview({
     );
   }
 
-  const sidePanels = !isEmbedView ? (
+  const sidePanels = !isEmbedView && !mapOnly ? (
     <div className="dataset-map-preview__side-panels">
       <aside className="dataset-map-preview__detail" aria-label="Map variable">
         <div className="dataset-map-preview__detail-header">
@@ -1750,6 +1756,43 @@ function DatasetMapPreview({
                 ))}
               </select>
             </label>
+            {onColorSchemeChange && (
+              <div className="dataset-map-preview__variable-field">
+                <span className="dataset-map-preview__variable-field-label" id="dataset-map-color-scheme-label">
+                  Color scheme
+                </span>
+                <div
+                  className="dataset-map-preview__color-schemes"
+                  role="radiogroup"
+                  aria-labelledby="dataset-map-color-scheme-label"
+                >
+                  {MAP_COLOR_SCHEMES.map((scheme) => {
+                    const selected = scheme.id === colorScheme;
+                    const categorical = mapValueKind === "categorical";
+                    const label = categorical ? scheme.categoricalLabel : scheme.label;
+                    const swatches = categorical
+                      ? scheme.categorical.slice(0, scheme.colors.length)
+                      : scheme.colors;
+                    return (
+                      <button
+                        key={scheme.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={selected}
+                        aria-label={label}
+                        title={label}
+                        className={`dataset-map-preview__color-scheme${selected ? " is-selected" : ""}`}
+                        onClick={() => onColorSchemeChange(scheme.id)}
+                      >
+                        {swatches.map((color) => (
+                          <span key={color} style={{ background: color }} />
+                        ))}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             {needsDimensionPicker && (
               <div className="dataset-map-preview__dimension-fields">
                 <p className="dataset-map-preview__dimension-hint">
@@ -1916,7 +1959,7 @@ function DatasetMapPreview({
   ) : null;
 
   return (
-    <div className={`dataset-map-preview${isEmbedView ? " dataset-map-preview--embed" : ""}${sidePanelsHost ? " dataset-map-preview--external-controls" : ""}`}>
+    <div className={`dataset-map-preview${isEmbedView ? " dataset-map-preview--embed" : ""}${sidePanelsHost || mapOnly ? " dataset-map-preview--external-controls" : ""}`}>
       <div className="dataset-map-preview__map-panel">
         {boundariesError && (
           <span className="dataset-map-preview__status dataset-map-preview__status--error">{boundariesError}</span>
@@ -2095,7 +2138,7 @@ function DatasetMapPreview({
           </div>
 
           {sidePanelsHost ? createPortal(sidePanels, sidePanelsHost) : sidePanels}
-          {!isEmbedView && rankingRows.length > 0 && (
+          {!isEmbedView && !mapOnly && rankingRows.length > 0 && (
             <div className="dataset-map-preview__ranking">
               <p className="dataset-map-preview__ranking-caption">
                 Ranked by {activeVariableLabel || "selected variable"}
@@ -2203,6 +2246,9 @@ DatasetMapPreview.propTypes = {
   schema: PropTypes.string,
   table: PropTypes.string,
   sidePanelsHost: PropTypes.instanceOf(typeof Element === "undefined" ? Object : Element),
+  mapOnly: PropTypes.bool,
+  colorScheme: PropTypes.string,
+  onColorSchemeChange: PropTypes.func,
 };
 
 export default DatasetMapPreview;
