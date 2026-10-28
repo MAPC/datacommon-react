@@ -36,6 +36,7 @@ import { compressDatasetsByGeography, findDatasetGeographyGroup, stripGeographyF
 import { pickDatasetOfTheWeek } from "../utils/featuredDataset";
 import {
   DEFAULT_MAP_COLOR_SCHEME,
+  hideShadowsForCapture,
   detectDatasetGeographyType,
   isMapPreviewSupported,
   resolveTableGeographyColumn,
@@ -606,6 +607,7 @@ const ExploreMapPage = () => {
         backgroundColor: "#ffffff",
         scale: Math.min(2, window.devicePixelRatio || 1),
         logging: false,
+        onclone: hideShadowsForCapture,
       });
       previousTitleRef.current = document.title;
       document.title = `${storyTitle.trim() || mapState?.title || "Data story"} - DataCommon`;

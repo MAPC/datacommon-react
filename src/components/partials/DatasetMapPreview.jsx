@@ -38,6 +38,7 @@ import {
   filterGeojsonByGeographicFrame,
   filterLegendToDrawnFeatures,
   getMapVariableKind,
+  hideShadowsForCapture,
   parseCodedCategoryLabels,
   parsePairedCategoryNameLabels,
 } from "../../utils/datasetMapPreview";
@@ -1692,7 +1693,9 @@ function DatasetMapPreview({
     if (layersButton) layersButton.style.display = "none";
 
     try {
-      const canvas = await html2canvas(document.getElementById("top-level-map-container"));
+      const canvas = await html2canvas(document.getElementById("top-level-map-container"), {
+        onclone: hideShadowsForCapture,
+      });
       const url = canvas.toDataURL("image/png");
       const link = document.createElement("a");
       link.download = "map-export.png";

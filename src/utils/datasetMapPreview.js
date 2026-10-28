@@ -201,6 +201,13 @@ export function normalizeMapColorScheme(id) {
   return MAP_COLOR_SCHEMES.some((scheme) => scheme.id === id) ? id : null;
 }
 
+/** html2canvas `onclone`: it paints blurred box-shadows as a solid gray block over part of the map overlays. */
+export function hideShadowsForCapture(clonedDocument) {
+  const style = clonedDocument.createElement("style");
+  style.textContent = "#top-level-map-container, #top-level-map-container * { box-shadow: none !important; }";
+  clonedDocument.head.appendChild(style);
+}
+
 function schemeById(id) {
   return MAP_COLOR_SCHEMES.find((scheme) => scheme.id === id) || MAP_COLOR_SCHEMES[0];
 }
