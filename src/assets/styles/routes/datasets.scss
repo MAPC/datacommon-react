@@ -2160,6 +2160,49 @@
     font-weight: 600;
   }
 
+  .dataset-map-preview__color-schemes {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .dataset-map-preview__color-scheme {
+    display: flex;
+    height: 22px;
+    padding: 2px;
+    border: 1px solid rgba($color_font-medium, 0.35);
+    border-radius: 4px;
+    background: #fff;
+    cursor: pointer;
+
+    span {
+      flex: 1 1 0;
+      height: 100%;
+    }
+
+    span:first-child {
+      border-radius: 2px 0 0 2px;
+    }
+
+    span:last-child {
+      border-radius: 0 2px 2px 0;
+    }
+
+    &:hover {
+      border-color: $color_brand-secondary;
+    }
+
+    &:focus-visible {
+      outline: 2px solid rgba($color_brand-secondary, 0.45);
+      outline-offset: 1px;
+    }
+
+    &.is-selected {
+      border-color: $color_font-dark;
+      box-shadow: 0 0 0 1px $color_font-dark;
+    }
+  }
+
   .dataset-map-preview__variable-select {
     width: 100%;
     max-width: 100%;
