@@ -36,6 +36,7 @@ import {
   fetchMassgisDistrictOverlay,
   buildMapcRegionIndex,
   filterGeojsonByGeographicFrame,
+  filterLegendToDrawnFeatures,
   getMapVariableKind,
   parseCodedCategoryLabels,
   parsePairedCategoryNameLabels,
@@ -1006,6 +1007,11 @@ function DatasetMapPreview({
     });
   }, [framedBaseGeojson, valueByGeography, moeByGeography, geographyType, colorForValue]);
 
+  const drawnLegend = useMemo(
+    () => filterLegendToDrawnFeatures(legend, paintedGeojson.features),
+    [legend, paintedGeojson],
+  );
+
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return undefined;
 
@@ -1888,7 +1894,13 @@ function DatasetMapPreview({
                 <dd>{item.value}</dd>
               </div>
             ))}
-            <div className="dataset-map-preview__detail-row dataset-map-preview__detail-row--inline dataset-map-preview__detail-row--metric">
+            <div
+              className={`dataset-map-preview__detail-row dataset-map-preview__detail-row--inline dataset-map-preview__detail-row--metric${
+                mapValueKind === "categorical" || mapValueKind === "binary"
+                  ? " dataset-map-preview__detail-row--category"
+                  : ""
+              }`}
+            >
               <dt>{activeVariableLabel}</dt>
               <dd>
                 {formatMapValue(selectedDetails.value, activeVariableUnit, { kind: mapValueKind, categoryLabels })}
@@ -2078,7 +2090,7 @@ function DatasetMapPreview({
                   )}
                 </div>
               )}
-              {legend.map((item) => (
+              {drawnLegend.map((item) => (
                 <div key={`${item.color}-${item.label}`} className="dataset-map-preview__legend-item">
                   <span className="dataset-map-preview__legend-swatch" style={{ backgroundColor: item.color }} />
                   <span>{item.label}</span>

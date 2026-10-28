@@ -451,6 +451,12 @@ function shouldExcludeAsIdentifierCode(col, sample = []) {
   return unique.length > CATEGORICAL_UNIQUE_MAX;
 }
 
+// Painted features store values after toNumber() ("Y" -> 1), so legend classes are keyed the same way.
+function paintedValueKey(value) {
+  const n = toNumber(value);
+  return n != null ? String(n) : String(value);
+}
+
 function categorySortValue(value) {
   if (typeof value === "boolean") return value ? 1 : 0;
   const n = Number(value);
@@ -504,11 +510,34 @@ function buildCategoricalScale(
       ...classes.map((value) => ({
         label: categoryLabel(value, kind, labels),
         color: colorForValue(value),
+        categoryKey: paintedValueKey(value),
       })),
-      { label: "No data", color: NO_DATA_COLOR },
+      { label: "No data", color: NO_DATA_COLOR, isNoData: true },
     ],
     binningDescription: kind === "binary" ? "Classification: Unique values" : "Classification: Unique values",
   };
+}
+
+/**
+ * Limit a categorical legend to the classes actually painted on the map (e.g. after
+ * clipping to the MAPC frame). Colors stay assigned from the full column so a class
+ * keeps its color when the frame changes. Non-categorical legends pass through.
+ * @param {Array<{label: string, color: string, categoryKey?: string, isNoData?: boolean}>} legend
+ * @param {Array<{properties?: {__mapValue?: number|null}}>} features - painted features
+ */
+export function filterLegendToDrawnFeatures(legend = [], features = []) {
+  const isCategoricalLegend = legend.some((item) => item.categoryKey != null);
+  if (!isCategoricalLegend || !features.length) return legend;
+
+  const drawnKeys = new Set();
+  let hasNoData = false;
+  features.forEach((feature) => {
+    const value = feature?.properties?.__mapValue;
+    if (value == null) hasNoData = true;
+    else drawnKeys.add(paintedValueKey(value));
+  });
+
+  return legend.filter((item) => (item.isNoData ? hasNoData : drawnKeys.has(item.categoryKey)));
 }
 
 /**
