@@ -1,7 +1,21 @@
 import { useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
+import styled from 'styled-components';
+import MoonLoader from 'react-spinners/MoonLoader';
 import RPAregionProfilesView from '../components/RPAregionProfilesView';
 import { fetchRPAregionData, selectRPAregionData, selectRPAregionLoading, selectRPAregionError } from '../reducers/rparegionSlice';
+
+const LoadingState = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  min-height: 60vh;
+  color: #767676;
+  font-size: 1rem;
+  text-align: center;
+`;
 
 const RPAregionProfilesPage = () => {
   const dispatch = useDispatch();
@@ -19,7 +33,12 @@ const RPAregionProfilesPage = () => {
   }, [dispatch, rparegionData]);
 
   if (loading) {
-    return <div>Loading MAPC region data...</div>;
+    return (
+      <LoadingState role="status" aria-live="polite">
+        <MoonLoader size={42} color="#767676" aria-hidden="true" />
+        <span>Loading MAPC region data...</span>
+      </LoadingState>
+    );
   }
 
   if (error) {
