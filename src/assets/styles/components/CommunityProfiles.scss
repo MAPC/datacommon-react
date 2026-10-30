@@ -100,6 +100,73 @@
       }
     }
 
+    .member-municipalities {
+      margin: 0 0 1.5rem;
+      padding: 1rem 1.25rem 1.1rem;
+      border: 1px solid rgba($color_font-dark, 0.14);
+      border-radius: 10px;
+      background: $color_bg-light;
+
+      &__title {
+        margin: 0 0 0.25rem;
+        color: $color_font-dark;
+        font-size: 1.05rem;
+        font-weight: 700;
+      }
+
+      &__hint {
+        margin: 0 0 0.85rem;
+        color: $color_font-medium--dark;
+        font-size: 0.9rem;
+        line-height: 1.4;
+      }
+
+      &__list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+        gap: 0.5rem;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+
+        a {
+          position: static;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.5rem;
+          padding: 0.5rem 0.75rem;
+          border: 1px solid rgba($color_font-dark, 0.18);
+          border-radius: 8px;
+          background: $color_bg-medium--light;
+          color: $color_font-dark;
+          font-size: 0.9rem;
+          font-weight: 600;
+          text-decoration: none;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+
+          &::after {
+            content: "↗";
+            flex: 0 0 auto;
+            color: $color_brand-secondary;
+            font-size: 0.8rem;
+          }
+
+          &:hover,
+          &:focus-visible {
+            border-color: $color_brand-secondary;
+            background: rgba($color_brand-primary, 0.14);
+          }
+        }
+      }
+
+      @media print {
+        display: none;
+      }
+    }
+
     .muni-links-container {
       margin-left: 8px;
       margin-bottom: 8px;
@@ -139,6 +206,66 @@
       padding: 0 0 1em 0;
     }
   }
+  .chart-member-link {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem 0.75rem;
+    margin-top: 0.85rem;
+    padding-top: 0.75rem;
+    border-top: 1px dashed rgba($color_font-dark, 0.2);
+
+    &__label {
+      color: $color_font-dark;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    select {
+      flex: 1 1 12rem;
+      max-width: 18rem;
+      height: 2.1rem;
+      padding: 0 0.6rem;
+      border: 1px solid rgba($color_font-dark, 0.28);
+      border-radius: 6px;
+      background: $color_bg-light;
+      color: $color_font-dark;
+      font-family: $font_family-primary;
+      font-size: 0.85rem;
+      cursor: pointer;
+
+      &:focus {
+        outline: none;
+        border-color: $color_brand-secondary;
+        box-shadow: 0 0 0 3px rgba($color_brand-secondary, 0.18);
+      }
+    }
+
+    @media print {
+      display: none;
+    }
+  }
+
+  .chart-wrapper {
+    scroll-margin-top: 1.5rem;
+  }
+
+  .chart-wrapper--targeted {
+    border-radius: 8px;
+    animation: chart-targeted-flash 2.4s ease-out;
+  }
+
+  @keyframes chart-targeted-flash {
+    0%, 35% {
+      box-shadow: 0 0 0 4px rgba($color_brand-primary, 0.55);
+      background-color: rgba($color_brand-primary, 0.08);
+    }
+    100% {
+      box-shadow: 0 0 0 4px rgba($color_brand-primary, 0);
+      background-color: transparent;
+    }
+  }
+
   .digital-equity-map {
     @media print {
       display: none !important;

@@ -1,0 +1,17 @@
+.page-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  min-height: 60vh;
+  padding: 2rem;
+  text-align: center;
+
+  &__message {
+    color: $color_font-dark;
+    font-family: $font_family-primary;
+    font-size: $font_size-small;
+    font-weight: 500;
+  }
+}

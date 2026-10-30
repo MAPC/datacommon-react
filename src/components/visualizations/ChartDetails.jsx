@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useContext } from "react";
 import PropTypes from "prop-types";
 import styled from "styled-components";
 import { useSelector } from "react-redux";
@@ -8,6 +8,7 @@ import DownloadChartImageButton from "../field/DownloadChartImageButton";
 import CopyChartImageButton from "../field/CopyChartImageButton";
 import CommunityValuesModal from "../field/CommunityValuesModal";
 import { communityMetricsForChart } from "../../constants/regionCommunityMetrics";
+import { MemberMunicipalitiesContext, chartAnchorId, muniProfileHref } from "../../utils/profileLinks";
 
 const ChartHeader = styled.div`
   display: flex;
@@ -129,6 +130,20 @@ const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAreg
   const [showCommunities, setShowCommunities] = useState(false);
   const chartWrapperRef = useRef(null);
   const communityMetrics = isRPAregion ? communityMetricsForChart(chart) : null;
+  const memberMunicipalities = useContext(MemberMunicipalitiesContext);
+  const memberMunis = useMemo(
+    () => [...(memberMunicipalities?.municipalities || [])].sort((a, b) =>
+      String(a.muni_name || "").localeCompare(String(b.muni_name || ""), undefined, { sensitivity: "base" }),
+    ),
+    [memberMunicipalities],
+  );
+
+  const handleOpenMemberChart = (event) => {
+    const muniName = event.target.value;
+    event.target.value = "";
+    if (!muniName) return;
+    window.open(muniProfileHref(muniName, memberMunicipalities.tab, chart), "_blank", "noopener");
+  };
 
   // Used by the "View data table" modal to fetch column alias metadata.
   // If the chart has multiple backing tables, we use the first one.
@@ -201,7 +216,11 @@ const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAreg
     : "";
 
   return (
-    <div className={["chart-wrapper", wrapperClassName].filter(Boolean).join(" ")} ref={chartWrapperRef}>
+    <div
+      id={chartAnchorId(chart)}
+      className={["chart-wrapper", wrapperClassName].filter(Boolean).join(" ")}
+      ref={chartWrapperRef}
+    >
       <ChartHeader className={headerClassName}>
         {hideOuterTitle ? (
           <ScreenReaderOnlyTitle className="chart__title">
@@ -321,6 +340,19 @@ const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAreg
           </div>
         ) : null}
       </div>
+      {memberMunis.length > 0 && (
+        <label className="chart-member-link hide-on-print">
+          <span className="chart-member-link__label">See this chart for a community</span>
+          <select defaultValue="" onChange={handleOpenMemberChart}>
+            <option value="">Select a community…</option>
+            {memberMunis.map((muni) => (
+              <option key={muni.muni_id || muni.muni_name} value={muni.muni_name}>
+                {muni.muni_name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       {communityMetrics && (
         <CommunityValuesModal
           show={showCommunities}

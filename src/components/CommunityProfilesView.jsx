@@ -1,6 +1,6 @@
 import axios from "axios";
-import { useEffect, useState } from "react";
-import { Link, useParams, useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, useLocation, useParams, useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import styled, { keyframes } from "styled-components";
 
@@ -60,6 +60,8 @@ function trailmapCommunityProfileSrc(muniSlug) {
 const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
+  const highlightedHashRef = useRef("");
   const { muni, tab } = useParams();
   const [muniId, setMuniId] = useState(null);
   const [loadingDescription, setLoadingDescription] = useState(true);
@@ -160,6 +162,30 @@ const CommunityProfilesView = ({ name, municipalFeature, muniSlug }) => {
   useEffect(() => {
     getChartsForTab(activeTab).forEach((chart) => dispatch(fetchChartData({ chartInfo: chart, municipality: muni })));
   }, [activeTab, muni, dispatch]);
+
+  // Deep links like /profile/:muni/:tab#chart-race-and-ethnicity scroll to that chart.
+  // Re-runs once the async description loads because it shifts the charts down.
+  useEffect(() => {
+    const targetId = decodeURIComponent(location.hash.slice(1));
+    if (!targetId) return undefined;
+    let attempts = 0;
+    let timer;
+    const scrollToChart = () => {
+      const target = document.getElementById(targetId);
+      if (!target || target.offsetParent === null) {
+        if (attempts++ < 20) timer = setTimeout(scrollToChart, 150);
+        return;
+      }
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (highlightedHashRef.current !== location.hash) {
+        highlightedHashRef.current = location.hash;
+        target.classList.add("chart-wrapper--targeted");
+        setTimeout(() => target.classList.remove("chart-wrapper--targeted"), 2600);
+      }
+    };
+    timer = setTimeout(scrollToChart, 150);
+    return () => clearTimeout(timer);
+  }, [location.hash, activeTab, loadingDescription]);
 
   const handlePrintCharts = async () => {
     // Check if all chart data is already loaded
