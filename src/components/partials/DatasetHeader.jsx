@@ -1,9 +1,16 @@
 import axios from "axios";
 import PropTypes from "prop-types";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEllipsisVertical, faMap, faShareNodes, faTable, faStar as filledFaStar } from "@fortawesome/free-solid-svg-icons";
+import {
+  faEllipsisVertical,
+  faFileLines,
+  faMap,
+  faShareNodes,
+  faTable,
+  faStar as filledFaStar,
+} from "@fortawesome/free-solid-svg-icons";
 import { faMessage, faStar } from "@fortawesome/free-regular-svg-icons";
 
 import { formatUpdated } from "../../utils/formatUpdated";
@@ -12,6 +19,7 @@ import EmbedTableModal from "./EmbedTableModal";
 import MetadataModal from "./MetadataModal";
 import { buildDatasetViewShareSearchParams, DATASET_VIEW_SHARE_MAX_URL_LENGTH } from "../../utils/datasetViewShareQuery";
 import { getCookie } from "../../utils/cookies";
+import { buildDataStoryPayload, dataStorySharePath, encodeDataStory } from "../../utils/dataStory";
 import styled, { keyframes } from "styled-components";
 
 const setSelectYears = (availableYears, updateSelectedYears, selectedYears, { singleSelect = false } = {}) => {
@@ -728,6 +736,7 @@ function DatasetHeader({
   geographyType = null,
 }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const isEmbedView = new URLSearchParams(location.search).get("embed") === "1";
   const [downloadModalOpen, setDownloadModalOpen] = useState(false);
   const [embedModalOpen, setEmbedModalOpen] = useState(false);
@@ -853,6 +862,29 @@ function DatasetHeader({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [actionsOpen]);
 
+  const handleCreateDataStory = async () => {
+    setActionsOpen(false);
+    const payload = buildDataStoryPayload({
+      dataset: datasetId,
+      mapVar: mapVariable,
+      year: selectedYears?.[0],
+      geoFrame: geographicFrame,
+      dims: mapDimensionSelections,
+    });
+    const explorePath = `/explore?dataset=${encodeURIComponent(datasetId)}&edit=1`;
+    if (!payload) {
+      navigate(explorePath);
+      return;
+    }
+    try {
+      const token = await encodeDataStory(payload);
+      navigate(`${dataStorySharePath(token, payload.dataset)}&edit=1`);
+    } catch (error) {
+      console.error(error);
+      navigate(explorePath);
+    }
+  };
+
   const handleToggleDatasetFavorite = async () => {
     // bail out if currently loading
     if (loadingFavorites) return;
@@ -967,6 +999,18 @@ function DatasetHeader({
                     </span>
                     View Metadata
                   </button>
+                  {viewMode === "map" && mapPreviewSupported && (
+                    <button
+                      type="button"
+                      className="dataset-actions-item"
+                      onClick={handleCreateDataStory}
+                    >
+                      <span className="dataset-actions-item-icon" aria-hidden="true">
+                        <FontAwesomeIcon icon={faFileLines} size="sm" />
+                      </span>
+                      Create a data story
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="dataset-actions-item"

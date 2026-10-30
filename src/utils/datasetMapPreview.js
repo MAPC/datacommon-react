@@ -127,7 +127,96 @@ const NON_MAPPABLE_COLUMN_NAMES = new Set(
 );
 
 const NO_DATA_COLOR = "#E0E0E0";
-const CHOROPLETH_COLORS = ["#EDF8FB", "#B2E2E2", "#66C2A4", "#2CA25F", "#006D2C"];
+
+/**
+ * `colors`: sequential light-to-dark ramp (ColorBrewer); every ramp must have the same number of classes.
+ * `categorical`: qualitative palette for coded classes. Keep neighbors clearly different hues and avoid
+ * light grays, which read as "No data".
+ */
+export const MAP_COLOR_SCHEMES = [
+  {
+    id: "green",
+    label: "Green",
+    colors: ["#EDF8FB", "#B2E2E2", "#66C2A4", "#2CA25F", "#006D2C"],
+    categoricalLabel: "Bold",
+    categorical: [
+      "#2CA25F", "#7570B3", "#E7298A", "#D95F02", "#1F78B4", "#E6AB02",
+      "#A6761D", "#666666", "#E31A1C", "#B2DF8A", "#FB9A99", "#CAB2D6",
+    ],
+  },
+  {
+    id: "blue",
+    label: "Blue",
+    colors: ["#EFF3FF", "#BDD7E7", "#6BAED6", "#3182BD", "#08519C"],
+    categoricalLabel: "Tableau",
+    categorical: [
+      "#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F", "#EDC948",
+      "#B07AA1", "#FF9DA7", "#9C755F", "#79706E", "#17BECF", "#BCBD22",
+    ],
+  },
+  {
+    id: "purple",
+    label: "Purple",
+    colors: ["#F2F0F7", "#CBC9E2", "#9E9AC8", "#756BB1", "#54278F"],
+    categoricalLabel: "Dark",
+    categorical: [
+      "#54278F", "#D95F02", "#1B9E77", "#E7298A", "#E6AB02", "#1F78B4",
+      "#A6761D", "#666666", "#E31A1C", "#66A61E", "#FB9A99", "#80B1D3",
+    ],
+  },
+  {
+    id: "orange",
+    label: "Orange",
+    colors: ["#FEEDDE", "#FDBE85", "#FD8D3C", "#E6550D", "#A63603"],
+    categoricalLabel: "Vivid",
+    categorical: [
+      "#FF7F00", "#377EB8", "#4DAF4A", "#984EA3", "#E41A1C", "#D4B000",
+      "#A65628", "#F781BF", "#999999", "#1B9E77", "#6A3D9A", "#80B1D3",
+    ],
+  },
+  {
+    id: "red",
+    label: "Red",
+    colors: ["#FEE5D9", "#FCAE91", "#FB6A4A", "#DE2D26", "#A50F15"],
+    categoricalLabel: "Pastel",
+    categorical: [
+      "#FB8072", "#80B1D3", "#B3DE69", "#BEBADA", "#FDB462", "#8DD3C7",
+      "#FCCDE5", "#BC80BD", "#FFED6F", "#CCEBC5", "#C49C94", "#9EDAE5",
+    ],
+  },
+  {
+    id: "yellow-blue",
+    label: "Yellow to blue",
+    colors: ["#FFFFCC", "#A1DAB4", "#41B6C4", "#2C7FB8", "#253494"],
+    categoricalLabel: "Paired",
+    categorical: [
+      "#1F78B4", "#A6CEE3", "#33A02C", "#B2DF8A", "#E31A1C", "#FB9A99",
+      "#FF7F00", "#FDBF6F", "#6A3D9A", "#CAB2D6", "#B15928", "#FFFF99",
+    ],
+  },
+];
+export const DEFAULT_MAP_COLOR_SCHEME = MAP_COLOR_SCHEMES[0].id;
+
+export function normalizeMapColorScheme(id) {
+  return MAP_COLOR_SCHEMES.some((scheme) => scheme.id === id) ? id : null;
+}
+
+/** html2canvas `onclone`: it paints blurred box-shadows as a solid gray block over part of the map overlays. */
+export function hideShadowsForCapture(clonedDocument) {
+  const style = clonedDocument.createElement("style");
+  style.textContent = "#top-level-map-container, #top-level-map-container * { box-shadow: none !important; }";
+  clonedDocument.head.appendChild(style);
+}
+
+function schemeById(id) {
+  return MAP_COLOR_SCHEMES.find((scheme) => scheme.id === id) || MAP_COLOR_SCHEMES[0];
+}
+
+function rampForScheme(id) {
+  return schemeById(id).colors;
+}
+
+const CHOROPLETH_COLORS = rampForScheme(DEFAULT_MAP_COLOR_SCHEME);
 
 /**
  * Municipal, census tract, and block group tables can export GeoJSON via the export API.
@@ -196,20 +285,7 @@ function isNumericLike(value) {
 const BINARY_TRUE_TOKENS = new Set(["1", "true", "t", "yes", "y"]);
 const BINARY_FALSE_TOKENS = new Set(["0", "false", "f", "no", "n"]);
 const CATEGORICAL_UNIQUE_MAX = 16;
-const CATEGORICAL_COLORS = [
-  "#2CA25F",
-  "#7570B3",
-  "#E7298A",
-  "#D95F02",
-  "#1B9E77",
-  "#E6AB02",
-  "#A6761D",
-  "#666666",
-  "#1F78B4",
-  "#B2DF8A",
-  "#FB9A99",
-  "#CAB2D6",
-];
+const CATEGORICAL_COLORS = schemeById(DEFAULT_MAP_COLOR_SCHEME).categorical;
 const BINARY_YES_COLOR = "#2CA25F";
 /** Darker than NO_DATA_COLOR so “No” / “not provided” towns are not confused with missing data. */
 const BINARY_NO_COLOR = "#737373";
@@ -382,13 +458,26 @@ function shouldExcludeAsIdentifierCode(col, sample = []) {
   return unique.length > CATEGORICAL_UNIQUE_MAX;
 }
 
+// Painted features store values after toNumber() ("Y" -> 1), so legend classes are keyed the same way.
+function paintedValueKey(value) {
+  const n = toNumber(value);
+  return n != null ? String(n) : String(value);
+}
+
 function categorySortValue(value) {
   if (typeof value === "boolean") return value ? 1 : 0;
   const n = Number(value);
   return Number.isFinite(n) ? n : String(value);
 }
 
-function buildCategoricalScale(values = [], kind = "categorical", labels = null, columnValues = null) {
+function buildCategoricalScale(
+  values = [],
+  kind = "categorical",
+  labels = null,
+  columnValues = null,
+  yesColor = BINARY_YES_COLOR,
+  palette = CATEGORICAL_COLORS,
+) {
   const classSource = columnValues?.length ? columnValues : values;
   let classes = uniquePresentValues(classSource);
   if (kind === "binary") {
@@ -410,9 +499,9 @@ function buildCategoricalScale(values = [], kind = "categorical", labels = null,
     const color =
       kind === "binary"
         ? isBinaryTruthy(value) || Number(value) === 1
-          ? BINARY_YES_COLOR
+          ? yesColor
           : BINARY_NO_COLOR
-        : CATEGORICAL_COLORS[index % CATEGORICAL_COLORS.length];
+        : palette[index % palette.length];
     colorByKey.set(String(value), color);
     if (Number.isFinite(Number(value))) colorByKey.set(String(Number(value)), color);
   });
@@ -428,11 +517,34 @@ function buildCategoricalScale(values = [], kind = "categorical", labels = null,
       ...classes.map((value) => ({
         label: categoryLabel(value, kind, labels),
         color: colorForValue(value),
+        categoryKey: paintedValueKey(value),
       })),
-      { label: "No data", color: NO_DATA_COLOR },
+      { label: "No data", color: NO_DATA_COLOR, isNoData: true },
     ],
     binningDescription: kind === "binary" ? "Classification: Unique values" : "Classification: Unique values",
   };
+}
+
+/**
+ * Limit a categorical legend to the classes actually painted on the map (e.g. after
+ * clipping to the MAPC frame). Colors stay assigned from the full column so a class
+ * keeps its color when the frame changes. Non-categorical legends pass through.
+ * @param {Array<{label: string, color: string, categoryKey?: string, isNoData?: boolean}>} legend
+ * @param {Array<{properties?: {__mapValue?: number|null}}>} features - painted features
+ */
+export function filterLegendToDrawnFeatures(legend = [], features = []) {
+  const isCategoricalLegend = legend.some((item) => item.categoryKey != null);
+  if (!isCategoricalLegend || !features.length) return legend;
+
+  const drawnKeys = new Set();
+  let hasNoData = false;
+  features.forEach((feature) => {
+    const value = feature?.properties?.__mapValue;
+    if (value == null) hasNoData = true;
+    else drawnKeys.add(paintedValueKey(value));
+  });
+
+  return legend.filter((item) => (item.isNoData ? hasNoData : drawnKeys.has(item.categoryKey)));
 }
 
 /**
@@ -1112,8 +1224,7 @@ function quantileBreaks(sortedValues, breakCount) {
 /** Consecutive integers with few uniques (months 0–12, scores, counts) collapse under quantile. */
 const SMALL_INTEGER_UNIQUE_MAX = 15;
 
-function pickRampColors(count) {
-  const ramp = CHOROPLETH_COLORS;
+function pickRampColors(count, ramp = CHOROPLETH_COLORS) {
   if (count <= 1) return [ramp[0]];
   if (count >= ramp.length) return [...ramp];
   return Array.from({ length: count }, (_, i) => {
@@ -1167,8 +1278,8 @@ function mergeIntegerSingletonRanges(ranges) {
   return merged.map((range, i) => ({ ...range, colorIndex: i }));
 }
 
-function scaleFromInclusiveRanges(ranges, format, description) {
-  const colors = pickRampColors(ranges.length);
+function scaleFromInclusiveRanges(ranges, format, description, ramp = CHOROPLETH_COLORS) {
+  const colors = pickRampColors(ranges.length, ramp);
   const colorForValue = (n) => {
     if (!Number.isFinite(n)) return NO_DATA_COLOR;
     for (let i = 0; i < ranges.length; i += 1) {
@@ -1215,11 +1326,19 @@ export function getColumnUnit(column) {
  */
 export function buildChoroplethScale(
   values = [],
-  { unit = null, kind = "quantitative", categoryLabels = null, columnValues = null } = {},
+  { unit = null, kind = "quantitative", categoryLabels = null, columnValues = null, colorScheme = null } = {},
 ) {
   const kindSource = columnValues?.length ? columnValues : values;
+  const ramp = rampForScheme(colorScheme);
   if (kind === "binary" || kind === "categorical") {
-    return buildCategoricalScale(values, kind, categoryLabels, kindSource);
+    return buildCategoricalScale(
+      values,
+      kind,
+      categoryLabels,
+      kindSource,
+      ramp[3],
+      schemeById(colorScheme).categorical,
+    );
   }
 
   const numeric = values.filter((v) => Number.isFinite(v)).sort((a, b) => a - b);
@@ -1244,9 +1363,9 @@ export function buildChoroplethScale(
 
   if (uniqueValues.length === 1) {
     return {
-      colorForValue: (n) => (Number.isFinite(n) ? CHOROPLETH_COLORS[0] : NO_DATA_COLOR),
+      colorForValue: (n) => (Number.isFinite(n) ? ramp[0] : NO_DATA_COLOR),
       legend: [
-        { label: format(uniqueValues[0]), color: CHOROPLETH_COLORS[0] },
+        { label: format(uniqueValues[0]), color: ramp[0] },
         { label: "No data", color: NO_DATA_COLOR },
       ],
       binningDescription: "Classification: Single value",
@@ -1274,24 +1393,26 @@ export function buildChoroplethScale(
   const fullColumnIsSmallIntegerSet =
     referenceAreIntegers &&
     referenceUniques.length > 1 &&
-    referenceUniques.length <= CHOROPLETH_COLORS.length &&
+    referenceUniques.length <= ramp.length &&
     Math.max(...referenceUniques) - Math.min(...referenceUniques) <= SMALL_INTEGER_UNIQUE_MAX;
 
   // Unique-integer classes only when the whole column is a small coded domain (e.g. 0–12).
-  if (fullColumnIsSmallIntegerSet && valuesAreIntegers && uniqueValues.length <= CHOROPLETH_COLORS.length) {
+  if (fullColumnIsSmallIntegerSet && valuesAreIntegers && uniqueValues.length <= ramp.length) {
     return scaleFromInclusiveRanges(
       uniqueValues.map((value, i) => ({ min: value, max: value, colorIndex: i })),
       format,
       "Classification: Unique values",
+      ramp,
     );
   }
   if (fullColumnIsSmallIntegerSet && valuesAreIntegers && domainMax - domainMin <= SMALL_INTEGER_UNIQUE_MAX) {
     const integerDomain = [];
     for (let i = domainMin; i <= domainMax; i += 1) integerDomain.push(i);
     return scaleFromInclusiveRanges(
-      partitionSortedUniques(integerDomain, CHOROPLETH_COLORS.length),
+      partitionSortedUniques(integerDomain, ramp.length),
       format,
       "Classification: Equal interval",
+      ramp,
     );
   }
 
@@ -1301,7 +1422,7 @@ export function buildChoroplethScale(
   const classifyMax = domainMax;
   const classifyUnique = uniqueValues;
 
-  const availableColors = CHOROPLETH_COLORS;
+  const availableColors = ramp;
   const binCount = Math.min(availableColors.length, Math.max(2, classifyUnique.length));
 
   let breaks = quantileBreaks(classifyValues, binCount).filter((b) => b > classifyMin && b < classifyMax);
@@ -1354,6 +1475,7 @@ export function buildChoroplethScale(
       partitionSortedUniques(classifyUnique, availableColors.length),
       format,
       "Classification: Equal interval",
+      ramp,
     );
   }
 
@@ -1363,12 +1485,12 @@ export function buildChoroplethScale(
     for (let i = 0; i < ranges.length; i += 1) {
       const isLast = i === ranges.length - 1;
       if (isLast ? n <= ranges[i].max : n < ranges[i].max) {
-        const colorIndex = Math.min(ranges[i].colorIndex, CHOROPLETH_COLORS.length - 1);
-        return CHOROPLETH_COLORS[colorIndex];
+        const colorIndex = Math.min(ranges[i].colorIndex, ramp.length - 1);
+        return ramp[colorIndex];
       }
     }
     const last = ranges[ranges.length - 1];
-    return CHOROPLETH_COLORS[Math.min(last?.colorIndex ?? 0, CHOROPLETH_COLORS.length - 1)];
+    return ramp[Math.min(last?.colorIndex ?? 0, ramp.length - 1)];
   };
 
   const legend = ranges.map((range, i) => {
@@ -1380,7 +1502,7 @@ export function buildChoroplethScale(
         : `${format(range.min)}-${format(upper)}`;
     return {
       label,
-      color: CHOROPLETH_COLORS[Math.min(range.colorIndex, CHOROPLETH_COLORS.length - 1)],
+      color: ramp[Math.min(range.colorIndex, ramp.length - 1)],
     };
   });
   legend.push({ label: "No data", color: NO_DATA_COLOR });

@@ -1,4 +1,5 @@
 import { normalizeGeographicFrame } from "./datasetViewShareQuery";
+import { DEFAULT_MAP_COLOR_SCHEME, normalizeMapColorScheme } from "./datasetMapPreview";
 
 export const dataStoryTitleMax = 300;
 export const dataStoryBodyMax = 20000;
@@ -50,7 +51,7 @@ export function sanitizeStoryHtml(html) {
   return root.innerHTML.slice(0, dataStoryBodyMax);
 }
 
-export function buildDataStoryPayload({ dataset, mapVar, year, geoFrame, dims, title, body }) {
+export function buildDataStoryPayload({ dataset, mapVar, year, geoFrame, colors, dims, title, body }) {
   const pick = (value, pattern, max) => {
     const text = String(value ?? "").trim();
     return text && text.length <= max && pattern.test(text) ? text : null;
@@ -73,6 +74,7 @@ export function buildDataStoryPayload({ dataset, mapVar, year, geoFrame, dims, t
     mapVar: pick(mapVar, /^[\w.-]+$/, 80),
     year: pick(year, /^[\w./-]+$/, 32),
     geoFrame: normalizeGeographicFrame(geoFrame) || "mapc",
+    colors: normalizeMapColorScheme(colors) || DEFAULT_MAP_COLOR_SCHEME,
     dims: cleanDims,
     title: String(title || "").trim().slice(0, dataStoryTitleMax),
     body: sanitizeStoryHtml(body),
