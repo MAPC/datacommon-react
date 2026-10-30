@@ -400,8 +400,8 @@ export default {
         },
       },
       labels: {
-        nhwhi: "Non-hispanic White",
-        nhaa: "Non-hispanic Black or African American",
+        nhwhi: "Non-Hispanic White",
+        nhaa: "Non-Hispanic Black or African American",
         nhas: "Non-Hispanic Asian",
         nhpi: "Non-Hispanic Native Hawaiian and Other Pacific Islander",
         nhoth: "Non-Hispanic Some Other Race",
@@ -1065,7 +1065,7 @@ export default {
         label: "Subscription Type",
         format: format.string.default,
         sort: (a, b) => {
-          const order = ["Broadband (Cable, DSL)", "Cellular Plan", "dial-up"];
+          const order = ["Broadband (Cable, DSL)", "Cellular Plan", "Dial-up"];
           return order.indexOf(a) - order.indexOf(b);
         },
       },
@@ -1142,7 +1142,7 @@ export default {
             countMeColumn: "cdpintom",
           },
           {
-            x: "dial-up",
+            x: "Dial-up",
             column: "dialo_p",
             meColumn: "dialo_mp",
             countColumn: "dialo",
@@ -1316,7 +1316,7 @@ export default {
       },
       labels: {
         "11+21": "Agriculture, Forestry, Fishing, Hunting, and Mining",
-        22: "Construction",
+        23: "Construction",
         "31-33": "Manufacturing",
         "42+44-45": "Wholesale and Retail Trade",
         "22+48-49": "Transportation, warehousing, and utilities",
@@ -1354,7 +1354,7 @@ export default {
           const getOrZero = (obj, key) => obj[key] || 0;
           return {
             "11+21": getOrZero(year, "11") + getOrZero(year, "21"),
-            22: getOrZero(year, "22"),
+            23: getOrZero(year, "23"),
             "31-33": getOrZero(year, "31-33"),
             "42+44-45": getOrZero(year, "42") + getOrZero(year, "44-45"),
             "22+48-49": getOrZero(year, "22") + getOrZero(year, "48-49"),

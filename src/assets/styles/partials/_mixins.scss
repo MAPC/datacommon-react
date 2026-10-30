@@ -23,3 +23,81 @@
 
   background: linear-gradient(to right, $start, $finish);
 }
+
+// Record count, first/previous buttons, page-number input and next/last buttons of the dataset table.
+@mixin dataset-pagination {
+  padding-top: 2rem;
+
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  & > div { display: inline-block; }
+
+  .pagination-count-text {
+    font-size: $font_size-xsmall;
+  }
+
+  .pagination-nav-container {
+    display: flex;
+  }
+
+  .separator {
+    display: inline-block;
+    top: 4px;
+
+    height: 17px;
+    width: 1px;
+
+    margin: auto;
+    background: $color_font-medium;
+  }
+
+  .button-wrapper {
+    vertical-align: middle;
+    border-radius: $elem_button-radius;
+    transition: opacity .15s, background .15s;
+
+    &:first-of-type { @include partialGradient(1, 2); }
+    &:last-of-type { @include partialGradient(2, 2); }
+
+    &.disabled {
+      opacity: .4;
+      background: $color_font-medium;
+      transition: opacity .15s, background .15s;
+
+      button { cursor: initial; }
+    }
+
+    .separator { background: rgba($color_bg-dark, .15); }
+  }
+
+  button {
+    height: 100%;
+    padding: .2em .6em .45em;
+
+    background: none;
+  }
+
+  .page-counter {
+    margin: 2px 10px;
+
+    .separator { margin: auto 3px; }
+
+    .page-number-input {
+      width: 50px;
+    }
+
+    /* Hide the up/down arrows native to number inputs */
+    input::-webkit-outer-spin-button,
+    input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input[type=number] {
+      appearance: textfield;
+      -moz-appearance: textfield; /* Firefox */
+      text-align: right;
+    }
+  }
+}

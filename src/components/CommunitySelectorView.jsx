@@ -21,37 +21,6 @@ const townKey = (municipality) => String(municipality || "").toLowerCase().trim(
 const formatMuniSlug = (municipality) =>
   townKey(municipality).replace(/-/g, " ").replace(/\s+/g, "-");
 
-const styles = {
-  subregionSelector: {
-    marginBottom: '1rem',
-    position: 'relative'
-  },
-  select: {
-    width: '100%',
-    border: 'none',
-    backgroundColor: 'white',
-    fontFamily: "skolar-sans-latin, Helvetica,sans-serif",
-    height: '45px',
-    color: '#95989A',
-    padding: '0.5em 1.1em',
-    fontSize: '1rem',
-    fontWeight: '100',
-  },
-  selectFocus: {
-    outline: 'none',
-    boxShadow: '0 0 0 2px rgba(0,102,204,0.2)'
-  },
-  gradientBorder: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: '3px',
-    background: 'linear-gradient(to right, #6FC68E, #44aD89)',
-    pointerEvents: 'none'
-  }
-};
-
 const CommunitySelectorView = ({ muniLines, muniHighlight, muniFill, municipalityPoly, toProfile, searchBeside = false }) => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -59,9 +28,17 @@ const CommunitySelectorView = ({ muniLines, muniHighlight, muniFill, municipalit
   const isLoading = useSelector(selectSubregionLoading);
   const muniSearch = useSelector((state) => state.search.municipality);
 
-  const [selectedSubregion, setSelectedSubregion] = useState(searchBeside ? ALL_MASSACHUSETTS : "");
-  const [isFocused, setIsFocused] = useState(false);
+  const [selectedSubregion, setSelectedSubregion] = useState(ALL_MASSACHUSETTS);
   const [selectedMuni, setSelectedMuni] = useState("");
+
+  // The MAPC region is a dropdown option on the homepage; elsewhere it has its own button.
+  const showMapcOption = searchBeside;
+  const regionStepLabel = showMapcOption
+    ? "Subregion or RPA or All communities in Massachusetts"
+    : "Subregion or All communities in Massachusetts";
+  const emptySelectionText = showMapcOption
+    ? "Choose a Subregion or RPA or search a community"
+    : "Choose a Subregion or search a community";
 
   useEffect(() => {
     dispatch(fetchSubregionData());
@@ -127,35 +104,23 @@ const CommunitySelectorView = ({ muniLines, muniHighlight, muniFill, municipalit
   profileHrefRef.current = profileHref;
 
   useEffect(() => {
-    if (!searchBeside) return;
     dispatch(setHighlighted({ contextKey: "municipality", value: highlightedTowns }));
-  }, [dispatch, searchBeside, highlightedTowns]);
+  }, [dispatch, highlightedTowns]);
 
   useEffect(() => {
     return () => {
-      if (!searchBeside) return;
       dispatch(setHighlighted({ contextKey: "municipality", value: [] }));
     };
-  }, [dispatch, searchBeside]);
+  }, [dispatch]);
 
   const handleSubregionChange = (event) => {
-    const subregionId = event.target.value;
-    setSelectedSubregion(subregionId);
+    setSelectedSubregion(event.target.value);
     setSelectedMuni("");
     dispatch(clearContext({ contextKey: "municipality" }));
-    const href = regionProfileHref(subregionId);
-    if (!searchBeside && href) {
-      const tab = window.open(href, "_blank");
-      tab.focus();
-    }
   };
 
   const handleMuniSelect = (muni) => {
-    if (searchBeside) {
-      setSelectedMuni(townKey(muni));
-      return;
-    }
-    toProfile(muni);
+    setSelectedMuni(townKey(muni));
   };
 
   const handleCommunitySelectChange = (event) => {
@@ -188,7 +153,7 @@ const CommunitySelectorView = ({ muniLines, muniHighlight, muniFill, municipalit
   };
 
   const handleSubregionKeyDown = (event) => {
-    if (event.key !== "Enter" || event.repeat || !searchBeside) return;
+    if (event.key !== "Enter" || event.repeat) return;
     const href = regionProfileHref(event.target.value);
     if (!href) return;
     event.preventDefault();
@@ -197,21 +162,21 @@ const CommunitySelectorView = ({ muniLines, muniHighlight, muniFill, municipalit
   };
 
   useEffect(() => {
-    if (!searchBeside || !selectedMuni) return;
+    if (!selectedMuni) return;
     if (muniSearch?.hovering !== selectedMuni) {
       dispatch(setHovering({ contextKey: "municipality", value: selectedMuni }));
     }
-  }, [dispatch, searchBeside, selectedMuni, muniSearch?.hovering]);
+  }, [dispatch, selectedMuni, muniSearch?.hovering]);
 
-  const focusTowns = searchBeside
-    ? (highlightedTowns.length ? highlightedTowns : (selectedMuni ? [selectedMuni] : []))
-    : [];
+  const focusTowns = highlightedTowns.length
+    ? highlightedTowns
+    : (selectedMuni ? [selectedMuni] : []);
 
   const ctaText = selectedMuni
     ? `View ${capitalize(selectedMuni)} profile`
     : activeRegionProfileHref
       ? regionProfileLabel
-      : "Choose a Subregion or RPA or search a community";
+      : emptySelectionText;
 
   const profileIncludes = (
     <div className="home-profile-includes">
@@ -241,20 +206,30 @@ const CommunitySelectorView = ({ muniLines, muniHighlight, muniFill, municipalit
     <option key={id} value={id}>{region.subregionName}</option>
   ));
 
-  const homepageSearch = (
+  const searchIntro = searchBeside ? (
+    <div className="home-geo-intro">
+      <p className="home-geo-intro__title">Understand your community through data</p>
+      <p className="home-geo-intro__lede">
+        Discover housing, demographics, transportation, environment, and more—and explore the communities that matter to you.
+      </p>
+    </div>
+  ) : (
+    <div className="community-search-intro">
+      <p>Search any community in Massachusetts to view their profile:</p>
+      <a className="regional-profile-select-button" href={MAPC_PROFILE_HREF}>
+        View MAPC Regional Profile
+      </a>
+      <div className="search-box-or" aria-hidden="true">or</div>
+    </div>
+  );
+
+  const geoSearch = (
     <div className="home-geo-search">
-      <div className="home-geo-intro">
-        <p className="home-geo-intro__title">Understand your community through data</p>
-        <p className="home-geo-intro__lede">
-          Discover housing, demographics, transportation, environment, and more—and explore the communities that matter to you.
-        </p>
-      </div>
+      {searchIntro}
       <div className="home-geo-search__step">
         <div className="home-geo-search__label">
           <span className="home-geo-search__num" aria-hidden="true">1</span>
-          <span>
-            Subregion or RPA or All communities in Massachusetts
-          </span>
+          <span>{regionStepLabel}</span>
         </div>
         <div className="home-geo-search__select-wrap">
           <select
@@ -262,12 +237,12 @@ const CommunitySelectorView = ({ muniLines, muniHighlight, muniFill, municipalit
             onChange={handleSubregionChange}
             onKeyDown={handleSubregionKeyDown}
             disabled={isLoading}
-            aria-label="Subregion or RPA or All communities in Massachusetts"
+            aria-label={regionStepLabel}
           >
             <option value={ALL_MASSACHUSETTS}>
               All communities in Massachusetts
             </option>
-            <option value={MAPC_REGION}>{MAPC_REGION_NAME}</option>
+            {showMapcOption && <option value={MAPC_REGION}>{MAPC_REGION_NAME}</option>}
             {subregionOptions}
           </select>
         </div>
@@ -345,75 +320,16 @@ const CommunitySelectorView = ({ muniLines, muniHighlight, muniFill, municipalit
         text={ctaText}
         disabled={!profileHref}
         extraClassNames={`home-view-profile-cta${profileHref ? "" : " needs-selection"}`}
-        dataTooltip={
-          profileHref
-            ? undefined
-            : "Choose a Subregion or RPA or search a community"
-        }
+        dataTooltip={profileHref ? undefined : emptySelectionText}
       />
-      {profileIncludes}
+      {searchBeside && profileIncludes}
     </div>
   );
 
-  const originalSearch = (
-    <>
-      {searchBeside ? (
-        <div className="home-geo-intro">
-          <p className="home-geo-intro__title">Understand your community through data</p>
-          <p className="home-geo-intro__lede">
-            Discover housing, demographics, transportation, environment, and more—and explore the communities that matter to you.
-          </p>
-        </div>
-      ) : (
-        <p>Search any community in Massachusetts to view their profile:</p>
-      )}
-
-      <a className="regional-profile-select-button" href="/profile/rpa/352/demographics">
-        View MAPC Regional Profile
-      </a>
-
-      <div className="search-box-or" aria-hidden="true">or</div>
-
-      <div style={styles.subregionSelector}>
-        <select
-          value={selectedSubregion}
-          onChange={handleSubregionChange}
-          onKeyDown={handleSubregionKeyDown}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
-          style={{
-            ...styles.select,
-            ...(isFocused ? styles.selectFocus : {})
-          }}
-          disabled={isLoading}
-        >
-          <option value="">Select a Subregion</option>
-          {subregionOptions}
-        </select>
-        <div style={styles.gradientBorder}></div>
-      </div>
-
-      <div className="search-box-or" aria-hidden="true">or</div>
-
-      <SearchBar
-        contextKey={'municipality'}
-        onSelect={handleMuniSelect}
-        onEnter={searchBeside ? goToProfile : undefined}
-        clearOnSelect={!searchBeside}
-        placeholder={'Search for a community ...'}
-        className={"small"}
-      />
-    </>
-  );
-
-  const searchBox = searchBeside ? (
+  const searchBox = (
     <form className="search-box" onSubmit={handleProfileSubmit} onKeyDown={handleSearchBoxKeyDown}>
-      {homepageSearch}
+      {geoSearch}
     </form>
-  ) : (
-    <div className="search-box">
-      {originalSearch}
-    </div>
   );
 
   const selectionOutlineFeatures = (() => {
@@ -430,7 +346,7 @@ const CommunitySelectorView = ({ muniLines, muniHighlight, muniFill, municipalit
     selectionOutlineFeatures.map((feature) => feature.properties.town),
   );
 
-  const homeMuniLines = searchBeside && highlightTowns.size
+  const homeMuniLines = highlightTowns.size
     ? {
         ...muniLines,
         id: "ma-line",
@@ -443,25 +359,23 @@ const CommunitySelectorView = ({ muniLines, muniHighlight, muniFill, municipalit
       }
     : muniLines;
 
-  const selectionOutline = searchBeside
-    ? {
-        id: "ma-selection-line",
-        type: "line",
-        geojson: {
-          type: "FeatureCollection",
-          features: selectionOutlineFeatures,
-        },
-        paint: {
-          "line-color": "#000000",
-          "line-width": 2,
-          "line-opacity": 1,
-        },
-      }
-    : null;
+  const selectionOutline = {
+    id: "ma-selection-line",
+    type: "line",
+    geojson: {
+      type: "FeatureCollection",
+      features: selectionOutlineFeatures,
+    },
+    paint: {
+      "line-color": "#000000",
+      "line-width": 2,
+      "line-opacity": 1,
+    },
+  };
 
   const map = (
     <MapBox
-      layers={[homeMuniLines, muniHighlight, muniFill, selectionOutline].filter(Boolean)}
+      layers={[homeMuniLines, muniHighlight, muniFill, selectionOutline]}
       muniPoly={municipalityPoly}
       toProfile={searchBeside ? goToProfile : toProfile}
       fitPadding={searchBeside ? { top: 24, left: 24, right: 24, bottom: 24 } : undefined}

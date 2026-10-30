@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import React, { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import styled, { createGlobalStyle } from 'styled-components';
+import { createGlobalStyle } from 'styled-components';
 
 import Tab from "./Tab";
 import Dropdown from "./field/Dropdown";
@@ -14,8 +14,10 @@ import GaugeChart from "../containers/visualizations/GaugeChart";
 import GroupedBarChart from "../containers/visualizations/GroupedBarChart";
 import DataTableModal from './field/DataTableModal';
 import DownloadAllChartsButton from './field/DownloadAllChartsButton';
+import SubregionMunicipalityLinks from "./partials/SubregionMunicipalityLinks";
 import { fetchSubregionChartData, selectSubregionData } from "../reducers/subregionSlice";
 import ChartDetails from "./visualizations/ChartDetails";
+import { MemberMunicipalitiesContext } from "../utils/profileLinks";
 
 // Global Print Styles
 const PrintStyles = createGlobalStyle`
@@ -46,114 +48,9 @@ const PrintStyles = createGlobalStyle`
   }
 `;
 
-// Styled Components
-const MunicipalitiesList = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 1rem;
-  margin-bottom: 1rem;
-  height: 100px;
-  overflow-y: auto;
-  padding: 10px;
-  background-color: #ffffff;
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
-
-  &::-webkit-scrollbar {
-    width: 8px;
-  }
-
-  &::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 4px;
-  }
-
-  &::-webkit-scrollbar-thumb {
-    background: #888;
-    border-radius: 4px;
-  }
-
-  &::-webkit-scrollbar-thumb:hover {
-    background: #555;
-  }
-
-  @media print {
-    height: auto;
-    overflow: visible;
-  }
-`;
-
-const MunicipalitiesRow = styled.div`
-  display: flex;
-  gap: 8px;
-  flex: 0 0 auto;
-  width: 100%;
-  min-height: 35px;
-`;
-
-const MunicipalityLinkWrapper = styled.div`
-  flex: 0 0 calc((100% - 64px) / 8); /* (100% - (9 * 8px gaps)) / 10 items */
-  min-width: 90px;
-`;
-
-const StyledLink = styled(Link)`
-  color: #0066cc;
-  text-decoration: none;
-  padding: 6px 18px 6px 8px;
-  border-radius: 4px;
-  background-color: #f5f5f5;
-  font-size: 12px;
-  border: 1px solid #e0e0e0;
-  transition: all 0.2s ease;
-  text-align: center;
-  width: 100%;
-  height: 35px;
-  display: inline-block;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-
-  &::after {
-    content: "↗";
-    position: absolute;
-    right: 3px;
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: 9px;
-    opacity: 0.5;
-  }
-
-  &:hover {
-    background-color: #e5e5e5;
-    text-decoration: underline;
-    border-color: #ccc;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    
-    &::after {
-      opacity: 0.8;
-    }
-  }
-
-  @media print {
-    &::after {
-      display: none;
-    }
-  }
-`;
-
-const chunkArray = (array, size) => {
-  const chunked = [];
-  for (let i = 0; i < array.length; i += size) {
-    chunked.push(array.slice(i, i + size));
-  }
-  return chunked;
-};
-
 const SubregionProfilesView = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const { subregionId, tab } = useParams();
 
   // muni-finance not available at subregion level
@@ -170,7 +67,16 @@ const SubregionProfilesView = () => {
   });
 
   const subregionData = useSelector(selectSubregionData);
-  const municipalities = subregionData[subregionId]?.municipalities || [];
+  const municipalities = useMemo(
+    () => subregionData[subregionId]?.municipalities || [],
+    [subregionData, subregionId],
+  );
+  const subregionName = subregionData[subregionId]?.subregionName || '';
+  const activeTabLabel = availableTabs.find((t) => t.value === activeTab)?.label || activeTab;
+  const memberMunicipalities = useMemo(
+    () => ({ municipalities, tab: activeTab }),
+    [municipalities, activeTab],
+  );
 
   useEffect(() => {
     setActiveTab(sanitizeTab(tab));
@@ -231,36 +137,25 @@ const SubregionProfilesView = () => {
   };
 
   return (
-    <>
+    <MemberMunicipalitiesContext.Provider value={memberMunicipalities}>
       <PrintStyles />
       <article className="component CommunityProfiles">
         <div className="page-header">
         <div className="container">
           <header>
-            <h2>{subregionData[subregionId]?.subregionName || ''}</h2>
+            <h2>{subregionName}</h2>
           </header>
           <section className="about">
             <div className="description-wrapper">
               <p className="description">
                 This subregion contains {municipalities.length} municipalities. The charts below show aggregated data for all municipalities in this subregion.
               </p>
-              <MunicipalitiesList>
-                {chunkArray(municipalities, 8).map((row, rowIndex) => (
-                  <MunicipalitiesRow key={rowIndex}>
-                    {row.map(muni => (
-                      <MunicipalityLinkWrapper key={muni.muni_id}>
-                        <StyledLink 
-                          to={`/profile/${muni.muni_name.toLowerCase().replace(/\s+/g, '-')}/${tab || 'demographics'}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          {muni.muni_name}
-                        </StyledLink>
-                      </MunicipalityLinkWrapper>
-                    ))}
-                  </MunicipalitiesRow>
-                ))}
-              </MunicipalitiesList>
+              <SubregionMunicipalityLinks
+                municipalities={municipalities}
+                tab={activeTab}
+                tabLabel={activeTabLabel}
+                regionLabel={subregionData[subregionId]?.subregionAcronym || subregionName}
+              />
               <div className="button-group">
                 <button
                   onClick={handlePrint}
@@ -274,7 +169,7 @@ const SubregionProfilesView = () => {
                   <DownloadAllChartsButton 
                     muni={subregionId} 
                     datatype={'subregion'}
-                    displayName={subregionData[subregionId]?.subregionName || subregionId}
+                    displayName={subregionName || subregionId}
                   />
                 </div>
               </div>
@@ -304,7 +199,7 @@ const SubregionProfilesView = () => {
             <Dropdown
               value={activeTab}
               options={availableTabs}
-              onChange={(e) => setActiveTab(sanitizeTab(e.target.value))}
+              onChange={(e) => navigate(`/profile/subregion/${subregionId}/${sanitizeTab(e.target.value)}`)}
             />
           </div>
         </div>
@@ -700,7 +595,7 @@ const SubregionProfilesView = () => {
           isSubregion={true}
         />
       </article>
-    </>
+    </MemberMunicipalitiesContext.Provider>
   );
 };
 

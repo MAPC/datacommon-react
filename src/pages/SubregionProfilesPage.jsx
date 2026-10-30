@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import SubregionProfilesView from '../components/SubregionProfilesView';
+import PageLoader from '../components/partials/PageLoader';
 import { fetchSubregionData } from '../reducers/subregionSlice';
 
 const SubregionProfilesPage = () => {
@@ -18,8 +19,8 @@ const SubregionProfilesPage = () => {
     }
   }, [dispatch, subregionData]);
 
-  if (loading) {
-    return <div>Loading subregion data...</div>;
+  if (loading || (!error && !Object.keys(subregionData).length)) {
+    return <PageLoader message="Loading subregion data…" />;
   }
 
   if (error) {

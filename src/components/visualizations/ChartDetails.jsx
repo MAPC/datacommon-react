@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useContext } from "react";
 import PropTypes from "prop-types";
 import styled from "styled-components";
 import { useSelector } from "react-redux";
@@ -6,6 +6,9 @@ import { createSelector } from "@reduxjs/toolkit";
 import DownloadChartButton from "../field/DownloadChartButton";
 import DownloadChartImageButton from "../field/DownloadChartImageButton";
 import CopyChartImageButton from "../field/CopyChartImageButton";
+import CommunityValuesModal from "../field/CommunityValuesModal";
+import { communityMetricsForChart } from "../../constants/regionCommunityMetrics";
+import { MemberMunicipalitiesContext, chartAnchorId, muniProfileHref } from "../../utils/profileLinks";
 
 const ChartHeader = styled.div`
   display: flex;
@@ -124,7 +127,23 @@ const normalizeTableKeyForMetadata = (tableKey) => {
 
 const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAregion, displayName, hideButtons, wrapperClassName }) => {
   const [timeframe, setTimeframe] = useState(typeof chart.timeframe === 'string' ? chart.timeframe : 'Unknown');
+  const [showCommunities, setShowCommunities] = useState(false);
   const chartWrapperRef = useRef(null);
+  const communityMetrics = isRPAregion ? communityMetricsForChart(chart) : null;
+  const memberMunicipalities = useContext(MemberMunicipalitiesContext);
+  const memberMunis = useMemo(
+    () => [...(memberMunicipalities?.municipalities || [])].sort((a, b) =>
+      String(a.muni_name || "").localeCompare(String(b.muni_name || ""), undefined, { sensitivity: "base" }),
+    ),
+    [memberMunicipalities],
+  );
+
+  const handleOpenMemberChart = (event) => {
+    const muniName = event.target.value;
+    event.target.value = "";
+    if (!muniName) return;
+    window.open(muniProfileHref(muniName, memberMunicipalities.tab, chart), "_blank", "noopener");
+  };
 
   // Used by the "View data table" modal to fetch column alias metadata.
   // If the chart has multiple backing tables, we use the first one.
@@ -197,7 +216,11 @@ const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAreg
     : "";
 
   return (
-    <div className={["chart-wrapper", wrapperClassName].filter(Boolean).join(" ")} ref={chartWrapperRef}>
+    <div
+      id={chartAnchorId(chart)}
+      className={["chart-wrapper", wrapperClassName].filter(Boolean).join(" ")}
+      ref={chartWrapperRef}
+    >
       <ChartHeader className={headerClassName}>
         {hideOuterTitle ? (
           <ScreenReaderOnlyTitle className="chart__title">
@@ -233,6 +256,29 @@ const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAreg
                 <path d="M0 2a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2zm15 2h-4v3h4zm0 4h-4v3h4zm0 4h-4v3h3a1 1 0 0 0 1-1zm-5 3v-3H6v3zm-5 0v-3H1v2a1 1 0 0 0 1 1zm-4-4h4V8H1zm0-4h4V4H1zm5-3v3h4V4zm4 4H6v3h4z" />
               </svg>
             </ViewButton>
+            {communityMetrics && (
+              <ViewButton
+                type="button"
+                onClick={() => setShowCommunities(true)}
+                title="View values for each community in this region"
+                aria-label="View values for each community in this region"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M5 11.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5"
+                  />
+                  <path d="M1.713 11.865v-.474H2c.217 0 .363-.137.363-.317 0-.185-.158-.31-.361-.31-.223 0-.367.152-.373.31h-.59c.016-.467.373-.787.986-.787.588-.002.954.291.957.703a.595.595 0 0 1-.492.594v.033a.615.615 0 0 1 .569.631c.003.533-.502.8-1.051.8-.656 0-1-.37-1.008-.794h.582c.008.178.186.306.422.309.254 0 .424-.145.422-.35-.002-.195-.155-.348-.414-.348h-.3zm-.004-4.699h-.604v-.035c0-.408.295-.844.958-.844.583 0 .96.326.96.756 0 .389-.257.617-.476.848l-.537.572v.03h1.054V9H1.143v-.395l.957-.99c.138-.142.293-.304.293-.508 0-.18-.147-.32-.342-.32a.33.33 0 0 0-.342.338zM2.564 5h-.635V2.924h-.031l-.598.42v-.567l.629-.443h.635z" />
+                </svg>
+              </ViewButton>
+            )}
             <DownloadChartButton 
               chart={chart} 
               muni={muni} 
@@ -294,6 +340,30 @@ const ChartDetails = ({ chart, children, muni, onViewData, isSubregion, isRPAreg
           </div>
         ) : null}
       </div>
+      {memberMunis.length > 0 && (
+        <label className="chart-member-link hide-on-print">
+          <span className="chart-member-link__label">See this chart for a community</span>
+          <select defaultValue="" onChange={handleOpenMemberChart}>
+            <option value="">Select a community…</option>
+            {memberMunis.map((muni) => (
+              <option key={muni.muni_id || muni.muni_name} value={muni.muni_name}>
+                {muni.muni_name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {communityMetrics && (
+        <CommunityValuesModal
+          show={showCommunities}
+          onClose={() => setShowCommunities(false)}
+          title={chart.title || "Chart"}
+          config={communityMetrics}
+          regionId={muni}
+          regionRows={rpaCache}
+          metadataTableKey={primaryTableKeyForMetadata}
+        />
+      )}
     </div>
   );
 };
