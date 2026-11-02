@@ -1269,7 +1269,8 @@ DatasetHeader.propTypes = {
   onViewModeChange: PropTypes.func,
   mapPreviewSupported: PropTypes.bool,
   mapVariable: PropTypes.string,
-  geographicFrame: PropTypes.oneOf(["massachusetts", "mapc"]),
+  /** "massachusetts", "mapc", or "subregion-<id>" */
+  geographicFrame: PropTypes.string,
   mapDimensionSelections: PropTypes.objectOf(PropTypes.string),
   geographyType: PropTypes.oneOf([
     "municipal",

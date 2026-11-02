@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import PropTypes from "prop-types";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { useLocation } from "react-router-dom";
 import mapboxgl from "mapbox-gl";
 import MoonLoader from "react-spinners/MoonLoader";
@@ -35,13 +35,19 @@ import {
   fetchMapcMunicipalityPolygons,
   fetchMassgisDistrictOverlay,
   buildMapcRegionIndex,
+  dissolvedOutline,
   filterGeojsonByGeographicFrame,
   filterLegendToDrawnFeatures,
+  filterMunicipalitiesById,
+  subregionFrameValue,
+  subregionIdFromFrame,
   getMapVariableKind,
   hideShadowsForCapture,
   parseCodedCategoryLabels,
   parsePairedCategoryNameLabels,
 } from "../../utils/datasetMapPreview";
+import { normalizeGeographicFrame } from "../../utils/datasetViewShareQuery";
+import { fetchSubregionData, selectSubregionData, selectSubregionLoading } from "../../reducers/subregionSlice";
 import { ExportLoadingMask, useExportFileDownload } from "./ExportLoadingMask";
 import axios from "axios";
 import html2canvas from "html2canvas";
@@ -63,12 +69,16 @@ const SENATE_SOURCE_ID = "dataset-map-preview-senate";
 const SENATE_LINE_LAYER_ID = "dataset-map-preview-senate-line";
 const MAPC_SOURCE_ID = "dataset-map-preview-mapc";
 const MAPC_LINE_LAYER_ID = "dataset-map-preview-mapc-line";
+const SUBREGION_SOURCE_ID = "dataset-map-preview-subregion";
+const SUBREGION_LINE_LAYER_ID = "dataset-map-preview-subregion-line";
 const EMPTY_FC = { type: "FeatureCollection", features: [] };
 
 const GEOGRAPHIC_FRAME = {
   massachusetts: "massachusetts",
   mapc: "mapc",
 };
+
+const MAPC_REGION_MUNI_ID = "352";
 
 /** Bounds for the MAPC region in Massachusetts */
 const MAPC_REGION_BOUNDS = [
@@ -329,6 +339,7 @@ function syncMapLayerOrder(map) {
     HOUSE_LINE_LAYER_ID,
     SENATE_LINE_LAYER_ID,
     MAPC_LINE_LAYER_ID,
+    SUBREGION_LINE_LAYER_ID,
     SELECTED_FILL_LAYER_ID,
     SELECTED_LINE_LAYER_ID,
     SELECTED_CIRCLE_LAYER_ID,
@@ -367,7 +378,10 @@ function DatasetMapPreview({
 }) {
   const location = useLocation();
   const isEmbedView = new URLSearchParams(location.search).get("embed") === "1";
+  const dispatch = useDispatch();
   const municipalGeojson = useSelector((state) => state.municipality.geojson);
+  const subregionData = useSelector(selectSubregionData);
+  const subregionsLoading = useSelector(selectSubregionLoading);
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const [mapReady, setMapReady] = useState(false);
@@ -382,9 +396,7 @@ function DatasetMapPreview({
   const [showHouseDistricts, setShowHouseDistricts] = useState(false);
   const [showSenateDistricts, setShowSenateDistricts] = useState(false);
   const [geographicFrame, setGeographicFrameState] = useState(
-    geographicFrameProp === GEOGRAPHIC_FRAME.massachusetts || geographicFrameProp === GEOGRAPHIC_FRAME.mapc
-      ? geographicFrameProp
-      : GEOGRAPHIC_FRAME.mapc,
+    normalizeGeographicFrame(geographicFrameProp) || GEOGRAPHIC_FRAME.mapc,
   );
   const [muniOverlayGeojson, setMuniOverlayGeojson] = useState(EMPTY_FC);
   const [mapcOverlayGeojson, setMapcOverlayGeojson] = useState(EMPTY_FC);
@@ -407,16 +419,17 @@ function DatasetMapPreview({
   );
   // Shared stories update these props after the map is already open.
   useEffect(() => {
-    if (
-      geographicFrameProp !== GEOGRAPHIC_FRAME.massachusetts
-      && geographicFrameProp !== GEOGRAPHIC_FRAME.mapc
-    ) {
-      return;
-    }
-    setGeographicFrameState((current) => (
-      current === geographicFrameProp ? current : geographicFrameProp
-    ));
+    const nextFrame = normalizeGeographicFrame(geographicFrameProp);
+    if (!nextFrame) return;
+    setGeographicFrameState((current) => (current === nextFrame ? current : nextFrame));
   }, [geographicFrameProp]);
+  useEffect(() => {
+    if (!Object.keys(subregionData || {}).length && !subregionsLoading) {
+      dispatch(fetchSubregionData());
+    }
+    // Fetch once on mount; a failed request should not retry in a loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   useEffect(() => {
     const next = mapDimensionSelections && typeof mapDimensionSelections === "object"
       ? mapDimensionSelections
@@ -503,7 +516,8 @@ function DatasetMapPreview({
     mapVariable && mappableColumns.some((col) => col.name === mapVariable)
       ? mapVariable
       : mappableColumns[0]?.name || null;
-
+  console.log("mapVariable", mapVariable);
+  console.log("activeVariable", activeVariable);
   const activeVariableLabel =
     getColumnHeaderLabel(columnKeys, activeVariable) ||
     mappableColumns.find((col) => col.name === activeVariable)?.label ||
@@ -809,6 +823,28 @@ function DatasetMapPreview({
     [mapcMunicipalityGeojson],
   );
 
+  const subregionOptions = useMemo(
+    () => Object.entries(subregionData || {})
+      .map(([id, region]) => ({ value: subregionFrameValue(id), label: region.subregionName }))
+      .sort((a, b) => a.label.localeCompare(b.label)),
+    [subregionData],
+  );
+  const activeSubregion = subregionData?.[subregionIdFromFrame(geographicFrame)] || null;
+  const subregionGeojson = useMemo(
+    () => (activeSubregion
+      ? filterMunicipalitiesById(
+        mapcMunicipalityGeojson,
+        activeSubregion.municipalities.map((muni) => muni.muni_id),
+      )
+      : EMPTY_FC),
+    [activeSubregion, mapcMunicipalityGeojson],
+  );
+  const subregionIndex = useMemo(
+    () => (subregionGeojson.features.length ? buildMapcRegionIndex(subregionGeojson) : null),
+    [subregionGeojson],
+  );
+  const subregionOutline = useMemo(() => dissolvedOutline(subregionGeojson), [subregionGeojson]);
+
   const mapVariableColumn = useMemo(
     () =>
       columnKeys.find((col) => col.name === activeVariable) ||
@@ -836,8 +872,9 @@ function DatasetMapPreview({
       frame: geographicFrame,
       mapcIndex: mapcRegionIndex,
       mapcBbox: [-71.6606345781778, 42.0024105200978, -70.7113301211872, 42.7128927511039],
+      subregionIndex,
     });
-  }, [baseGeojson, geographicFrame, mapcRegionIndex]);
+  }, [baseGeojson, geographicFrame, mapcRegionIndex, subregionIndex]);
 
   const tractBoundaryLabel = useMemo(() => {
     if (isBoundariesDataset) return null;
@@ -978,8 +1015,22 @@ function DatasetMapPreview({
     geometryReadyForSelectedYear,
   ]);
 
+  // Legend classes come from the features inside the current frame, so switching
+  // frames re-bins the scale instead of keeping the statewide breaks.
+  const framedValues = useMemo(() => {
+    if (!framedBaseGeojson) return [...valueByGeography.values()];
+    return enrichBoundariesWithValues({
+      baseGeojson: framedBaseGeojson,
+      valueByGeography,
+      geographyType,
+      colorForValue: () => null,
+    }).features
+      .map((feature) => feature.properties.__mapValue)
+      .filter((value) => value != null);
+  }, [framedBaseGeojson, valueByGeography, geographyType]);
+
   const { colorForValue, legend, binningDescription } = useMemo(() => {
-    const values = [...valueByGeography.values()];
+    const values = framedValues;
     if (!values.length && isBoundariesDataset) {
       const boundaryColor = "#7eb8c9";
       return {
@@ -995,7 +1046,7 @@ function DatasetMapPreview({
       columnValues: mapColumnValues,
       colorScheme,
     });
-  }, [valueByGeography, activeVariableUnit, boundaryLayerLabel, isBoundariesDataset, mapValueKind, categoryLabels, mapColumnValues, colorScheme]);
+  }, [framedValues, activeVariableUnit, boundaryLayerLabel, isBoundariesDataset, mapValueKind, categoryLabels, mapColumnValues, colorScheme]);
 
   const paintedGeojson = useMemo(() => {
     if (!framedBaseGeojson) return { type: "FeatureCollection", features: [] };
@@ -1193,6 +1244,22 @@ function DatasetMapPreview({
         },
       });
 
+      map.addSource(SUBREGION_SOURCE_ID, {
+        type: "geojson",
+        data: EMPTY_FC,
+      });
+      map.addLayer({
+        id: SUBREGION_LINE_LAYER_ID,
+        type: "line",
+        source: SUBREGION_SOURCE_ID,
+        layout: { "line-join": "round", "line-cap": "round" },
+        paint: {
+          "line-color": "#000000",
+          "line-width": 2.5,
+          "line-opacity": 1,
+        },
+      });
+
       syncMapLayerOrder(map);
 
       map.on("mouseenter", FILL_LAYER_ID, () => {
@@ -1253,6 +1320,16 @@ function DatasetMapPreview({
     }
     syncMapLayerOrder(map);
   }, [mapcOverlayGeojson, mapReady]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    const source = map.getSource(SUBREGION_SOURCE_ID);
+    if (source) {
+      source.setData(subregionOutline);
+    }
+    syncMapLayerOrder(map);
+  }, [subregionOutline, mapReady]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -1342,7 +1419,11 @@ function DatasetMapPreview({
 
       let bounds = null;
       let maxZoom = 12;
-      if (geographicFrame === GEOGRAPHIC_FRAME.mapc) {
+      if (subregionIdFromFrame(geographicFrame)) {
+        bounds = boundsFromGeojson(subregionGeojson);
+        if (!bounds) return true;
+        maxZoom = 12;
+      } else if (geographicFrame === GEOGRAPHIC_FRAME.mapc) {
         bounds = MAPC_REGION_BOUNDS;
         maxZoom = 11;
       } else {
@@ -1366,7 +1447,7 @@ function DatasetMapPreview({
       fitToFrame();
     });
     return () => window.cancelAnimationFrame(frameId);
-  }, [mapReady, geographicFrame, baseGeojson]);
+  }, [mapReady, geographicFrame, baseGeojson, subregionGeojson]);
 
   useEffect(() => {
     setSelectedFeatureKey(null);
@@ -1619,23 +1700,42 @@ function DatasetMapPreview({
     }
   }, [selectedFeatureKey]);
 
-  const mapcRowForYear = useMemo(() => {
-    if (geographyType !== 'municipal') return null;
+  // Municipal tables carry aggregate rows for MAPC (muni_id 352) and each subregion
+  // (muni_id = subregion id, 355–362), so the frame's own total can be shown.
+  const frameRegion = useMemo(() => {
+    const subregionId = subregionIdFromFrame(geographicFrame);
+    if (subregionId) {
+      return { muniId: subregionId, label: activeSubregion?.subregionName || null };
+    }
+    if (geographicFrame === GEOGRAPHIC_FRAME.mapc) {
+      return { muniId: MAPC_REGION_MUNI_ID, label: "MAPC region" };
+    }
+    return null;
+  }, [geographicFrame, activeSubregion]);
 
-    let filtered = rows;
+  const regionRowForYear = useMemo(() => {
+    if (geographyType !== MAP_VIEW_GEOGRAPHY_TYPES.municipal || !frameRegion) return null;
+
+    let filtered = rows.filter((row) => String(row.muni_id) === frameRegion.muniId);
     if (queryYearColumn && selectedYears?.length) {
       const yearSet = new Set(selectedYears.map(String));
       filtered = filtered.filter((row) => yearSet.has(String(row[queryYearColumn])));
     }
-
-    filtered = filtered.filter(row => row.muni_id === 352) // I believe 352 is always MAPC
-    if (filtered.length === 1) {
-      return filtered[0];
-    } else {
-      return null;
+    if (needsDimensionPicker) {
+      filtered = dimensionsReady ? filterRowsByMapDimensions(filtered, dimensionSelections) : [];
     }
-
-  }, [rows, queryYearColumn, selectedYears, geographyType]);
+    return filtered.length === 1 ? filtered[0] : null;
+  }, [
+    rows,
+    queryYearColumn,
+    selectedYears,
+    geographyType,
+    frameRegion,
+    needsDimensionPicker,
+    dimensionsReady,
+    dimensionSelections,
+  ]);
+  const regionRowLabel = frameRegion?.label || regionRowForYear?.municipal || "this region";
 
   const geojsonSupported = supportsTabularGeojsonExport(table, geographyType, { menu1 });
   const canDownloadPng = mapReady && !isExporting && !isBoundaryLoading && Boolean(table);
@@ -1734,6 +1834,18 @@ function DatasetMapPreview({
           >
             <option value={GEOGRAPHIC_FRAME.massachusetts}>Massachusetts</option>
             <option value={GEOGRAPHIC_FRAME.mapc}>MAPC region</option>
+            {subregionIdFromFrame(geographicFrame) && !activeSubregion && (
+              <option value={geographicFrame}>
+                {subregionsLoading ? "Loading subregion…" : "Subregion unavailable"}
+              </option>
+            )}
+            {subregionOptions.length > 0 && (
+              <optgroup label="MAPC subregions">
+                {subregionOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </optgroup>
+            )}
           </select>
         </label>
         {mappableColumns.length ? (
@@ -1967,13 +2079,13 @@ function DatasetMapPreview({
         {boundariesError && (
           <span className="dataset-map-preview__status dataset-map-preview__status--error">{boundariesError}</span>
         )}
-        {mapcRowForYear && (
+        {regionRowForYear && (
           <div className="dataset-map-preview__mapc-total-box">
             <div>
-              <b>Result for MAPC region:</b>
+              <b>Result for {regionRowLabel}:</b>
             </div>
             <div>
-              {activeVariableLabel || 'Selected Variable'} : {mapcRowForYear[activeVariable].toLocaleString() || 'Unknown'}
+              {activeVariableLabel || 'Selected Variable'} : {regionRowForYear[activeVariable]?.toLocaleString() ?? 'Unknown'}
             </div>
           </div>
         )}
@@ -2237,7 +2349,8 @@ DatasetMapPreview.propTypes = {
   ]),
   mapVariable: PropTypes.string,
   onMapVariableChange: PropTypes.func,
-  geographicFrame: PropTypes.oneOf(["massachusetts", "mapc"]),
+  /** "massachusetts", "mapc", or "subregion-<id>" */
+  geographicFrame: PropTypes.string,
   onGeographicFrameChange: PropTypes.func,
   mapDimensionSelections: PropTypes.objectOf(PropTypes.string),
   onMapDimensionSelectionsChange: PropTypes.func,
