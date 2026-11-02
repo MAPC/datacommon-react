@@ -2717,14 +2717,87 @@ function featureInMapcRegion(feature, mapcIndex) {
   );
 }
 
+const SUBREGION_FRAME_PREFIX = "subregion-";
+
+/** Geographic frame value for a MAPC subregion, e.g. `subregion-361`. */
+export function subregionFrameValue(subregionId) {
+  return `${SUBREGION_FRAME_PREFIX}${subregionId}`;
+}
+
+/** Subregion id from a frame value, or null for the Massachusetts / MAPC frames. */
+export function subregionIdFromFrame(frame) {
+  const match = String(frame || "").match(/^subregion-(\d+)$/);
+  return match ? match[1] : null;
+}
+
+/**
+ * MAPC municipality polygons (`MAPC.geojson`) for the given member municipality ids.
+ * @param {GeoJSON.FeatureCollection} mapcMunicipalityGeojson
+ * @param {Array<string|number>} muniIds
+ */
+export function filterMunicipalitiesById(mapcMunicipalityGeojson, muniIds = []) {
+  const ids = new Set(muniIds.map(String));
+  return {
+    type: "FeatureCollection",
+    features: (mapcMunicipalityGeojson?.features || []).filter((feature) =>
+      ids.has(municipalityIdFromProps(feature.properties)),
+    ),
+  };
+}
+
+/**
+ * Outer boundary of a group of adjacent polygons. Edges shared by two members are
+ * interior borders and dropped, so a subregion draws as one outline.
+ */
+export function dissolvedOutline(geojson) {
+  const segmentKey = (a, b) => {
+    const ka = `${a[0].toFixed(6)},${a[1].toFixed(6)}`;
+    const kb = `${b[0].toFixed(6)},${b[1].toFixed(6)}`;
+    return ka < kb ? `${ka}|${kb}` : `${kb}|${ka}`;
+  };
+  const segments = new Map();
+  (geojson?.features || []).forEach((feature) => {
+    const geometry = feature?.geometry;
+    if (!geometry?.coordinates) return;
+    const polygons = geometry.type === "Polygon" ? [geometry.coordinates] : geometry.coordinates;
+    polygons.forEach((rings) => rings.forEach((ring) => {
+      for (let i = 1; i < ring.length; i += 1) {
+        const a = ring[i - 1];
+        const b = ring[i];
+        if (a[0] === b[0] && a[1] === b[1]) continue;
+        const key = segmentKey(a, b);
+        const entry = segments.get(key);
+        if (entry) entry.count += 1;
+        else segments.set(key, { count: 1, line: [a, b] });
+      }
+    }));
+  });
+  const lines = [...segments.values()].filter((entry) => entry.count === 1).map((entry) => entry.line);
+  if (!lines.length) return { type: "FeatureCollection", features: [] };
+  return {
+    type: "FeatureCollection",
+    features: [{ type: "Feature", properties: {}, geometry: { type: "MultiLineString", coordinates: lines } }],
+  };
+}
+
 /**
  * Keep only choropleth features inside the selected geographic frame.
+ * Subregion frames clip with `subregionIndex` (built like the MAPC index from member polygons).
  */
 export function filterGeojsonByGeographicFrame(
   geojson,
-  { frame = "mapc", mapcIndex = null, mapcBbox = null } = {},
+  { frame = "mapc", mapcIndex = null, mapcBbox = null, subregionIndex = null } = {},
 ) {
   if (!geojson?.features?.length) return geojson || { type: "FeatureCollection", features: [] };
+  if (subregionIdFromFrame(frame)) {
+    if (!subregionIndex?.polygons?.length && !subregionIndex?.muniIds?.size) {
+      return { ...geojson, features: [] };
+    }
+    return {
+      ...geojson,
+      features: geojson.features.filter((feature) => featureInMapcRegion(feature, subregionIndex)),
+    };
+  }
   if (frame === "mapc") {
     if (mapcIndex?.polygons?.length || mapcIndex?.muniIds?.size) {
       return {

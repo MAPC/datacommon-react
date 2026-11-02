@@ -8,6 +8,7 @@ export const DATASET_VIEW_SHARE_MAX_URL_LENGTH = 2048;
 export function normalizeGeographicFrame(value) {
   const frame = String(value || "").trim().toLowerCase();
   if (frame === "mapc" || frame === "massachusetts") return frame;
+  if (/^subregion-\d+$/.test(frame)) return frame;
   return null;
 }
 
@@ -37,7 +38,7 @@ export function getVisibleSelectedBaseColumnNames(selectedColumns, columnKeys) {
  * @param {boolean} options.embed - add embed=1
  * @param {"table"|"map"} [options.viewMode]
  * @param {string|null} [options.mapVariable] - choropleth column when viewMode is map
- * @param {string|null} [options.geographicFrame] - massachusetts | mapc
+ * @param {string|null} [options.geographicFrame] - massachusetts | mapc | subregion-<id>
  * @param {Record<string, string>|null} [options.mapDimensionSelections] - extra map category pickers
  * @param {Array<{name?: string}>} options.columnKeys
  * @param {string[]} options.selectedColumns
