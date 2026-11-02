@@ -1006,7 +1006,7 @@ const ExploreMapPage = () => {
             <div className="explore-map__filters">
               {geographyLevels.length > 1 && (
                 <div className="explore-map__years">
-                  <span>Geography</span>
+                  <span>Data Geography</span>
                   <ul>
                     {geographyLevels.map((level) => {
                       const isSelected = String(level.id) === String(datasetId);
