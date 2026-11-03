@@ -35,6 +35,7 @@ import ProfileFavoriteDatasetsPage from "./pages/UserProfileFavoriteDatasetsPage
 import MuniAccountCreationPage from "./pages/MuniAccountCreationPage";
 import AdminMuniDescriptionsPage from "./pages/AdminMuniDescriptionPage";
 import AdminMuniLinksPage from "./pages/AdminMuniLinksPage";
+import AdminMassbuildsUploadPage from "./pages/AdminMassbuildsUploadPage";
 
 // Create arrays of valid options
 const muniOptions = municipalities.features.map(
@@ -212,9 +213,13 @@ const router = createBrowserRouter([
             path: "muni-links",
             element: <AdminMuniLinksPage />,
           },
+          {
+            path: "massbuilds-upload",
+            element: <AdminMassbuildsUploadPage />,
+          }
         ],
       },
-      // Profile routes, all routes should go through the admin parent that verifies login.
+      // Profile routes, all routes should go through the profile parent that verifies login.
       {
         path: "user-profile",
         element: <UserProfileWrapper />,
