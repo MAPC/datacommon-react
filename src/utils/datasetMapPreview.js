@@ -2718,6 +2718,7 @@ function featureInMapcRegion(feature, mapcIndex) {
 }
 
 const SUBREGION_FRAME_PREFIX = "subregion-";
+const MUNICIPALITY_FRAME_PREFIX = "municipality-";
 
 /** Geographic frame value for a MAPC subregion, e.g. `subregion-361`. */
 export function subregionFrameValue(subregionId) {
@@ -2727,6 +2728,17 @@ export function subregionFrameValue(subregionId) {
 /** Subregion id from a frame value, or null for the Massachusetts / MAPC frames. */
 export function subregionIdFromFrame(frame) {
   const match = String(frame || "").match(/^subregion-(\d+)$/);
+  return match ? match[1] : null;
+}
+
+/** Geographic frame value for a Massachusetts municipality, e.g. `municipality-42`. */
+export function municipalityFrameValue(municipalityId) {
+  return `${MUNICIPALITY_FRAME_PREFIX}${municipalityId}`;
+}
+
+/** Municipality id from a frame value, or null for non-municipality frames. */
+export function municipalityIdFromFrame(frame) {
+  const match = String(frame || "").match(/^municipality-(\d+)$/);
   return match ? match[1] : null;
 }
 
@@ -2786,9 +2798,24 @@ export function dissolvedOutline(geojson) {
  */
 export function filterGeojsonByGeographicFrame(
   geojson,
-  { frame = "mapc", mapcIndex = null, mapcBbox = null, subregionIndex = null } = {},
+  {
+    frame = "mapc",
+    mapcIndex = null,
+    mapcBbox = null,
+    subregionIndex = null,
+    municipalityIndex = null,
+  } = {},
 ) {
   if (!geojson?.features?.length) return geojson || { type: "FeatureCollection", features: [] };
+  if (municipalityIdFromFrame(frame)) {
+    if (!municipalityIndex?.polygons?.length && !municipalityIndex?.muniIds?.size) {
+      return { ...geojson, features: [] };
+    }
+    return {
+      ...geojson,
+      features: geojson.features.filter((feature) => featureInMapcRegion(feature, municipalityIndex)),
+    };
+  }
   if (subregionIdFromFrame(frame)) {
     if (!subregionIndex?.polygons?.length && !subregionIndex?.muniIds?.size) {
       return { ...geojson, features: [] };

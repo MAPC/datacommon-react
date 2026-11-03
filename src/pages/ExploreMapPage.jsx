@@ -193,6 +193,7 @@ const ExploreMapPage = () => {
   const storyDialogRef = useRef(null);
   const tokenRef = useRef(token);
   const pendingStoryOpenRef = useRef(false);
+  const pendingGeographicFrameRef = useRef(null);
   const introResultsRef = useRef([]);
   const introPickRef = useRef(null);
   const [introQuery, setIntroQuery] = useState("");
@@ -410,6 +411,12 @@ const ExploreMapPage = () => {
         const pendingStory = storyApplyRef.current;
         const useStory = pendingStory && String(pendingStory.dataset) === String(dataset.seq_id);
         if (useStory) storyApplyRef.current = null;
+        const pendingFrame = pendingGeographicFrameRef.current;
+        const carriedGeographicFrame = pendingFrame
+          && String(pendingFrame.datasetId) === String(dataset.seq_id)
+          ? pendingFrame.geographicFrame
+          : null;
+        if (carriedGeographicFrame) pendingGeographicFrameRef.current = null;
         const storyYear = useStory
           ? distinctYears.find((item) => String(item) === String(pendingStory.year))
           : null;
@@ -431,7 +438,9 @@ const ExploreMapPage = () => {
           schema: dataset.schemaname,
           table: dataset.table_name,
           mapVariable: useStory ? pendingStory.mapVar : null,
-          geographicFrame: useStory && pendingStory.geoFrame ? pendingStory.geoFrame : "mapc",
+          geographicFrame: useStory && pendingStory.geoFrame
+            ? pendingStory.geoFrame
+            : carriedGeographicFrame || "mapc",
           colorScheme: useStory && pendingStory.colors ? pendingStory.colors : DEFAULT_MAP_COLOR_SCHEME,
           mapDimensionSelections: useStory ? pendingStory.dims : {},
         });
@@ -457,11 +466,14 @@ const ExploreMapPage = () => {
     setShareUrl("");
   }, []);
 
-  const selectDataset = (id, { openStory = false } = {}) => {
+  const selectDataset = (id, { openStory = false, preserveGeographicFrame = false } = {}) => {
     pendingStoryOpenRef.current = openStory;
     storyApplyRef.current = null;
     clearShareFeedback();
     const nextId = id ? String(id) : "";
+    pendingGeographicFrameRef.current = preserveGeographicFrame && nextId && mapStateRef.current?.geographicFrame
+      ? { datasetId: nextId, geographicFrame: mapStateRef.current.geographicFrame }
+      : null;
     if (nextId && nextId !== String(datasetId || "")) {
       setLoadingMap(true);
       setMapError("");
@@ -1015,7 +1027,7 @@ const ExploreMapPage = () => {
                           <button
                             type="button"
                             className={isSelected ? "is-selected" : ""}
-                            onClick={() => selectDataset(level.id)}
+                            onClick={() => selectDataset(level.id, { preserveGeographicFrame: true })}
                           >
                             {level.label}
                           </button>
