@@ -39,6 +39,8 @@ import {
   filterGeojsonByGeographicFrame,
   filterLegendToDrawnFeatures,
   filterMunicipalitiesById,
+  municipalityFrameValue,
+  municipalityIdFromFrame,
   subregionFrameValue,
   subregionIdFromFrame,
   getMapVariableKind,
@@ -76,6 +78,7 @@ const EMPTY_FC = { type: "FeatureCollection", features: [] };
 const GEOGRAPHIC_FRAME = {
   massachusetts: "massachusetts",
   mapc: "mapc",
+  municipality: "municipality",
 };
 
 const MAPC_REGION_MUNI_ID = "352";
@@ -398,6 +401,9 @@ function DatasetMapPreview({
   const [geographicFrame, setGeographicFrameState] = useState(
     normalizeGeographicFrame(geographicFrameProp) || GEOGRAPHIC_FRAME.mapc,
   );
+  const [choosingMunicipality, setChoosingMunicipality] = useState(
+    Boolean(municipalityIdFromFrame(geographicFrameProp)),
+  );
   const [muniOverlayGeojson, setMuniOverlayGeojson] = useState(EMPTY_FC);
   const [mapcOverlayGeojson, setMapcOverlayGeojson] = useState(EMPTY_FC);
   const [mapcMunicipalityGeojson, setMapcMunicipalityGeojson] = useState(EMPTY_FC);
@@ -422,6 +428,7 @@ function DatasetMapPreview({
     const nextFrame = normalizeGeographicFrame(geographicFrameProp);
     if (!nextFrame) return;
     setGeographicFrameState((current) => (current === nextFrame ? current : nextFrame));
+    setChoosingMunicipality(Boolean(municipalityIdFromFrame(nextFrame)));
   }, [geographicFrameProp]);
   useEffect(() => {
     if (!Object.keys(subregionData || {}).length && !subregionsLoading) {
@@ -810,13 +817,18 @@ function DatasetMapPreview({
     needsDimensionPicker,
   ]);
 
+  const massachusettsMunicipalityGeojson = useMemo(
+    () => adaptMunicipalBoundaryGeojson(municipalGeojson),
+    [municipalGeojson],
+  );
+
   const baseGeojson = useMemo(() => {
     if (apiBoundaryGeojson) return apiBoundaryGeojson;
-    if (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.municipal && municipalGeojson) {
-      return adaptMunicipalBoundaryGeojson(municipalGeojson);
+    if (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.municipal) {
+      return massachusettsMunicipalityGeojson;
     }
     return null;
-  }, [apiBoundaryGeojson, geographyType, municipalGeojson]);
+  }, [apiBoundaryGeojson, geographyType, massachusettsMunicipalityGeojson]);
 
   const mapcRegionIndex = useMemo(
     () => buildMapcRegionIndex(mapcMunicipalityGeojson),
@@ -843,7 +855,33 @@ function DatasetMapPreview({
     () => (subregionGeojson.features.length ? buildMapcRegionIndex(subregionGeojson) : null),
     [subregionGeojson],
   );
-  const subregionOutline = useMemo(() => dissolvedOutline(subregionGeojson), [subregionGeojson]);
+  const municipalityOptions = useMemo(
+    () => massachusettsMunicipalityGeojson.features
+      .map((feature) => ({
+        id: String(feature.properties?.muni_id ?? ""),
+        label: String(feature.properties?.municipal ?? "").trim(),
+      }))
+      .filter((option) => option.id && option.label)
+      .sort((a, b) => a.label.localeCompare(b.label)),
+    [massachusettsMunicipalityGeojson],
+  );
+  const activeMunicipalityId = municipalityIdFromFrame(geographicFrame);
+  const municipalityFrameGeojson = useMemo(
+    () => (activeMunicipalityId
+      ? filterMunicipalitiesById(massachusettsMunicipalityGeojson, [activeMunicipalityId])
+      : EMPTY_FC),
+    [activeMunicipalityId, massachusettsMunicipalityGeojson],
+  );
+  const municipalityIndex = useMemo(
+    () => (municipalityFrameGeojson.features.length
+      ? buildMapcRegionIndex(municipalityFrameGeojson)
+      : null),
+    [municipalityFrameGeojson],
+  );
+  const frameOutlineGeojson = useMemo(
+    () => dissolvedOutline(activeMunicipalityId ? municipalityFrameGeojson : subregionGeojson),
+    [activeMunicipalityId, municipalityFrameGeojson, subregionGeojson],
+  );
 
   const mapVariableColumn = useMemo(
     () =>
@@ -873,8 +911,9 @@ function DatasetMapPreview({
       mapcIndex: mapcRegionIndex,
       mapcBbox: [-71.6606345781778, 42.0024105200978, -70.7113301211872, 42.7128927511039],
       subregionIndex,
+      municipalityIndex,
     });
-  }, [baseGeojson, geographicFrame, mapcRegionIndex, subregionIndex]);
+  }, [baseGeojson, geographicFrame, mapcRegionIndex, subregionIndex, municipalityIndex]);
 
   const tractBoundaryLabel = useMemo(() => {
     if (isBoundariesDataset) return null;
@@ -1326,10 +1365,10 @@ function DatasetMapPreview({
     if (!map || !mapReady) return;
     const source = map.getSource(SUBREGION_SOURCE_ID);
     if (source) {
-      source.setData(subregionOutline);
+      source.setData(frameOutlineGeojson);
     }
     syncMapLayerOrder(map);
-  }, [subregionOutline, mapReady]);
+  }, [frameOutlineGeojson, mapReady]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -1419,7 +1458,10 @@ function DatasetMapPreview({
 
       let bounds = null;
       let maxZoom = 12;
-      if (subregionIdFromFrame(geographicFrame)) {
+      if (municipalityIdFromFrame(geographicFrame)) {
+        bounds = boundsFromGeojson(municipalityFrameGeojson);
+        if (!bounds) return true;
+      } else if (subregionIdFromFrame(geographicFrame)) {
         bounds = boundsFromGeojson(subregionGeojson);
         if (!bounds) return true;
         maxZoom = 12;
@@ -1447,7 +1489,7 @@ function DatasetMapPreview({
       fitToFrame();
     });
     return () => window.cancelAnimationFrame(frameId);
-  }, [mapReady, geographicFrame, baseGeojson, subregionGeojson]);
+  }, [mapReady, geographicFrame, baseGeojson, subregionGeojson, municipalityFrameGeojson]);
 
   useEffect(() => {
     setSelectedFeatureKey(null);
@@ -1818,6 +1860,9 @@ function DatasetMapPreview({
     );
   }
 
+  const geographicFrameControlValue = choosingMunicipality
+    ? GEOGRAPHIC_FRAME.municipality
+    : geographicFrame;
   const sidePanels = !isEmbedView && !mapOnly ? (
     <div className="dataset-map-preview__side-panels">
       <aside className="dataset-map-preview__detail" aria-label="Map variable">
@@ -1828,11 +1873,20 @@ function DatasetMapPreview({
           <span className="dataset-map-preview__variable-field-label">Geographic frame</span>
           <select
             className="dataset-map-preview__variable-select"
-            value={geographicFrame}
-            onChange={(e) => setGeographicFrameState(e.target.value)}
+            value={geographicFrameControlValue}
+            onChange={(e) => {
+              const nextFrame = e.target.value;
+              if (nextFrame === GEOGRAPHIC_FRAME.municipality) {
+                setChoosingMunicipality(true);
+                return;
+              }
+              setChoosingMunicipality(false);
+              setGeographicFrameState(nextFrame);
+            }}
             aria-label="Geographic frame"
           >
             <option value={GEOGRAPHIC_FRAME.massachusetts}>Massachusetts</option>
+            <option value={GEOGRAPHIC_FRAME.municipality}>Municipality</option>
             <option value={GEOGRAPHIC_FRAME.mapc}>MAPC region</option>
             {subregionIdFromFrame(geographicFrame) && !activeSubregion && (
               <option value={geographicFrame}>
@@ -1848,6 +1902,25 @@ function DatasetMapPreview({
             )}
           </select>
         </label>
+        {choosingMunicipality && (
+          <label className="dataset-map-preview__variable-field">
+            <span className="dataset-map-preview__variable-field-label">Massachusetts municipality</span>
+            <select
+              className="dataset-map-preview__variable-select"
+              value={activeMunicipalityId || ""}
+              onChange={(e) => {
+                if (!e.target.value) return;
+                setGeographicFrameState(municipalityFrameValue(e.target.value));
+              }}
+              aria-label="Massachusetts municipality"
+            >
+              <option value="">Select a municipality</option>
+              {municipalityOptions.map((option) => (
+                <option key={option.id} value={option.id}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+        )}
         {mappableColumns.length ? (
           <>
             <label className="dataset-map-preview__variable-field">
@@ -2349,7 +2422,7 @@ DatasetMapPreview.propTypes = {
   ]),
   mapVariable: PropTypes.string,
   onMapVariableChange: PropTypes.func,
-  /** "massachusetts", "mapc", or "subregion-<id>" */
+  /** "massachusetts", "mapc", "subregion-<id>", or "municipality-<id>" */
   geographicFrame: PropTypes.string,
   onGeographicFrameChange: PropTypes.func,
   mapDimensionSelections: PropTypes.objectOf(PropTypes.string),
