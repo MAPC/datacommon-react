@@ -119,6 +119,7 @@ const AdminWrapper = () => {
 
     if (isUserFromMAPC(user)) {
       pages.push({ name: "Pipeline Jobs", path: "/admin/jobs" });
+      pages.push({ name: "Massbuilds Bulk Upload", path: "/admin/massbuilds-upload" });
     }
 
     if (isUserAdmin(user)) {
