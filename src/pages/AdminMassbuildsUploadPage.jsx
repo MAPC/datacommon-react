@@ -51,6 +51,13 @@ const ErrorMessage = styled.div`
   font-size: 16px;
 `;
 
+const TopActionsRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+`;
+
 const FileUploadInput = styled.input`
   margin-bottom: 12px;
 `;
@@ -58,7 +65,6 @@ const FileUploadInput = styled.input`
 const TableContainer = styled.div`
   width: 100%;
   max-width: 100%;
-  height: 100%;
   max-height: 450px;
   overflow: auto;
   margin-bottom: 12px;
@@ -147,11 +153,14 @@ const FILTERED_COLUMNS = [
 
 const REQUIRED_COLUMNS = ['name', 'status', 'descr', 'address', 'state', 'municipal', 'year_compl', 'yrcomp_est'];
 
+const VALID_STATUSES = ['completed', 'cancelled', 'projected', 'planning', 'in_construction'];
+
 const AdminMassbuildsUploadPage = () => {
   const [parsedRows, setParsedRows] = useState(null);
   const [topLevelError, setTopLevelError] = useState(null);
   const [uploadStatus, setUploadStatus] = useState({});
   const [uploading, setUploading] = useState(false);
+  const [onlyShowErrors, setOnlyShowErrors] = useState(false);
 
   const warningsByRow = useMemo(() => {
     if (!parsedRows) {
@@ -170,10 +179,35 @@ const AdminMassbuildsUploadPage = () => {
       if (missingColumns.length > 0) {
         warnings[idx] = `Row is missing required columns - ${missingColumns.join(", ")}`;
       }
+
+      if (!VALID_STATUSES.includes(row.status.toLowerCase())) {
+        const statusWarning = `Invalid status. Status must be one of ${VALID_STATUSES.join(", ")}.`;
+        if (warnings[idx]) {
+          warnings[idx] += `. ${statusWarning}`;
+        } else {
+          warnings[idx] = statusWarning;
+        }
+      }
     });
 
     return warnings;
   }, [parsedRows]);
+
+  const errorRows = useMemo(() => {
+    if (!parsedRows) {
+      return [];
+    }
+
+    const rowsWithErrorStatus = [];
+    parsedRows.forEach((parsedRow, idx) => {
+      const rowStatus = uploadStatus[idx];
+      if (rowStatus && rowStatus.status === 'error') {
+        rowsWithErrorStatus.push(parsedRow);
+      }
+    });
+
+    return rowsWithErrorStatus;
+  }, [parsedRows, uploadStatus]);
 
   const handleDownloadTemplateFile = () => {
     const blob = new Blob([FILTERED_COLUMNS], { type: 'text/csv;charset=utf-8;' });
@@ -327,11 +361,19 @@ const AdminMassbuildsUploadPage = () => {
         </AdminButton>
       </HeaderContainer>
 
-      <FileUploadInput 
-        type="file" 
-        accept=".csv" 
-        onChange={(e) => handleUploadCsv(e.target?.files[0])} 
-      />
+      <TopActionsRow>
+        <FileUploadInput 
+          type="file" 
+          accept=".csv" 
+          onChange={(e) => handleUploadCsv(e.target?.files[0])} 
+        />
+
+        {errorRows.length > 0 && (
+          <AdminButton onClick={() => setOnlyShowErrors(!onlyShowErrors)}>
+            {onlyShowErrors ? 'Show all rows' : 'Show only errors'}
+          </AdminButton>
+        )}
+      </TopActionsRow>
 
       {topLevelError && <ErrorMessage>{topLevelError}</ErrorMessage>}
 
@@ -349,16 +391,22 @@ const AdminMassbuildsUploadPage = () => {
               </tr>
             </UploadedDataHeader>
             <tbody>
-              {parsedRows.map((parsedRow, idx) => (
-                <tr key={idx}>
-                  <TableCell>
-                    {getStatusForRow(parsedRow, idx)}
-                  </TableCell>
-                  {FILTERED_COLUMNS.map(colName => (
-                    <TableCell key={colName}>{parsedRow[colName]}</TableCell>
-                  ))}
-                </tr>
-              ))}
+              {parsedRows.map((parsedRow, idx) => {
+                const rowStatus = uploadStatus[idx];
+                const isError = rowStatus && rowStatus.status === 'error';
+                if ((onlyShowErrors && isError) || !onlyShowErrors) {
+                  return (
+                    <tr key={idx}>
+                      <TableCell>
+                        {getStatusForRow(parsedRow, idx)}
+                      </TableCell>
+                      {FILTERED_COLUMNS.map(colName => (
+                        <TableCell key={colName}>{parsedRow[colName]}</TableCell>
+                      ))}
+                    </tr>
+                  );
+                }
+              })}
             </tbody>
           </UploadedDataTable>
         </TableContainer>
