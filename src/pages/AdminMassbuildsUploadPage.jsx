@@ -3,6 +3,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import axios from "axios";
 import Papa from 'papaparse';
 import { useMemo, useState } from "react";
+import { useBlocker } from "react-router";
 import styled from "styled-components"
 
 const PageContainer = styled.div`
@@ -110,6 +111,27 @@ const ActionsContainer = styled.div`
   gap: 12px;
 `;
 
+const ModalBackground = styled.div`
+  background: rgba(0, 0, 0, 0.5);
+  width: 100vw;
+  height: 100vh;
+  top: 0;
+  left: 0;
+  position: fixed;
+  z-index: 99;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
+const ModalContent = styled.div`
+  background-color: white;
+  position: relative;
+  margin: auto;
+  padding: 50px;
+`;
+
 const COLUMN_WIDTHS = {
   'name': '250px',
   'descr': '600px',
@@ -118,6 +140,7 @@ const COLUMN_WIDTHS = {
 
 // list of all columns in the db
 // const columns = [
+//   'id', 'user_id',
 //   'rdv', 'asofright', 'ovr55', 'clusteros', 'phased', 'stalled', 'name',
 //   'status', 'descr', 'prj_url', 'address', 'state', 'zip_code', 'height',
 //   'stories', 'year_compl', 'prjarea', 'singfamhu', 'smmultifam', 'lgmultifam', 'hu',
@@ -136,7 +159,7 @@ const COLUMN_WIDTHS = {
 // Removed fields that are always derived on the backend:
 //   - point, created_at, updated_at, loc_id, rpa_name, n_transit, deleted_at,
 // TODO: 
-//   - fourty_b, residential, commercial - Always null in the DB but filled in in spreadsheet
+//   - fourty_b, residential, commercial, affordable - Always null in the DB but filled in in spreadsheet
 const FILTERED_COLUMNS = [
   'rdv', 'asofright', 'ovr55', 'clusteros', 'phased', 'stalled', 'name',
   'status', 'descr', 'prj_url', 'address', 'state', 'zip_code', 'height',
@@ -160,7 +183,9 @@ const AdminMassbuildsUploadPage = () => {
   const [topLevelError, setTopLevelError] = useState(null);
   const [uploadStatus, setUploadStatus] = useState({});
   const [uploading, setUploading] = useState(false);
+  const [doneUploading, setDoneUploading] = useState(false);
   const [onlyShowErrors, setOnlyShowErrors] = useState(false);
+  const [downloadedErrors, setDownloadedErrors] = useState(false);
 
   const warningsByRow = useMemo(() => {
     if (!parsedRows) {
@@ -180,6 +205,7 @@ const AdminMassbuildsUploadPage = () => {
         warnings[idx] = `Row is missing required columns - ${missingColumns.join(", ")}`;
       }
 
+      // Check that the status is valid
       if (!VALID_STATUSES.includes(row.status.toLowerCase())) {
         const statusWarning = `Invalid status. Status must be one of ${VALID_STATUSES.join(", ")}.`;
         if (warnings[idx]) {
@@ -208,6 +234,25 @@ const AdminMassbuildsUploadPage = () => {
 
     return rowsWithErrorStatus;
   }, [parsedRows, uploadStatus]);
+
+  // if the user has an upload with errors or an in progress upload, warn before refreshing
+  // useEffect(() => {
+  //   const currentlyUploading = uploading && !doneUploading;
+  //   const hasErrors = errorRows && errorRows.length > 0;
+  //   if (!currentlyUploading) return;
+  //   if (!hasErrors) return;
+
+  //   const handleBeforeUnload = (event) => {
+  //     event.preventDefault();
+  //     event.returnValue = true; 
+  //   };
+
+  //   console.log('adding event listener')
+  //   window.addEventListener('beforeunload', handleBeforeUnload);
+  //   return () => {
+  //     window.removeEventListener('beforeunload', handleBeforeUnload);
+  //   };
+  // }, [uploading, doneUploading, errorRows]);
 
   const handleDownloadTemplateFile = () => {
     const blob = new Blob([FILTERED_COLUMNS], { type: 'text/csv;charset=utf-8;' });
@@ -333,6 +378,7 @@ const AdminMassbuildsUploadPage = () => {
         });
       }
     }
+    setDoneUploading(true);
   };
 
   const updateRowValues = (parsedRow) => {
@@ -351,8 +397,34 @@ const AdminMassbuildsUploadPage = () => {
     return updatedRow;
   };
 
+  const downloadErrorsCsv = () => {
+    const headerRow = FILTERED_COLUMNS.join(',');
+    const bodyRows = [];
+    errorRows.forEach(errorRow => {
+      const rowAsArr = [];
+      FILTERED_COLUMNS.forEach(header => rowAsArr.push(errorRow[header]));
+      const asJoinedString = rowAsArr.join(',');
+      bodyRows.push(asJoinedString);
+    });
+    const content = [headerRow, ...bodyRows];
+    const blob = new Blob([content.join('\n')], { type: 'text/csv;charset=utf-8;' });
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "massbuilds_upload_errors.csv");
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setDownloadedErrors(true);
+  };
+
   return (
     <PageContainer>
+      <NavigationBlocker isDirty={(uploading && !doneUploading) || (errorRows && errorRows.length > 1 && !downloadedErrors)}/>
       <HeaderContainer>
         <HeaderMessage>Massbuilds bulk upload</HeaderMessage>
         <AdminButton onClick={() => handleDownloadTemplateFile()}>
@@ -419,14 +491,47 @@ const AdminMassbuildsUploadPage = () => {
               Please fix the flagged warnings and re-upload the csv before starting ingestion.
             </div>
           )}
-          <AdminButton disabled={warningsByRow && Object.keys(warningsByRow).length > 0} onClick={() => kickOffUploads()}>
-            <FontAwesomeIcon icon={faUpload} />
-            Begin Upload
-          </AdminButton>
+          {!uploading && (
+            <AdminButton disabled={warningsByRow && Object.keys(warningsByRow).length > 0} onClick={() => kickOffUploads()}>
+              <FontAwesomeIcon icon={faUpload} />
+              Begin Upload
+            </AdminButton>
+          )}
+          {doneUploading && errorRows && errorRows.length > 0 && (
+            <AdminButton onClick={() => downloadErrorsCsv()}>
+              <FontAwesomeIcon icon={faDownload} />
+              Download Errors
+            </AdminButton>
+          )}
         </ActionsContainer>
       )}
     </PageContainer>
   );
 };
+
+function NavigationBlocker({ isDirty }) {
+  // Blocks navigation if the form is dirty
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      isDirty && currentLocation.pathname !== nextLocation.pathname
+  );
+
+  // If navigation is blocked, render your custom modal UI
+  if (blocker.state === "blocked") {
+    return (
+      <ModalBackground>
+        <ModalContent>
+          <p>There were errors in your upload! Are you sure you want to leave without downloading them?</p>
+          <p>Those errors will not be stored if they are not downloaded. </p>
+          <button onClick={() => blocker.proceed()}>Yes, Leave</button>
+          <button onClick={() => blocker.reset()} style={{marginLeft: '12px'}}>Stay Here</button>
+        </ModalContent>
+      </ModalBackground>
+    );
+  }
+
+  return null;
+}
+
 
 export default AdminMassbuildsUploadPage;
