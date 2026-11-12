@@ -121,6 +121,7 @@ const NON_MAPPABLE_COLUMN_NAMES = new Set(
     "district",
     "schid",
     "schoolyear",
+    "pwsid",
     ...MUNICIPAL_MAP_JOIN_COLUMNS,
     ...TRACT_GEO_COLUMNS,
   ].map((name) => name.toLowerCase()),
@@ -826,6 +827,10 @@ const KNOWN_MAP_DIMENSION_NAMES = [
   "pwsid",
 ];
 
+// Each Water Use By Year row already represents one municipality/year
+// observation. Its water-system fields identify the row, not map categories.
+const TABLES_WITHOUT_MAP_EXTRA_DIMENSIONS = new Set(["env_dep_water_use_m"]);
+
 // 4-digit NAICS Name has 600+ unique titles (code revisions / aliases); 2-digit stays under 400.
 const MAX_GENERIC_MAP_DIMENSION_VALUES = 400;
 const MAX_KNOWN_MAP_DIMENSION_VALUES = 2000;
@@ -904,8 +909,13 @@ export function detectMapExtraDimensions({
   geographyColumn,
   yearColumn = "",
   columnKeys = [],
+  tableName = "",
 } = {}) {
-  if (!geographyColumn || !rows.length) {
+  if (
+    !geographyColumn ||
+    !rows.length ||
+    TABLES_WITHOUT_MAP_EXTRA_DIMENSIONS.has(String(tableName).trim().toLowerCase())
+  ) {
     return { hasDuplicates: false, dimensions: [] };
   }
 
