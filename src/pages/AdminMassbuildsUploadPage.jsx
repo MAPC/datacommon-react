@@ -214,6 +214,19 @@ const AdminMassbuildsUploadPage = () => {
           warnings[idx] = statusWarning;
         }
       }
+
+      // check if unit sums are valid
+      if (row.hu) {
+        const sum = (row.singfamhu || 0) + (row.smmultifam || 0) + (row.lgmultifam || 0) + (row.unknownhu || 0);
+        if (row.hu !== sum) {
+          const sumWarning = `Individual housing unit categories do not sum to total housing units`;
+          if (warnings[idx]) {
+            warnings[idx] += `. ${sumWarning}`;
+          } else {
+            warnings[idx] = sumWarning;
+          }
+        }
+      } 
     });
 
     return warnings;
@@ -398,16 +411,8 @@ const AdminMassbuildsUploadPage = () => {
   };
 
   const downloadErrorsCsv = () => {
-    const headerRow = FILTERED_COLUMNS.join(',');
-    const bodyRows = [];
-    errorRows.forEach(errorRow => {
-      const rowAsArr = [];
-      FILTERED_COLUMNS.forEach(header => rowAsArr.push(errorRow[header]));
-      const asJoinedString = rowAsArr.join(',');
-      bodyRows.push(asJoinedString);
-    });
-    const content = [headerRow, ...bodyRows];
-    const blob = new Blob([content.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const csv = Papa.unparse(errorRows);
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
 
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
