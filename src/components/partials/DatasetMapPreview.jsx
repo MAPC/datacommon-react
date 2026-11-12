@@ -501,8 +501,9 @@ function DatasetMapPreview({
       geographyColumn,
       yearColumn: queryYearColumn,
       columnKeys,
+      tableName: table,
     });
-  }, [rows, geographyColumn, queryYearColumn, columnKeys, menu1, geographyType]);
+  }, [rows, geographyColumn, queryYearColumn, columnKeys, table, menu1, geographyType]);
 
   const extraDimensionNames = useMemo(
     () => new Set(extraDimensions.dimensions.map((dimension) => dimension.name)),
@@ -1925,7 +1926,7 @@ function DatasetMapPreview({
           <>
             <label className="dataset-map-preview__variable-field">
               <span className="dataset-map-preview__variable-field-label">Color the map</span>
-                <select
+              <select
                 className="dataset-map-preview__variable-select dataset-map-preview__variable-select--truncate"
                 value={activeVariable || ""}
                 disabled={boundariesLoading}
