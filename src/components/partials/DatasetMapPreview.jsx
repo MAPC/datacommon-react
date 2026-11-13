@@ -30,6 +30,7 @@ import {
   getMappableColumns,
   isBoundariesCategory,
   adaptMunicipalBoundaryGeojson,
+  mergeMunicipalBoundaryAttributes,
   resolveMapGeographyColumn,
   supportsTabularGeojsonExport,
   fetchMapcMunicipalityPolygons,
@@ -824,11 +825,13 @@ function DatasetMapPreview({
   );
 
   const baseGeojson = useMemo(() => {
-    if (apiBoundaryGeojson) return apiBoundaryGeojson;
     if (geographyType === MAP_VIEW_GEOGRAPHY_TYPES.municipal) {
-      return massachusettsMunicipalityGeojson;
+      return mergeMunicipalBoundaryAttributes(
+        massachusettsMunicipalityGeojson,
+        apiBoundaryGeojson,
+      );
     }
-    return null;
+    return apiBoundaryGeojson;
   }, [apiBoundaryGeojson, geographyType, massachusettsMunicipalityGeojson]);
 
   const mapcRegionIndex = useMemo(
