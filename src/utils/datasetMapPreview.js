@@ -2005,6 +2005,53 @@ export function adaptMunicipalBoundaryGeojson(geojson) {
   };
 }
 
+/**
+ * Keep the complete municipal boundary collection while adding attributes from
+ * dataset-backed geometry features. Municipalities without matching data remain
+ * in the collection and are rendered with the choropleth's no-data color.
+ */
+export function mergeMunicipalBoundaryAttributes(boundaryGeojson, attributeGeojson) {
+  if (!boundaryGeojson?.features?.length) {
+    return attributeGeojson || { type: "FeatureCollection", features: [] };
+  }
+  if (!attributeGeojson?.features?.length) return boundaryGeojson;
+
+  const attributesByKey = new Map();
+  const featureKeys = (properties = {}) => {
+    const id = normalizeMunicipalKey(properties.muni_id ?? properties.town_id);
+    const name = normalizeMunicipalKey(
+      properties.municipal ?? properties.town ?? properties.NAME,
+    );
+    return [
+      id ? `id:${id}` : "",
+      name ? `name:${name}` : "",
+    ].filter(Boolean);
+  };
+
+  attributeGeojson.features.forEach((feature) => {
+    featureKeys(feature.properties).forEach((key) => {
+      if (!attributesByKey.has(key)) attributesByKey.set(key, feature.properties || {});
+    });
+  });
+
+  return {
+    ...boundaryGeojson,
+    features: boundaryGeojson.features.map((feature) => {
+      const attributes = featureKeys(feature.properties)
+        .map((key) => attributesByKey.get(key))
+        .find(Boolean);
+      if (!attributes) return feature;
+      return {
+        ...feature,
+        properties: {
+          ...feature.properties,
+          ...attributes,
+        },
+      };
+    }),
+  };
+}
+
 /** Overlay boundary tables in gisdata.mapc */
 export const GIS_BOUNDARY_LAYERS = {
   municipal: {
