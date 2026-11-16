@@ -291,6 +291,64 @@ export async function fetchAvailableYearsForTable({
     .sort((a, b) => b.localeCompare(a));
 }
 
+const BULK_DOWNLOAD_PREVIEW_LIMIT = 100;
+
+function previewGeographyValue(geoColumn, municipality) {
+  return /(^|_)muni_id$/i.test(geoColumn)
+    ? municipality.muniId
+    : municipality.municipal;
+}
+
+/** Fetch a small preview using the same table, geography, year, and column selections as the export. */
+export async function fetchBulkDownloadTablePreview({
+  tableConfig,
+  municipalities,
+  columns = [],
+  years = [],
+}) {
+  const {
+    table,
+    database = "ds",
+    schema = "tabular",
+    geoColumn = "municipal",
+    yearColumn = "",
+  } = tableConfig;
+  const selectedColumns = [...new Set([geoColumn, yearColumn, ...columns].filter(Boolean))];
+  const filters = [
+    ...municipalities.map(
+      (municipality) => `${geoColumn}:${previewGeographyValue(geoColumn, municipality)}`,
+    ),
+    ...(yearColumn ? years.map((year) => `${yearColumn}:${year}`) : []),
+  ];
+  const params = new URLSearchParams({
+    token: import.meta.env.VITE_MAPC_API_TOKEN,
+    database,
+    schema,
+    table,
+    columns: selectedColumns.join(","),
+    filters: filters.join(","),
+    limit: String(BULK_DOWNLOAD_PREVIEW_LIMIT + 1),
+  });
+
+  if (yearColumn) {
+    params.set("orderByColumn", yearColumn);
+    params.set("orderByDirection", "DESC");
+  }
+
+  const response = await fetch(`${locations.BROWSER_API}?${params.toString()}`);
+  if (!response.ok) {
+    throw new Error(`Preview request failed (${response.status})`);
+  }
+
+  const data = await response.json();
+  const rows = data.rows || [];
+  return {
+    columns: selectedColumns,
+    rows: rows.slice(0, BULK_DOWNLOAD_PREVIEW_LIMIT),
+    truncated: rows.length > BULK_DOWNLOAD_PREVIEW_LIMIT,
+  };
+}
+
 export async function fetchBulkDownloadBundle(bundleId) {
   if (isCustomBulkDownloadBundle(bundleId)) {
     return CUSTOM_BULK_DOWNLOAD_BUNDLE;

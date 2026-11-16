@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import PropTypes from "prop-types";
 import SearchBar from "../components/partials/SearchBar";
 import DatasetInventoryPicker from "../components/partials/DatasetInventoryPicker";
+import MetadataModal from "../components/partials/MetadataModal";
 import { fetchDatasets } from "../reducers/datasetSlice";
 import { getDatasetGeography } from "../utils/manageDatasets";
 import {
@@ -21,6 +22,7 @@ import {
   requestBulkExport,
   fetchBulkDownloadBundle,
   fetchBulkDownloadMunicipalities,
+  fetchBulkDownloadTablePreview,
   fetchAvailableYearsForTable,
   fetchGeoColumnForTable,
   fetchTableColumnOptions,
@@ -157,6 +159,9 @@ const TableRow = ({
   onToggleYear,
   onToggleColumn,
   onSetColumns,
+  onViewMetadata,
+  onPreviewValues,
+  canPreview,
   onRemove,
 }) => {
   const { title, source } = getTableDisplayInfo(tableConfig, datasets);
@@ -190,6 +195,20 @@ const TableRow = ({
           {source && <span className="bulk-download__table-source">{source}</span>}
           <span className="bulk-download__table-meta">
             <code>{tableConfig.table}</code>
+          </span>
+          <span className="bulk-download__table-actions">
+            <button type="button" onClick={() => onViewMetadata(tableConfig, title)}>
+              View Metadata
+            </button>
+            <button
+              type="button"
+              disabled={!canPreview}
+              onClick={() =>
+                onPreviewValues(tableConfig, title, selectedColumns, tableYears, columnOptions)
+              }
+            >
+              Preview Values
+            </button>
           </span>
         </span>
         {isCustom && (
@@ -258,7 +277,136 @@ TableRow.propTypes = {
   onToggleYear: PropTypes.func.isRequired,
   onToggleColumn: PropTypes.func,
   onSetColumns: PropTypes.func,
+  onViewMetadata: PropTypes.func.isRequired,
+  onPreviewValues: PropTypes.func.isRequired,
+  canPreview: PropTypes.bool.isRequired,
   onRemove: PropTypes.func,
+};
+
+const ValuePreviewModal = ({ preview, onClose }) => {
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError("");
+    setResult(null);
+
+    fetchBulkDownloadTablePreview({
+      tableConfig: preview.tableConfig,
+      municipalities: preview.municipalities,
+      columns: preview.selectedColumns,
+      years: preview.years,
+    })
+      .then((nextResult) => {
+        if (!cancelled) setResult(nextResult);
+      })
+      .catch(() => {
+        if (!cancelled) setError("Preview values could not be loaded. Please try again.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [preview]);
+
+  const labelsByColumn = Object.fromEntries(
+    preview.columnOptions.map((option) => [option.name, option.label]),
+  );
+  const geographyNames = preview.municipalities.map((municipality) => municipality.municipal);
+
+  return (
+    <div className="bulk-download__preview-overlay" onClick={onClose} role="presentation">
+      <section
+        className="bulk-download__preview-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="bulk-download-preview-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <header className="bulk-download__preview-header">
+          <div>
+            <h2 id="bulk-download-preview-title">Preview Values: {preview.title}</h2>
+            <p>
+              {geographyNames.length} {geographyNames.length === 1 ? "geography" : "geographies"}:
+              {" "}
+              {geographyNames.join(", ")}
+            </p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close value preview">
+            ×
+          </button>
+        </header>
+        <div className="bulk-download__preview-body">
+          {loading && <p className="bulk-download__preview-message">Loading preview…</p>}
+          {error && (
+            <p className="bulk-download__preview-message bulk-download__preview-message--error" role="alert">
+              {error}
+            </p>
+          )}
+          {!loading && !error && result?.rows.length === 0 && (
+            <p className="bulk-download__preview-message">No values match the current selections.</p>
+          )}
+          {!loading && !error && result?.rows.length > 0 && (
+            <>
+              <div className="bulk-download__preview-table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      {result.columns.map((column) => (
+                        <th key={column} title={column}>
+                          {labelsByColumn[column] || column}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {result.rows.map((row, rowIndex) => (
+                      <tr key={rowIndex}>
+                        {result.columns.map((column) => (
+                          <td key={column}>{row[column] == null ? "—" : String(row[column])}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {result.truncated && (
+                <p className="bulk-download__preview-note">
+                  Showing the first 100 matching rows. The download includes the complete selection.
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+};
+
+ValuePreviewModal.propTypes = {
+  preview: PropTypes.shape({
+    title: PropTypes.string.isRequired,
+    tableConfig: PropTypes.object.isRequired,
+    municipalities: PropTypes.arrayOf(PropTypes.object).isRequired,
+    selectedColumns: PropTypes.arrayOf(PropTypes.string).isRequired,
+    years: PropTypes.arrayOf(PropTypes.string).isRequired,
+    columnOptions: PropTypes.arrayOf(PropTypes.object).isRequired,
+  }).isRequired,
+  onClose: PropTypes.func.isRequired,
 };
 
 const SkeletonBone = ({ className = "", style = undefined }) => (
@@ -398,6 +546,8 @@ const BulkDownloadBundlePage = () => {
   const [downloadStatus, setDownloadStatus] = useState("");
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [isLimitModalOpen, setIsLimitModalOpen] = useState(false);
+  const [metadataDataset, setMetadataDataset] = useState(null);
+  const [valuePreview, setValuePreview] = useState(null);
 
   useEffect(() => {
     setDownloadFormat(bundleId === "housing" ? "xlsx" : "zip");
@@ -405,6 +555,8 @@ const BulkDownloadBundlePage = () => {
     setColumnOptionsByTable({});
     setSelectedColumnsByTable({});
     setColumnsLoadingByTable({});
+    setMetadataDataset(null);
+    setValuePreview(null);
   }, [bundleId]);
 
   useEffect(() => {
@@ -497,7 +649,8 @@ const BulkDownloadBundlePage = () => {
     return [...customTables, ...bundle.tables];
   }, [bundle, customTables]);
 
-  const showColumnPicker = bundleId === "cep";
+  const isCepBundle = bundleId === "cep";
+  const showColumnPicker = true;
 
   useEffect(() => {
     if (!showColumnPicker || displayTables.length === 0) return undefined;
@@ -651,6 +804,41 @@ const BulkDownloadBundlePage = () => {
 
   const handleOpenPicker = () => {
     setIsPickerOpen(true);
+  };
+
+  const handleViewMetadata = (tableConfig, title) => {
+    setMetadataDataset({
+      db_name: tableConfig.database || "ds",
+      schemaname: tableConfig.schema || "tabular",
+      table_name: tableConfig.table,
+      menu3: title,
+    });
+  };
+
+  const handlePreviewValues = async (
+    tableConfig,
+    title,
+    selectedColumns,
+    years,
+    columnOptions,
+  ) => {
+    const geoColumn =
+      tableConfig.geoColumn ||
+      (await fetchGeoColumnForTable({
+        table: tableConfig.table,
+        database: tableConfig.database,
+        schema: tableConfig.schema,
+      })) ||
+      "municipal";
+
+    setValuePreview({
+      title,
+      tableConfig: { ...tableConfig, geoColumn },
+      municipalities: [...municipalities],
+      selectedColumns: [...selectedColumns],
+      years: [...years],
+      columnOptions: [...columnOptions],
+    });
   };
 
   if (bundleLoading) {
@@ -849,11 +1037,11 @@ const BulkDownloadBundlePage = () => {
               <section className="bulk-download__panel">
                 <h2>Geography</h2>
                 <p className="bulk-download__hint">
-                  {showColumnPicker
+                  {isCepBundle
                     ? "Required. Search for geographies, or select every municipality in Massachusetts."
                     : "Required - search and select one or more geographies in Massachusetts"}
                 </p>
-                {showColumnPicker && (
+                {isCepBundle && (
                   <div className="bulk-download__geo-actions">
                     <button
                       type="button"
@@ -885,7 +1073,7 @@ const BulkDownloadBundlePage = () => {
                     {geographyLimitMessage}
                   </p>
                 )}
-                {showColumnPicker && municipalities.length > 0 && (
+                {isCepBundle && municipalities.length > 0 && (
                   <p className="bulk-download__selected-muni">
                     {municipalities.length} of {municipalityOptions.length} geographies selected
                   </p>
@@ -988,9 +1176,7 @@ const BulkDownloadBundlePage = () => {
                 {isCustomInventory
                   ? "Add municipal tables from the DataCommon Dataset Inventory."
                   : "Recommended tables are selected by default, and the most recent year is pre-selected. You can add more municipal tables from the DataCommon Dataset Inventory or change your table and year selections. "}
-                {showColumnPicker
-                  ? " Choose which columns belong in each table. The table of contents uses those columns."
-                  : ""}
+                {" Choose which data columns to include in each selected table."}
               </p>
               <button type="button" className="bulk-download__add-tables-btn" onClick={handleOpenPicker}>
                 + Add tables from DataCommon Dataset Inventory
@@ -1020,6 +1206,13 @@ const BulkDownloadBundlePage = () => {
                         onToggleYear={toggleTableYear}
                         onToggleColumn={toggleTableColumn}
                         onSetColumns={setTableColumns}
+                        onViewMetadata={handleViewMetadata}
+                        onPreviewValues={handlePreviewValues}
+                        canPreview={
+                          municipalities.length > 0 &&
+                          selectedTableNames.includes(tableConfig.table) &&
+                          !columnsLoadingByTable[tableConfig.table]
+                        }
                         onRemove={removeCustomTable}
                       />
                     ))}
@@ -1054,6 +1247,13 @@ const BulkDownloadBundlePage = () => {
                             onToggleYear={toggleTableYear}
                             onToggleColumn={toggleTableColumn}
                             onSetColumns={setTableColumns}
+                            onViewMetadata={handleViewMetadata}
+                            onPreviewValues={handlePreviewValues}
+                            canPreview={
+                              municipalities.length > 0 &&
+                              selectedTableNames.includes(tableConfig.table) &&
+                              !columnsLoadingByTable[tableConfig.table]
+                            }
                             onRemove={removeCustomTable}
                           />
                         ))}
@@ -1091,6 +1291,13 @@ const BulkDownloadBundlePage = () => {
                           onToggleYear={toggleTableYear}
                           onToggleColumn={toggleTableColumn}
                           onSetColumns={setTableColumns}
+                          onViewMetadata={handleViewMetadata}
+                          onPreviewValues={handlePreviewValues}
+                          canPreview={
+                            municipalities.length > 0 &&
+                            selectedTableNames.includes(tableConfig.table) &&
+                            !columnsLoadingByTable[tableConfig.table]
+                          }
                         />
                       ))}
                     </ul>
@@ -1114,6 +1321,18 @@ const BulkDownloadBundlePage = () => {
 
       {isLimitModalOpen && (
         <LimitReachedModal maxTables={MAX_BULK_DOWNLOAD_TABLES} onClose={() => setIsLimitModalOpen(false)} />
+      )}
+
+      {metadataDataset && (
+        <MetadataModal
+          show
+          handleClose={() => setMetadataDataset(null)}
+          dataset={metadataDataset}
+        />
+      )}
+
+      {valuePreview && (
+        <ValuePreviewModal preview={valuePreview} onClose={() => setValuePreview(null)} />
       )}
     </section>
   );
