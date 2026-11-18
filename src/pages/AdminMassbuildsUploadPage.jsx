@@ -158,8 +158,6 @@ const COLUMN_WIDTHS = {
 //   - other_rate, affordable, parcel_id, programs, d_n_trnsit, traffic_count_data
 // Removed fields that are always derived on the backend:
 //   - point, created_at, updated_at, loc_id, rpa_name, n_transit, deleted_at,
-// TODO: 
-//   - fourty_b, residential, commercial, affordable - Always null in the DB but filled in in spreadsheet
 const FILTERED_COLUMNS = [
   'rdv', 'asofright', 'ovr55', 'clusteros', 'phased', 'stalled', 'name',
   'status', 'descr', 'prj_url', 'address', 'state', 'zip_code', 'height',
@@ -167,7 +165,7 @@ const FILTERED_COLUMNS = [
   'gqpop', 'rptdemp', 'commsf', 'hotelrms', 'onsitepark', 'total_cost', 'ret_sqft',
   'ofcmd_sqft', 'indmf_sqft', 'whs_sqft', 'rnd_sqft', 'ei_sqft', 'other_sqft', 'hotel_sqft',
   'latitude', 'longitude', 'mixed_use',
-  'forty_b', 'residential', 'commercial', 'municipal',
+  'municipal',
   'devlper', 'yrcomp_est', 'units_1bd', 'units_2bd', 'units_3bd', 'affrd_unit', 'aff_u30',
   'aff_30_50', 'aff_50_80', 'aff_80p', 'headqtrs', 'park_type', 'publicsqft', 'unknownhu',
   'aff_unknown', 'unk_sqft', 'parcel_fy', 'county',
